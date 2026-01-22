@@ -63,42 +63,41 @@ export const setStoredApiKey = (key: string) => setStoredApiKeys(key, groqApiKey
 
 
 const getAiClient = () => {
-  // 1. Check for Environment Variable (Safe check for Browser/Vite)
-  let envKey = "";
-  try {
-    // Prefer Vite env var
-    if (import.meta && (import.meta as any).env && (import.meta as any).env.VITE_API_KEY) {
-      envKey = (import.meta as any).env.VITE_API_KEY;
-    } 
-    // Fallback to process.env safely
-    else if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      envKey = process.env.API_KEY;
-    }
-  } catch (e) {
-    // Ignore env access errors
-  }
-
-  if (envKey) {
-     if (!ai) ai = new GoogleGenAI({ apiKey: envKey });
-     return ai;
-  }
-
-  // 2. Check for Manual/Stored Keys
+  // 1. Check for Manual/Stored Keys FIRST (Priority to User)
   if (allKeys.length === 0) {
     const stored = getStoredApiKeys();
     initializeKeys(stored.gemini, stored.groq);
   }
 
-  if (allKeys.length === 0) {
-     throw new Error("No Gemini API Key found. Please add a key in settings.");
+  // If we have manual keys, use them.
+  if (allKeys.length > 0) {
+     if (!ai) {
+       const activeKey = allKeys[currentKeyIndex];
+       ai = new GoogleGenAI({ apiKey: activeKey });
+     }
+     return ai;
   }
 
-  if (!ai) {
-    const activeKey = allKeys[currentKeyIndex];
-    ai = new GoogleGenAI({ apiKey: activeKey });
+  // 2. Fallback to Environment Variable (Only if no user keys)
+  let envKey = "";
+  try {
+    if (import.meta && (import.meta as any).env && (import.meta as any).env.VITE_API_KEY) {
+      envKey = (import.meta as any).env.VITE_API_KEY;
+    } 
+    else if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      envKey = process.env.API_KEY;
+    }
+  } catch (e) {
+    // Ignore
   }
 
-  return ai;
+  if (envKey) {
+     // Check if env key is explicitly blacklisted or known bad (optional, but good practice if hardcoded one is dead)
+     if (!ai) ai = new GoogleGenAI({ apiKey: envKey });
+     return ai;
+  }
+
+  throw new Error("No Gemini API Key found. Please add a key in settings.");
 };
 
 const rotateKey = (): boolean => {
@@ -132,12 +131,16 @@ const isQuotaError = (error: any): boolean => {
   const statusStr = String(error.statusText || error.status || "").toUpperCase();
   if (statusStr.includes('RESOURCE_EXHAUSTED')) return true;
   if (statusStr.includes('TOO MANY REQUESTS')) return true;
+  if (statusStr.includes('PERMISSION_DENIED')) return true; // Treat permission errors (leaked key) as "quota" to trigger rotation or failure
 
   // 4. Check Error Messages
   const msg = (error.message || error.error?.message || JSON.stringify(error)).toLowerCase();
   return (
     msg.includes('quota') || 
     msg.includes('429') || 
+    msg.includes('403') ||
+    msg.includes('leaked') ||
+    msg.includes('permission_denied') ||
     msg.includes('resource_exhausted') || 
     msg.includes('too many requests')
   );
