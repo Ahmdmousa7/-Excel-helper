@@ -1,0 +1,175 @@
+37-}
+38-
+39-const VariableBalanceTab: React.FC<Props> = ({ fileData, addLog, onReset, language = 'en' }) => {
+40-  const t = TRANSLATIONS[language];
+41-  const [selectedSheet, setSelectedSheet] = useState<string>('');
+42-  const [headers, setHeaders] = useState<string[]>([]);
+43-  
+44-  const [groupCol, setGroupCol] = useState<number>(-1);
+45-  const [optionCols, setOptionCols] = useState<number[]>([]);
+46-  const [clearCols, setClearCols] = useState<number[]>([]);
+47-  
+48-  const [catCol, setCatCol] = useState<number>(-1);
+49-  const [nameCol, setNameCol] = useState<number>(-1);
+50-
+51-  const [status, setStatus] = useState<ProcessingStatus>(ProcessingStatus.IDLE);
+52-  const [progress, setProgress] = useState<number>(0);
+53-
+54-  const [visualResults, setVisualResults] = useState<VisualGroup[]>([]);
+55-  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
+56-  
+57:  const [selectedVisualGroup, setSelectedVisualGroup] = useState<VisualGroup | null>(null);
+58-  const [visualFilter, setVisualFilter] = useState<'All' | 'Unbalanced'>('Unbalanced');
+59-  const [visualSearch, setVisualSearch] = useState<string>('');
+60-  
+61-  // Interactive Matrix State
+62-  const [markedCells, setMarkedCells] = useState<Set<string>>(new Set());
+63-  const [cellEdits, setCellEdits] = useState<Map<string, CellEdit>>(new Map());
+64-  
+65-  // UI State
+66-  const [showHelp, setShowHelp] = useState(false);
+67-
+68-  // Context Menu & Modal State
+69-  const [contextMenu, setContextMenu] = useState<{x: number, y: number, key: string} | null>(null);
+70-  const [editModal, setEditModal] = useState<{isOpen: boolean, key: string, price: string, qty: string} | null>(null);
+71-  const contextMenuRef = useRef<HTMLDivElement>(null);
+72-
+73-  useEffect(() => {
+74-    const handleClickOutside = (event: MouseEvent) => {
+75-      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
+76-        setContextMenu(null);
+77-      }
+--
+971-                               <input 
+972-                                   type="text" 
+973-                                   placeholder="Search SKU..." 
+974-                                   className="w-full pl-8 pr-2 py-1.5 text-xs border rounded bg-white"
+975-                                   value={visualSearch}
+976-                                   onChange={e => setVisualSearch(e.target.value)}
+977-                               />
+978-                           </div>
+979-                           <div className="flex gap-1 text-[10px]">
+980-                               <button onClick={() => setVisualFilter('Unbalanced')} className={`flex-1 py-1 rounded border ${visualFilter==='Unbalanced' ? 'bg-red-50 border-red-200 text-red-700 font-bold' : 'bg-white text-slate-600'}`}>Unbalanced</button>
+981-                               <button onClick={() => setVisualFilter('All')} className={`flex-1 py-1 rounded border ${visualFilter==='All' ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold' : 'bg-white text-slate-600'}`}>All</button>
+982-                           </div>
+983-                       </div>
+984-                       
+985-                       <div className="flex-1 overflow-y-auto">
+986-                           {filteredVisualResults.map(group => (
+987-                               <button 
+988-                                   key={group.key}
+989-                                   onClick={() => setSelectedVisualGroup(group)}
+990-                                   className={`w-full text-left p-3 border-b border-slate-100 hover:bg-slate-100 transition-colors flex justify-between items-center
+991:                                      ${selectedVisualGroup?.key === group.key ? 'bg-white border-l-4 border-l-blue-500 shadow-sm' : 'bg-transparent border-l-4 border-l-transparent'}`}
+992-                               >
+993-                                   <span className="font-mono text-xs font-bold text-slate-700 truncate pr-2">{group.key}</span>
+994-                                   {group.status === 'Unbalanced' && <AlertCircle size={14} className="text-red-500 shrink-0"/>}
+995-                                   {group.status === 'Balanced' && <CheckCircle2 size={14} className="text-green-500 shrink-0"/>}
+996-                               </button>
+997-                           ))}
+998-                           {filteredVisualResults.length === 0 && <p className="p-4 text-xs text-slate-400 text-center">No matches.</p>}
+999-                       </div>
+1000-                   </div>
+1001-
+1002-                   {/* Right Matrix View */}
+1003-                   <div className="flex-1 bg-white flex flex-col overflow-hidden relative">
+1004:                       {selectedVisualGroup ? (
+1005-                           <div className="flex-1 flex flex-col">
+1006-                               <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+1007-                                   <div>
+1008:                                       <h4 className="font-bold text-lg text-slate-800">{selectedVisualGroup.key}</h4>
+1009-                                       <p className="text-xs text-slate-500">
+1010:                                           {selectedVisualGroup.dimensions.length} Dimension(s) • {selectedVisualGroup.status === 'Unbalanced' ? `${selectedVisualGroup.missingCount} Missing` : 'Fully Balanced'}
+1011-                                       </p>
+1012-                                   </div>
+1013-                               </div>
+1014-                               
+1015-                               <div className="flex-1 overflow-auto p-6 flex items-start justify-center bg-slate-50/30">
+1016-                                   {/* RENDER MATRIX */}
+1017:                                   {selectedVisualGroup.dimensions.length === 0 ? (
+1018-                                       // Error State (e.g. Static Option)
+1019-                                       <div className="flex flex-col items-center justify-center p-10 bg-red-50 border border-red-200 rounded-lg text-red-800">
+1020-                                           <Ban size={48} className="mb-4 text-red-400"/>
+1021-                                           <h3 className="font-bold text-lg">Static Option Error Detected</h3>
+1022-                                           <p className="text-sm mt-2 text-center">
+1023-                                               One or more option columns have only a single value for this product.<br/>
+1024-                                               Variants cannot be generated because options must vary.
+1025-                                           </p>
+1026-                                       </div>
+1027:                                   ) : selectedVisualGroup.dimensions.length === 1 ? (
+1028-                                       // 1D View
+1029-                                       <div className="grid grid-cols-4 gap-4 w-full max-w-2xl">
+1030:                                           {selectedVisualGroup.dimensions[0].values.map(val => {
+1031-                                               const normVal = val.toLowerCase().trim();
+1032:                                               const exists = selectedVisualGroup.hits.has(normVal);
+1033-                                               const fullKey = normVal;
+1034:                                               const uniqueId = `${selectedVisualGroup.key}_${fullKey}`;
+1035-                                               const isMarked = markedCells.has(uniqueId);
+1036-                                               const hasEdit = cellEdits.has(uniqueId);
+1037-                                               
+1038-                                               return (
+1039-                                                   <div 
+1040-                                                      key={val} 
+1041-                                                      onClick={() => !exists && toggleCellMark(uniqueId)}
+1042-                                                      onContextMenu={(e) => !exists && handleCellContextMenu(e, uniqueId)}
+1043-                                                      className={`p-4 rounded-lg border text-center transition-all cursor-pointer relative overflow-hidden group
+1044-                                                        ${exists 
+1045-                                                            ? 'bg-green-50 border-green-200 text-green-800 cursor-default' 
+1046-                                                            : isMarked 
+1047-                                                                ? 'bg-blue-50 border-blue-400 text-blue-800 ring-2 ring-blue-200' 
+1048-                                                                : 'bg-red-50 border-red-200 text-red-800 hover:bg-red-100'}`}
+1049-                                                   >
+1050-                                                       <span className="font-bold block text-lg mb-1">{val}</span>
+1051-                                                       <span className="text-[10px] uppercase font-bold tracking-wider">{exists ? 'Exists' : (isMarked ? 'Create' : 'Missing')}</span>
+1052-                                                       {hasEdit && <div className="absolute top-1 right-1 w-2 h-2 bg-purple-500 rounded-full"></div>}
+1053-                                                   </div>
+1054-                                               );
+1055-                                           })}
+1056-                                       </div>
+1057-                                   ) : (
+1058-                                       // 2D Matrix (Pivot)
+1059-                                       <div className="border rounded-lg shadow-sm overflow-hidden bg-white">
+1060-                                           <table className="text-sm border-collapse">
+1061-                                               <thead>
+1062-                                                   <tr>
+1063-                                                       <th className="p-3 bg-slate-100 border text-slate-500 font-mono text-xs text-left">
+1064:                                                           {selectedVisualGroup.dimensions[0].name} ↓ <br/> 
+1065:                                                           {selectedVisualGroup.dimensions.slice(1).map(d => d.name).join(' / ')} →
+1066-                                                       </th>
+1067-                                                       {/* Flatten Columns if dim > 2 */}
+1068:                                                       {cartesian(selectedVisualGroup.dimensions.slice(1).map(d => d.values)).map((combo, i) => (
+1069-                                                           <th key={i} className="p-3 bg-slate-50 border font-bold text-slate-700 min-w-[80px] text-center">
+1070-                                                               {combo.join(' / ')}
+1071-                                                           </th>
+1072-                                                       ))}
+1073-                                                   </tr>
+1074-                                               </thead>
+1075-                                               <tbody>
+1076:                                                   {selectedVisualGroup.dimensions[0].values.map(rowVal => (
+1077-                                                       <tr key={rowVal}>
+1078-                                                           <th className="p-3 bg-slate-50 border font-bold text-slate-700 text-left min-w-[100px] sticky left-0">{rowVal}</th>
+1079:                                                           {cartesian(selectedVisualGroup.dimensions.slice(1).map(d => d.values)).map((colCombo, j) => {
+1080-                                                               // Normalized check
+1081-                                                               const fullKey = [rowVal, ...colCombo].map(v => String(v).trim().toLowerCase()).join('|||');
+1082:                                                               const exists = selectedVisualGroup.hits.has(fullKey);
+1083:                                                               const uniqueId = `${selectedVisualGroup.key}_${fullKey}`;
+1084-                                                               const isMarked = markedCells.has(uniqueId);
+1085-                                                               const hasEdit = cellEdits.has(uniqueId);
+1086-
+1087-                                                               return (
+1088-                                                                   <td 
+1089-                                                                      key={j} 
+1090-                                                                      onClick={() => !exists && toggleCellMark(uniqueId)}
+1091-                                                                      onContextMenu={(e) => !exists && handleCellContextMenu(e, uniqueId)}
+1092-                                                                      className={`p-3 border text-center transition-colors relative
+1093-                                                                        ${exists 
+1094-                                                                            ? 'bg-green-50 text-green-600 cursor-default' 
+1095-                                                                            : isMarked 
+1096-                                                                                ? 'bg-blue-100 text-blue-600 cursor-pointer ring-inset ring-2 ring-blue-300'
+1097-                                                                                : 'bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer'}`}
+1098-                                                                   >
+1099-                                                                       {exists ? <CheckSquare size={20} className="mx-auto"/> : <X size={20} className="mx-auto opacity-50"/>}
+1100-                                                                       {hasEdit && <div className="absolute top-1 right-1 w-2 h-2 bg-purple-500 rounded-full"></div>}
+1101-                                                                       {hasEdit && !exists && (
+1102-                                                                           <div className="absolute bottom-0 left-0 w-full text-[8px] bg-purple-100 text-purple-800 font-bold truncate">
+1103-                                                                               Edited
