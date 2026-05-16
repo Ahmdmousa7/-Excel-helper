@@ -19,10 +19,14 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
       if (currentUser) {
         try {
           // Check if user document exists, if not create it
+          // Wrapped in a 5-second timeout so Firestore issues never block auth
           const userDocRef = doc(db, 'users', currentUser.uid);
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Firestore timeout')), 5000)
+          );
           let userDoc;
           try {
-            userDoc = await getDoc(userDocRef);
+            userDoc = await Promise.race([getDoc(userDocRef), timeoutPromise]);
           } catch (e) {
             handleFirestoreError(e, OperationType.GET, `users/${currentUser.uid}`);
             throw e; // Should not reach here as handleFirestoreError throws
@@ -44,7 +48,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
             }
 
             try {
-              await setDoc(userDocRef, userData);
+              await Promise.race([setDoc(userDocRef, userData), timeoutPromise]);
             } catch (e) {
               handleFirestoreError(e, OperationType.CREATE, `users/${currentUser.uid}`);
             }
