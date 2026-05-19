@@ -381,7 +381,7 @@ const App: React.FC = () => {
     { title: t.menu.excelTools, items: [23, 16, 0, 1, 22, 2, 14, 5, 13, 4, 11] },
     { title: t.menu.aiTools, items: [12, 3] }, 
     { title: t.menu.mediaTools, items: [7, 8, 6, 9] },
-    { title: t.menu.utils, items: [26, 27, 28, 10, 19] }
+    { title: t.menu.utils, items: [26, 27, 10, 19] }
   ];
 
   const filteredMenuGroups = useMemo(() => {
