@@ -140,6 +140,13 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      // Playwright's fixture API is `async ({ deps }, use) => { await use(x) }`.
+      // The React hooks plugin sees a bare call to something named `use` and
+      // reports it as React's `use` hook called outside a component. It is not
+      // — there is no React in this directory at all.
+      'react-hooks/rules-of-hooks': 'off',
+      // Tests deliberately log context (known a11y debt, chunk lists).
+      'no-console': 'off',
     },
   },
 );

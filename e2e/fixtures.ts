@@ -1,142 +1,98 @@
-import { Page, Locator, expect } from '@playwright/test';
+import { test as base, expect, Page } from '@playwright/test';
+import { AppShell } from './pages/AppShell';
+import { QrToolPage } from './pages/QrToolPage';
+import { DataToolPage } from './pages/DataToolPage';
+
+export { expect };
+export { AppShell } from './pages/AppShell';
+export { QrToolPage } from './pages/QrToolPage';
+export { DataToolPage } from './pages/DataToolPage';
+
+/** Convenience re-exports so specs do not reach through the class. */
+export const TOOL = AppShell.TOOL;
+export const GROUP = AppShell.GROUP;
+export const APP_TITLE = AppShell.APP_TITLE;
 
 /**
- * Tool names that are hard-coded English in App.tsx rather than routed through
- * the translation layer. Using these keeps selectors stable regardless of which
- * language the app happens to boot in.
- */
-export const TOOL = {
-  removeBlanks: 'Remove Blanks',
-  compareFiles: 'Compare Files',
-  deduplicator: 'Deduplicator (Pro)',
-  mergeDatasets: 'Merge Datasets',
-  separator: 'Separator',
-  magicLinks: 'Magic Links',
-} as const;
-
-/** Sidebar group headings, likewise hard-coded in App.tsx. */
-export const GROUP = {
-  dashboard: 'Dashboard',
-  newTools: 'New Solid Data Tools',
-} as const;
-
-export const APP_TITLE = 'Mousa';
-
-/** The sidebar, which is the app shell's most reliable "we booted" signal. */
-export function sidebar(page: Page): Locator {
-  return page.locator('aside').first();
-}
-
-/**
- * Load the app and wait until it is genuinely interactive.
+ * Console noise the app neither causes nor can fix.
  *
- * Two things make a naive `page.goto` insufficient:
- *
- *  1. `index.html` ships a static "Loading Workspace..." spinner that React
- *     replaces on mount, so a `load` event alone proves nothing — the
- *     assertion has to be on real app chrome.
- *  2. App.tsx opens the API-key modal on first load when no Gemini key is
- *     stored (App.tsx ~line 170). It is a full-screen `fixed inset-0` overlay
- *     that swallows every click, and it has no Escape handler and no
- *     backdrop-click dismissal — only an icon-only X button. Rather than
- *     hunting that button in every test, seed localStorage before any app
- *     script runs so the modal never opens.
+ * Kept deliberately short. Two entries were REMOVED when the things they
+ * described stopped being third-party noise: `cdn.tailwindcss.com` (TD-007
+ * deleted the CDN, so a message naming it means it came back) and
+ * `Content Security Policy` (TD-006 added one, so a violation is a finding).
+ * Every entry here is a small hole in the suite's vision — add one only when
+ * the message is genuinely outside this codebase's control.
  */
-export async function gotoApp(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    // A syntactically plausible placeholder. Nothing calls the API in these
-    // tests; this only satisfies the "is a key configured?" check.
-    localStorage.setItem('gemini_api_key', 'e2e-placeholder-key');
-    localStorage.setItem('groq_api_key', '');
-  });
+const EXTERNAL_NOISE: RegExp[] = [
+  /firestore/i,
+  /firebase/i,
+  /net::ERR_/i,
+  /Failed to load resource/i,
+  /googleapis\.com/i,
+  /accounts\.google\.com/i,
+  /gsi\/client/i,
+];
 
-  await page.goto('./', { waitUntil: 'domcontentloaded' });
-  await expect(sidebar(page)).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Loading Workspace...')).toHaveCount(0);
-  await dismissModal(page);
-}
+export type PageErrors = {
+  /** Console errors and uncaught exceptions, external noise filtered out. */
+  all(): string[];
+  /** Fails the calling test if anything was recorded. */
+  expectNone(context?: string): void;
+};
 
-/**
- * Close any modal overlay that happens to be open.
- *
- * Defensive: the seeded key should prevent the API-key modal entirely, but a
- * test that navigates somewhere modal-opening still needs an escape route, and
- * a blocked click produces a 15s timeout with a confusing message.
- */
-export async function dismissModal(page: Page): Promise<void> {
-  const overlay = page.locator('div.fixed.inset-0').filter({ has: page.locator('div') });
-  if ((await overlay.count()) === 0) return;
-  if (!(await overlay.first().isVisible().catch(() => false))) return;
-
-  // The close control is the icon-only button in the modal header.
-  const close = overlay.first().locator('button').first();
-  await close.click({ timeout: 3_000 }).catch(() => undefined);
-  await expect(overlay.first()).toBeHidden({ timeout: 5_000 }).catch(() => undefined);
-}
-
-/** Click a sidebar tool by its visible name. */
-export async function openTool(page: Page, name: string): Promise<void> {
-  const item = sidebar(page).getByRole('button', { name, exact: false }).first();
-  await expect(item).toBeVisible();
-  await item.click();
-}
-
-/**
- * Open the QR Code tool. It is the best e2e target in the app: entirely
- * client-side (the `qrcode` package), no API key, no file upload, and it
- * exercises both a download and a clipboard write.
- *
- * Its sidebar label comes from the translation layer, so match on either
- * language rather than assuming English.
- */
-export async function openQrTool(page: Page): Promise<void> {
-  const item = sidebar(page)
-    .getByRole('button')
-    .filter({ hasText: /QR/i })
-    .first();
-  await expect(item).toBeVisible();
-  await item.click();
-}
-
-/** Type text into the QR tool and wait for the generated image. */
-export async function generateQr(page: Page, text: string): Promise<Locator> {
-  const input = page.locator('textarea').first();
-  await expect(input).toBeVisible();
-  await input.fill(text);
-
-  const img = page.locator('img[alt="QR Code"]');
-  await expect(img).toBeVisible({ timeout: 15_000 });
-  return img;
-}
-
-/**
- * Collect console errors and page exceptions for the lifetime of a test.
- *
- * Firebase is unreachable under the e2e bypass, so its connection noise is
- * filtered — anything else is a real regression signal.
- */
-export function collectPageErrors(page: Page): string[] {
+function watchErrors(page: Page): PageErrors {
   const errors: string[] = [];
-  const IGNORE = [
-    /firestore/i,
-    /firebase/i,
-    /net::ERR_/i,
-    /Failed to load resource/i,
-    /googleapis\.com/i,
-    /accounts\.google\.com/i,
-    /gsi\/client/i,
-    // NOT ignored any more: `cdn.tailwindcss.com` (TD-007 removed it, so a
-    // message mentioning it means it came back) and `Content Security Policy`
-    // (TD-006 added one, so a violation is now a real finding rather than
-    // third-party noise). Both were on this list before those changes landed.
-  ];
-  const keep = (t: string) => !IGNORE.some((re) => re.test(t));
+  const keep = (t: string) => !EXTERNAL_NOISE.some((re) => re.test(t));
 
-  page.on('console', (msg) => {
-    if (msg.type() === 'error' && keep(msg.text())) errors.push(msg.text());
+  page.on('console', (m) => {
+    if (m.type() === 'error' && keep(m.text())) errors.push(m.text());
   });
-  page.on('pageerror', (err) => {
-    if (keep(err.message)) errors.push(`pageerror: ${err.message}`);
+  page.on('pageerror', (e) => {
+    if (keep(e.message)) errors.push(`pageerror: ${e.message}`);
   });
-  return errors;
+
+  return {
+    all: () => [...errors],
+    expectNone: (context = 'unexpected console errors') =>
+      expect(errors, `${context}:\n${errors.join('\n')}`).toEqual([]),
+  };
 }
+
+type Fixtures = {
+  /** The app shell, already loaded and interactive. */
+  app: AppShell;
+  /** The app shell WITHOUT navigating — for tests that control their own load. */
+  shell: AppShell;
+  /** The QR tool, already open. */
+  qr: QrToolPage;
+  /** Spreadsheet-tool helper. Does not open a tool; call `open(TOOL.x)`. */
+  dataTool: DataToolPage;
+  /** Console/exception recorder, attached before the page navigates. */
+  pageErrors: PageErrors;
+};
+
+export const test = base.extend<Fixtures>({
+  // Attached first so it is listening before any navigation happens.
+  pageErrors: async ({ page }, use) => {
+    await use(watchErrors(page));
+  },
+
+  shell: async ({ page }, use) => {
+    await use(new AppShell(page));
+  },
+
+  app: async ({ shell }, use) => {
+    await shell.goto();
+    await use(shell);
+  },
+
+  qr: async ({ page, app }, use) => {
+    const qr = new QrToolPage(page, app);
+    await qr.open();
+    await use(qr);
+  },
+
+  dataTool: async ({ page, app }, use) => {
+    await use(new DataToolPage(page, app));
+  },
+});

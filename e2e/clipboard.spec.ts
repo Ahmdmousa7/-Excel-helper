@@ -1,82 +1,65 @@
-import { test, expect } from '@playwright/test';
-import { gotoApp, openQrTool, generateQr } from './fixtures';
+import { test, expect } from './fixtures';
 
 /**
- * Clipboard behaviour is browser- and permission-dependent, so these tests are
- * Chromium-only: the `clipboard-read`/`clipboard-write` permissions granted in
- * playwright.config.ts are a Chromium capability. On other engines the writes
- * would reject for reasons that have nothing to do with the app.
+ * Chromium-only: the clipboard permissions granted in playwright.config.ts are
+ * a Chromium capability. Elsewhere the writes would reject for reasons that
+ * have nothing to do with the app.
  */
 test.describe('clipboard', () => {
   test.skip(({ browserName }) => browserName !== 'chromium', 'clipboard permissions are Chromium-only');
 
-  test('the QR copy button writes to the clipboard without throwing', async ({ page, context }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await gotoApp(page);
-    await openQrTool(page);
-    await generateQr(page, 'https://example.com/copy-target');
-
-    // Record what the page asks the clipboard to do. The QR tool uses
-    // `navigator.clipboard.write` with an image blob, which cannot be read
-    // back as text — so observing the call is the meaningful assertion.
+  /** Record what the page asks the clipboard to do, without preventing it. */
+  async function spyOnClipboard(page: import('@playwright/test').Page) {
     await page.evaluate(() => {
       (window as unknown as { __clipboardCalls: string[] }).__clipboardCalls = [];
-      const nav = navigator as unknown as {
-        clipboard: { write?: unknown; writeText?: unknown };
-      };
+      const nav = navigator as unknown as { clipboard: Record<string, unknown> };
       const realWrite = nav.clipboard.write as ((d: unknown) => Promise<void>) | undefined;
       const realWriteText = nav.clipboard.writeText as ((s: string) => Promise<void>) | undefined;
+      const log = (s: string) =>
+        (window as unknown as { __clipboardCalls: string[] }).__clipboardCalls.push(s);
 
       if (realWrite) {
-        nav.clipboard.write = async (data: unknown) => {
-          (window as unknown as { __clipboardCalls: string[] }).__clipboardCalls.push('write');
-          return realWrite.call(nav.clipboard, data);
-        };
+        nav.clipboard.write = async (d: unknown) => { log('write'); return realWrite.call(nav.clipboard, d); };
       }
       if (realWriteText) {
-        nav.clipboard.writeText = async (s: string) => {
-          (window as unknown as { __clipboardCalls: string[] }).__clipboardCalls.push(`writeText:${s}`);
-          return realWriteText.call(nav.clipboard, s);
-        };
+        nav.clipboard.writeText = async (s: string) => { log(`writeText:${s}`); return realWriteText.call(nav.clipboard, s); };
       }
     });
+  }
 
-    const errors: string[] = [];
-    page.on('pageerror', (e) => errors.push(e.message));
+  const clipboardCallCount = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => (window as unknown as { __clipboardCalls: string[] }).__clipboardCalls.length);
 
-    // The copy control sits next to the download button and is icon-only.
-    const copyButton = page.getByRole('button', { name: /copy qr code/i });
-    await copyButton.click();
+  test('the QR copy button writes to the clipboard without throwing', async ({ qr, page, context, pageErrors }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await qr.generate('https://example.com/copy-target');
+    await spyOnClipboard(page);
+
+    await qr.copyButton.click();
 
     await expect
-      .poll(
-        async () =>
-          page.evaluate(
-            () => (window as unknown as { __clipboardCalls: string[] }).__clipboardCalls.length,
-          ),
-        { timeout: 8_000, message: 'the copy button never called the clipboard API' },
-      )
+      .poll(() => clipboardCallCount(page), {
+        timeout: 8_000,
+        message: 'the copy button never called the clipboard API',
+      })
       .toBeGreaterThan(0);
 
-    expect(errors, `copying threw:\n${errors.join('\n')}`).toEqual([]);
+    pageErrors.expectNone('copying threw');
   });
 
-  test('clipboard text round-trips in this browser context', async ({ page, context }) => {
-    // A guard on the harness rather than the app: if this fails, a clipboard
-    // failure elsewhere in the suite is a permissions problem, not a bug.
+  test('clipboard text round-trips in this browser context', async ({ app, page, context }) => {
+    // A guard on the harness, not the app: if this fails, a clipboard failure
+    // elsewhere in the suite is a permissions problem rather than a bug.
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await gotoApp(page);
+    await app.expectHealthy();
 
     await page.evaluate(() => navigator.clipboard.writeText('apexyard-clipboard-probe'));
-    const read = await page.evaluate(() => navigator.clipboard.readText());
-    expect(read).toBe('apexyard-clipboard-probe');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('apexyard-clipboard-probe');
   });
 
-  test('a clipboard rejection does not crash the app', async ({ page, context }) => {
+  test('a clipboard rejection does not crash the app', async ({ qr, page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await gotoApp(page);
-    await openQrTool(page);
-    await generateQr(page, 'rejection-path');
+    await qr.generate('rejection-path');
 
     // Simulate a locked-down browser: the app must degrade, not white-screen.
     await page.evaluate(() => {
@@ -88,11 +71,10 @@ test.describe('clipboard', () => {
     const crashes: string[] = [];
     page.on('pageerror', (e) => crashes.push(e.message));
 
-    const copyButton = page.getByRole('button', { name: /copy qr code/i });
-    await copyButton.click();
+    await qr.copyButton.click();
     await page.waitForTimeout(800);
 
-    await expect(page.locator('img[alt="QR Code"]')).toBeVisible();
+    await expect(qr.image).toBeVisible();
     expect(crashes, `a rejected clipboard write crashed the page:\n${crashes.join('\n')}`).toEqual([]);
   });
 });

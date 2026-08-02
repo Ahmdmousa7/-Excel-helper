@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test';
-import { gotoApp, sidebar, openQrTool } from './fixtures';
+import { test, expect, TOOL } from './fixtures';
 
 /**
  * Keyboard reachability is the accessibility failure that ships silently: a
@@ -7,54 +6,39 @@ import { gotoApp, sidebar, openQrTool } from './fixtures';
  * so nobody notices until someone who needs it tries.
  */
 test.describe('keyboard navigation', () => {
-  test('Tab moves focus into the app and never lands on the body', async ({ page }) => {
-    await gotoApp(page);
+  test('Tab moves focus into the app and never lands on the body', async ({ app, page }) => {
     await page.keyboard.press('Tab');
-
     const tag = await page.evaluate(() => document.activeElement?.tagName ?? 'NONE');
     expect(['BUTTON', 'A', 'INPUT', 'TEXTAREA', 'SELECT']).toContain(tag);
+    await app.expectHealthy();
   });
 
-  test('the sidebar search is reachable and typeable by keyboard alone', async ({ page }) => {
-    await gotoApp(page);
-
-    const search = sidebar(page).getByPlaceholder(/search apps|بحث/i);
-    await search.focus();
-    await expect(search).toBeFocused();
-
+  test('the sidebar search is reachable and typeable by keyboard alone', async ({ app, page }) => {
+    await app.search.focus();
+    await expect(app.search).toBeFocused();
     await page.keyboard.type('Compare');
-    await expect(search).toHaveValue('Compare');
+    await expect(app.search).toHaveValue('Compare');
   });
 
-  test('a sidebar tool can be activated with Enter', async ({ page }) => {
-    await gotoApp(page);
-
-    const tool = sidebar(page)
-      .getByRole('button', { name: 'Compare Files', exact: false })
-      .first();
+  test('a sidebar tool can be activated with Enter', async ({ app, page }) => {
+    const tool = app.tool(TOOL.compareFiles);
     await tool.focus();
     await expect(tool).toBeFocused();
-
     await page.keyboard.press('Enter');
-    await expect(sidebar(page)).toBeVisible();
-    await expect(page.getByText(/something went wrong/i)).toHaveCount(0);
+    await expect(app.toolLoading).toHaveCount(0, { timeout: 20_000 });
+    await app.expectHealthy();
   });
 
-  test('a sidebar tool can be activated with Space', async ({ page }) => {
-    await gotoApp(page);
-
-    const tool = sidebar(page)
-      .getByRole('button', { name: 'Merge Datasets', exact: false })
-      .first();
+  test('a sidebar tool can be activated with Space', async ({ app, page }) => {
+    const tool = app.tool(TOOL.mergeDatasets);
     await tool.focus();
     await page.keyboard.press('Space');
-
-    await expect(sidebar(page)).toBeVisible();
-    await expect(page.getByText(/something went wrong/i)).toHaveCount(0);
+    await expect(app.toolLoading).toHaveCount(0, { timeout: 20_000 });
+    await app.expectHealthy();
   });
 
-  test('tabbing forward reaches many distinct controls without trapping', async ({ page }) => {
-    await gotoApp(page);
+  test('tabbing forward reaches many distinct controls without trapping', async ({ app, page }) => {
+    await app.expectHealthy();
 
     const seen = new Set<string>();
     let repeats = 0;
@@ -75,9 +59,8 @@ test.describe('keyboard navigation', () => {
     expect(repeats, 'Tab is cycling through a very small loop').toBeLessThan(35);
   });
 
-  test('Shift+Tab moves focus backwards', async ({ page }) => {
-    await gotoApp(page);
-
+  test('Shift+Tab moves focus backwards', async ({ app, page }) => {
+    await app.expectHealthy();
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
     const second = await page.evaluate(() => document.activeElement?.outerHTML?.slice(0, 120) ?? '');
@@ -88,29 +71,21 @@ test.describe('keyboard navigation', () => {
     expect(back).not.toBe(second);
   });
 
-  test('the QR input is reachable and usable by keyboard', async ({ page }) => {
-    await gotoApp(page);
-    await openQrTool(page);
-
-    const input = page.locator('textarea').first();
-    await input.focus();
-    await expect(input).toBeFocused();
+  test('the QR input is reachable and usable by keyboard', async ({ qr, page }) => {
+    await qr.input.focus();
+    await expect(qr.input).toBeFocused();
 
     // The URL template seeds the field, so clear it by keyboard before typing —
     // otherwise this asserts on the concatenation, not on what was typed.
-    await page.keyboard.press('ControlOrMeta+a');
-    await page.keyboard.press('Delete');
+    await qr.clearByKeyboard();
     await page.keyboard.type('keyboard-entered-content');
-    await expect(input).toHaveValue('keyboard-entered-content');
-    await expect(page.locator('img[alt="QR Code"]')).toBeVisible({ timeout: 15_000 });
+
+    await expect(qr.input).toHaveValue('keyboard-entered-content');
+    await expect(qr.image).toBeVisible({ timeout: 15_000 });
   });
 
-  test('focused controls have a visible focus indicator', async ({ page }) => {
-    await gotoApp(page);
-
-    const tool = sidebar(page)
-      .getByRole('button', { name: 'Separator', exact: false })
-      .first();
+  test('focused controls have a visible focus indicator', async ({ app }) => {
+    const tool = app.tool(TOOL.separator);
     await tool.focus();
 
     const hasIndicator = await tool.evaluate((el) => {
