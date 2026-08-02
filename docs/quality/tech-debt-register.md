@@ -40,6 +40,11 @@ Living document. Every item keeps its ID for life — closed items move to the b
 | TD-C03 | Two TypeScript errors; `tsc` had never gated anything | 2026-08-02 | `674c769` |
 | TD-C04 | Four accessibility defects (unlabelled QR controls, unnamed copy button, `alt`-less previews) | 2026-08-02 | `674c769` |
 | TD-C05 | `puppeteer` was a production dependency, pulling ~170 MB of Chromium into every install | 2026-08-02 | `95462c7` |
+| TD-002 | No dependency-audit gate — 25 CVEs had accumulated unnoticed | 2026-08-02 | `b99fb68` |
+| TD-014 | 214 unused variables and imports | 2026-08-02 | `7c9774a` |
+| TD-015 | ~20 scratch scripts at the repo root | 2026-08-02 | `7c9774a` |
+| TD-016 | `stream-browserify` declared but never imported (−32.7 KB gzip) | 2026-08-02 | `7c9774a` |
+| TD-021 | Deploy ran on every push to main with no CI dependency — a red build could publish | 2026-08-02 | `160b856` |
 
 ## Rules for this register
 

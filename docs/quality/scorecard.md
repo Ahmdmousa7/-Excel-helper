@@ -55,3 +55,17 @@ A 10 would mean zero `any`, zero lint warnings, and full component test coverage
 | Date | Overall | Notes |
 |---|:---:|---|
 | 2026-08-02 | 5.4 | Baseline. Gates installed and working; what they gate is not yet healthy. |
+| 2026-08-02 | **6.3** | Phase 2. Dependency governance 3→7 · Build 3→5 · GitHub Actions 7→9 · Security 4→5. Detail below. |
+
+### Phase 2 movement
+
+| Subsystem | Before | After | What moved it |
+|---|:---:|:---:|---|
+| Dependency governance | 3 | 7 | Audit gate on production deps, weekly scan, licence report, one dead dep removed |
+| GitHub Actions | 7 | 9 | Secret scan, licence check, markdown lint, dead links, bundle budget, browser caching, deploy gated on CI, live verification |
+| Build pipeline | 3 | 5 | Budget gate exists and is enforced; the 1,234 KB chunk itself is untouched (TD-004) |
+| Security | 4 | 5 | Secret scanning, committed-env-file check, audit gate. **TD-001 still open** — that is what caps this at 5 |
+| Playwright | 7 | 7.5 | +9 live deployment checks; page objects still pending (TD-017) |
+| Reports | 6 | 7 | Scorecard, debt register, roadmap now exist and are maintained |
+
+Security cannot rise above 5 while `xlsx` ships an unpatched, reachable prototype-pollution CVE. That single item is worth ~2 points on the overall score.
