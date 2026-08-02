@@ -4,6 +4,42 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!--
+      Content-Security-Policy (TD-006).
+
+      Delivered as a <meta> tag because GitHub Pages cannot set HTTP headers.
+      Two consequences worth knowing:
+        - `frame-ancestors` is IGNORED in meta CSP, so this does NOT prevent
+          clickjacking. That needs a host that can set headers (TD-019).
+        - `report-uri` / `report-to` are also ignored, so violations appear in
+          the browser console only.
+
+      Scoped deliberately. `object-src`, `base-uri`, and `form-action` are the
+      high-value, zero-breakage directives: the app uses no plugins, never
+      rewrites its base URL, and posts no cross-origin forms, so locking those
+      down closes real XSS-escalation paths for free.
+
+      `connect-src` is intentionally permissive (`https:`), not tight. The Web
+      Scraper tool fetches URLs the USER supplies, routed through public CORS
+      proxies (TD-023), so there is no finite host list to enumerate — any
+      tighter policy breaks that tool for some input and nobody finds out until
+      a user reports it. `data:` and `blob:` are listed because the app builds
+      images in memory; omitting them silently broke QR copy-to-clipboard, which
+      e2e/clipboard.spec.ts caught.
+
+      This directive gets tightened when TD-023 lands — replacing the public
+      proxies with one controlled endpoint makes the host list finite. Until
+      then `https:` at least blocks plaintext exfiltration and non-HTTP schemes.
+
+      `unsafe-inline` on style-src is required: the app sets style={{…}}
+      attributes throughout, and React renders those as inline style attributes.
+      Removing it means refactoring every one of them.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' data: blob: https:; worker-src 'self' blob:; frame-src 'self' https://accounts.google.com https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
     <title>Sale Onboarding Team</title>
     <link rel="icon" type="image/png" href="./favicon.png" />
     <link rel="shortcut icon" type="image/png" href="./favicon.png" />
@@ -15,35 +51,15 @@
     <!-- Google Identity Services for Sheet Sync -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'Cairo', 'sans-serif'],
-              arabic: ['Cairo', 'sans-serif'],
-            },
-            colors: {
-              primary: {
-                50: '#eff6ff',
-                100: '#dbeafe',
-                200: '#bfdbfe',
-                300: '#93c5fd',
-                400: '#60a5fa',
-                500: '#3b82f6',
-                600: '#2563eb',
-                700: '#1d4ed8',
-                800: '#1e40af',
-                900: '#1e3a8a',
-                950: '#172554',
-              }
-            }
-          }
-        }
-      }
-    </script>
+    <!--
+      Tailwind is compiled at build time (tailwind.config.js + postcss.config.js,
+      entry at index.css imported from index.tsx).
+
+      It used to load from cdn.tailwindcss.com, which compiles CSS in the browser
+      on every page load. That is explicitly not for production: it costs a
+      render-blocking round trip plus in-browser compilation, makes the CDN a
+      hard runtime dependency, and forces `unsafe-eval` into any CSP. See TD-007.
+    -->
 </head>
   <body class="bg-slate-50 text-slate-900 antialiased font-sans transition-colors duration-300">
     <div id="root">

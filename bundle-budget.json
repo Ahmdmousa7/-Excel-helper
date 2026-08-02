@@ -13,20 +13,20 @@
     "largest-js-chunk": {
       "label": "Largest single JS chunk",
       "budget": 1350,
-      "current": 1266.9,
+      "current": 1252.1,
       "target": 250,
       "why": "The metric that decides time-to-interactive. One blocking chunk is the problem, not the total."
     },
     "total-js": {
       "label": "Total JavaScript",
       "budget": 1450,
-      "current": 1374.5,
+      "current": 1359.6,
       "target": 900
     },
     "total-css": {
       "label": "Total CSS",
       "budget": 60,
-      "current": 0,
+      "current": 10.9,
       "why": "Currently 0 because Tailwind is compiled in-browser from a CDN (TD-007). Expect ~15-30 KB once it moves into the build."
     },
     "total-images": {
@@ -37,7 +37,7 @@
     "total-assets": {
       "label": "Total shipped assets",
       "budget": 1500,
-      "current": 1376.7
+      "current": 1373.7
     }
   }
 }
