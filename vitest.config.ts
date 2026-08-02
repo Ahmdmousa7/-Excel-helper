@@ -4,6 +4,11 @@ import { defineConfig } from 'vitest/config';
 // plugin and a stack of Node polyfills that the unit suite has no use for, and
 // loading them roughly triples cold start.
 export default defineConfig({
+  resolve: {
+    // Must mirror the alias in vite.config.ts, or the unit suite would exercise
+    // a different xlsx than the app ships. See TD-001.
+    alias: { xlsx: '@e965/xlsx' },
+  },
   test: {
     environment: 'node',
     include: ['{utils,services,hooks}/**/*.test.ts', 'tests/unit/**/*.test.ts'],

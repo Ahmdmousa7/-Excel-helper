@@ -12,6 +12,13 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    /* TD-001: mirrors the `xlsx` -> `@e965/xlsx` alias in vite.config.ts and
+       vitest.config.ts. Without it, tsc keeps type-checking against the
+       removed package and reports it as missing. All three must agree. */
+    "baseUrl": ".",
+    "paths": {
+      "xlsx": ["./node_modules/@e965/xlsx"]
+    },
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
