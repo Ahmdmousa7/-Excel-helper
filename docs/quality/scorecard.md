@@ -56,6 +56,15 @@ A 10 would mean zero `any`, zero lint warnings, and full component test coverage
 |---|:---:|---|
 | 2026-08-02 | 5.4 | Baseline. Gates installed and working; what they gate is not yet healthy. |
 | 2026-08-02 | **6.3** | Phase 2. Dependency governance 3→7 · Build 3→5 · GitHub Actions 7→9 · Security 4→5. Detail below. |
+| 2026-08-02 | **7.1** | Phase 3. **TD-001 closed** — production audit 5 high/critical → **zero**. Security 5→8, Dependency governance 7→9. Flaky a11y scan made deterministic. |
+
+### Phase 3 movement
+
+| Subsystem | Before | After | What moved it |
+|---|:---:|:---:|---|
+| Security | 5 | **8** | The only unpatched, reachable CVE is gone. Production audit is zero, so the blocking gate is real rather than aspirational. Held below 9 by TD-003 (API key in bundle) and TD-006 (no CSP). |
+| Dependency governance | 7 | **9** | Zero production advisories, exact-pinned republished package, ESLint guard rail preventing TD-022 from silently becoming exploitable |
+| Playwright | 7.5 | **8** | Deterministic under parallel workers; verified with two consecutive `--retries=0` runs |
 
 ### Phase 2 movement
 

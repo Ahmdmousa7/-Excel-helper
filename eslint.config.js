@@ -49,6 +49,27 @@ export default tseslint.config(
       'jsx-a11y': jsxA11y,
     },
     rules: {
+      // --- Security guard rails --------------------------------------------
+      // TD-022. `xlsx-js-style` is built on the vulnerable SheetJS 0.18.5 base
+      // (CVE-2023-30533, prototype pollution via a crafted file). It is kept
+      // only because every current call site writes — `utils`, `write`,
+      // `writeFile` — and the advisory does not apply to export-only paths.
+      //
+      // The moment someone parses with it, that reasoning collapses silently
+      // and the app is vulnerable again. This makes that a build failure
+      // instead of a discovery. Parse with `xlsx` (aliased to the patched
+      // @e965/xlsx); use `xlsx-js-style` only to write.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[object.name='XLSX_STYLE'][property.name=/^(read|readFile)$/]",
+          message:
+            'xlsx-js-style is built on vulnerable SheetJS 0.18.5 and must never parse input (TD-022). ' +
+            'Read with `xlsx` — it is aliased to the patched @e965/xlsx. See docs/quality/dependency-analysis-xlsx.md.',
+        },
+      ],
+
       // --- Correctness: these catch bugs, so they fail the build -----------
       'react-hooks/rules-of-hooks': 'error',
       'no-cond-assign': 'error',

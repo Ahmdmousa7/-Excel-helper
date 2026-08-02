@@ -10,7 +10,7 @@ Living document. Every item keeps its ID for life — closed items move to the b
 
 | ID | Description | Sev | Risk | Effort | Owner | Status | Blocked by | Fix recommendation |
 |---|---|:---:|---|:---:|---|---|---|---|
-| **TD-001** | `xlsx@0.18.5` prototype pollution (CVE-2023-30533). No patched version on npm. App parses untrusted user uploads — squarely in the vulnerable path. | **Critical** | A crafted `.xlsx` pollutes `Object.prototype` in the victim's tab; escalates to XSS via any downstream property read | M | — | `blocked` | Awaiting a decision on the replacement approach | Migrate to `@e965/xlsx` (patched npm fork) — see analysis below |
+| **TD-022** | `xlsx-js-style@1.2.0` is built on the vulnerable SheetJS 0.18.5 base. Kept because it is **write-only** — audited every call site: `utils`/`write`/`writeFile`, zero `read`. | Low | None on the current call sites. Becomes Critical the moment anyone calls `.read()` on it. | S | — | `accepted` | No maintained styled-write alternative on npm | **Guard rail needed:** add a lint rule or CI grep banning `XLSX_STYLE.read`. Revisit if styled *reading* is ever required. |
 | **TD-002** | No dependency-audit gate. 25 vulnerabilities (4 critical, 7 high) accumulated unnoticed across 854 packages. | **Critical** | The next critical CVE also lands silently | S | — | `in-progress` | — | `npm audit` job failing on high+ for production deps; weekly scheduled scan |
 | **TD-003** | Gemini API key is inlined into the browser bundle by `VITE_` prefix. | **High** | Public site → key is readable in devtools → billing drain | S (mitigate) / L (fix) | — | `open` | — | Now: referrer restriction + hard quota cap. Later: proxy endpoint |
 | **TD-004** | Single 3,761 KB JS chunk (1,267 KB gzip). No code splitting, no size budget. | **High** | ~20s first paint on 3G; every visitor downloads all 30 tools to use one | M | — | `open` | — | `React.lazy` per tab + `manualChunks`; enforce a budget in CI |
@@ -45,6 +45,7 @@ Living document. Every item keeps its ID for life — closed items move to the b
 | TD-015 | ~20 scratch scripts at the repo root | 2026-08-02 | `7c9774a` |
 | TD-016 | `stream-browserify` declared but never imported (−32.7 KB gzip) | 2026-08-02 | `7c9774a` |
 | TD-021 | Deploy ran on every push to main with no CI dependency — a red build could publish | 2026-08-02 | `160b856` |
+| **TD-001** | `xlsx@0.18.5` prototype pollution, no npm fix, on the untrusted-parse path | 2026-08-02 | `@e965/xlsx@0.20.3` behind a Vite alias. Production audit went from 5 high/critical to **zero**. Guard rail added so `xlsx-js-style` can never become a parser (TD-022). |
 
 ## Rules for this register
 
