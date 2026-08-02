@@ -81,7 +81,12 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
   };
 
   const handleFile2Upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
+      // Capture the input before awaiting. Reading `e.target` after the await
+      // reaches for the event object across a suspension point, which is what
+      // require-atomic-updates flags; holding the element directly is both
+      // clearer and immune to any future event-pooling behaviour.
+      const input = e.target;
+      const file = input.files?.[0];
       if (!file) return;
       try {
           addLog(`Parsing file 2: ${file.name}...`, 'info');
@@ -91,7 +96,8 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
       } catch (err: any) {
           addLog(`Failed to parse file 2: ${err.message}`, 'error');
       }
-      e.target.value = '';
+      // Reset so re-selecting the same file fires `change` again.
+      input.value = '';
   };
 
   const handleCompare = () => {
@@ -137,13 +143,20 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
               file2Data: d.data2
           }));
 
-          const prompt = `Analyze this data comparison between "${sheet1}" and "${sheet2}". 
-          Stats: Matches: ${results.summary.matches}, Mismatches: ${results.summary.mismatches}, Missing in 1: ${results.summary.missingIn1}, Missing in 2: ${results.summary.missingIn2}.
-          Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}
-          
-          Provide a professional executive summary for a Data Analyst. Focus on data consistency, potential discrepancies (pricing/inventory if applicable), and identifiable broader patterns over these rows. Keep it concise, action-oriented, and structured. Only return the analysis text.`;
+          const comparisonData = `Comparison between "${sheet1}" and "${sheet2}".
+Stats: Matches: ${results.summary.matches}, Mismatches: ${results.summary.mismatches}, Missing in 1: ${results.summary.missingIn1}, Missing in 2: ${results.summary.missingIn2}.
+Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
 
-          const response = await aiService.generateContent(prompt, { model: 'gemini-3.1-pro-preview' }, geminiKey);
+          const instruction =
+            'Provide a professional executive summary for a Data Analyst. Focus on data consistency, ' +
+            'potential discrepancies (pricing/inventory if applicable), and identifiable broader patterns ' +
+            'over these rows. Keep it concise, action-oriented, and structured. Only return the analysis text.';
+
+          // Was `aiService.generateContent(...)`, which does not exist on
+          // IAiService or on GeminiService — the button threw
+          // "aiService.generateContent is not a function" on every click.
+          // processGeneralFile is the provider-agnostic text-in/text-out entry point.
+          const response = await aiService.processGeneralFile({ text: comparisonData }, instruction);
           setAiAnalysis(response);
           addLog("AI Analysis generated.", "success");
       } catch (err: any) {
