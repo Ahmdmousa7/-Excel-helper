@@ -300,7 +300,7 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
                                      {fileData?.name || 'File 1 (Primary Upload)'}
                                  </span>
                              </div>
-                             <select className="w-full p-1.5 border rounded text-xs bg-white" value={sheet1} onChange={e => setSheet1(e.target.value)}>
+                             <select aria-label="Sheet from file 1" className="w-full p-1.5 border rounded text-xs bg-white" value={sheet1} onChange={e => setSheet1(e.target.value)}>
                                  {fileData?.sheets.map(s => <option key={s} value={s}>{s}</option>)}
                              </select>
                          </div>
@@ -320,9 +320,10 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
                                      </button>
                                  )}
                              </div>
-                             <select 
-                                className="w-full p-1.5 border rounded text-xs bg-white" 
-                                value={sheet2} 
+                             <select
+                                aria-label="Sheet from file 2"
+                                className="w-full p-1.5 border rounded text-xs bg-white"
+                                value={sheet2}
                                 onChange={e => setSheet2(e.target.value)}
                                 disabled={!fileData2 && !fileData}
                              >
@@ -337,13 +338,13 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
                      <div className="space-y-2">
                          <div>
                              <label className="text-[10px] font-semibold text-slate-500">File 1 Key</label>
-                             <select className="w-full p-1.5 border rounded text-xs bg-white" value={keyCol1} onChange={e => setKeyCol1(Number(e.target.value))}>
+                             <select aria-label="Key column in file 1" className="w-full p-1.5 border rounded text-xs bg-white" value={keyCol1} onChange={e => setKeyCol1(Number(e.target.value))}>
                                  {headers1.map((h, i) => <option key={i} value={i}>{h}</option>)}
                              </select>
                          </div>
                          <div>
                              <label className="text-[10px] font-semibold text-slate-500">File 2 Key</label>
-                             <select className="w-full p-1.5 border rounded text-xs bg-white" value={keyCol2} onChange={e => setKeyCol2(Number(e.target.value))}>
+                             <select aria-label="Key column in file 2" className="w-full p-1.5 border rounded text-xs bg-white" value={keyCol2} onChange={e => setKeyCol2(Number(e.target.value))}>
                                  {headers2.map((h, i) => <option key={i} value={i}>{h}</option>)}
                              </select>
                          </div>
@@ -357,7 +358,8 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
                               <div key={i} className="flex flex-col gap-1 mb-2 bg-slate-50 p-1.5 border rounded">
                                   <span className="text-[10px] font-semibold text-blue-800">{h}</span>
                                   <div className="flex items-center gap-1">
-                                      <select 
+                                      <select
+                                          aria-label={`Map column "${h}" to a column in file 2`}
                                           className="flex-1 w-full p-1 border rounded text-[10px] bg-white outline-none"
                                           value={columnMapping[i] ?? -1}
                                           onChange={e => updateMap(i, Number(e.target.value))}
