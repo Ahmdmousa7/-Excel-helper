@@ -1,0 +1,244 @@
+name: CI
+
+# The seven pipeline stages, split across three jobs rather than one:
+#
+#   quality  1. Install  2. Lint  3. Type check  4. Unit tests  7. Build
+#   e2e      5. Playwright
+#   review   6. ApexYard review
+#
+# They run in parallel because lint and type-check feedback should not wait
+# behind a browser download. Running them in one sequential job would push
+# first feedback from ~90s to ~5min for no gain — the stages have no ordering
+# dependency on each other.
+#
+# HARD GATES (a failure here blocks the merge):
+#   - TypeScript                    quality / type-check
+#   - Unit tests                    quality / unit
+#   - Build                         quality / build
+#   - Playwright                    e2e
+#   - ApexYard High or Critical     review
+#
+# SOFT (reported, does not block):
+#   - ESLint warnings. Errors still fail; see eslint.config.js for the split.
+
+on:
+  pull_request:
+    branches: ['**']
+  push:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      review-fail-on:
+        description: 'ApexYard severity gate'
+        required: false
+        default: high
+        type: choice
+        options: [critical, high, medium, low, none]
+
+# A new push supersedes the previous run on the same ref. Never cancel on the
+# default branch — those runs are the deploy record.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # =========================================================================
+  # Stages 1-4 + 7
+  # =========================================================================
+  quality:
+    name: Lint, type-check, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 1. Install
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+
+      - name: 2. Lint
+        id: lint
+        # Errors fail the step. Warnings are the documented known-debt tier and
+        # are surfaced in the summary instead of blocking the merge.
+        run: npm run lint
+
+      - name: 3. Type check
+        # HARD GATE. tsconfig.json already runs strict; a type error is a
+        # defect, not a style preference.
+        run: npm run typecheck
+
+      - name: 4. Unit tests
+        run: npm run test -- --coverage
+
+      - name: 7. Build
+        run: npm run build
+
+      - name: Report bundle size
+        if: always()
+        run: |
+          {
+            echo '### Build output'
+            echo ''
+            echo '| File | Size |'
+            echo '|---|---:|'
+            find dist/assets -type f \( -name '*.js' -o -name '*.css' \) -printf '%f\t%s\n' 2>/dev/null \
+              | sort -k2 -rn | head -12 \
+              | awk -F'\t' '{ printf "| %s | %.1f KB |\n", $1, $2/1024 }'
+            echo ''
+            printf '**Total dist:** %s\n' "$(du -sh dist 2>/dev/null | cut -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  # =========================================================================
+  # Stage 5
+  # =========================================================================
+  e2e:
+    name: Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: 5. Playwright
+        # HARD GATE. playwright.config.ts builds with VITE_E2E_AUTH_BYPASS and
+        # serves the built bundle, so this exercises the real production output
+        # rather than the dev server.
+        run: npm run e2e
+        env:
+          CI: 'true'
+
+      - name: Upload the Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # =========================================================================
+  # Stage 6
+  # =========================================================================
+  review:
+    name: ApexYard review
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      pull-requests: write   # needed to post the sticky review comment
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The reviewer diffs base..head, so it needs both ends present.
+          fetch-depth: 0
+
+      - name: Check for the API key
+        id: guard
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            {
+              echo '## ApexYard review skipped'
+              echo ''
+              echo 'The `ANTHROPIC_API_KEY` secret is not available to this run.'
+              echo 'That is expected for a pull request opened from a fork —'
+              echo 'GitHub withholds secrets from fork PRs by design.'
+              echo ''
+              echo 'On a branch in this repository, add the secret under'
+              echo '**Settings → Secrets and variables → Actions**.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo '::warning title=ApexYard review::Skipped — ANTHROPIC_API_KEY is not available to this run.'
+          else
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 6. ApexYard review
+        if: steps.guard.outputs.available == 'true'
+        # HARD GATE. Exits non-zero on findings at or above `fail-on`, and
+        # annotates loudly if the reviewer itself could not run.
+        uses: Ahmdmousa7/apexyard/.github/actions/apexyard-review@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          ops-repo: Ahmdmousa7/apexyard
+          ops-ref: main
+          fail-on: ${{ inputs.review-fail-on || 'high' }}
+          model: claude-opus-5
+          max-files: '60'
+          post-comment: ${{ github.event_name == 'pull_request' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # =========================================================================
+  # Single required check, so branch protection needs one entry, not three.
+  # =========================================================================
+  ci:
+    name: CI
+    if: always()
+    needs: [quality, e2e, review]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate the gate results
+        run: |
+          quality='${{ needs.quality.result }}'
+          e2e='${{ needs.e2e.result }}'
+          review='${{ needs.review.result }}'
+
+          {
+            echo '## CI gates'
+            echo ''
+            echo '| Gate | Result |'
+            echo '|---|---|'
+            echo "| Lint, type-check, unit, build | \`$quality\` |"
+            echo "| Playwright | \`$e2e\` |"
+            echo "| ApexYard review | \`$review\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          failed=0
+          for r in "$quality" "$e2e" "$review"; do
+            case "$r" in
+              success|skipped) ;;
+              *) failed=1 ;;
+            esac
+          done
+
+          if [ "$failed" -eq 1 ]; then
+            echo '::error title=CI::One or more required gates failed.'
+            exit 1
+          fi
+          echo 'All gates passed.'
