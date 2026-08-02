@@ -43,7 +43,41 @@ function describe(vs: Violation[]): string {
     .join('\n');
 }
 
+/**
+ * Wait until the page is visually settled before scanning.
+ *
+ * Without this the suite is flaky under parallel workers: the app uses
+ * `animate-in fade-in zoom-in` transitions, and axe scanning mid-transition
+ * reads interpolated opacity and half-positioned nodes. That surfaces
+ * transient violations that do not exist once the frame settles — a false
+ * failure, which is the worst kind in a gate people are meant to trust.
+ */
+async function settle(page: import('@playwright/test').Page) {
+  await page.waitForLoadState('domcontentloaded');
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const done = () =>
+          // Two rAFs guarantees a completed paint, not just a scheduled one.
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+
+        const running = document
+          .getAnimations()
+          .filter((a) => a.playState === 'running');
+
+        if (running.length === 0) return done();
+
+        // Cap the wait: an infinite animation (a spinner) would never finish.
+        Promise.race([
+          Promise.allSettled(running.map((a) => a.finished)),
+          new Promise((r) => setTimeout(r, 1200)),
+        ]).then(done);
+      }),
+  );
+}
+
 async function scan(page: import('@playwright/test').Page) {
+  await settle(page);
   return new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();
