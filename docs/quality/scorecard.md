@@ -57,6 +57,19 @@ A 10 would mean zero `any`, zero lint warnings, and full component test coverage
 | 2026-08-02 | 5.4 | Baseline. Gates installed and working; what they gate is not yet healthy. |
 | 2026-08-02 | **6.3** | Phase 2. Dependency governance 3→7 · Build 3→5 · GitHub Actions 7→9 · Security 4→5. Detail below. |
 | 2026-08-02 | **7.1** | Phase 3. **TD-001 closed** — production audit 5 high/critical → **zero**. Security 5→8, Dependency governance 7→9. Flaky a11y scan made deterministic. |
+| 2026-08-02 | **7.6** | Phase 4. TD-007 closed (Tailwind into the build), TD-006 closed (CSP shipped). Build 5→6, Security 8→9. Found TD-023 (public CORS proxies). |
+
+### Phase 4 movement
+
+| Subsystem | Before | After | What moved it |
+|---|:---:|:---:|---|
+| Build pipeline | 5 | **6** | Tailwind compiled at build time — no CDN round trip, no in-browser compilation, CSS now 10.9 KB gzip and budgeted. The 1,252 KB JS chunk is untouched (TD-004), which is what holds this at 6. |
+| Security | 8 | **9** | CSP shipped with `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` enforced. Capped by two platform facts, not omissions: meta CSP ignores `frame-ancestors` (TD-019) and `connect-src` cannot be tightened while the scraper proxies user URLs (TD-023). |
+| Playwright | 8 | **8.5** | +3 regression tests that pin this phase's work: CSP present and unviolated, Tailwind compiled not CDN, custom theme survives purging |
+
+**What the CSP caught on its way in.** Adding `connect-src` silently broke QR copy-to-clipboard: `handleCopy` did `fetch()` on a `data:` URL, which `connect-src` governs, and the surrounding `catch` turned it into a log line. The e2e clipboard test failed and made it visible. The handler now decodes base64 directly — better code regardless, since it was round-tripping in-memory bytes through the network layer.
+
+This is the argument for shipping a CSP behind a test suite rather than shipping it and watching production.
 
 ### Phase 3 movement
 
