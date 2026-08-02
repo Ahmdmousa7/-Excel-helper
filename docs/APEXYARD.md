@@ -1,6 +1,6 @@
 # ApexYard integration
 
-This repo is reviewed on every pull request by [ApexYard](https://github.com/me2resh/apexyard), running headlessly from CI.
+This repo is reviewed by [ApexYard](https://github.com/me2resh/apexyard) before every push, running headlessly on the maintainer's machine. **It does not run in CI**, and no Anthropic credential exists in any GitHub-hosted context — see [Why the AI review is local-only](#why-the-ai-review-is-local-only) and [ADR-0001](adr/ADR-0001-ai-review-runs-locally-not-in-ci.md).
 
 ## How it fits together
 
@@ -8,22 +8,34 @@ There are two repos:
 
 | Repo | Role |
 |---|---|
-| `Ahmdmousa7/-Excel-helper` (this one) | The project under review. Carries the CI workflow. |
+| `Ahmdmousa7/-Excel-helper` (this one) | The project under review. Carries the CI workflow and the local review scripts. |
 | `Ahmdmousa7/apexyard` | The **ops fork** — a fork of `me2resh/apexyard` that carries the handbooks, the review runner, and the registry. |
 
 ```
-pull_request
+LOCAL, before every push          npm run verify:local
    │
-   ├─▶ quality   lint · type-check · unit tests · build
-   ├─▶ e2e       Playwright (9 suites)
-   └─▶ review    ┌────────────────────────────────────┐
-                 │ checks out Ahmdmousa7/apexyard     │
-                 │ discovers the handbooks for the    │
-                 │   changed files                    │
-                 │ runs Rex headlessly over the diff  │
-                 │ posts a sticky PR comment          │
-                 │ exits 1 on High or Critical        │
-                 └────────────────────────────────────┘
+   └─▶ review   ┌──────────────────────────────────────┐
+                │ reads Ahmdmousa7/apexyard beside this│
+                │ discovers the handbooks for the      │
+                │   changed files                      │
+                │ runs Rex headlessly over the diff    │
+                │   via the logged-in Claude CLI       │
+                │ exits 1 on High or Critical          │
+                └──────────────────────────────────────┘
+        then    typecheck · lint · vitest+coverage · playwright
+                audit · secret scan · build · bundle budget
+
+REMOTE, on push and pull_request  (runs no model, holds no key)
+   │
+   ├─▶ quality  lint · type-check · unit+coverage · build · bundle budget
+   └─▶ e2e      Playwright
+        │
+        └─▶ CI  aggregates both into one required check
+
+   (no AI-review job exists — see below)
+
+   then, only after CI passes on main:
+       deploy ─▶ Pages ─▶ poll the CDN ─▶ verify the live site
 ```
 
 ### One thing worth understanding up front
@@ -64,17 +76,22 @@ Nine handbooks in the ops fork define the standards, loaded by path convention:
 | Low | Worth fixing, no user impact | No |
 | Info | An observation | No |
 
-The gate is `--fail-on high`. Change it for a one-off run via **Actions → CI → Run workflow → ApexYard severity gate**.
+The gate is `--fail-on high`. Change it for a single local run with `npm run review:local -- --fail-on medium`, or persistently via the `APEXYARD_FAIL_ON` environment variable.
 
 ## Reports
 
-Every run produces:
+Every run writes to `.apexyard/review/` in the working tree (gitignored):
 
-| Where | What |
+| File | What |
 |---|---|
-| **PR comment** | Sticky (updates in place, one per PR): verdict, gate result, severity table, collapsible findings with suggested fixes. |
-| **Job summary** | The same tables on the Actions run page. |
-| **Artifacts** (`apexyard-review`, 30 days) | `review.md` (full report), `review.json` (structured), `findings.csv` (trend tracking), `prompt.md` (exactly what was sent — this is how you debug a bad review). |
+| `review.md` | The full report — verdict, severity table, every finding with a suggested fix. |
+| `summary.md` | The short version: verdict, counts, one line per finding. |
+| `findings.csv` | Structured, for tracking counts across runs. |
+| `review.json` | The raw structured result the severity gate reads. |
+| `pr-comment.md` | A PR-comment-shaped rendering. Nothing posts it automatically now that the review is local — paste it if you want the review in the PR thread. |
+| `prompt.md` | Exactly what was sent to the model (with `--dry-run`). This is how you debug a bad review. |
+
+There is no CI artifact and no automatic PR comment: the review does not run in CI. See [Why the AI review is local-only](#why-the-ai-review-is-local-only).
 
 ## The CI gates
 
@@ -86,34 +103,53 @@ Every run produces:
 | Unit tests + coverage thresholds | quality | Yes |
 | Build | quality | Yes |
 | Playwright | e2e | **Yes** |
-| ApexYard High/Critical | review | **Yes** |
+| Bundle budget | quality | **Yes** |
+| ApexYard High/Critical | **local, pre-push — no CI job** | No. Not enforced anywhere — see below |
 
-Branch protection should require the single aggregate check named **`CI`**, not the three jobs individually.
+**Branch protection is not enabled on `main` today** — verified via the API, not assumed. Everything above reports; nothing blocks. Enabling it means requiring **two** checks: the aggregate `CI` (which fronts the `quality` and `e2e` jobs, so those two need not be listed individually) **and** `Security`, which is a separate workflow carrying the dependency audit, the verified-secret scan, and the committed-env-file check. Requiring `CI` alone would leave every security gate advisory while looking protected.
 
-## Setup
+## Why the AI review is local-only
 
-One secret is required:
+**No Anthropic API key exists in GitHub Secrets, in any workflow, in any image, or in any committed file — and none should ever be added.**
 
-**Settings → Secrets and variables → Actions → New repository secret**
-- Name: `ANTHROPIC_API_KEY`
-- Value: a key from [console.anthropic.com](https://console.anthropic.com)
+An API key in GitHub Actions is a live, billable credential sitting inside a system that executes code from every pull request. Any workflow change that lands can read it. The blast radius of a leak is not one repository; it is the account. Against that, what CI buys by holding the key is the ability to *prove* a review ran — valuable on a team with many contributors and mutual distrust, much less so on a single-maintainer project where the same person writes the code and runs the review either way.
 
-Without it the review job **skips with a warning** rather than failing — that is also what happens on a pull request opened from a fork, since GitHub withholds secrets from fork PRs by design.
+So the trade here is deliberate: the credential stays on one machine, and CI gives up the ability to enforce that the review happened.
 
-## Running the review locally
+**Be clear about what that costs.** Nothing in the pipeline verifies the AI review took place. There is deliberately **no CI job** for it — not even a green no-op, because a job named after a gate that passes without checking anything reads as coverage on the checks page. The policy is stated in the `CI` job's step summary and nowhere else. Pretending an unenforced convention is a control would be worse than the gap itself.
+
+What holds the line instead is the pre-push habit, made cheap enough to keep:
+
+```bash
+npm run verify:local
+```
+
+That runs the AI review **first** — because fixing its findings changes what every later gate sees — then TypeScript, ESLint, Vitest, Playwright, the dependency audit, the secret scan, the build, and the bundle budget. Every stage runs even when an earlier one fails, so one pass shows the whole picture.
+
+Tracked honestly as **TD-027** in the [debt register](quality/tech-debt-register.md).
+
+## Running the review on its own
 
 ```bash
 git clone https://github.com/Ahmdmousa7/apexyard.git ../apexyard
-export ANTHROPIC_API_KEY=sk-ant-...
-
-../apexyard/bin/apexyard-review-ci.sh \
-  --base origin/main --head HEAD \
-  --project-root . --fail-on high --out .apexyard/review
-
-cat .apexyard/review/review.md
+npm run review:local                    # uncommitted work
+npm run review:local -- --base main     # everything since main
+npm run review:local -- --staged        # only what is staged
 ```
 
-Add `--dry-run` to see the composed prompt without spending a call.
+It authenticates through your logged-in Claude CLI. **Do not set `ANTHROPIC_API_KEY`** — `claude login` is enough, and it keeps the credential out of your shell history and environment.
+
+Requires `jq` (`winget install jqlang.jq`) and the ops fork beside this repo, or `APEXYARD_OPS_ROOT` pointing at it.
+
+To see the composed prompt without spending a call, invoke the underlying runner directly — `review:local` does not forward `--dry-run`:
+
+```bash
+../apexyard/bin/apexyard-review-ci.sh \
+  --base origin/main --head HEAD --project-root . --dry-run \
+  --out .apexyard/review && cat .apexyard/review/prompt.md
+```
+
+Exit codes matter here: `0` clean, `1` findings at or above the gate, **`3` the reviewer could not run**. Three is deliberately distinct so a crashed reviewer is never mistaken for a clean one.
 
 ## Tests
 

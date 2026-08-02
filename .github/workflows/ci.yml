@@ -3,8 +3,12 @@ name: CI
 # The seven pipeline stages, split across three jobs rather than one:
 #
 #   quality  1. Install  2. Lint  3. Type check  4. Unit tests  7. Build
+#            8. Bundle budget
 #   e2e      5. Playwright
-#   review   6. ApexYard review
+#
+# Stage 6 was the ApexYard review. The number is left vacant rather than
+# renumbered so the stage names still line up with docs/APEXYARD.md and with
+# the local runner's output — see "NOT IN CI, DELIBERATELY" below.
 #
 # They run in parallel because lint and type-check feedback should not wait
 # behind a browser download. Running them in one sequential job would push
@@ -15,11 +19,34 @@ name: CI
 #   - TypeScript                    quality / type-check
 #   - Unit tests                    quality / unit
 #   - Build                         quality / build
+#   - Bundle budget                 quality / bundle budget
 #   - Playwright                    e2e
-#   - ApexYard High or Critical     review
 #
 # SOFT (reported, does not block):
 #   - ESLint warnings. Errors still fail; see eslint.config.js for the split.
+#
+# NOT IN CI, DELIBERATELY: the ApexYard/Claude review. There is no job for it
+# at all — not even a green no-op. A job named after a gate, that passes
+# without checking anything, is worse than its absence: it reads as coverage
+# on the checks page. The statement lives in the aggregate job's summary
+# instead, where it costs no runner and claims nothing.
+#
+# It runs on the maintainer's machine before any push, against the locally
+# configured Claude CLI. No Anthropic key is stored in GitHub Secrets, in this
+# file, or anywhere else off the local machine.
+#
+# The pre-push command is `npm run verify:local` — the full gate, which runs
+# the review first and then everything else. `npm run review:local` is the
+# review on its own, for iterating on findings; it is not the pre-push path.
+#
+# The reasoning is worth keeping: a key in Actions is a live credential inside
+# a system that executes code from every pull request, reachable by any
+# workflow change that lands. Moving the review to the maintainer's machine
+# removes the credential from that blast radius entirely. The trade is real —
+# CI can no longer *prove* the review happened — and it is the right trade,
+# because the review is advisory judgment while the key is a standing secret.
+#
+# See docs/APEXYARD.md § "Why the AI review is local-only".
 
 on:
   pull_request:
@@ -27,13 +54,6 @@ on:
   push:
     branches: ['**']
   workflow_dispatch:
-    inputs:
-      review-fail-on:
-        description: 'ApexYard severity gate'
-        required: false
-        default: high
-        type: choice
-        options: [critical, high, medium, low, none]
 
 # A new push supersedes the previous run on the same ref. Never cancel on the
 # default branch — those runs are the deploy record.
@@ -164,87 +184,49 @@ jobs:
           retention-days: 14
 
   # =========================================================================
-  # Stage 6
-  # =========================================================================
-  review:
-    name: ApexYard review
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: read
-      pull-requests: write   # needed to post the sticky review comment
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # The reviewer diffs base..head, so it needs both ends present.
-          fetch-depth: 0
-
-      - name: Check for the API key
-        id: guard
-        env:
-          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          if [ -z "$KEY" ]; then
-            echo 'available=false' >> "$GITHUB_OUTPUT"
-            {
-              echo '## ApexYard review skipped'
-              echo ''
-              echo 'The `ANTHROPIC_API_KEY` secret is not available to this run.'
-              echo 'That is expected for a pull request opened from a fork —'
-              echo 'GitHub withholds secrets from fork PRs by design.'
-              echo ''
-              echo 'On a branch in this repository, add the secret under'
-              echo '**Settings → Secrets and variables → Actions**.'
-            } >> "$GITHUB_STEP_SUMMARY"
-            echo '::warning title=ApexYard review::Skipped — ANTHROPIC_API_KEY is not available to this run.'
-          else
-            echo 'available=true' >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: 6. ApexYard review
-        if: steps.guard.outputs.available == 'true'
-        # HARD GATE. Exits non-zero on findings at or above `fail-on`, and
-        # annotates loudly if the reviewer itself could not run.
-        uses: Ahmdmousa7/apexyard/.github/actions/apexyard-review@main
-        with:
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          ops-repo: Ahmdmousa7/apexyard
-          ops-ref: main
-          fail-on: ${{ inputs.review-fail-on || 'high' }}
-          model: claude-opus-5
-          max-files: '60'
-          post-comment: ${{ github.event_name == 'pull_request' }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-  # =========================================================================
-  # Single required check, so branch protection needs one entry, not three.
+  # Single required check, so branch protection needs one entry, not two.
   # =========================================================================
   ci:
     name: CI
     if: always()
-    needs: [quality, e2e, review]
+    needs: [quality, e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate the gate results
         run: |
           quality='${{ needs.quality.result }}'
           e2e='${{ needs.e2e.result }}'
-          review='${{ needs.review.result }}'
 
           {
             echo '## CI gates'
             echo ''
             echo '| Gate | Result |'
             echo '|---|---|'
-            echo "| Lint, type-check, unit, build | \`$quality\` |"
+            echo "| Lint, type-check, unit + coverage, build, bundle budget | \`$quality\` |"
             echo "| Playwright | \`$e2e\` |"
-            echo "| ApexYard review | \`$review\` |"
+            echo ''
+            echo '### AI review is intentionally executed locally before push.'
+            echo ''
+            echo 'ApexYard'"'"'s Claude-backed review runs on the maintainer'"'"'s'
+            echo 'machine via `npm run verify:local`, before anything is pushed.'
+            echo 'It does not run here and no Anthropic credential exists in'
+            echo 'this repository'"'"'s secrets, workflows, or images — by policy.'
+            echo ''
+            echo 'There is deliberately **no CI job** for it. An always-green'
+            echo 'job would look like a gate while checking nothing, which is'
+            echo 'worse than an honest absence. Nothing in this pipeline'
+            echo 'verifies the local review happened; that gap is tracked as'
+            echo 'TD-027 and explained in ADR-0001.'
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # `skipped` is NOT a pass. Both jobs are unconditional, so a skip
+          # means something upstream went wrong — a cancelled run, a bad
+          # `if:` added later — and treating it as success would make the
+          # required check green for a pipeline that never ran.
           failed=0
-          for r in "$quality" "$e2e" "$review"; do
+          for r in "$quality" "$e2e"; do
             case "$r" in
-              success|skipped) ;;
+              success) ;;
               *) failed=1 ;;
             esac
           done

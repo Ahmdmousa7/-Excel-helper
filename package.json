@@ -19,7 +19,11 @@
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
-    "e2e:live": "playwright test --config=playwright.live.config.ts"
+    "e2e:live": "playwright test --config=playwright.live.config.ts",
+    "review:local": "bash scripts/review-local.sh",
+    "verify:local": "bash scripts/verify-local.sh",
+    "scan:secrets": "bash scripts/scan-secrets.sh",
+    "prepare": "node scripts/install-hooks.mjs"
   },
   "dependencies": {
     "@e965/xlsx": "0.20.3",

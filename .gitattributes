@@ -3,4 +3,11 @@
 *.sh   text eol=lf
 *.yml  text eol=lf
 *.yaml text eol=lf
+*.mjs  text eol=lf
+
+# Git hooks have no extension. A CRLF hook fails on Linux and macOS with
+# "bad interpreter: /usr/bin/env bash^M" — and it fails at push time, which
+# is the worst moment to discover it.
+.githooks/*  text eol=lf
+
 *      text=auto

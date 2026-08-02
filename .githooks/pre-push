@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+#
+# pre-push — run the full local gate before anything leaves this machine.
+#
+# This is the mitigation named in TD-027. It does not close the enforcement
+# gap: it is local, and `git push --no-verify` skips it outright. What it does
+# remove is the *forgetting* failure mode, which is the one that actually
+# happens. A deliberate bypass is a decision; forgetting is an accident.
+#
+# Installed automatically by `npm install` (the `prepare` script sets
+# core.hooksPath). git will not run a hook out of a committed directory on
+# its own — core.hooksPath is per-clone local config, deliberately, since a
+# repo that could auto-run scripts on checkout would be an obvious attack.
+#
+# Installed by hand: git config core.hooksPath .githooks
+# Disabled by:       git config --unset core.hooksPath
+# Bypassed once:     git push --no-verify
+
+set -uo pipefail
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT" || exit 1
+
+# git feeds the hook one line per ref on stdin:
+#   <local ref> <local sha> <remote ref> <remote sha>
+#
+# Use it. Deriving the review base from `@{upstream}` instead would review the
+# wrong range whenever the push targets something other than the tracked
+# branch — `git push origin HEAD:release`, a fork remote, a first push of a
+# new branch. The remote sha on these lines is what the remote actually has,
+# which is exactly the base the review should diff against.
+HAS_CONTENT=0
+BASE=""
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  case "$local_sha" in
+    0000000000000000000000000000000000000000|'') continue ;;   # branch delete
+  esac
+  HAS_CONTENT=1
+
+  case "$remote_sha" in
+    0000000000000000000000000000000000000000|'')
+      # New branch on the remote — nothing to diff against there. Fall back to
+      # the merge-base with the default branch so the review sees this
+      # branch's own work rather than the entire history.
+      cand=$(git merge-base "$local_sha" origin/main 2>/dev/null || echo "")
+      ;;
+    *)
+      # The remote may have advertised a commit this clone has never fetched.
+      if git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+        cand="$remote_sha"
+      else
+        cand=$(git merge-base "$local_sha" origin/main 2>/dev/null || echo "")
+      fi
+      ;;
+  esac
+
+  # With several refs in one push, review from the oldest base so nothing in
+  # the push escapes the range.
+  if [ -n "$cand" ]; then
+    if [ -z "$BASE" ] || git merge-base --is-ancestor "$cand" "$BASE" 2>/dev/null; then
+      BASE="$cand"
+    fi
+  fi
+done
+
+if [ "$HAS_CONTENT" -eq 0 ]; then
+  printf 'pre-push: deletions only, nothing to verify.\n'
+  exit 0
+fi
+
+printf '\n\033[1mpre-push: running the local gate (npm run verify:local)\033[0m\n'
+if [ -n "$BASE" ]; then
+  printf 'Review base: %s (from the pushed refspec)\n' "$(git rev-parse --short "$BASE")"
+  export REVIEW_BASE="$BASE"
+else
+  printf 'Review base: could not resolve from the refspec; verify-local will\n'
+  printf 'fall back to the tracked upstream.\n'
+fi
+printf 'Bypass with --no-verify if you know why you are doing that.\n'
+
+if bash scripts/verify-local.sh; then
+  exit 0
+fi
+
+printf '\n\033[31mpre-push: local gate failed — push aborted.\033[0m\n'
+exit 1

@@ -39,17 +39,17 @@ npm run dev
 
 ## Quality gates
 
-Every pull request runs [CI](.github/workflows/ci.yml). These block a merge:
+Every push and pull request runs [CI](.github/workflows/ci.yml). These are its hard gates — they fail the run, though nothing is blocked at the merge until branch protection is enabled (see below):
 
 - **TypeScript** — `tsc --noEmit` must be clean
 - **Unit tests** — including coverage thresholds
 - **Build** — `vite build` must succeed
-- **Playwright** — all 59 e2e tests
-- **ApexYard review** — no High or Critical findings
+- **Playwright** — the full e2e suite
+- **Bundle budget** — gzipped initial load, measured from the built `index.html`
+
+The **ApexYard AI review is deliberately not in that list.** It runs locally before every push (`npm run verify:local`) because no Anthropic credential is permitted in CI, which means nothing in the pipeline enforces it. That gap is real and is tracked as TD-027 — see [ADR-0001](docs/adr/ADR-0001-ai-review-runs-locally-not-in-ci.md).
 
 ESLint **errors** block; ESLint warnings are reported but do not. See [`eslint.config.js`](eslint.config.js) for where that line sits and why.
-
-Branch protection should require the single aggregate check named **`CI`**.
 
 ## Documentation
 
@@ -62,8 +62,23 @@ Branch protection should require the single aggregate check named **`CI`**.
 
 ## Setup for maintainers
 
-The ApexYard review job needs one repository secret:
+**No Anthropic API key is required, and none should ever be added.** This project's policy is that Anthropic credentials never leave the maintainer's machine — not in GitHub Secrets, not in Actions, not in a Docker image, not in a committed env file.
 
-**Settings → Secrets and variables → Actions** → `ANTHROPIC_API_KEY`
+The AI code review therefore runs locally, before every push:
 
-Without it the review job skips with a warning instead of failing. That is also what happens on pull requests opened from forks, since GitHub withholds secrets from them by design.
+```bash
+npm run verify:local     # AI review, then every other gate, in order
+```
+
+GitHub verifies everything that does not need a model, across **two** workflows:
+
+| Workflow | Checks | Aggregate check |
+|---|---|---|
+| [`ci.yml`](.github/workflows/ci.yml) | TypeScript, ESLint errors, Vitest + coverage, Playwright, build, bundle budget | `CI` |
+| [`security.yml`](.github/workflows/security.yml) | Production dependency audit, TruffleHog verified-secret scan, committed-env-file check (all blocking); licence, markdown, and link checks (report-only) | `Security` |
+
+Then [`deploy.yml`](.github/workflows/deploy.yml) publishes to Pages — gated on `CI` passing — and verifies the live site.
+
+**Branch protection is not currently enabled on `main`,** so none of the above blocks a push today; they report. Enabling it would mean requiring **both** `CI` and `Security`, not `CI` alone — the dependency audit and secret scan live in the second one.
+
+See [docs/APEXYARD.md](docs/APEXYARD.md#why-the-ai-review-is-local-only) for the reasoning and the trade-off it accepts.
