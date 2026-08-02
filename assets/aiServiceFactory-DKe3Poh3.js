@@ -1,0 +1,1 @@
+var n=Object.defineProperty;var a=(i,e,t)=>e in i?n(i,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):i[e]=t;var s=(i,e,t)=>a(i,typeof e!="symbol"?e+"":e,t);import{G as r}from"./geminiService-BA79jQBm.js";class c{static getService(){return this.instance||(this.instance=new r),this.instance}}s(c,"instance");const S=c.getService();export{S as a};
