@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Check, AlertTriangle, ShieldPlus, RefreshCw, UserPlus, Zap, Key } from 'lucide-react';
 import { TRANSLATIONS, Language } from '../utils/translations';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface ApiKeyModalProps {
   language: Language;
@@ -45,13 +46,34 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 }) => {
   const t = TRANSLATIONS[language];
 
+  // Escape to close, Tab trapped inside, focus restored on close (TD-008).
+  const dialogRef = useModalA11y<HTMLDivElement>(onClose);
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-sm shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200 border border-slate-200">
+      {/*
+        No onClick-to-dismiss on the backdrop: this dialog holds API keys
+        mid-entry, and a stray click outside would discard them with no undo.
+        Escape and the close button are both explicit.
+      */}
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="api-key-modal-title"
+        tabIndex={-1}
+        className="bg-white rounded-sm shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200 border border-slate-200"
+      >
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-slate-800">{t.actions.configureKey}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <X size={24} />
+          <h3 id="api-key-modal-title" className="text-xl font-bold text-slate-800">
+            {t.actions.configureKey}
+          </h3>
+          <button
+            onClick={onClose}
+            aria-label={`Close ${t.actions.configureKey}`}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X size={24} aria-hidden="true" />
           </button>
         </div>
 
@@ -115,7 +137,19 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           </label>
           <form onSubmit={(e) => { e.preventDefault(); handleTestGroq(); }} className="flex space-x-2">
              <input type="password" value={groqKey} onChange={(e) => { setGroqKey(e.target.value); setGroqStatus('idle'); }} placeholder="gsk_..." className="flex-1 p-2.5 border border-slate-300 bg-slate-50 rounded-sm font-mono text-xs focus:ring-1 focus:ring-orange-500 outline-none transition-colors text-slate-900 placeholder-slate-400" />
-             <button type="button" onClick={handleTestGroq} disabled={!groqKey || testingGroq} className="flex items-center justify-center space-x-1 px-3 rounded-sm text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors min-w-[60px]">{testingGroq ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}</button>
+             {/* Icon-only, unlike its Gemini counterpart which carries a text
+                 label — so it needs an explicit name. aria-busy lets a screen
+                 reader announce the in-flight state the spinner conveys visually. */}
+             <button
+               type="button"
+               onClick={handleTestGroq}
+               disabled={!groqKey || testingGroq}
+               aria-label={t.actions.test}
+               aria-busy={testingGroq}
+               className="flex items-center justify-center space-x-1 px-3 rounded-sm text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors min-w-[60px]"
+             >
+               {testingGroq ? <RefreshCw size={14} className="animate-spin" aria-hidden="true" /> : <Check size={14} aria-hidden="true" />}
+             </button>
           </form>
         </div>
 
