@@ -79,7 +79,32 @@ const sumBy = (exts) =>
 const jsFiles = files.filter((f) => f.ext === '.js').sort((a, b) => b.gzip - a.gzip);
 const largestJs = jsFiles[0]?.gzip ?? 0;
 
+/**
+ * What the browser fetches to render the landing page: the entry script, every
+ * `modulepreload` hint, and the stylesheet.
+ *
+ * This is the headline metric. Once the app is code-split, total bundle size
+ * stops meaning much — it went *up* when splitting landed, because chunking
+ * adds module overhead, while the page got roughly six times faster to start.
+ * The number a user experiences is this one.
+ */
+function initialLoadBytes() {
+  const indexPath = join(DIST, 'index.html');
+  if (!existsSync(indexPath)) return 0;
+  const html = readFileSync(indexPath, 'utf8');
+  const refs = [...html.matchAll(/(?:src|href)="([^"]*\.(?:js|css))"/g)].map((m) =>
+    m[1].replace(/^.*\/assets\//, 'assets/'),
+  );
+  let total = 0;
+  for (const ref of new Set(refs)) {
+    const f = files.find((x) => x.path.replace(/\\/g, '/').endsWith(ref));
+    if (f) total += f.gzip;
+  }
+  return total;
+}
+
 const measured = {
+  'initial-load': initialLoadBytes(),
   'largest-js-chunk': largestJs,
   'total-js': sumBy(['.js']),
   'total-css': sumBy(['.css']),

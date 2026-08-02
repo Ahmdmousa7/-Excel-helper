@@ -22,15 +22,12 @@ export default defineConfig({
 
   retries: process.env.CI ? 2 : 0,
 
-  // Capped rather than left to the CPU count. Each worker boots the full
-  // 3.8 MB bundle (TD-004), and past ~3 concurrent boots on one machine the
-  // app takes long enough to become interactive that tests fail on timeout
-  // rather than on behaviour. That is a false negative, and false negatives
-  // are how a suite loses its credibility.
-  //
-  // Raise this once code splitting lands — the cap is a symptom of the bundle,
-  // not a property of the tests.
-  workers: process.env.CI ? 2 : 3,
+  // Was capped at 3 locally because each worker booted the full 3.8 MB bundle
+  // and concurrent boots pushed tests past their timeout. Code splitting
+  // (TD-004) cut the initial load to ~199 KB, so the cap is no longer needed —
+  // left to the CPU count locally, held at 4 on CI where the runner has 2 cores
+  // and oversubscribing costs more than it gains.
+  workers: process.env.CI ? 4 : undefined,
 
   timeout: 60_000,
   expect: { timeout: 10_000 },
