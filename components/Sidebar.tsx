@@ -22,6 +22,9 @@ interface SidebarProps {
   setShowKeyModal: (show: boolean) => void;
   keyCount: number;
   groqKey: string;
+  /** Below `md` the sidebar is an off-canvas drawer; this is its open state. */
+  isMobileNavOpen: boolean;
+  setMobileNavOpen: (open: boolean) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -42,13 +45,47 @@ const Sidebar: React.FC<SidebarProps> = ({
   toggleLanguage,
   setShowKeyModal,
   keyCount,
-  groqKey
+  groqKey,
+  isMobileNavOpen,
+  setMobileNavOpen
 }) => {
   const t = TRANSLATIONS[language];
 
   return (
-    <aside 
-      className={`flex flex-col shrink-0 transition-all duration-300 z-20 shadow-sm border-e ${isSidebarCollapsed ? 'w-16' : 'w-64'}`}
+    <>
+    {/*
+      Backdrop, mobile only. The drawer overlays content rather than pushing it,
+      so there has to be an obvious way back — tapping outside is what every
+      mobile user tries first. Unlike the API-key dialog, dismissing this
+      discards nothing, so click-to-close is safe here.
+    */}
+    {isMobileNavOpen && (
+      <button
+        type="button"
+        aria-label="Close navigation"
+        onClick={() => setMobileNavOpen(false)}
+        className="md:hidden fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-[1px] animate-in fade-in duration-200"
+      />
+    )}
+
+    <aside
+      /*
+        TD-005. Below `md` this was a fixed 256px column — 68% of a 375px screen
+        — which pushed 22 header controls off the right edge where they could
+        not be reached at all.
+        Now: static in the flow at `md` and up, off-canvas drawer below it.
+        `rtl:` variants matter because the app ships Arabic; without them the
+        drawer would slide in from the wrong edge and cover the content it is
+        supposed to sit beside.
+      */
+      className={[
+        'flex flex-col shrink-0 transition-transform duration-300 shadow-sm border-e',
+        'md:relative md:translate-x-0 md:transition-all md:z-20',
+        isSidebarCollapsed ? 'md:w-16' : 'md:w-64',
+        'max-md:fixed max-md:inset-y-0 max-md:start-0 max-md:z-40 max-md:w-64',
+        isMobileNavOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full max-md:rtl:translate-x-full',
+      ].join(' ')}
+      aria-hidden={undefined}
       style={{ backgroundColor: 'var(--sidebar-bg)', borderColor: 'var(--sidebar-border)', color: 'var(--sidebar-text)' }}
     >
       {/* Logo Area */}
@@ -100,7 +137,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <button
                     key={itemId}
-                    onClick={() => setActiveTab(itemId)}
+                    onClick={() => { setActiveTab(itemId); setMobileNavOpen(false); }}
                     title={isSidebarCollapsed ? item.title : ''}
                     className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-sm text-sm font-medium transition-all duration-100 group border border-transparent`}
                     style={{ backgroundColor: isActive ? 'var(--sidebar-active-bg)' : 'transparent', color: isActive ? 'var(--sidebar-active-text)' : 'var(--sidebar-text)', borderColor: isActive ? 'var(--sidebar-border)' : 'transparent' }}
@@ -151,6 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
     </aside>
+    </>
   );
 };
 

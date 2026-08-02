@@ -138,6 +138,9 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showLogs, setShowLogs] = useState<boolean>(false);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Off-canvas nav, below `md` only (TD-005). Deliberately separate from
+  // isSidebarCollapsed, which is the desktop icon-rail toggle.
+  const [isMobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Theme & Language State
@@ -447,6 +450,8 @@ const App: React.FC = () => {
         setShowKeyModal={setShowKeyModal}
         keyCount={keyCount}
         groqKey={groqKey}
+        isMobileNavOpen={isMobileNavOpen}
+        setMobileNavOpen={setMobileNavOpen}
       />
 
       {/* Main Content */}
@@ -464,6 +469,8 @@ const App: React.FC = () => {
            handleReset={handleReset}
            showLogs={showLogs}
            setShowLogs={setShowLogs}
+           onOpenMobileNav={() => setMobileNavOpen(true)}
+           isMobileNavOpen={isMobileNavOpen}
          />
 
          {/* Main */}

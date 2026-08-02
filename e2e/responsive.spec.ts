@@ -28,20 +28,20 @@ test.describe('responsive layout', () => {
   });
 
   /**
-   * Known mobile-layout debt (TD-005).
+   * Mobile overflow ratchet (TD-005).
    *
-   * The sidebar is a fixed `w-64` (256px) with no responsive collapse, so on a
-   * 375px screen the header controls are pushed off the right edge. The page
-   * itself does not scroll sideways — something clips it — but the controls are
-   * unreachable, which is worse than a visible overflow.
+   * Was 24, when the sidebar was a fixed `w-64` with no responsive collapse and
+   * 22 header controls sat off the right edge, unreachable. The off-canvas
+   * drawer brought that to **1**.
    *
-   * A RATCHET: the current count is recorded and the test fails if it grows.
-   * Lower this as the layout is fixed. Never raise it to make a red build green.
+   * The one remaining is `DIV.absolute -top-24 -right-24 w-96` — a decorative
+   * background blob deliberately positioned past the edge. It is not a defect,
+   * so the budget is 2: room for that plus platform font-metric variance,
+   * without room for a real regression to hide in.
    *
-   * Measured: 22 offenders on Chromium at 375x812. The budget carries a little
-   * headroom so platform font-metric differences cannot flip the result alone.
+   * Never raise this to make a red build green.
    */
-  const KNOWN_MOBILE_OVERFLOW_BUDGET = 24;
+  const KNOWN_MOBILE_OVERFLOW_BUDGET = 2;
 
   test('mobile overflow does not get worse', async ({ shell, page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
@@ -102,6 +102,74 @@ test.describe('responsive layout', () => {
     expect(wide).not.toBeNull();
     expect(narrow).not.toBeNull();
     expect(narrow!.width).toBeLessThanOrEqual(wide!.width);
+  });
+
+  test.describe('mobile navigation drawer', () => {
+    test.use({ viewport: { width: 375, height: 812 } });
+
+    test('the sidebar is off-canvas by default and the trigger is visible', async ({ shell, page }) => {
+      await shell.goto();
+
+      // Off-canvas, not display:none — it stays in the accessibility tree and
+      // slides rather than popping, which is what makes the transition read as
+      // a drawer instead of a flash.
+      const box = await shell.sidebar.boundingBox();
+      expect(box, 'the sidebar element is gone entirely').not.toBeNull();
+      expect(box!.x + box!.width, 'the sidebar is not off-canvas at 375px').toBeLessThanOrEqual(1);
+
+      await expect(page.getByRole('button', { name: /open navigation/i })).toBeVisible();
+    });
+
+    test('the trigger opens it and the backdrop closes it', async ({ shell, page }) => {
+      await shell.goto();
+
+      await page.getByRole('button', { name: /open navigation/i }).click();
+      await page.waitForTimeout(400); // the slide transition
+      expect((await shell.sidebar.boundingBox())!.x, 'the drawer did not slide in').toBeGreaterThanOrEqual(-1);
+
+      // Tap to the RIGHT of the drawer, not on the backdrop's centre. The
+      // backdrop is full-screen, so its centre point sits underneath the 256px
+      // drawer — Playwright would click there and hit the drawer instead. This
+      // also matches what a real user does: they tap the visible content beside
+      // the panel, not its middle.
+      await expect(page.getByRole('button', { name: /close navigation/i })).toBeVisible();
+      await page.mouse.click(340, 400);
+      await page.waitForTimeout(400);
+
+      const box = await shell.sidebar.boundingBox();
+      expect(box!.x + box!.width, 'tapping outside did not close the drawer').toBeLessThanOrEqual(1);
+    });
+
+    test('picking a tool closes the drawer', async ({ shell, page }) => {
+      await shell.goto();
+      await page.getByRole('button', { name: /open navigation/i }).click();
+      await page.waitForTimeout(400);
+
+      // Leaving it open over the tool the user just chose would hide the thing
+      // they came for.
+      await shell.sidebar.getByRole('button', { name: 'Separator', exact: false }).first().click();
+      await page.waitForTimeout(600);
+
+      const box = await shell.sidebar.boundingBox();
+      expect(box!.x + box!.width, 'the drawer stayed open after choosing a tool').toBeLessThanOrEqual(1);
+    });
+
+    test('the header controls are reachable at 375px', async ({ shell, page }) => {
+      // The actual regression TD-005 describes: 22 controls pushed past the
+      // right edge, where no amount of scrolling reached them.
+      await shell.goto();
+
+      const offscreen = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const header = document.querySelector('header');
+        if (!header) return ['no <header> found'];
+        return Array.from(header.querySelectorAll<HTMLElement>('button'))
+          .filter((b) => { const r = b.getBoundingClientRect(); return r.width && r.left > vw; })
+          .map((b) => b.getAttribute('aria-label') ?? b.className.slice(0, 30));
+      });
+
+      expect(offscreen, `header controls off the right edge:\n${offscreen.join('\n')}`).toEqual([]);
+    });
   });
 
   test('a tool renders correctly on a tablet', async ({ shell, page }) => {

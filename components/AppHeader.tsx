@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, HelpCircle, Mic, MicOff, FileSpreadsheet, X, RotateCcw, PanelBottomOpen, PanelBottomClose } from 'lucide-react';
+import { Info, HelpCircle, Mic, MicOff, FileSpreadsheet, X, RotateCcw, PanelBottomOpen, PanelBottomClose, Menu } from 'lucide-react';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { FileData } from '../types';
 
@@ -15,6 +15,9 @@ interface AppHeaderProps {
   handleReset: () => void;
   showLogs: boolean;
   setShowLogs: (show: boolean) => void;
+  /** Opens the off-canvas nav below `md`. See TD-005. */
+  onOpenMobileNav: () => void;
+  isMobileNavOpen: boolean;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
@@ -28,15 +31,31 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   isExcelTool,
   handleReset,
   showLogs,
-  setShowLogs
+  setShowLogs,
+  onOpenMobileNav,
+  isMobileNavOpen
 }) => {
   const t = TRANSLATIONS[language];
 
+  // `min-w-0` on the header and the title lets the flex children shrink instead
+  // of forcing the row wider than the viewport — without it the long tool names
+  // push the right-hand controls off a phone screen (TD-005).
   return (
-    <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10 shrink-0">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 text-lg font-bold text-slate-800">
-          {activeTabObj?.icon}<span>{activeTabObj?.title}</span>
+    <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between gap-2 px-3 md:px-6 shadow-sm z-10 shrink-0 min-w-0">
+      <div className="flex items-center gap-2 md:gap-4 min-w-0">
+        {/* Mobile nav trigger. Hidden from `md` up, where the sidebar is always visible. */}
+        <button
+          type="button"
+          onClick={onOpenMobileNav}
+          aria-label="Open navigation"
+          aria-expanded={isMobileNavOpen}
+          className="md:hidden shrink-0 p-2 -ms-1 rounded-md text-slate-600 hover:bg-slate-100 transition-colors"
+        >
+          <Menu size={20} aria-hidden="true" />
+        </button>
+        <div className="flex items-center gap-2 text-base md:text-lg font-bold text-slate-800 min-w-0">
+          <span className="shrink-0">{activeTabObj?.icon}</span>
+          <span className="truncate">{activeTabObj?.title}</span>
         </div>
         {activeTabObj && activeTab !== -1 && (
           <div className="group relative flex items-center">
