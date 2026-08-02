@@ -58,6 +58,23 @@ A 10 would mean zero `any`, zero lint warnings, and full component test coverage
 | 2026-08-02 | **6.3** | Phase 2. Dependency governance 3→7 · Build 3→5 · GitHub Actions 7→9 · Security 4→5. Detail below. |
 | 2026-08-02 | **7.1** | Phase 3. **TD-001 closed** — production audit 5 high/critical → **zero**. Security 5→8, Dependency governance 7→9. Flaky a11y scan made deterministic. |
 | 2026-08-02 | **7.6** | Phase 4. TD-007 closed (Tailwind into the build), TD-006 closed (CSP shipped). Build 5→6, Security 8→9. Found TD-023 (public CORS proxies). |
+| 2026-08-02 | **8.3** | Phase 5. **TD-004 closed** — initial load 1,252 KB → **199 KB gzipped (−84%)**. Build 6→9, Playwright 8.5→9. |
+
+### Phase 5 movement
+
+| Subsystem | Before | After | What moved it |
+|---|:---:|:---:|---|
+| Build pipeline | 6 | **9** | 84% cut to initial load across 81 lazy chunks; budget now gates the metric users actually feel |
+| Playwright | 8.5 | **9** | Worker cap lifted (it existed only because of the bundle); deterministic uncapped across two runs |
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Initial load (gzip) | 1,252 KB | **199.3 KB** |
+| Entry script | 1,252 KB | 31.6 KB |
+| Chunks emitted | 6 | 81 |
+| Full e2e wall clock | 5.5 min | 1.6 min |
+
+The load-bearing detail: `manualChunks` in its object form hoists a named chunk into the entry's preload graph **even when only dynamic imports reference it**. Naming `vendor-pdf`, `vendor-spreadsheet`, `vendor-media` and `vendor-ai` put all four into `<link rel="modulepreload">` on the landing page — 880 KB gzipped of tools nobody had opened. Measuring the built `index.html` rather than trusting the chunk list is what caught it.
 
 ### Phase 4 movement
 
