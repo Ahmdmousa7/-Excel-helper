@@ -1,46 +1,49 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { FileData, LogEntry } from './types';
-import { readExcelFile, fetchGoogleSheet } from './services/excelService';
-import { aiService } from './services/aiServiceFactory';
-import { getStoredApiKeys, setStoredApiKeys, verifyGeminiKey, verifyGroqKey } from './services/geminiService';
+// excelService is imported dynamically in the handlers below (TD-004): it pulls
+// xlsx + xlsx-js-style (~515 KB gzipped), and nothing needs them until the user
+// actually opens a file.
+import { getStoredApiKeys, setStoredApiKeys } from './services/apiKeyStorage';
+// verifyGeminiKey / verifyGroqKey are imported dynamically where used (TD-004):
+// they live in geminiService, which pulls @google/genai (~52 KB gzipped).
 import { TRANSLATIONS, Language } from './utils/translations';
 import LogViewer from './components/LogViewer';
 import { useVoiceControl } from './hooks/useVoiceControl';
 
 // ... tool imports ...
-import HomeTab from './components/HomeTab';
-import TranslateTab from './components/TranslateTab';
-import DuplicatesTab from './components/DuplicatesTab';
-import CompositeTab from './components/CompositeTab';
-import SallaTab from './components/SallaTab';
-import ZidTab from './components/ZidTab';
-import VariableBalanceTab from './components/VariableBalanceTab';
-import MergeImagesTab from './components/MergeImagesTab';
-import PdfToolsTab from './components/PdfToolsTab';
-import ImageToPdfTab from './components/ImageToPdfTab';
-import ImageCompressorTab from './components/ImageCompressorTab';
-import QrCodeTab from './components/QrCodeTab';
-import CsvConverterTab from './components/CsvConverterTab';
-import PacksTab from './components/PacksTab';
-import WebScraperTab from './components/WebScraperTab';
-import OcrTab from './components/OcrTab';
-import GoogleSheetsTab from './components/GoogleSheetsTab';
-import FileValidationTab from './components/FileValidationTab'; 
-import VariableBalanceTabV2 from './components/VariableBalanceTabV2';
-import UnpivotTab from './components/UnpivotTab';
-import SmartLookupTab from './components/SmartLookupTab';
-import ProjectSummaryTab from './components/ProjectSummaryTab';
+const HomeTab = lazy(() => import('./components/HomeTab'));
+const TranslateTab = lazy(() => import('./components/TranslateTab'));
+const DuplicatesTab = lazy(() => import('./components/DuplicatesTab'));
+const CompositeTab = lazy(() => import('./components/CompositeTab'));
+const SallaTab = lazy(() => import('./components/SallaTab'));
+const ZidTab = lazy(() => import('./components/ZidTab'));
+const VariableBalanceTab = lazy(() => import('./components/VariableBalanceTab'));
+const MergeImagesTab = lazy(() => import('./components/MergeImagesTab'));
+const PdfToolsTab = lazy(() => import('./components/PdfToolsTab'));
+const ImageToPdfTab = lazy(() => import('./components/ImageToPdfTab'));
+const ImageCompressorTab = lazy(() => import('./components/ImageCompressorTab'));
+const QrCodeTab = lazy(() => import('./components/QrCodeTab'));
+const CsvConverterTab = lazy(() => import('./components/CsvConverterTab'));
+const PacksTab = lazy(() => import('./components/PacksTab'));
+const WebScraperTab = lazy(() => import('./components/WebScraperTab'));
+const OcrTab = lazy(() => import('./components/OcrTab'));
+const GoogleSheetsTab = lazy(() => import('./components/GoogleSheetsTab'));
+const FileValidationTab = lazy(() => import('./components/FileValidationTab'));
+const VariableBalanceTabV2 = lazy(() => import('./components/VariableBalanceTabV2'));
+const UnpivotTab = lazy(() => import('./components/UnpivotTab'));
+const SmartLookupTab = lazy(() => import('./components/SmartLookupTab'));
+const ProjectSummaryTab = lazy(() => import('./components/ProjectSummaryTab'));
 
-import { CleanTool } from './components/CleanTool';
-import { CompareTool } from './components/CompareTool';
-import { DeduplicateTool } from './components/DeduplicateTool';
-import { MergeTool } from './components/MergeTool';
-import { SplitterTool } from './components/SplitterTool';
+const CleanTool = lazy(() => import('./components/CleanTool').then(m => ({ default: m.CleanTool })));
+const CompareTool = lazy(() => import('./components/CompareTool').then(m => ({ default: m.CompareTool })));
+const DeduplicateTool = lazy(() => import('./components/DeduplicateTool').then(m => ({ default: m.DeduplicateTool })));
+const MergeTool = lazy(() => import('./components/MergeTool').then(m => ({ default: m.MergeTool })));
+const SplitterTool = lazy(() => import('./components/SplitterTool').then(m => ({ default: m.SplitterTool })));
 
-import MagicLinkTab from './components/MagicLinkTab';
+const MagicLinkTab = lazy(() => import('./components/MagicLinkTab'));
 
-import SupportChat from './components/SupportChat';
+const SupportChat = lazy(() => import('./components/SupportChat'));
 import ApiKeyModal from './components/ApiKeyModal';
 import Sidebar from './components/Sidebar';
 import AppHeader from './components/AppHeader';
@@ -52,7 +55,7 @@ import {
   Image as ImageIcon, Scissors, FileImage, Zap, QrCode, FileText, RefreshCw, AlertTriangle, 
   Package, Globe, ScanText, ChevronRight, Hexagon, Palette, ChevronLeft, Info, HelpCircle, RotateCcw,
   Languages, PanelBottomOpen, PanelBottomClose, Terminal, Store, Network, Link as LinkIcon, ArrowRight, UserPlus, Home, Mic, MicOff, ShieldCheck, ArrowDownRight, Search, Bot, Building2, LogOut, Lightbulb,
-  Eraser, GitCompare, Filter, Combine, SplitSquareHorizontal
+  Eraser, GitCompare, Filter, Combine, SplitSquareHorizontal, Loader2
 } from 'lucide-react';
 import { logout } from './firebase';
 
@@ -110,6 +113,24 @@ const THEMES = {
 type ThemeKey = keyof typeof THEMES;
 
 const DEFAULT_GOOGLE_CLIENT_ID = "204867991878-fuucosuoei7mpqhp8m4qre8n9ej3vj7n.apps.googleusercontent.com";
+
+/**
+ * Shown while a tab's chunk downloads (TD-004).
+ *
+ * Deliberately matches the height and centring of a loaded tool so switching
+ * tabs does not collapse the layout and then jolt it back — a spinner that
+ * changes the page height reads as a bug even when it is working correctly.
+ */
+const TabLoadingFallback: React.FC = () => (
+  <div
+    className="flex flex-col items-center justify-center py-24 text-slate-400"
+    role="status"
+    aria-live="polite"
+  >
+    <Loader2 className="animate-spin mb-3" size={32} aria-hidden="true" />
+    <span className="text-sm font-medium">Loading tool…</span>
+  </div>
+);
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<number>(-1); // Default to Home (-1)
@@ -247,7 +268,7 @@ const App: React.FC = () => {
     if (!geminiKey) return;
     setTestingGemini(true);
     setGeminiStatus('idle');
-    const result = await verifyGeminiKey(geminiKey);
+    const result = await (await import('./services/geminiService')).verifyGeminiKey(geminiKey);
     setTestingGemini(false);
     setGeminiStatus(result);
   };
@@ -256,7 +277,7 @@ const App: React.FC = () => {
     if (!groqKey) return;
     setTestingGroq(true);
     setGroqStatus('idle');
-    const isValid = await verifyGroqKey(groqKey);
+    const isValid = await (await import('./services/geminiService')).verifyGroqKey(groqKey);
     setTestingGroq(false);
     setGroqStatus(isValid ? 'valid' : 'invalid');
   };
@@ -312,6 +333,7 @@ const App: React.FC = () => {
 
     try {
       addLog(`${t.actions.uploadFile}: ${file.name}...`, 'info');
+      const { readExcelFile } = await import('./services/excelService');
       const data = await readExcelFile(file);
       setFileData(data);
       addToRecentFiles(file.name, 'local');
@@ -333,6 +355,7 @@ const App: React.FC = () => {
     setIsImportingGSheet(true);
     addLog(`Fetching Google Sheet...`, 'info');
     try {
+        const { fetchGoogleSheet } = await import('./services/excelService');
         const data = await fetchGoogleSheet(finalUrl);
         setFileData(data);
         addToRecentFiles(data.name, 'gsheet', finalUrl);
@@ -468,7 +491,13 @@ const App: React.FC = () => {
                <input key={`home-upload-${resetKey}`} type="file" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} className="hidden" id="home-upload-trigger" />
 
                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  {activeTabObj?.component && React.cloneElement(activeTabObj.component as React.ReactElement<any>, { key: resetKey, language })}
+                  {/* Each tab is a lazy chunk (TD-004). Suspense keys on the
+                      active tab so switching tools shows the fallback rather
+                      than holding the previous tool on screen while the next
+                      chunk downloads. */}
+                  <Suspense key={activeTab} fallback={<TabLoadingFallback />}>
+                    {activeTabObj?.component && React.cloneElement(activeTabObj.component as React.ReactElement<any>, { key: resetKey, language })}
+                  </Suspense>
                </div>
             </div>
          </main>
@@ -506,8 +535,13 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Floating Support Chat Widget */}
-      <SupportChat language={language} fileData={fileData} />
+      {/* Floating Support Chat Widget. Lazy (TD-004) — it imports xlsx, and a
+          chat bubble should not be on the first-paint critical path. No visible
+          fallback: the widget appearing a moment late is correct behaviour,
+          whereas a spinner floating over the corner of the app is not. */}
+      <Suspense fallback={null}>
+        <SupportChat language={language} fileData={fileData} />
+      </Suspense>
     </div>
   );
 };

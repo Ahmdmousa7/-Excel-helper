@@ -34,5 +34,45 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    // The entry chunk was 3.8 MB raw / 1,252 KB gzipped: every one of ~30 tools
+    // plus every heavy library, downloaded and parsed before first paint even if
+    // the user only opened one tool (TD-004).
+    //
+    // Two changes work together. The tabs are React.lazy in App.tsx, so each
+    // tool becomes its own chunk. These manualChunks then pull the heavy shared
+    // libraries out of the entry so they are fetched only by the tools that use
+    // them — and, being separate files, stay cached across deploys that only
+    // touch app code.
+    //
+    // Grouped by which tools need them, not one-chunk-per-package: a tool that
+    // reads a spreadsheet needs both xlsx and xlsx-js-style, so splitting those
+    // apart would just cost an extra request.
+    rollupOptions: {
+      output: {
+        // Only the libraries that are genuinely needed on first paint are named
+        // here. Everything else is left to Rollup, deliberately.
+        //
+        // The object form of manualChunks hoists a named chunk into the entry's
+        // preload graph even when the only things importing it are dynamic. An
+        // earlier version of this config named vendor-pdf, vendor-spreadsheet,
+        // vendor-media and vendor-ai — all imported exclusively by lazy tabs —
+        // and every one of them ended up as a <link rel="modulepreload"> on the
+        // landing page, adding ~880 KB gzipped that nobody had asked for.
+        //
+        // Rollup's automatic splitting handles those correctly: a library shared
+        // by several lazy tabs becomes its own chunk, fetched on first use.
+        manualChunks: {
+          // React is on every path.
+          'vendor-react': ['react', 'react-dom'],
+          // Firebase auth runs before anything renders (components/AuthWrapper).
+          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+        },
+      },
+    },
+    // The warning fires per chunk. With splitting in place the remaining large
+    // chunks are deliberate vendor bundles, and the real ceiling is enforced by
+    // scripts/check-bundle-budget.mjs against gzipped size, which is what users
+    // actually download.
+    chunkSizeWarningLimit: 900,
   },
 })
