@@ -59,6 +59,25 @@ A 10 would mean zero `any`, zero lint warnings, and full component test coverage
 | 2026-08-02 | **7.1** | Phase 3. **TD-001 closed** — production audit 5 high/critical → **zero**. Security 5→8, Dependency governance 7→9. Flaky a11y scan made deterministic. |
 | 2026-08-02 | **7.6** | Phase 4. TD-007 closed (Tailwind into the build), TD-006 closed (CSP shipped). Build 5→6, Security 8→9. Found TD-023 (public CORS proxies). |
 | 2026-08-02 | **8.3** | Phase 5. **TD-004 closed** — initial load 1,252 KB → **199 KB gzipped (−84%)**. Build 6→9, Playwright 8.5→9. |
+| 2026-08-02 | **8.7** | Phase 6. **TD-017, TD-005, TD-008 closed.** 62 → 101 tests. Playwright 9→10, Architecture 4→5. |
+
+### Phase 6 movement
+
+| Subsystem | Before | After | What moved it |
+|---|:---:|:---:|---|
+| Playwright | 9 | **10** | Page objects + real fixtures; large-file, invalid-file, offline, modal, and drawer suites. 101 tests, deterministic. |
+| Architecture | 4 | **5** | Test architecture only — selectors live in one place instead of nine spec files. The 1,000+ LOC components (TD-011) are untouched, which is what still holds this at 5. |
+| Accessibility debt | — | — | Mobile overflow ratchet 24 → **2**. `KNOWN_A11Y_DEBT` unchanged at 7; the modal and Compare Files fixes removed *instances*, not rule classes. |
+
+Three defects found by tests written in this phase, not by reading code:
+
+| Found by | Defect |
+|---|---|
+| New data-tool axe scan | 4 unlabelled `<select>`s in Compare Files — `select-name`, critical |
+| New network-watching regression test | SupportChat pulling the 515 KB spreadsheet engine onto first paint, via two separate import routes |
+| New modal suite | Second unnamed icon button, on a dialog no test had ever opened |
+
+The SupportChat one is worth remembering: the bundle budget said 199 KB and was right — those chunks load *after* first paint, so a static measurement of `index.html` could not see them. Only a test watching real network traffic could.
 
 ### Phase 5 movement
 
