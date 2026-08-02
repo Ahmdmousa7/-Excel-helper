@@ -127,11 +127,18 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          extra_args: --results=verified --fail
+          extra_args: --results=verified
         # --results=verified means it only fails on a credential it has
         # actively confirmed is live. Unverified matches are overwhelmingly
         # false positives (test fixtures, example keys, base64 blobs), and
         # gating on them trains people to add allow-list entries reflexively.
+        #
+        # Do NOT add --fail here. The action already appends it, and
+        # trufflehog rejects a repeated flag outright:
+        #   "flag 'fail' cannot be repeated"
+        # That aborts the scanner before it reads a single file — the job
+        # goes red without having scanned anything, which reads like a
+        # detection but is the opposite of one.
 
       - name: Check for committed env files
         if: always()
