@@ -205,8 +205,8 @@ const CsvConverterTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) 
                  chunks.push(rows);
              }
 
-             let baseName = csv.file.name.replace(/\.[^/.]+$/, "");
-             let safeName = sanitizeSheetName(baseName);
+             const baseName = csv.file.name.replace(/\.[^/.]+$/, "");
+             const safeName = sanitizeSheetName(baseName);
              
              chunks.forEach((chunk, chunkIdx) => {
                  let sheetName = safeName;

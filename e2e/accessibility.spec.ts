@@ -56,7 +56,7 @@ test.describe('accessibility', () => {
     const { known, regressions } = partition(results.violations as Violation[]);
 
     if (known.length) {
-      // eslint-disable-next-line no-console
+       
       console.log(`known a11y debt on the landing view:\n${describe(known)}`);
     }
     expect(
@@ -74,7 +74,7 @@ test.describe('accessibility', () => {
     const { known, regressions } = partition(results.violations as Violation[]);
 
     if (known.length) {
-      // eslint-disable-next-line no-console
+       
       console.log(`known a11y debt on the QR tool:\n${describe(known)}`);
     }
     expect(

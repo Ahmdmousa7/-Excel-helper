@@ -31,7 +31,7 @@ export const calculateSimilarity = (s1: string, s2: string): number => {
 const editDistance = (s1: string, s2: string): number => {
   s1 = s1.toLowerCase();
   s2 = s2.toLowerCase();
-  const costs = new Array();
+  const costs = [];
   for (let i = 0; i <= s1.length; i++) {
     let lastValue = i;
     for (let j = 0; j <= s2.length; j++) {
@@ -97,8 +97,8 @@ export const compareDatasets = (
 
        Object.entries(columnMapping).forEach(([col1Str, col2]) => {
            const col1 = Number(col1Str);
-           let val1 = String(row1[col1] ?? '').trim();
-           let val2 = String(row2[col2] ?? '').trim();
+           const val1 = String(row1[col1] ?? '').trim();
+           const val2 = String(row2[col2] ?? '').trim();
            
            if (decimalTolerance) {
                const n1 = Number(val1);

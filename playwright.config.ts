@@ -9,6 +9,10 @@ const BASE_PATH = '/-Excel-helper/';
 
 export default defineConfig({
   testDir: './e2e',
+  // e2e/live/** targets the deployed site and has no auth bypass, so it must
+  // not run against the local preview server. It has its own config:
+  // playwright.live.config.ts, driven by `npm run e2e:live`.
+  testIgnore: ['**/live/**'],
   outputDir: './test-results',
   fullyParallel: true,
 

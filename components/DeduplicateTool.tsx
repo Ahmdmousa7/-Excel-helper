@@ -55,7 +55,7 @@ export const DeduplicateTool: React.FC<Props> = ({ fileData, addLog }) => {
 
              // Map phase: Find all duplicates
              dataRows.forEach((row, rowIdx) => {
-                 let keyParts: string[] = [];
+                 const keyParts: string[] = [];
                  selectedCols.forEach(cIdx => {
                      keyParts.push(String(row[cIdx] ?? '').trim().toLowerCase());
                  });

@@ -23,7 +23,7 @@ interface Props {
 // Converts "00123" -> "123", 123 -> "123", "  ABC " -> "abc"
 const normalizeValue = (val: any, smartMode: boolean): string => {
     if (val === null || val === undefined) return "";
-    let str = String(val).trim();
+    const str = String(val).trim();
     if (!smartMode) return str.toLowerCase();
 
     // 1. Try parsing as number to strip leading zeros (e.g. "007" -> 7)

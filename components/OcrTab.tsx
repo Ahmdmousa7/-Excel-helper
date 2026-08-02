@@ -317,7 +317,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
           // TEXT MODE
           try {
               const result: any = await aiService.extractStructuredData(textInput, fullPrompt);
-              let resultArray = Array.isArray(result) ? result : [result];
+              const resultArray = Array.isArray(result) ? result : [result];
               
               if (resultArray.length > 0) {
                   // Post-Process: Generate Random SKUs

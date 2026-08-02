@@ -56,7 +56,7 @@ import {
 } from 'lucide-react';
 import { logout } from './firebase';
 
-declare var google: any;
+declare let google: any;
 
 // --- THEME DEFINITIONS ---
 const THEMES = {
@@ -271,7 +271,7 @@ const App: React.FC = () => {
       setShowKeyModal(false);
     }, 1000);
     
-    let msg = t.actions.saved;
+    const msg = t.actions.saved;
     addLog(msg, 'success');
   };
 

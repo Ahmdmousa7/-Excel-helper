@@ -82,20 +82,11 @@ jobs:
       - name: 7. Build
         run: npm run build
 
-      - name: Report bundle size
-        if: always()
-        run: |
-          {
-            echo '### Build output'
-            echo ''
-            echo '| File | Size |'
-            echo '|---|---:|'
-            find dist/assets -type f \( -name '*.js' -o -name '*.css' \) -printf '%f\t%s\n' 2>/dev/null \
-              | sort -k2 -rn | head -12 \
-              | awk -F'\t' '{ printf "| %s | %.1f KB |\n", $1, $2/1024 }'
-            echo ''
-            printf '**Total dist:** %s\n' "$(du -sh dist 2>/dev/null | cut -f1)"
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name: 8. Bundle budget
+        # HARD GATE. Budgets live in bundle-budget.json and are ratchets set
+        # just above today's measurement — the point is to notice growth, not
+        # to permit it. Raising one requires a stated reason in the diff.
+        run: node scripts/check-bundle-budget.mjs
 
       - name: Upload coverage
         if: always()
@@ -129,8 +120,29 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
 
+      - name: Resolve the Playwright version
+        id: pw
+        # Key the cache on the exact installed version. Keying on the
+        # package.json range would serve a stale browser after a patch bump,
+        # and Playwright hard-fails on a browser/driver mismatch.
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore cached browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
       - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install OS dependencies only
+        # The cache holds the browser binaries but not the apt packages they
+        # link against, so those are installed on every run regardless.
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: 5. Playwright
         # HARD GATE. playwright.config.ts builds with VITE_E2E_AUTH_BYPASS and

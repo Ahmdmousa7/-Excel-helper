@@ -1,32 +1,179 @@
-
 name: Deploy to GitHub Pages
 
+# WHAT CHANGED AND WHY
+# --------------------
+# This workflow previously ran `npm install && npm run build && deploy` on every
+# push to main, with no dependency on CI. Nothing stopped a red build, a failing
+# test, or a High ApexYard finding from reaching production — the deploy raced
+# CI and usually won, because it had fewer steps.
+#
+# It now waits for CI to conclude and refuses to publish unless it succeeded,
+# then verifies the deployed site.
+#
+# Also switched `npm install` -> `npm ci`: `install` can silently resolve
+# different transitive versions than the lockfile, so the artifact shipped
+# would not be the artifact CI tested.
+
 on:
-  push:
-    branches: [ main, master ]
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      skip-verification:
+        description: 'Publish without post-deploy verification (emergency only)'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: deploy-pages
+  # Never cancel a deploy midway — a half-published Pages branch is worse than
+  # a queued one.
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
+  gate:
+    name: Check CI passed
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - id: check
+        run: |
+          # workflow_dispatch carries no upstream conclusion; treat a manual run
+          # as a deliberate override by someone who can see the CI status.
+          if [ '${{ github.event_name }}' = 'workflow_dispatch' ]; then
+            echo 'proceed=true' >> "$GITHUB_OUTPUT"
+            echo 'Manual dispatch — proceeding.'
+            exit 0
+          fi
+
+          conclusion='${{ github.event.workflow_run.conclusion }}'
+          if [ "$conclusion" = 'success' ]; then
+            echo 'proceed=true' >> "$GITHUB_OUTPUT"
+            echo 'CI succeeded — proceeding.'
+          else
+            echo 'proceed=false' >> "$GITHUB_OUTPUT"
+            echo "::warning title=Deploy skipped::CI concluded '$conclusion'. Not publishing."
+            {
+              echo '## Deploy skipped'
+              echo ''
+              echo "The CI run for this commit concluded \`$conclusion\`."
+              echo 'Production was left on the previous build.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   build-and-deploy:
+    name: Build and publish
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
         with:
-          node-version: 20
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Install dependencies
-        run: npm install
+      - id: meta
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        # `ci`, not `install` — the deployed artifact must be built from the
+        # same locked tree CI tested.
+        run: npm ci --no-audit --no-fund
 
       - name: Build
         run: npm run build
 
-      - name: Deploy
+      - name: Re-check the bundle budget
+        # Cheap, and the last chance to catch a budget breach before users see it.
+        run: node scripts/check-bundle-budget.mjs
+
+      - name: Publish
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: dist
           branch: gh-pages
+          clean: true
+          commit-message: 'deploy: ${{ steps.meta.outputs.sha }}'
+
+  verify:
+    name: Verify the live site
+    needs: build-and-deploy
+    if: ${{ !inputs.skip-verification }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+
+      - name: Wait for the CDN to serve the new build
+        # Pages fronts gh-pages with a CDN that takes a minute or two to pick up
+        # a push. Polling beats a fixed sleep, which is either wasteful or flaky
+        # depending on the day.
+        run: |
+          url='https://ahmdmousa7.github.io/-Excel-helper/'
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || echo 000)
+            if [ "$code" = '200' ]; then
+              echo "Live after ${i} attempt(s)."
+              sleep 15   # let the CDN settle across edges
+              exit 0
+            fi
+            echo "attempt $i: HTTP $code"
+            sleep 10
+          done
+          echo '::error title=Deploy verification::Site did not return 200 within 5 minutes.'
+          exit 1
+
+      - name: Post-deployment checks
+        run: npm run e2e:live
+        env:
+          CI: 'true'
+
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo '## Deployment'
+            echo ''
+            echo '| | |'
+            echo '|---|---|'
+            echo '| Commit | `${{ needs.build-and-deploy.outputs.sha }}` |'
+            echo '| URL | https://ahmdmousa7.github.io/-Excel-helper/ |'
+            echo "| Live verification | \`${{ job.status }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: live-verification-failure
+          path: |
+            playwright-report-live/
+            test-results/live/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Flag a bad deploy
+        if: failure()
+        run: |
+          echo '::error title=Live site verification FAILED::The deploy published but the live site is not healthy. Investigate before pushing anything else — traces are in the uploaded artifact.'
+          exit 1

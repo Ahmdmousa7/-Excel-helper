@@ -323,7 +323,7 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
           for (const field of FIELDS) {
               const mappedCols = mapping[field.key] || [];
               mappedCols.forEach(cIdx => {
-                  let val = row[cIdx];
+                  const val = row[cIdx];
                   let strVal = val !== undefined && val !== null ? String(val).trim() : "";
                   
                   if (field.key === 'name') {
@@ -379,7 +379,7 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
                   else if (field.type === 'number') {
                       if (strVal === "") {
                       } else {
-                          let clean = strVal.replace(/,/g, '.');
+                          const clean = strVal.replace(/,/g, '.');
                           if (clean !== strVal) {
                               row[cIdx] = clean;
                               strVal = clean;
@@ -584,13 +584,13 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
                   
                   // 1. Data Sheet
                   const supplierColIdx = mapping['supplier']?.[0];
-                  let exportHeaders = [...headers];
+                  const exportHeaders = [...headers];
                   if (supplierColIdx !== undefined) exportHeaders.splice(supplierColIdx + 1, 0, "Supplier Code");
                   exportHeaders.push("Error Description");
 
                   const exportData = [exportHeaders];
                   chunkData.forEach(row => {
-                      let newRow = [...row];
+                      const newRow = [...row];
                       if (supplierColIdx !== undefined) {
                           const supplierName = newRow[supplierColIdx] || "";
                           newRow.splice(supplierColIdx + 1, 0, supplierName); 
@@ -672,7 +672,7 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
 
       // --- SHEET 1: Validated Data ---
       const supplierColIdx = mapping['supplier']?.[0];
-      let exportHeaders = [...headers];
+      const exportHeaders = [...headers];
       
       if (supplierColIdx !== undefined) {
           exportHeaders.splice(supplierColIdx + 1, 0, "Supplier Code");
@@ -682,7 +682,7 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
       const exportData = [exportHeaders];
       
       processedData.forEach(row => {
-          let newRow = [...row];
+          const newRow = [...row];
           if (supplierColIdx !== undefined) {
               const supplierName = newRow[supplierColIdx] || "";
               newRow.splice(supplierColIdx + 1, 0, supplierName); 

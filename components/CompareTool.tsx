@@ -175,7 +175,7 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
       results.diffs.forEach(diff => {
           let diffNames = '';
           let diffDesc = '';
-          let statusText = diff.status.toUpperCase();
+          const statusText = diff.status.toUpperCase();
           
           if (diff.status === 'missing_in_1') {
               diffDesc = 'Row missing in File 1';

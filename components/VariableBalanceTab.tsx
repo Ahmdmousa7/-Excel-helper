@@ -483,9 +483,9 @@ const VariableBalanceTab: React.FC<Props> = ({ fileData, addLog, onReset, langua
           }
 
           const opt1Values = optionsMap[0] || [];
-          let statusText = missingCombos.length > 0 ? t.balance.unbalanced : t.balance.balanced;
+          const statusText = missingCombos.length > 0 ? t.balance.unbalanced : t.balance.balanced;
           
-          let detailsStr = optionsMap.map(opts => opts.length).join(" x ") + " Variants";
+          const detailsStr = optionsMap.map(opts => opts.length).join(" x ") + " Variants";
           const allValuesStr = optionsMap.map((opts, i) => `Opt ${i+1}: [${opts.join(", ")}]`).join(" | ");
           const opt2Count = activeOptionCols.length > 1 ? Math.max(...optionsMap.slice(1).map(o=>o.length)) : "-";
           

@@ -227,7 +227,7 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
                    textToTranslate = validTexts.join(" ||| "); 
                }
 
-               let contextVal = contextCol !== -1 ? String(row[contextCol] || "") : "";
+               const contextVal = contextCol !== -1 ? String(row[contextCol] || "") : "";
                const uniqueKey = `${textToTranslate}_CTX:${contextVal}`;
                
                if (isAlreadyBilingual(textToTranslate)) {

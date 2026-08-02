@@ -99,9 +99,16 @@ export default tseslint.config(
 
   // Node-side config and tooling files.
   {
-    files: ['*.config.{ts,js}', 'scripts/**/*.{ts,js}', '**/*.cjs'],
-    languageOptions: { globals: { ...globals.node } },
-    rules: { '@typescript-eslint/no-require-imports': 'off' },
+    files: ['*.config.{ts,js,mjs}', 'scripts/**/*.{ts,js,mjs}', '**/*.cjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-undef': 'off', // Node globals are provided above; TS handles the rest.
+    },
   },
 
   // Tests get more rope: `any` in a fixture is fine, and non-null assertions
