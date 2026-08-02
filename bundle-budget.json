@@ -1,0 +1,43 @@
+{
+  "$comment": [
+    "Gzipped KB budgets enforced by scripts/check-bundle-budget.mjs in CI.",
+    "",
+    "These are RATCHETS set just above today's measurement, not aspirational targets.",
+    "A budget you are already failing is a budget everyone learns to ignore. Lower them",
+    "as TD-004 (code splitting) lands; the target for largest-js-chunk is 250.",
+    "",
+    "'current' is the last measured value, refreshed with --update. It exists so the",
+    "report can show a delta: growth that stays under budget is still worth seeing."
+  ],
+  "budgets": {
+    "largest-js-chunk": {
+      "label": "Largest single JS chunk",
+      "budget": 1350,
+      "current": 1266.9,
+      "target": 250,
+      "why": "The metric that decides time-to-interactive. One blocking chunk is the problem, not the total."
+    },
+    "total-js": {
+      "label": "Total JavaScript",
+      "budget": 1450,
+      "current": 1374.5,
+      "target": 900
+    },
+    "total-css": {
+      "label": "Total CSS",
+      "budget": 60,
+      "current": 0,
+      "why": "Currently 0 because Tailwind is compiled in-browser from a CDN (TD-007). Expect ~15-30 KB once it moves into the build."
+    },
+    "total-images": {
+      "label": "Total images",
+      "budget": 120,
+      "current": 0.9
+    },
+    "total-assets": {
+      "label": "Total shipped assets",
+      "budget": 1500,
+      "current": 1376.7
+    }
+  }
+}
