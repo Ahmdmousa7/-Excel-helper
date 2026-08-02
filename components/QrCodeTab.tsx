@@ -109,9 +109,19 @@ const QrCodeTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   const handleCopy = async () => {
     if (!qrDataUrl) return;
     try {
-      const res = await fetch(qrDataUrl);
-      const blob = await res.blob();
-      
+      // Decode the data URL directly rather than round-tripping it through
+      // fetch(). Two reasons: fetch() on a data: URL is governed by the CSP's
+      // connect-src (so a tightened policy silently broke copying, caught by
+      // e2e/clipboard.spec.ts), and it was a pointless trip through the
+      // network layer for bytes already in memory.
+      const [header, base64] = qrDataUrl.split(',');
+      const mime = header.match(/data:([^;]+)/)?.[1] ?? 'image/png';
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mime });
+
+
       if (typeof ClipboardItem !== 'undefined') {
         await navigator.clipboard.write([
           new ClipboardItem({ [blob.type]: blob })

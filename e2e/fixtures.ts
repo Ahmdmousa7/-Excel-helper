@@ -125,8 +125,10 @@ export function collectPageErrors(page: Page): string[] {
     /googleapis\.com/i,
     /accounts\.google\.com/i,
     /gsi\/client/i,
-    /cdn\.tailwindcss\.com/i,
-    /Content Security Policy/i,
+    // NOT ignored any more: `cdn.tailwindcss.com` (TD-007 removed it, so a
+    // message mentioning it means it came back) and `Content Security Policy`
+    // (TD-006 added one, so a violation is now a real finding rather than
+    // third-party noise). Both were on this list before those changes landed.
   ];
   const keep = (t: string) => !IGNORE.some((re) => re.test(t));
 

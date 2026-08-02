@@ -27,6 +27,77 @@ test.describe('regression', () => {
     expect(bad, `assets reference a root path instead of the Pages base:\n${bad.join('\n')}`).toEqual([]);
   });
 
+  test('a Content-Security-Policy is present and not violated', async ({ page }) => {
+    // TD-006. A CSP that is too strict breaks a feature silently — the browser
+    // blocks the request and logs to the console, which nobody is watching.
+    // This makes that a test failure instead.
+    const violations: string[] = [];
+    page.on('console', (m) => {
+      if (/content security policy|refused to (load|connect|execute|apply)/i.test(m.text())) {
+        violations.push(m.text());
+      }
+    });
+
+    await gotoApp(page);
+
+    const csp = await page
+      .locator('meta[http-equiv="Content-Security-Policy"]')
+      .getAttribute('content');
+    expect(csp, 'no CSP meta tag on the page').toBeTruthy();
+
+    // The three directives that are pure win and must never be relaxed.
+    expect(csp).toMatch(/object-src\s+'none'/);
+    expect(csp).toMatch(/base-uri\s+'self'/);
+    expect(csp).toMatch(/form-action\s+'self'/);
+
+    // Exercise a tool so the policy is tested against real work, not just load.
+    await openQrTool(page);
+    await generateQr(page, 'https://example.com/csp');
+    await page.waitForTimeout(1000);
+
+    expect(violations, `the CSP blocked something the app needs:\n${violations.join('\n')}`).toEqual([]);
+  });
+
+  test('Tailwind is compiled into the bundle, not loaded from a CDN', async ({ page }) => {
+    // TD-007. Tailwind moved from the cdn.tailwindcss.com Play script to a
+    // build-time PostCSS pipeline. The failure mode of that change is silent:
+    // a wrong `content` glob purges classes the app uses, the page still
+    // renders and still returns 200, and it just looks broken.
+    await gotoApp(page);
+
+    const cdnScripts = await page
+      .locator('script[src*="cdn.tailwindcss.com"]')
+      .count();
+    expect(cdnScripts, 'the Tailwind Play CDN script is back in the page').toBe(0);
+
+    const sheets = await page.locator('link[rel="stylesheet"][href*=".css"]').count();
+    expect(sheets, 'no compiled stylesheet is linked').toBeGreaterThan(0);
+  });
+
+  test('custom theme utilities survive purging', async ({ page }) => {
+    // `primary-*` is a custom token defined in tailwind.config.js, so it is the
+    // canary: if the content globs miss a directory, these are the first
+    // classes to vanish while stock utilities keep working.
+    await gotoApp(page);
+
+    const primaryButton = sidebar(page)
+      .locator('button.bg-primary-600')
+      .first();
+    await expect(primaryButton).toBeVisible();
+
+    const bg = await primaryButton.evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(bg, 'bg-primary-600 resolved to nothing — the custom palette was purged')
+      .toBe('rgb(37, 99, 235)'); // #2563eb
+
+    // A stock utility, to distinguish "custom tokens purged" from
+    // "Tailwind is not running at all".
+    const sidebarWidth = (await sidebar(page).boundingBox())?.width ?? 0;
+    expect(sidebarWidth, 'the w-64 sidebar has no width — Tailwind is not applied').toBeGreaterThan(200);
+
+    const font = await page.locator('body').evaluate((el) => getComputedStyle(el).fontFamily);
+    expect(font, 'the custom font stack is missing').toMatch(/Inter/i);
+  });
+
   test('no asset request 404s on the landing view', async ({ page }) => {
     const missing: string[] = [];
     page.on('response', (res) => {
