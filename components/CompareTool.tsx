@@ -81,7 +81,12 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
   };
 
   const handleFile2Upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
+      // Capture the input before awaiting. Reading `e.target` after the await
+      // reaches for the event object across a suspension point, which is what
+      // require-atomic-updates flags; holding the element directly is both
+      // clearer and immune to any future event-pooling behaviour.
+      const input = e.target;
+      const file = input.files?.[0];
       if (!file) return;
       try {
           addLog(`Parsing file 2: ${file.name}...`, 'info');
@@ -91,7 +96,8 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
       } catch (err: any) {
           addLog(`Failed to parse file 2: ${err.message}`, 'error');
       }
-      e.target.value = '';
+      // Reset so re-selecting the same file fires `change` again.
+      input.value = '';
   };
 
   const handleCompare = () => {
@@ -137,13 +143,20 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
               file2Data: d.data2
           }));
 
-          const prompt = `Analyze this data comparison between "${sheet1}" and "${sheet2}". 
-          Stats: Matches: ${results.summary.matches}, Mismatches: ${results.summary.mismatches}, Missing in 1: ${results.summary.missingIn1}, Missing in 2: ${results.summary.missingIn2}.
-          Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}
-          
-          Provide a professional executive summary for a Data Analyst. Focus on data consistency, potential discrepancies (pricing/inventory if applicable), and identifiable broader patterns over these rows. Keep it concise, action-oriented, and structured. Only return the analysis text.`;
+          const comparisonData = `Comparison between "${sheet1}" and "${sheet2}".
+Stats: Matches: ${results.summary.matches}, Mismatches: ${results.summary.mismatches}, Missing in 1: ${results.summary.missingIn1}, Missing in 2: ${results.summary.missingIn2}.
+Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
 
-          const response = await aiService.generateContent(prompt, { model: 'gemini-3.1-pro-preview' }, geminiKey);
+          const instruction =
+            'Provide a professional executive summary for a Data Analyst. Focus on data consistency, ' +
+            'potential discrepancies (pricing/inventory if applicable), and identifiable broader patterns ' +
+            'over these rows. Keep it concise, action-oriented, and structured. Only return the analysis text.';
+
+          // Was `aiService.generateContent(...)`, which does not exist on
+          // IAiService or on GeminiService — the button threw
+          // "aiService.generateContent is not a function" on every click.
+          // processGeneralFile is the provider-agnostic text-in/text-out entry point.
+          const response = await aiService.processGeneralFile({ text: comparisonData }, instruction);
           setAiAnalysis(response);
           addLog("AI Analysis generated.", "success");
       } catch (err: any) {
@@ -162,7 +175,7 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
       results.diffs.forEach(diff => {
           let diffNames = '';
           let diffDesc = '';
-          let statusText = diff.status.toUpperCase();
+          const statusText = diff.status.toUpperCase();
           
           if (diff.status === 'missing_in_1') {
               diffDesc = 'Row missing in File 1';
@@ -287,7 +300,7 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
                                      {fileData?.name || 'File 1 (Primary Upload)'}
                                  </span>
                              </div>
-                             <select className="w-full p-1.5 border rounded text-xs bg-white" value={sheet1} onChange={e => setSheet1(e.target.value)}>
+                             <select aria-label="Sheet from file 1" className="w-full p-1.5 border rounded text-xs bg-white" value={sheet1} onChange={e => setSheet1(e.target.value)}>
                                  {fileData?.sheets.map(s => <option key={s} value={s}>{s}</option>)}
                              </select>
                          </div>
@@ -307,9 +320,10 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
                                      </button>
                                  )}
                              </div>
-                             <select 
-                                className="w-full p-1.5 border rounded text-xs bg-white" 
-                                value={sheet2} 
+                             <select
+                                aria-label="Sheet from file 2"
+                                className="w-full p-1.5 border rounded text-xs bg-white"
+                                value={sheet2}
                                 onChange={e => setSheet2(e.target.value)}
                                 disabled={!fileData2 && !fileData}
                              >
@@ -324,13 +338,13 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
                      <div className="space-y-2">
                          <div>
                              <label className="text-[10px] font-semibold text-slate-500">File 1 Key</label>
-                             <select className="w-full p-1.5 border rounded text-xs bg-white" value={keyCol1} onChange={e => setKeyCol1(Number(e.target.value))}>
+                             <select aria-label="Key column in file 1" className="w-full p-1.5 border rounded text-xs bg-white" value={keyCol1} onChange={e => setKeyCol1(Number(e.target.value))}>
                                  {headers1.map((h, i) => <option key={i} value={i}>{h}</option>)}
                              </select>
                          </div>
                          <div>
                              <label className="text-[10px] font-semibold text-slate-500">File 2 Key</label>
-                             <select className="w-full p-1.5 border rounded text-xs bg-white" value={keyCol2} onChange={e => setKeyCol2(Number(e.target.value))}>
+                             <select aria-label="Key column in file 2" className="w-full p-1.5 border rounded text-xs bg-white" value={keyCol2} onChange={e => setKeyCol2(Number(e.target.value))}>
                                  {headers2.map((h, i) => <option key={i} value={i}>{h}</option>)}
                              </select>
                          </div>
@@ -344,7 +358,8 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
                               <div key={i} className="flex flex-col gap-1 mb-2 bg-slate-50 p-1.5 border rounded">
                                   <span className="text-[10px] font-semibold text-blue-800">{h}</span>
                                   <div className="flex items-center gap-1">
-                                      <select 
+                                      <select
+                                          aria-label={`Map column "${h}" to a column in file 2`}
                                           className="flex-1 w-full p-1 border rounded text-[10px] bg-white outline-none"
                                           value={columnMapping[i] ?? -1}
                                           onChange={e => updateMap(i, Number(e.target.value))}

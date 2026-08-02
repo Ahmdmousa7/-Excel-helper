@@ -264,7 +264,7 @@ const RewaaTab: React.FC<Props> = ({ fileData, addLog, onReset, language = 'en' 
          // Map fields based on configuration
          activeFields.forEach(f => {
             const sourceIdx = mapping[f.key];
-            let val = (sourceIdx !== undefined && sourceIdx !== -1) ? row[sourceIdx] : "";
+            const val = (sourceIdx !== undefined && sourceIdx !== -1) ? row[sourceIdx] : "";
             newRow.push(val);
          });
 

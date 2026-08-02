@@ -1,0 +1,51 @@
+{
+  "$comment": [
+    "Gzipped KB budgets enforced by scripts/check-bundle-budget.mjs in CI.",
+    "",
+    "'initial-load' is the headline: the entry script, every modulepreload hint,",
+    "and the stylesheet — what a first-time visitor downloads before the app is",
+    "usable. After code splitting (TD-004) it is the only size number that still",
+    "tracks user experience. Total bundle size went UP when splitting landed,",
+    "because chunking adds module overhead, while the page got ~6x faster to start.",
+    "",
+    "Budgets are ratchets set just above today's measurement. 'current' is the last",
+    "measured value, refreshed with --update, so the report can show a delta."
+  ],
+  "budgets": {
+    "initial-load": {
+      "label": "Initial load (entry + preloads + CSS)",
+      "budget": 230,
+      "current": 199.3,
+      "target": 170,
+      "why": "What the user waits for. Was 1252 KB before code splitting."
+    },
+    "largest-js-chunk": {
+      "label": "Largest single JS chunk",
+      "budget": 560,
+      "current": 340,
+      "target": 300,
+      "why": "Now a lazy vendor chunk (spreadsheet libs), not the entry — it costs only the tools that use it. Kept as a guard against one lazy chunk quietly becoming enormous."
+    },
+    "total-js": {
+      "label": "Total JavaScript (all chunks)",
+      "budget": 1600,
+      "current": 1410,
+      "why": "Expected to exceed the pre-split total: splitting duplicates some module overhead. Watched for runaway growth, not optimised down."
+    },
+    "total-css": {
+      "label": "Total CSS",
+      "budget": 60,
+      "current": 10.9
+    },
+    "total-images": {
+      "label": "Total images",
+      "budget": 120,
+      "current": 0.9
+    },
+    "total-assets": {
+      "label": "Total shipped assets",
+      "budget": 1700,
+      "current": 1424.1
+    }
+  }
+}

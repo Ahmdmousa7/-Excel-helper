@@ -26,7 +26,7 @@ interface IMagicLinkService {
 class RewaaAdminLinkService implements IMagicLinkService {
     async generateLink(email: string, rawToken: string, signal?: AbortSignal): Promise<string> {
         // Clean the token (remove surrounding quotes sometimes added when copying from devtools)
-        let token = rawToken.trim().replace(/^"|"$/g, '');
+        const token = rawToken.trim().replace(/^"|"$/g, '');
         
         // Normalize Authorization header
         let jwtOnly = token;
@@ -79,7 +79,7 @@ class RewaaAdminLinkService implements IMagicLinkService {
     }
 
     async extendAccess(email: string, rawToken: string, signal?: AbortSignal): Promise<string> {
-        let token = rawToken.trim().replace(/^"|"$/g, '');
+        const token = rawToken.trim().replace(/^"|"$/g, '');
         let jwtOnly = token;
         if (jwtOnly.toLowerCase().startsWith('bearer ')) {
             jwtOnly = jwtOnly.substring(7).trim();

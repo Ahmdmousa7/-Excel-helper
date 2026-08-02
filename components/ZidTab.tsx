@@ -349,8 +349,8 @@ const ZidTab: React.FC<Props> = ({ fileData, addLog, onReset, language = 'en' })
       let currentParentRowData: any[] = [];
       let isInsideVariableGroup = false;
       let orphanedCount = 0;
-      let missingSkuCount = 0;
-      let duplicateSkuCount = 0;
+      const missingSkuCount = 0;
+      const duplicateSkuCount = 0;
       const seenSkus = new Set<string>();
 
       const cleanSku = (sku: any) => {

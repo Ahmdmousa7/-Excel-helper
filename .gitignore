@@ -1,5 +1,23 @@
 node_modules
 dist
-.env
 .DS_Store
 *.log
+
+# --- Secrets -----------------------------------------------------------------
+# `.env` alone was not enough: README.md tells you to put GEMINI_API_KEY in
+# `.env.local`, which the old pattern did not match. One `git add -A` after a
+# `npm run dev` and the key was in the history.
+.env
+.env.*
+!.env.example
+
+# --- Test and build output ---------------------------------------------------
+coverage
+playwright-report
+test-results
+.apexyard
+
+# --- Editors -----------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea

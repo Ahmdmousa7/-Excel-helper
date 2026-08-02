@@ -1,0 +1,6 @@
+/* Tailwind entry point. Replaces the cdn.tailwindcss.com Play script that
+   previously compiled these utilities in the browser on every page load
+   (TD-007). Imported from index.tsx so Vite processes it through PostCSS. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

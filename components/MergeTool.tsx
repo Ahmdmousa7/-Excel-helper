@@ -181,7 +181,9 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                       const extSplit = sheetName.lastIndexOf('.');
                       if (extSplit !== -1) sheetName = sheetName.substring(0, extSplit);
                       if (sheetName.length > 31) sheetName = sheetName.substring(0, 31);
-                      sheetName = sheetName.replace(/[\[\]\*\\\/\?]/g, '');
+                      // Characters Excel rejects in a sheet name. Escapes inside a
+                      // character class are only needed for ] and \ — the rest were noise.
+                      sheetName = sheetName.replace(/[[\]*\\/?]/g, '');
                       return {
                           name: sheetName || 'Sheet',
                           data: getProcessedDataForFile(f.name)
@@ -590,7 +592,10 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                             </div>
                             <div>
                                 <h3 className="font-bold text-xl text-slate-800">Processing Complete</h3>
-                                {outputMode === 'single' && mergedData && (
+                                {/* mergedData is a union of any[][] and { sheets: ... }; narrow
+                                    the same way the export path at line ~236 already does,
+                                    rather than assuming the outputMode flag implies the shape. */}
+                                {outputMode === 'single' && Array.isArray(mergedData) && (
                                     <p className="text-slate-500">Unified dataset ready: {mergedData.length} records processed.</p>
                                 )}
                                 {outputMode === 'separate' && separateZips && (

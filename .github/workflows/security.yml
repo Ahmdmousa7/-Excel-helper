@@ -1,0 +1,261 @@
+name: Security
+
+# Runs alongside CI on every PR, and weekly so a newly-disclosed CVE in an
+# unchanged dependency still surfaces.
+#
+# GATING PHILOSOPHY
+# -----------------
+# Only two things here block a merge:
+#   - a high/critical vulnerability in a PRODUCTION dependency
+#   - a verified secret
+#
+# Everything else reports. That split is deliberate. There are currently 4
+# critical and 7 high advisories in this tree, and all but one live in
+# devDependencies (vitest, vite, postcss) that never reach a user. Gating on
+# those would make Security permanently red, and a permanently red check is
+# one people learn to click past — which is strictly worse than not having it.
+#
+# Production is where a vulnerability is reachable by an attacker, so
+# production is where the gate is.
+
+on:
+  pull_request:
+    branches: ['**']
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # =========================================================================
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+
+      - name: Audit production dependencies (BLOCKING)
+        id: prod
+        run: |
+          set +e
+          npm audit --omit=dev --audit-level=high --json > audit-prod.json
+          rc=$?
+          set -e
+
+          node -e '
+            const fs = require("fs");
+            let a; try { a = JSON.parse(fs.readFileSync("audit-prod.json","utf8")); }
+            catch { console.log("could not parse audit output"); process.exit(0); }
+            const v = a.metadata?.vulnerabilities ?? {};
+            const rows = [];
+            for (const [name, d] of Object.entries(a.vulnerabilities ?? {})) {
+              if (!["critical","high"].includes(d.severity)) continue;
+              const title = (d.via ?? []).find(x => typeof x === "object")?.title ?? "";
+              const fix = d.fixAvailable
+                ? (typeof d.fixAvailable === "object"
+                    ? `\`${d.fixAvailable.name}@${d.fixAvailable.version}\`${d.fixAvailable.isSemVerMajor ? " (major)" : ""}`
+                    : "available")
+                : "**none**";
+              rows.push(`| ${d.severity} | \`${name}\` | ${d.isDirect ? "direct" : "transitive"} | ${title.slice(0,70)} | ${fix} |`);
+            }
+            const out = [
+              "## Production dependency audit", "",
+              `critical **${v.critical ?? 0}** · high **${v.high ?? 0}** · moderate ${v.moderate ?? 0} · low ${v.low ?? 0}`, "",
+            ];
+            if (rows.length) {
+              out.push("| Severity | Package | Kind | Advisory | Fix |", "|---|---|---|---|---|", ...rows);
+            } else {
+              out.push("No high or critical advisories in production dependencies.");
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, out.join("\n") + "\n");
+          '
+
+          if [ "$rc" -ne 0 ]; then
+            echo "::error title=Production dependency audit::High or critical advisory in a dependency that ships to users."
+            exit 1
+          fi
+
+      - name: Audit all dependencies (report only)
+        if: always()
+        run: |
+          set +e
+          npm audit --json > audit-all.json
+          set -e
+          node -e '
+            const fs = require("fs");
+            let a; try { a = JSON.parse(fs.readFileSync("audit-all.json","utf8")); } catch { process.exit(0); }
+            const v = a.metadata?.vulnerabilities ?? {};
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+              `\n### Including devDependencies (report only)\n\n` +
+              `critical ${v.critical ?? 0} · high ${v.high ?? 0} · moderate ${v.moderate ?? 0} · low ${v.low ?? 0}\n\n` +
+              `Build-time only — tracked as TD-020, not gated.\n`);
+          '
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-reports
+          path: audit-*.json
+          retention-days: 30
+
+  # =========================================================================
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # TruffleHog diffs a range; on a PR it needs both ends.
+          fetch-depth: 0
+
+      - name: TruffleHog (BLOCKING on verified secrets)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          extra_args: --results=verified
+        # --results=verified means it only fails on a credential it has
+        # actively confirmed is live. Unverified matches are overwhelmingly
+        # false positives (test fixtures, example keys, base64 blobs), and
+        # gating on them trains people to add allow-list entries reflexively.
+        #
+        # Do NOT add --fail here. The action already appends it, and
+        # trufflehog rejects a repeated flag outright:
+        #   "flag 'fail' cannot be repeated"
+        # That aborts the scanner before it reads a single file — the job
+        # goes red without having scanned anything, which reads like a
+        # detection but is the opposite of one.
+
+      - name: Check for committed env files
+        if: always()
+        run: |
+          found=$(git ls-files | grep -E '^\.env($|\.)' | grep -v '\.env\.example$' || true)
+          if [ -n "$found" ]; then
+            echo "::error title=Committed env file::$found is tracked in git."
+            exit 1
+          fi
+          echo "No env files tracked. (.env.example is expected and fine.)"
+
+  # =========================================================================
+  license-check:
+    name: License compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true      # report-only until the allow-list is settled
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+
+      - name: Scan production licences
+        run: |
+          npx --yes license-checker-rseidelsohn \
+            --production --json --out licenses.json 2>/dev/null || true
+
+          node -e '
+            const fs = require("fs");
+            let data = {}; try { data = JSON.parse(fs.readFileSync("licenses.json","utf8")); } catch { process.exit(0); }
+
+            // Copyleft licences are the ones that can impose obligations on a
+            // distributed bundle. Flag, do not block: this repo is private-ish
+            // and the call is legal, not technical.
+            const FLAG = /GPL|AGPL|LGPL|SSPL|CDDL|EPL|MPL|CC-BY-NC|Unlicensed|UNKNOWN/i;
+            const counts = {}, flagged = [];
+            for (const [pkg, info] of Object.entries(data)) {
+              const lic = String(info.licenses ?? "UNKNOWN");
+              counts[lic] = (counts[lic] ?? 0) + 1;
+              if (FLAG.test(lic)) flagged.push(`| \`${pkg}\` | ${lic} |`);
+            }
+            const top = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 12)
+              .map(([l,c]) => `| ${l} | ${c} |`);
+            const out = ["## Production licences", "",
+              `${Object.keys(data).length} packages`, "",
+              "| Licence | Count |", "|---|---:|", ...top, ""];
+            if (flagged.length) {
+              out.push("### Needs a look", "", "| Package | Licence |", "|---|---|", ...flagged, "",
+                "Flagged, not blocked — whether these matter is a legal question, not a build one.");
+            } else {
+              out.push("No copyleft or unknown licences in production dependencies.");
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, out.join("\n") + "\n");
+          '
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: license-report
+          path: licenses.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # =========================================================================
+  docs-hygiene:
+    name: Docs and links
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true      # external links break for reasons we do not control
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Markdown lint
+        uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          globs: '**/*.md,!node_modules,!CHANGELOG.md'
+
+      - name: Dead link check
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress --max-retries 2 --timeout 20
+            --exclude-path node_modules --exclude-path dist
+            --exclude '^https://ai\.studio'
+            --exclude '^https://console\.anthropic\.com'
+            './**/*.md'
+          fail: false
+          output: lychee-report.md
+
+  # =========================================================================
+  security:
+    name: Security
+    if: always()
+    needs: [dependency-audit, secret-scan, license-check, docs-hygiene]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate
+        run: |
+          audit='${{ needs.dependency-audit.result }}'
+          secrets='${{ needs.secret-scan.result }}'
+          {
+            echo '## Security gates'
+            echo ''
+            echo '| Gate | Result | Blocking |'
+            echo '|---|---|:---:|'
+            echo "| Production dependency audit | \`$audit\` | yes |"
+            echo "| Secret scan | \`$secrets\` | yes |"
+            echo "| Licence compliance | \`${{ needs.license-check.result }}\` | no |"
+            echo "| Docs and links | \`${{ needs.docs-hygiene.result }}\` | no |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for r in "$audit" "$secrets"; do
+            case "$r" in success|skipped) ;; *)
+              echo '::error title=Security::A blocking security gate failed.'; exit 1 ;;
+            esac
+          done
+          echo 'Blocking security gates passed.'

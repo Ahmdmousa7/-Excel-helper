@@ -92,7 +92,7 @@ export const getSheetData = (workbook: any, sheetName: string, raw: boolean = fa
   
   for (let r = 0; r < data.length; r++) {
     for (let c = 0; c < data[r].length; c++) {
-      let val = data[r][c];
+      const val = data[r][c];
       
       if (typeof val === 'number') {
          // Convert number to string to avoid exponential representation showing up automatically in UI

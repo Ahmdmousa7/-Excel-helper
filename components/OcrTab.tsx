@@ -317,7 +317,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
           // TEXT MODE
           try {
               const result: any = await aiService.extractStructuredData(textInput, fullPrompt);
-              let resultArray = Array.isArray(result) ? result : [result];
+              const resultArray = Array.isArray(result) ? result : [result];
               
               if (resultArray.length > 0) {
                   // Post-Process: Generate Random SKUs
@@ -609,7 +609,11 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                                   {files.map(f => (
                                       <div key={f.id} className="relative w-20 h-20 border rounded-lg overflow-hidden shrink-0 group">
                                           {f.mimeType.includes('image') ? (
-                                              <img src={f.previewUrl} className="w-full h-full object-cover" />
+                                              <img
+                                                src={f.previewUrl}
+                                                alt={`Preview of ${f.file.name}`}
+                                                className="w-full h-full object-cover"
+                                              />
                                           ) : (
                                               <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">PDF</div>
                                           )}

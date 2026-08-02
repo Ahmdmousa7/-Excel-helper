@@ -50,7 +50,7 @@ const compareValues = (a: any, b: any) => {
 // --- NORMALIZER ---
 const normalizeKey = (val: any, smart: boolean): string => {
     if (val === null || val === undefined) return "";
-    let str = String(val).trim();
+    const str = String(val).trim();
     if (!smart) return str;
 
     // Fix Scientific Notation or numeric variations
@@ -226,8 +226,8 @@ const PacksTab: React.FC<Props> = ({ fileData, addLog, onReset, language = 'en' 
                       missingBarcodeAndSku = !hasSku;
                   }
 
-                  let missingFieldsEn = [];
-                  let missingFieldsAr = [];
+                  const missingFieldsEn = [];
+                  const missingFieldsAr = [];
                   if (missingName) {
                       missingFieldsEn.push("Pack Name");
                       missingFieldsAr.push("اسم العبوة");

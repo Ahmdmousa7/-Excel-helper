@@ -1,7 +1,7 @@
 
 // Handles Google OAuth 2.0 and Sheets API Write operations
 
-declare var google: any;
+declare let google: any;
 
 let tokenClient: any = null;
 let accessToken: string | null = null;
@@ -48,7 +48,7 @@ export const updateSheetColumn = async (
       let letter = '';
       c++; 
       while (c > 0) {
-        let temp = (c - 1) % 26;
+        const temp = (c - 1) % 26;
         letter = String.fromCharCode(temp + 65) + letter;
         c = (c - temp - 1) / 26;
       }

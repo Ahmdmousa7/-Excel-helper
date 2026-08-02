@@ -1,0 +1,6 @@
+# CI runs on Linux. Force LF so a Windows checkout with core.autocrlf=true
+# cannot commit CRLF into a file the runner then chokes on.
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*      text=auto

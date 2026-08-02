@@ -9,12 +9,39 @@ interface AuthWrapperProps {
   children: React.ReactNode;
 }
 
+/**
+ * End-to-end test escape hatch.
+ *
+ * The app is gated behind Google sign-in, which Playwright cannot complete in
+ * CI. This lets the e2e build render the app shell directly.
+ *
+ * It is double-gated and cannot be turned on in a production bundle:
+ *
+ *   1. `import.meta.env.MODE !== 'production'` — `npm run build` uses the
+ *      production mode, so the whole branch is statically false there and Vite
+ *      tree-shakes it out of the shipped bundle entirely.
+ *   2. `VITE_E2E_AUTH_BYPASS === 'true'` — set only by `npm run build:e2e`
+ *      (`vite build --mode e2e`) and by the Playwright web server.
+ *
+ * Both conditions are build-time constants, so this is not a runtime flag an
+ * attacker can flip. If you ever need to verify: `npm run build` then grep the
+ * output for `VITE_E2E_AUTH_BYPASS` — it is not there.
+ */
+const E2E_AUTH_BYPASS =
+  import.meta.env.MODE !== 'production' &&
+  import.meta.env.VITE_E2E_AUTH_BYPASS === 'true';
+
 export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Skip the auth-pending state entirely under the e2e bypass, so tests don't
+  // race a spinner that will never resolve.
+  const [loading, setLoading] = useState(!E2E_AUTH_BYPASS);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Not a conditional hook — the hook always runs; only its body short-circuits.
+    if (E2E_AUTH_BYPASS) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         try {
@@ -69,6 +96,10 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
 
     return () => unsubscribe();
   }, []);
+
+  if (E2E_AUTH_BYPASS) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (

@@ -109,9 +109,19 @@ const QrCodeTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   const handleCopy = async () => {
     if (!qrDataUrl) return;
     try {
-      const res = await fetch(qrDataUrl);
-      const blob = await res.blob();
-      
+      // Decode the data URL directly rather than round-tripping it through
+      // fetch(). Two reasons: fetch() on a data: URL is governed by the CSP's
+      // connect-src (so a tightened policy silently broke copying, caught by
+      // e2e/clipboard.spec.ts), and it was a pointless trip through the
+      // network layer for bytes already in memory.
+      const [header, base64] = qrDataUrl.split(',');
+      const mime = header.match(/data:([^;]+)/)?.[1] ?? 'image/png';
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mime });
+
+
       if (typeof ClipboardItem !== 'undefined') {
         await navigator.clipboard.write([
           new ClipboardItem({ [blob.type]: blob })
@@ -369,16 +379,18 @@ const QrCodeTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
 
                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                       <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t.qr.size}</label>
-                       <input 
+                       <label htmlFor="qr-size" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t.qr.size}</label>
+                       <input
+                         id="qr-size"
                          type="number" min="100" max="1000" step="10"
                          value={size} onChange={e => setSize(Number(e.target.value))}
                          className="w-full p-2 border rounded text-sm"
                        />
                     </div>
                     <div>
-                       <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t.qr.errorLevel}</label>
-                       <select 
+                       <label htmlFor="qr-error-level" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t.qr.errorLevel}</label>
+                       <select
+                         id="qr-error-level"
                          value={level} onChange={e => setLevel(e.target.value as any)}
                          className="w-full p-2 border rounded text-sm"
                        >
@@ -415,9 +427,11 @@ const QrCodeTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                    <div className="flex space-x-2">
                      <button
                        onClick={handleCopy}
+                       aria-label="Copy QR code to clipboard"
+                       title="Copy QR code to clipboard"
                        className="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold transition-colors border border-slate-300"
                      >
-                        <Copy size={18} />
+                        <Copy size={18} aria-hidden="true" />
                      </button>
                      <button
                        onClick={handleDownload}

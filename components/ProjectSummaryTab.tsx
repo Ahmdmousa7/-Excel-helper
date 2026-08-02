@@ -753,7 +753,7 @@ const ProjectSummaryTab: React.FC<Props> = ({ language = 'en' }) => {
                                           className="accent-blue-500 cursor-pointer"
                                           checked={isSelected}
                                           onChange={(e) => {
-                                            let currentVals = Array.isArray(cond.value) 
+                                            const currentVals = Array.isArray(cond.value) 
                                               ? cond.value 
                                               : (cond.value ? [cond.value as string] : []);
                                             

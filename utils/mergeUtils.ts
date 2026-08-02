@@ -37,7 +37,7 @@ export const mergeDatasets = (
         if(!row1) continue;
         const key = String(row1[keyCol1] ?? '').trim().toLowerCase();
         
-        let mergedRow = [...row1];
+        const mergedRow = [...row1];
         if (map2.has(key)) {
             seenMap2Keys.add(key);
             const row2 = map2.get(key)!;
@@ -58,7 +58,7 @@ export const mergeDatasets = (
     if (mode === 'outer') {
         map2.forEach((row2, key) => {
             if (!seenMap2Keys.has(key)) {
-                let mergedRow = new Array(headers1.length).fill('');
+                const mergedRow = new Array(headers1.length).fill('');
                 // Attempt to put the key in keyCol1 position if possible, else just keep empty
                 if (keyCol1 >= 0 && keyCol1 < mergedRow.length) {
                     mergedRow[keyCol1] = row2[keyCol2];
