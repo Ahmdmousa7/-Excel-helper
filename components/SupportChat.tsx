@@ -5,9 +5,14 @@ import { Language } from '../utils/translations';
 import { GoogleGenAI } from "@google/genai";
 import { aiService } from '../services/aiServiceFactory';
 import { getStoredApiKey } from '../services/geminiService';
-import { getSheetData, saveWorkbook } from '../services/excelService';
+// excelService statically imports xlsx + xlsx-js-style, so importing it here
+// puts the spreadsheet engine on the first-paint path — this widget renders on
+// every page load (TD-004). `saveWorkbook` is imported dynamically in the one
+// handler that needs it. `getSheetData` was imported and never used.
 import { FileData } from '../types';
-import * as XLSX from 'xlsx';
+// xlsx is imported dynamically at the call sites below (TD-004). This widget
+// renders on every page load, so a static import puts the whole ~515 KB
+// spreadsheet engine on the first-paint path — for a chat bubble.
 
 interface Props {
   language?: Language;
@@ -378,6 +383,7 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
 
       // 1. Get Data Context
       if (analystFile) {
+         const XLSX = await import('xlsx');
          const ab = await analystFile.arrayBuffer();
          const wb = XLSX.read(ab, { type: 'array' });
          const ws = wb.Sheets[wb.SheetNames[0]];
@@ -385,6 +391,7 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
          contextData = data.slice(0, 15000); 
          fileName = analystFile.name;
       } else if (attachCurrentFile && fileData) {
+         const XLSX = await import('xlsx');
          const ws = fileData.workbook.Sheets[fileData.sheets[0]];
          const data = XLSX.utils.sheet_to_csv(ws);
          contextData = data.slice(0, 15000);
@@ -461,10 +468,12 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
     }
   };
 
-  const downloadTableAsExcel = (data: any[][]) => {
+  const downloadTableAsExcel = async (data: any[][]) => {
+    const XLSX = await import('xlsx');
     const ws = XLSX.utils.aoa_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Analysis Result");
+    const { saveWorkbook } = await import('../services/excelService');
     saveWorkbook(wb, `Analysis_Result_${Date.now()}.xlsx`);
   };
 
