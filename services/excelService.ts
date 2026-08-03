@@ -2,6 +2,7 @@
 import * as XLSX from 'xlsx';
 import XLSX_STYLE from 'xlsx-js-style';
 import { FileData, SheetData } from '../types';
+import { cellToText, plainNumberString } from '../utils/cellText';
 
 export const readExcelFile = async (file: File): Promise<FileData> => {
   return new Promise((resolve, reject) => {
@@ -85,37 +86,50 @@ export const fetchGoogleSheet = async (url: string): Promise<FileData> => {
 export const getSheetData = (workbook: any, sheetName: string, raw: boolean = false): SheetData => {
   const worksheet = workbook.Sheets[sheetName];
   if (!worksheet) return [];
-  
-  // To preserve leading zeroes, we can use raw: false which uses the formatted text ('w' instead of 'v' when available)
-  // However, we still need to catch scientific notations explicitly.
+
   const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "", raw: raw }) as any[][];
-  
+
+  if (!raw) {
+    // TEXT MODE — read each cell's real content instead of its display text.
+    //
+    // `sheet_to_json({ raw: false })` returns `w`, the text Excel would DISPLAY.
+    // For long numbers that is lossy: Excel's General format switches to
+    // scientific at 12 digits, so a 13-digit barcode arrives as "1.23457E+12" —
+    // six significant digits. The previous code tried to rescue that by running
+    // `Number()` on the scientific string, which produced 1234570000000: a wrong
+    // barcode that still looks like a barcode. `cell.v` had the right value all
+    // along.
+    //
+    // So the grid SHAPE still comes from sheet_to_json — same rows, same columns,
+    // same `defval` behaviour as before — and only the values are re-read from
+    // the cells. Keeping the shape identical is deliberate: every consumer
+    // indexes this array positionally.
+    //
+    // See utils/cellText.ts for the per-cell rule and its tests.
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+    for (let r = 0; r < data.length; r++) {
+      for (let c = 0; c < data[r].length; c++) {
+        const ref = XLSX.utils.encode_cell({ r: range.s.r + r, c: range.s.c + c });
+        data[r][c] = cellToText(worksheet[ref]);
+      }
+    }
+    return data;
+  }
+
+  // RAW MODE — unchanged. Callers here (Compare, Merge, Dedupe, Duplicates,
+  // Clean) rely on numbers staying numbers for arithmetic and key building, and
+  // raw values never carry the scientific display text, so the corruption above
+  // cannot occur. The only guard needed is JavaScript's own switch to exponent
+  // form at 1e21, which would otherwise reach the UI as "1e+21".
   for (let r = 0; r < data.length; r++) {
     for (let c = 0; c < data[r].length; c++) {
       const val = data[r][c];
-      
-      if (typeof val === 'number') {
-         // Convert number to string to avoid exponential representation showing up automatically in UI
-         // Numbers in JS > 1e21 uses exponential by default.
-         let strVal = val.toString();
-         if (strVal.includes('e') || strVal.includes('E')) {
-            strVal = val.toLocaleString('fullwide', { useGrouping: false });
-            data[r][c] = strVal;
-         } else {
-            // Keep number or keep string? The original code returned whatever sheet_to_json did.
-         }
-      } else if (typeof val === 'string') {
-         // Identify scientific notation strings e.g. "1.23E+05" or "1.23e5"
-         if (/^-?\d+(?:\.\d+)?[eE][+-]?\d+$/.test(val.trim())) {
-             const num = Number(val);
-             if (!isNaN(num)) {
-                 data[r][c] = num.toLocaleString('fullwide', { useGrouping: false });
-             }
-         }
+      if (typeof val === 'number' && /[eE]/.test(String(val))) {
+        data[r][c] = plainNumberString(val);
       }
     }
   }
-  
+
   return data;
 };
 
