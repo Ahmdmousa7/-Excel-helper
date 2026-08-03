@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:20aa94bfdac72a78c79ebadb1026fb294fbff6b342c0584c71ead377810c07eb",
+  "attestation_id": "sha256:656ca6128222673c47284004dd8afef3ee9d9fa77488b164f042a84c13da29cb",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,9 +21,9 @@
         "raw_bytes": 499864
       },
       {
-        "file": "ProjectSummaryTab-DTNNWL5I.js",
-        "gzip_bytes": 144663,
-        "raw_bytes": 443926
+        "file": "ProjectSummaryTab-BPDlrrp9.js",
+        "gzip_bytes": 144779,
+        "raw_bytes": 444342
       },
       {
         "file": "geminiService-BA79jQBm.js",
@@ -31,7 +31,7 @@
         "raw_bytes": 278925
       },
       {
-        "file": "index.es-Cmc8SI6O.js",
+        "file": "index.es-jQT58_SG.js",
         "gzip_bytes": 51628,
         "raw_bytes": 151120
       },
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-BUBV4QK7.js",
-        "gzip_bytes": 43361,
+        "file": "HomeTab-DQEJQvGM.js",
+        "gzip_bytes": 43358,
         "raw_bytes": 135983
       },
       {
-        "file": "index-Dmhk4aOX.js",
-        "gzip_bytes": 31173,
+        "file": "index-t_mczVTy.js",
+        "gzip_bytes": 31169,
         "raw_bytes": 103039
       },
       {
@@ -61,7 +61,7 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-C9KXqhi4.js",
+        "file": "QrCodeTab-BEFPvMRk.js",
         "gzip_bytes": 13678,
         "raw_bytes": 37385
       }
@@ -97,7 +97,7 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1308.1,
+        "gzip_kb": 1308.2,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 90
@@ -176,18 +176,18 @@
   "vitest": {
     "available": true,
     "coverage": {
-      "branches_pct": 88.88,
-      "functions_pct": 85.71,
-      "lines_pct": 96.03,
-      "statements_pct": 96.03
+      "branches_pct": 91.5,
+      "functions_pct": 90.9,
+      "lines_pct": 96.37,
+      "statements_pct": 96.37
     },
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 134,
+      "passed": 158,
       "skipped": 0,
-      "suites": 25,
-      "total": 134
+      "suites": 31,
+      "total": 158
     }
   }
 }

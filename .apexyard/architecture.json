@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:20aa94bfdac72a78c79ebadb1026fb294fbff6b342c0584c71ead377810c07eb",
+  "attestation_id": "sha256:656ca6128222673c47284004dd8afef3ee9d9fa77488b164f042a84c13da29cb",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,7 +8,7 @@
     },
     "components": {
       "files": 39,
-      "loc": 19026
+      "loc": 19004
     },
     "e2e": {
       "files": 19,
@@ -23,16 +23,16 @@
       "loc": 703
     },
     "tests": {
-      "files": 5,
-      "loc": 1101
+      "files": 6,
+      "loc": 1276
     },
     "types": {
       "files": 1,
       "loc": 20
     },
     "utils": {
-      "files": 4,
-      "loc": 1185
+      "files": 5,
+      "loc": 1278
     }
   },
   "layering": {
@@ -69,12 +69,12 @@
         "loc": 867
       },
       {
-        "file": "components/ProjectSummaryTab.tsx",
-        "loc": 862
-      },
-      {
         "file": "components/ZidTab.tsx",
         "loc": 841
+      },
+      {
+        "file": "components/ProjectSummaryTab.tsx",
+        "loc": 840
       },
       {
         "file": "components/DuplicatesTab.tsx",
@@ -92,6 +92,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 83,
-  "total_loc": 25241
+  "source_files": 85,
+  "total_loc": 25487
 }

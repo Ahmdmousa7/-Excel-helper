@@ -1,51 +1,33 @@
 {
-  "attestation_id": "sha256:20aa94bfdac72a78c79ebadb1026fb294fbff6b342c0584c71ead377810c07eb",
+  "attestation_id": "sha256:656ca6128222673c47284004dd8afef3ee9d9fa77488b164f042a84c13da29cb",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 3,
+    "low": 1,
     "medium": 0
   },
   "findings": [
     {
-      "category": "technical-debt",
-      "detail": "The fixup commit corrected the ADR in three places to stop overclaiming, but missed the fourth. Line 64 reads \"TD-026 closed as moot\", which directly contradicts line 46 of the same file (\"TD-026 is NOT closed, and this ADR does not close it\") and the register itself, where `docs/quality/tech-debt-register.md:13` carries TD-026 as `open` / Medium with \"Was briefly closed 'as moot' on 2026-08-04 — that was wrong\". Artifacts is the section a future reader skims to find out what this decision did, so the one line that is still wrong is the one most likely to be believed. Secondary: the `Changed:` list on line 63 omits `App.tsx`, `.env.example`, `playwright.config.ts`, `vite-env.d.ts`, `bundle-budget.json`, `docs/TESTING.md`, `.github/workflows/ci.yml` and the three `e2e/` files, all of which this PR changes.",
-      "file": "docs/adr/ADR-0005-no-accounts-no-backend.md",
-      "line": 64,
+      "category": "code-smell",
+      "detail": "Commit e83f5c5 adopted `c.value == null` on the stated principle \"reject what breaks, tolerate what the runtime already handles\" — an explicit `null` is indistinguishable from absent at every consumer, so rejecting it discarded the user's whole template. The three sibling optional fields did not get the same treatment: `isMultiline`, `condition`, and `conditions` are all checked with `=== undefined`, so an explicit `null` on any of them fails `isFieldDef`, which fails `isFieldDefArray`, which throws away the entire saved template and resets to `INITIAL_FIELDS`. Every one of those nulls is already handled at runtime: `isFieldVisible` does `f.conditions || (f.condition ? [f.condition] : [])` (ProjectSummaryTab.tsx:244) — both nulls are falsy and fall through correctly — and `isMultiline` is only ever read for truthiness. This is the same over-rejection data-loss shape the PR just fixed, one field over. Severity is low rather than medium because no current write path produces those nulls: `addCondition` writes `{ fieldId: '', value: '' }` and `removeCondition` writes `[]`, never `null`. It would be medium if a hand-edited localStorage entry, an older build, or a future serializer that emits explicit nulls were in scope — the blast radius when it does trigger is total loss of the user's template, which is the failure mode the test file itself calls the more dangerous one.",
+      "file": "utils/projectSummarySchema.ts",
+      "line": 84,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "ADR Artifacts line still claims TD-026 was closed as moot"
+      "summary": "`== null` tolerance applied to `value` but not to its sibling optional fields"
     },
     {
-      "category": "technical-debt",
-      "detail": "`\"build:e2e\": \"vite build --mode e2e --outDir dist-e2e\"`. The `--mode e2e` flag was there to load the bypass env var; `--outDir dist-e2e` is the part this PR correctly keeps (playwright.config.ts:73 and docs/TESTING.md both explain why the separate directory is still load-bearing). With the bypass gone, `--mode e2e` has no remaining effect: I grepped the whole tree and there is no `import.meta.env` read anywhere, and no `.env.e2e` is referenced by any tracked file. What it does still do is set `import.meta.env.MODE` to `'e2e'` instead of `'production'` in the bundle the suite actually serves — so the moment someone adds a `MODE === 'production'` branch, the e2e build silently diverges from the production build while playwright.config.ts:72 and docs/TESTING.md keep claiming the suite \"exercises the real production output\". Low, not medium, because nothing reads MODE today; it becomes medium the first time something does.",
-      "file": "package.json",
-      "line": 9,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "`build:e2e` still passes `--mode e2e`, which only existed for the auth bypass"
-    },
-    {
-      "category": "typescript",
-      "detail": "The new guard is the right shape of fix and closes the common case. It stops one notch short: `Array.isArray((f as FieldDef).options)` accepts `options: [{}]` or `options: [null]`, and `FieldDef.options` is `string[]` (line 20). Those values flow into state and are rendered as `<option>` children further down the tab, where React throws \"Objects are not valid as a React child\" — from render, outside this try, which is precisely the failure mode the comment on lines 63-71 says it is guarding against: the ErrorBoundary replaces the tab with no route back except clearing site data. Narrow trigger (a hand-edited or third-party-written localStorage value, not a value this app ever writes), which is why this is low rather than medium.",
+      "category": "code-smell",
+      "detail": "Observation, not a request — the `else` branch and the surrounding `catch` predate this PR's base, so this is outside what the diff adds and I am not asking for it here. Noting it because the PR's own subject is exactly this recovery path: when `isFieldDefArray(parsed)` returns false, the user's customised template is replaced by `INITIAL_FIELDS` and the only signal is `console.error` in a devtools panel they will not have open. From the user's seat that is indistinguishable from \"the app forgot my template.\" The PR correctly identifies over-rejection as the dangerous direction and has now narrowed it substantially, but the residual case is still silent, and the raw string is still sitting in `localStorage` unread at that moment.",
       "file": "components/ProjectSummaryTab.tsx",
-      "line": 80,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Template shape guard checks `options` is an array but not that it holds strings"
-    },
-    {
-      "category": "security",
-      "detail": "Recording that I checked the security-baseline handbook against the largest thing in this PR rather than leaving it implicit. Deleting `firestore.rules`, `firebase-applet-config.json` and `firebase.ts` from HEAD does not touch the deployed ruleset, does not invalidate the Web API key (public identifier, still readable in git history and in every bundle already served), and does not remove whatever data accumulated in `users/{uid}`. That is a real residual exposure, but it is not a finding against this diff: the PR states it plainly in ADR-0005's Consequences, reopens TD-026 with \"delete the Firebase project\" as the fix, and notes the deleted deny-by-default ruleset is recoverable from git history for the compare. Removing the client-side sign-in gate is also not a security-baseline violation — per handbook rule 3 a client-side check is a UI affordance, and every tool here is pure client-side computation over files that never leave the browser, so the gate protected no data. The only action left needs Google console access and cannot live in a diff.",
-      "file": "docs/quality/tech-debt-register.md",
-      "line": 13,
+      "line": 62,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Residual Firebase exposure is correctly scoped as out-of-repo — no diff-side action"
+      "summary": "Rejected template falls back to defaults with only a console message"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 4
+  "total": 2
 }

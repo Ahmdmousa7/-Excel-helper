@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:20aa94bfdac72a78c79ebadb1026fb294fbff6b342c0584c71ead377810c07eb` |
+| Attestation id | `sha256:656ca6128222673c47284004dd8afef3ee9d9fa77488b164f042a84c13da29cb` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `aef971288736` |
+| Reviewed at commit | `e83f5c515a2a` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 25 |
+| Files reviewed | 5 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 3 |
+| low | 1 |
 | info | 1 |
 
-This PR completes the removal of Google sign-in and Firebase from a browser-only spreadsheet toolkit: the auth wrapper, Firestore client, rules file and dependency are deleted, ProjectSummaryTab falls back to localStorage-only persistence with a new shape guard, bundle budgets are ratcheted down (initial load 199.3 → 85.9 KB gzipped), and the decision is recorded in ADR-0005. I verified the leftovers question directly — no tracked file still imports firebase, references AuthWrapper, or reads VITE_E2E_AUTH_BYPASS, and no e2e/unit test still asserts the sign-in gate. I also verified the new `tool chunks evaluate` live test against the committed build: all five specifiers (`./CleanTool-…`, `./CompareTool-…`, `./MergeTool-…`, `./QrCodeTab-…`, `./excelService-…`) exist in the real entry chunk `index-v238RPzG.js` with 8-char hashes, resolve to real files under a single `assets/`, and each chunk has exports — so the `assets/assets/` regression the fixup commit describes is genuinely fixed and the test will not go red on every deploy. No blocking-handbook violations and nothing high or critical; three low findings and one informational note, all safe as follow-ups.
+This PR finishes the post-ADR-0005 hardening of the Project Summary template loader: it extracts `FieldDef`/`FieldCondition` and their runtime guards out of the 800-line tab into a testable `utils/projectSummarySchema.ts`, widens `FieldCondition.value` to optional/nullable so a legitimately valueless condition no longer causes the whole saved template to be discarded, stops `(undefined)` leaking into exported CSV/XLSX/PDF, and adds 23 unit tests that deliberately assert both directions (reject what crashes, accept everything the app writes). The `package.json` change is script-only (`build:e2e` drops a now-vestigial `--mode e2e`), so the absent lockfile change is correct, and the ADR edit resolves a self-contradiction about TD-026. I verified the widened `value` type still narrows correctly at every consumer (`ProjectSummaryTab.tsx:253`, `:256`, `:322`, `:700`, `:711`, `:732`) — no new `any`, no unchecked assertion, and the extraction moves logic in the handbook-sanctioned direction (`components/` → `utils/`, with `utils/` importing nothing). Two non-blocking observations below; nothing here should hold the merge.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ This PR completes the removal of Google sign-in and Firebase from a browser-only
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 605 warning(s) |
-| Vitest | pass | 134/134 passed, lines 96.03% |
+| Vitest | pass | 158/158 passed, lines 96.37% |
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 83 source files, 25241 lines
+- 85 source files, 25487 lines
 - Layering violations: **0**
 - Files over 800 lines: **9**
 - Probable duplicate implementations: **1**
@@ -67,8 +67,8 @@ reports zero failures for a tool that never executed.
 | `components/SupportChat.tsx` | 898 |
 | `utils/translations.ts` | 893 |
 | `components/OcrTab.tsx` | 867 |
-| `components/ProjectSummaryTab.tsx` | 862 |
 | `components/ZidTab.tsx` | 841 |
+| `components/ProjectSummaryTab.tsx` | 840 |
 | `components/DuplicatesTab.tsx` | 821 |
 
 </details>

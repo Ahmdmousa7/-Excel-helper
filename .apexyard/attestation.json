@@ -1,8 +1,8 @@
 {
-  "attestation_id": "sha256:927821c7c2283266334804c409e9377b63e2361b60e1ce5e91f2195e1751e557",
+  "attestation_id": "sha256:656ca6128222673c47284004dd8afef3ee9d9fa77488b164f042a84c13da29cb",
   "files": [
     {
-      "oid": "c924e11b78d55fcb6ae78981b0eb7d84a59eb23c",
+      "oid": "8627fde9f3cbcb6053235adc94e6d131f1952918",
       "path": "components/ProjectSummaryTab.tsx"
     },
     {
@@ -12,18 +12,26 @@
     {
       "oid": "d4ebaef2941ca22a0456992cc8670211f7091a66",
       "path": "package.json"
+    },
+    {
+      "oid": "bd2f2c2c12d0d68b1427d5cda12690c5183d0c61",
+      "path": "tests/unit/projectSummarySchema.test.ts"
+    },
+    {
+      "oid": "b1f6a00594fc635460c570a871b5f91ed15cfe85",
+      "path": "utils/projectSummarySchema.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 1,
-    "medium": 1
+    "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "295575a92efdd9950b0653fedbda590885ccefe3",
+  "reviewed_at_commit": "e83f5c515a2a6405625179dfd05ba7b2e1e9cdc4",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"
