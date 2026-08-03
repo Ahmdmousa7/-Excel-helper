@@ -1,3 +1,13 @@
+# The catch-all goes FIRST.
+#
+# gitattributes resolves last-match-wins per attribute, so a trailing `* ...`
+# silently overrides every specific rule above it. It was last, which made
+# `-text` on the binary signature inert — `git check-attr` reported
+# `text: auto` for it, meaning git would happily normalise line endings inside
+# a signature and invalidate it. Same class of bug as everything else in this
+# repo's recent history: a rule that looks applied and is not.
+*      text=auto
+
 # CI runs on Linux. Force LF so a Windows checkout with core.autocrlf=true
 # cannot commit CRLF into a file the runner then chokes on.
 *.sh   text eol=lf
@@ -19,4 +29,3 @@
 .apexyard/*.md              text eol=lf
 .apexyard/attestation.sig   -text
 
-*      text=auto

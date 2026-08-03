@@ -149,10 +149,7 @@ export interface EslintFileResult {
 }
 
 export function collectTypescript(text: string | null): TypescriptPayload | Unavailable;
-export function collectEslint(
-  json: EslintFileResult[] | null,
-  root: string,
-): EslintPayload | Unavailable;
+export function collectEslint(json: EslintFileResult[] | null): EslintPayload | Unavailable;
 export function collectVitest(
   runJson: Record<string, number> | null,
   coverageJson: { total?: Record<string, { pct?: number }> } | null,

@@ -124,9 +124,6 @@ for p in "${patterns[@]}"; do
   # pass a single file makes grep omit the prefix, and `${line%%:*}` then
   # parses the line NUMBER as the filename — so the Firebase check would stat
   # a nonexistent path, return false, and fail the scan on a false positive.
-  #
-  # Skipping this file is not cosmetic: it necessarily contains every pattern
-  # it searches for, so including it guarantees a self-match.
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     f="${line%%:*}"

@@ -13,20 +13,13 @@
 //      filtered later, so the artifact is reproducible by construction. The
 //      determinism guard in evidence.mjs is the backstop, not the mechanism.
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative, dirname, resolve, sep, posix } from 'node:path';
 
 /** Standard "this tool did not run" payload. */
 export function unavailable(reason) {
   return { available: false, reason };
-}
-
-function readJson(path) {
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return null;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -119,8 +112,10 @@ export function collectTypescript(text) {
   return { available: true, errors: lines.length, error_codes: codes, passed: lines.length === 0 };
 }
 
-/** ESLint's JSON formatter. Per-rule counts, sorted; file paths made relative. */
-export function collectEslint(json, root) {
+/** ESLint's JSON formatter. Per-rule counts, sorted, plus how many files have
+ *  findings. No `root` parameter: nothing here reports a path any more, so
+ *  there is nothing to make repo-relative. */
+export function collectEslint(json) {
   if (!json) return unavailable('eslint json output not captured; run npm run verify:local');
   let errors = 0;
   let warnings = 0;
@@ -144,8 +139,7 @@ export function collectEslint(json, root) {
     errors,
     warnings,
     passed: errors === 0,
-    files_with_findings: json.filter((f) => (f.errorCount ?? 0) + (f.warningCount ?? 0) > 0)
-      .map((f) => toPosixRelative(f.filePath, root)).sort().length,
+    files_with_findings: json.filter((f) => (f.errorCount ?? 0) + (f.warningCount ?? 0) > 0).length,
     top_rules: worst,
   };
 }
@@ -360,6 +354,35 @@ export function toPosixRelative(abs, root) {
   return relative(root, abs).split(sep).join(posix.sep);
 }
 
+/**
+ * The tracked source files, from git rather than from a directory walk.
+ *
+ * A `readdirSync` walk sees the WORKING TREE, so a scratch file someone has not
+ * committed changes `source_files`, `total_loc`, and possibly the oversized list
+ * in a committed artifact. That artifact is supposed to reproduce byte for byte
+ * on any machine, and a working-tree walk quietly makes it machine-specific —
+ * defeating the determinism guarantee rather than merely bending it.
+ *
+ * `git ls-files` returns exactly what is committed, which is also exactly what
+ * the attestation's hashes describe. Falls back to a walk only outside a git
+ * repository, where there is nothing committed to disagree with.
+ */
+function listTrackedSources(root) {
+  try {
+    const out = execFileSync('git', ['ls-files', '-z', '--', '*.ts', '*.tsx'], {
+      cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const files = out.split('\0')
+      .filter((p) => p !== '')
+      .filter((p) => !SKIP_DIR.has(p.split('/')[0]))
+      .sort();
+    if (files.length > 0) return files.map((p) => join(root, p));
+  } catch {
+    // Not a git repository, or git is unavailable. Fall through.
+  }
+  return walkSources(root, root);
+}
+
 function walkSources(dir, root, out = []) {
   let entries;
   try {
@@ -396,7 +419,7 @@ function layerOf(relPath) {
  * build step to catch cases that do not occur in this codebase.
  */
 export function collectArchitecture(root, { locThreshold = 800 } = {}) {
-  const files = walkSources(root, root);
+  const files = listTrackedSources(root);
   const byLayer = {};
   const oversized = [];
   const violations = [];
@@ -483,4 +506,3 @@ export function collectArchitecture(root, { locThreshold = 800 } = {}) {
   };
 }
 
-export { readJson, existsSync, statSync };

@@ -186,6 +186,18 @@ e2e_and_capture() {
   [ "$rc" -eq 0 ] || tail -30 "$RAW/playwright.err"
   return "$rc"
 }
+# When a stage is SKIPPED, its raw output from a previous run must go with it.
+#
+# `.apexyard/raw/` persists between runs, so `--skip-e2e` left the last run's
+# playwright.json in place and the collector reported those numbers as if they
+# described this one. Same for the axe shards under test-results/. That is the
+# fabrication this whole design exists to prevent, arriving through the back
+# door: not a fabricated pass, but a real pass from a different run presented as
+# current.
+drop_stale_e2e_output() {
+  rm -f "$RAW/playwright.json" "$RAW/playwright.err"
+  rm -f test-results/axe-summary.*.json
+}
 audit_and_capture() {
   npm audit --omit=dev --json > "$RAW/audit.json" 2>/dev/null || true
   npm audit --omit=dev --audit-level=high
@@ -204,6 +216,7 @@ run_stage "4. Vitest + coverage"  vitest_and_capture
 
 if [ "$SKIP_E2E" -eq 1 ]; then
   skip_stage "5. Playwright"
+  drop_stale_e2e_output
 else
   run_stage "5. Playwright"      e2e_and_capture
 fi

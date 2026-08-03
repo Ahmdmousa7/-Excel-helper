@@ -285,7 +285,7 @@ describe('collectors never fabricate a pass', () => {
   it('reports available:false with a reason when a tool did not run', () => {
     for (const section of [
       collectTypescript(null),
-      collectEslint(null, '/repo'),
+      collectEslint(null),
       collectVitest(null, null),
       collectPlaywright(null),
       collectBundle(null),
@@ -384,7 +384,7 @@ describe('collector determinism', () => {
     const out = avail(collectEslint([
       { filePath: '/repo/a.ts', errorCount: 1, warningCount: 1,
         messages: [{ ruleId: 'no-x', severity: 2 }, { ruleId: 'no-y', severity: 1 }] },
-    ], '/repo'));
+    ]));
     expect(out.errors).toBe(1);
     expect(out.warnings).toBe(1);
     expect(out.passed).toBe(false);

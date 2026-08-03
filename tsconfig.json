@@ -15,10 +15,9 @@
     /* TD-001: mirrors the `xlsx` -> `@e965/xlsx` alias in vite.config.ts and
        vitest.config.ts. Without it, tsc keeps type-checking against the
        removed package and reports it as missing. All three must agree. */
-    "baseUrl": ".",
-    // No baseUrl: it is deprecated in TS 6 and removed in 7. Since TS 4.x,
-    // "paths" resolves relative to this file when baseUrl is absent, which is
-    // what we want anyway — the mapping below is repo-relative.
+    // No baseUrl. It is deprecated in TS 6 and removed in 7, and since TS 4.x
+    // "paths" resolves relative to this file when baseUrl is absent — which is
+    // what the repo-relative mapping below wants anyway.
     "paths": {
       "xlsx": ["./node_modules/@e965/xlsx"]
     },

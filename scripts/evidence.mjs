@@ -214,7 +214,7 @@ const findings = envelope('findings.json', ID, collectFindings(reviewJson));
 
 const metrics = envelope('metrics.json', ID, {
   typescript: collectTypescript(raw.typescript),
-  eslint: collectEslint(raw.eslint, ROOT),
+  eslint: collectEslint(raw.eslint),
   vitest: collectVitest(raw.vitest, raw.coverage),
   playwright: collectPlaywright(raw.playwright),
   bundle: collectBundle(raw.bundle),
