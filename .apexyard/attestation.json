@@ -1,26 +1,114 @@
 {
-  "attestation_id": "sha256:a0b4affaccb6b384488a943906a54600741efcb66ddbf63353b37056a12f16c9",
+  "attestation_id": "sha256:9245e198646e6593cdf076e047d1b15272ef8eebba8fb451c9db89586c2b8e4b",
   "files": [
     {
-      "oid": "ae7e80474823f4048d3e56b802da0bd1d9dfb63e",
+      "oid": "7fea4d77202556f2fafd76941e6ec49587e6dda0",
+      "path": ".env.example"
+    },
+    {
+      "oid": "0a5bdf5c9ce404e329284fdeb7cddf2779e33321",
+      "path": "App.tsx"
+    },
+    {
+      "oid": "8480988e550ca3d4a8582821fe09f42a64fd1714",
+      "path": "bundle-budget.json"
+    },
+    {
+      "oid": "deleted",
+      "path": "components/AuthWrapper.tsx"
+    },
+    {
+      "oid": "2543f1d33a40d6e6ffc9ef41c68d9c5db48b08c9",
+      "path": "components/ErrorBoundary.tsx"
+    },
+    {
+      "oid": "acc8111c77557ff2bc2f7c03e2bb28f14049c2fb",
+      "path": "components/ProjectSummaryTab.tsx"
+    },
+    {
+      "oid": "2c7ee491695b84f13cdf1c1bd14d1f474fc67849",
+      "path": "components/Sidebar.tsx"
+    },
+    {
+      "oid": "13bd8d4279f0e007b016a738d76f84a2d0a7ff16",
+      "path": "docs/TESTING.md"
+    },
+    {
+      "oid": "c0b40b8d8478c5b0522c9ec7674fdd46975dd768",
+      "path": "docs/adr/ADR-0005-no-accounts-no-backend.md"
+    },
+    {
+      "oid": "184fd81fde71e3ba7d4ea69a09409281e2abdb0c",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "c7205ad02c59271497e102fa59766272324437fb",
+      "oid": "3fdc9e44e16424ce049f43332fea5a4daf798dad",
+      "path": "e2e/fixtures.ts"
+    },
+    {
+      "oid": "1e40876a32f1537f1ea9c9c8206e439db56cc63c",
       "path": "e2e/live/deployment.spec.ts"
+    },
+    {
+      "oid": "da4490be3f31035dbae5468b39fa8737f9198aef",
+      "path": "e2e/offline.spec.ts"
+    },
+    {
+      "oid": "deleted",
+      "path": "firebase-applet-config.json"
+    },
+    {
+      "oid": "deleted",
+      "path": "firebase-blueprint.json"
+    },
+    {
+      "oid": "deleted",
+      "path": "firebase.ts"
+    },
+    {
+      "oid": "deleted",
+      "path": "firestore.rules"
+    },
+    {
+      "oid": "a4fbb38d187aebd5c0cbdd86c6de32a9f044acdc",
+      "path": "index.tsx"
+    },
+    {
+      "oid": "c33b32a34215afcfa4622899b3eecc6dfa57dc11",
+      "path": "package-lock.json"
+    },
+    {
+      "oid": "d1a0527e9e708252281b67d129bd2e4e5bd13ba6",
+      "path": "package.json"
+    },
+    {
+      "oid": "72827f46589585ea0ac67f90771d4bb846183861",
+      "path": "playwright.config.ts"
+    },
+    {
+      "oid": "deleted",
+      "path": "utils/firebaseUtils.ts"
+    },
+    {
+      "oid": "b242fd9fceb8bbc5155efc065d6df73877157bb7",
+      "path": "vite-env.d.ts"
+    },
+    {
+      "oid": "299263ffe9ded1001b3cf5a0b490737095366fa5",
+      "path": "vite.config.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
-    "high": 0,
+    "high": 1,
     "info": 1,
-    "low": 1,
-    "medium": 0
+    "low": 3,
+    "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "b6a9e554c4490a5d68307c1903d519e9c9bda4f2",
+  "reviewed_at_commit": "dd3f6556b043c57ed5bc5cf6f59f57de35218168",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "APPROVED"
+  "verdict": "COMMENT"
 }

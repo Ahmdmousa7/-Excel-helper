@@ -179,9 +179,10 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: 5. Playwright
-        # HARD GATE. playwright.config.ts builds with VITE_E2E_AUTH_BYPASS and
-        # serves the built bundle, so this exercises the real production output
-        # rather than the dev server.
+        # HARD GATE. playwright.config.ts builds and serves the built bundle, so
+        # this exercises the real production output rather than the dev server.
+        # (It used to build with VITE_E2E_AUTH_BYPASS; ADR-0005 removed the
+        # sign-in gate, so there is nothing left to bypass.)
         run: npm run e2e
         env:
           CI: 'true'

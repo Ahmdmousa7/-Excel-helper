@@ -229,8 +229,12 @@ test.describe('live deployment', () => {
       await page.locator('script[src]').evaluateAll((els) =>
         els.map((e) => (e as HTMLScriptElement).src),
       )
-    ).find((s) => !EXTERNAL_NOISE.test(s))!;
-    const entryJs = await (await request.get(entrySrc)).text();
+    ).find((s) => !EXTERNAL_NOISE.test(s));
+    // Asserted, not `!`-asserted: without this, a build that ships no local
+    // <script src> makes the next line request `undefined` and fail with a URL
+    // parse error instead of saying what went wrong.
+    expect(entrySrc, 'found no first-party entry script').toBeTruthy();
+    const entryJs = await (await request.get(entrySrc!)).text();
 
     // A spread of tools rather than all 28: enough to cover the shared
     // spreadsheet path, a PDF/canvas tool, and a network tool, without turning a
@@ -239,12 +243,22 @@ test.describe('live deployment', () => {
     const failures: string[] = [];
 
     for (const tool of TOOLS) {
-      const m = entryJs.match(new RegExp(`"\\./(${tool}-[A-Za-z0-9_-]{8}\\.js)"`));
+      // The `./` stays INSIDE the capture group, so the specifier resolves
+      // against the entry chunk the same way the browser resolves it.
+      //
+      // It was outside, with the URL then built as `new URL('assets/' + name,
+      // entrySrc)`. entrySrc is already inside assets/, and relative-reference
+      // merging strips only the last segment — so every URL came out as
+      // `assets/assets/Tool-hash.js`, 404'd, and this test failed
+      // unconditionally. That would have turned the post-deploy job red on every
+      // single deploy: precisely the routinely-failing gate this suite argues
+      // against. The crawl above has always done it correctly.
+      const m = entryJs.match(new RegExp(`"(\\./${tool}-[A-Za-z0-9_-]{8}\\.js)"`));
       if (!m) {
         failures.push(`${tool}: no chunk reference found in the entry bundle`);
         continue;
       }
-      const url = new URL(`assets/${m[1]}`, entrySrc).href;
+      const url = new URL(m[1], entrySrc!).href;
       const result = await page.evaluate(async (u) => {
         try {
           const mod = await import(/* @vite-ignore */ u);

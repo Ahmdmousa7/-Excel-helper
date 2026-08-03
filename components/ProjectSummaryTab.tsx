@@ -48,7 +48,6 @@ const ProjectSummaryTab: React.FC<Props> = ({ language = 'en' }) => {
   const [fields, setFields] = useState<FieldDef[]>(INITIAL_FIELDS);
   const [savedFields, setSavedFields] = useState<FieldDef[]>(INITIAL_FIELDS);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // The template lives in localStorage only.
@@ -61,9 +60,32 @@ const ProjectSummaryTab: React.FC<Props> = ({ language = 'en' }) => {
     try {
       const saved = localStorage.getItem('projectSummaryFields');
       if (saved) {
-        const loadedFields = JSON.parse(saved);
-        setFields(loadedFields);
-        setSavedFields(loadedFields);
+        // Shape-checked, not just parsed.
+        //
+        // `JSON.parse` returns `any`, and handing that straight to a
+        // `FieldDef[]` state threw on the first `fields.map()` in render — which
+        // is OUTSIDE this try, so the catch never saw it and the whole tab was
+        // replaced by the ErrorBoundary with no route back except clearing site
+        // data. That was survivable while Firestore held a second copy; with
+        // localStorage now the only store, a single bad value would strand the
+        // tool permanently. Fall back to the defaults instead.
+        const parsed: unknown = JSON.parse(saved);
+        const isFieldDefArray =
+          Array.isArray(parsed) &&
+          parsed.every(
+            (f): f is FieldDef =>
+              f !== null && typeof f === 'object' &&
+              typeof (f as FieldDef).id === 'string' &&
+              typeof (f as FieldDef).label === 'string' &&
+              Array.isArray((f as FieldDef).options),
+          );
+
+        if (isFieldDefArray) {
+          setFields(parsed);
+          setSavedFields(parsed);
+        } else {
+          console.error('Ignoring saved project-summary template: not a FieldDef[]');
+        }
       }
     } catch (e) {
       console.error('Failed to parse saved fields', e);
@@ -72,10 +94,8 @@ const ProjectSummaryTab: React.FC<Props> = ({ language = 'en' }) => {
   }, []);
 
   const handleSaveTemplate = () => {
-    setIsSaving(true);
     localStorage.setItem('projectSummaryFields', JSON.stringify(fields));
     setSavedFields(fields);
-    setIsSaving(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
   };
@@ -518,14 +538,17 @@ const ProjectSummaryTab: React.FC<Props> = ({ language = 'en' }) => {
                 </div>
               )}
             </div>
-            <button 
+            {/* No `isSaving` state: the save is a synchronous localStorage
+                write now that the Firestore round-trip is gone, so a pending
+                state could never be observed — React batches the true/false
+                pair into one render. `saveSuccess` still drives "Saved!". */}
+            <button
               onClick={handleSaveTemplate}
-              disabled={isSaving}
               className="px-3 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-50 border border-emerald-200 rounded-md transition-colors flex items-center gap-1 shadow-sm"
               title="Save current template as default"
             >
               {saveSuccess ? <Check size={14}/> : <Save size={14}/>}
-              {saveSuccess ? 'Saved!' : isSaving ? 'Saving...' : 'Save Template'}
+              {saveSuccess ? 'Saved!' : 'Save Template'}
             </button>
             <button 
               onClick={handleResetTemplate}
