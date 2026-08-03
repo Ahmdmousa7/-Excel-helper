@@ -83,6 +83,73 @@ test.describe('live deployment', () => {
     }
   });
 
+  test('every lazily-imported chunk resolves, not just the ones the homepage loads', async ({ page, request }) => {
+    // THE GAP THAT LET A BROKEN SITE PASS THIS SUITE.
+    //
+    // The app code-splits 28 tools behind React.lazy, so none of their chunks
+    // are requested until a signed-in user opens that tool. Every test above
+    // watches network traffic from the homepage, which means a missing tool
+    // chunk is invisible to all of them — the page boots, React mounts, nothing
+    // throws, and 18 tests go green while most of the app cannot open.
+    //
+    // That is exactly what shipped: GitHub Pages runs Jekyll, Jekyll excludes
+    // paths beginning with `_`, and Rollup names its CommonJS dynamic-require
+    // helper `_commonjs-dynamic-modules-<hash>.js`. Pages served a 404 for it
+    // while all 28 tool chunks kept a static import of it, so every one of them
+    // failed to load. Fixed by shipping `public/.nojekyll`.
+    //
+    // So this walks the static module graph from the entry chunk and asserts
+    // every edge resolves — which is the only way to see a chunk nobody has
+    // navigated to yet.
+    test.slow();
+    await page.goto('./', { waitUntil: 'domcontentloaded' });
+
+    const entry = (
+      await page.locator('script[src]').evaluateAll((els) =>
+        els.map((e) => (e as HTMLScriptElement).src),
+      )
+    ).find((s) => !EXTERNAL_NOISE.test(s));
+    expect(entry, 'found no first-party entry script').toBeTruthy();
+
+    // Matches both `from"./x.js"` and `import("./x.js")`, single or double
+    // quoted, which is every form Vite emits for a chunk-to-chunk edge.
+    const SPECIFIER = /(?:from|import\s*\()\s*["']([^"']+\.js)["']/g;
+
+    const queue = [entry!];
+    const seen = new Set(queue);
+    const broken: string[] = [];
+
+    while (queue.length > 0) {
+      const url = queue.shift()!;
+      const res = await request.get(url);
+
+      if (res.status() !== 200) {
+        broken.push(`${res.status()} ${url}`);
+        continue;
+      }
+      // A 200 that is HTML means Pages served index.html for a missing file.
+      if (!/javascript|ecmascript/i.test(res.headers()['content-type'] ?? '')) {
+        broken.push(`served non-JavaScript ${url}`);
+        continue;
+      }
+
+      const body = await res.text();
+      for (const [, spec] of body.matchAll(SPECIFIER)) {
+        const next = new URL(spec, url).href;
+        if (EXTERNAL_NOISE.test(next) || seen.has(next)) continue;
+        seen.add(next);
+        queue.push(next);
+      }
+    }
+
+    // Guards the crawl itself: if the regex ever stops matching, this test would
+    // silently pass having checked one file.
+    expect(seen.size, 'crawled suspiciously few chunks — did the module graph change shape?')
+      .toBeGreaterThan(20);
+    expect(broken, `chunks referenced by the bundle but not served:\n${broken.join('\n')}`)
+      .toEqual([]);
+  });
+
   test('React mounts and replaces the static loading shell', async ({ page }) => {
     const w = watch(page);
     await page.goto('./', { waitUntil: 'domcontentloaded' });
