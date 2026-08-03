@@ -59,6 +59,13 @@ describe('isFieldCondition', () => {
     })).toBe(true);
   });
 
+  it('accepts an explicit null value, which consumers treat the same as absent', () => {
+    // `Array.isArray(null)` is false and `(null || '')` is `''`, so null and
+    // undefined are indistinguishable downstream. Accepting one but not the
+    // other would be the same over-rejection bug in a narrower disguise.
+    expect(isFieldCondition({ fieldId: 'integration', value: null })).toBe(true);
+  });
+
   it('rejects a missing or non-string fieldId', () => {
     expect(isFieldCondition({ value: 'Yes' })).toBe(false);
     expect(isFieldCondition({ fieldId: 7, value: 'Yes' })).toBe(false);

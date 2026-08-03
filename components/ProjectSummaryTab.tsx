@@ -316,7 +316,10 @@ const ProjectSummaryTab: React.FC<Props> = ({ language = 'en' }) => {
         if (!c.fieldId) return '';
         const depField = fields.find(other => other.id === c.fieldId);
         const depName = depField ? depField.label : c.fieldId;
-        const vals = Array.isArray(c.value) ? c.value.join(' OR ') : c.value;
+        // `?? ''` because `value` is optional: without it a condition carrying no
+        // value exports the literal string "If [Dep] is (undefined)" into the
+        // CSV/XLSX/PDF a user shares.
+        const vals = Array.isArray(c.value) ? c.value.join(' OR ') : c.value ?? '';
         return `If [${depName}] is (${vals})`;
       }).filter(Boolean).join(' AND ');
 

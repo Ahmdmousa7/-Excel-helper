@@ -44,7 +44,7 @@ export interface FieldCondition {
    * defaults. Losing saved work to be strict about a shape the runtime already
    * tolerates is the wrong trade; see the tests for both directions.
    */
-  value?: string | string[];
+  value?: string | string[] | null;
 }
 
 export interface FieldDef {
@@ -67,8 +67,12 @@ export const isFieldCondition = (v: unknown): v is FieldCondition => {
   // `cond.value.some(v => v.toLowerCase())` once it is an array, so `[1]` is a
   // crash while `undefined` is a handled state. The distinction is the whole
   // point: reject what breaks, tolerate what the runtime already handles.
+  // `== null` covers both undefined and an explicit `null`, which every consumer
+  // already handles identically — `Array.isArray(null)` is false and
+  // `(null || '')` is `''`. Accepting one but not the other would have been the
+  // same over-rejection bug in a narrower disguise.
   return typeof c.fieldId === 'string'
-    && (c.value === undefined || typeof c.value === 'string' || isStringArray(c.value));
+    && (c.value == null || typeof c.value === 'string' || isStringArray(c.value));
 };
 
 export const isFieldDef = (v: unknown): v is FieldDef => {
