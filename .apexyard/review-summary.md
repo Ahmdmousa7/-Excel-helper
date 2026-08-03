@@ -7,12 +7,12 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:5a2c4bbef57e9ba619234fdb7c62e6a117748712b3eae8973e6f90258ac3f3e0` |
+| Attestation id | `sha256:dafe5ddb1b5c47019ce53d9f5715fcd939edb62feeb0660c0bcf3ed93eeed1ab` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `68b3aed12bdc` |
+| Reviewed at commit | `50fe628639e8` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **REQUEST_CHANGES** |
+| Verdict | **COMMENT** |
 | Files reviewed | 35 |
 
 ## What this is, and what it is not
@@ -28,12 +28,12 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | Severity | Count |
 |---|---:|
 | critical | 0 |
-| high | 1 |
-| medium | 2 |
-| low | 5 |
-| info | 0 |
+| high | 2 |
+| medium | 0 |
+| low | 4 |
+| info | 1 |
 
-This range moves the AI review off CI (ADR-0001), binds it to reviewed content with a blob-hash attestation (ADR-0002), and wraps that in a reproducible evidence bundle of seven canonical JSON artifacts plus a summary, all keyed on the attestation's own digest (ADR-0003). The engineering is strong: the determinism guard, the `Unavailable` union that makes "never ran" impossible to read as "passed", the single `isBundlePath` definition that fixes the earlier no-fixed-point defect, and a large regression suite at both the unit and CLI layers. The blocking problem is the artifact, not the code: the committed `.apexyard/` bundle was generated at HEAD~1 against a review that recorded two unresolved high findings, so the repo's own `Evidence bundle` job fails on this very push for two independent reasons. Beyond that, one real determinism bug in the new axe collector path and one path where the local gate overwrites a valid bundle with an `available:false` one.
+This PR moves the AI code review off CI onto the maintainer's machine and builds the machinery that lets CI check it anyway: a content-bound review attestation (git blob OIDs, no timestamps), a deterministic evidence bundle under `.apexyard/`, a single verifier, a pre-push hook, and matching unit + shell e2e suites plus three ADRs. The design is unusually careful — the exclusion rule that gives the gate a fixed point lives in one function used by all three callers, `available: false` is never allowed to read as a pass, and the threat model is stated rather than oversold. Two real defects landed in the new code, both of them silent: `scripts/evidence.mjs` calls `readdirSync` without importing it inside a bare `catch`, so the axe shard merge never runs and the accessibility artifact under-reports (the committed bundle records 1 of the 3 pages the suite scans); and a literal `\n` in `scripts/verify-local.sh` makes the pre-push gate report a bogus failure on the routine already-attested path. No blocking-handbook violation and nothing exploitable, but both highs fail the CI severity gate and should land before merge.
 
 ## Quality gates
 
@@ -45,14 +45,14 @@ This range moves the AI review off CI (ADR-0001), binds it to reviewed content w
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | **FAIL** | 8 violation node(s) |
+| Accessibility | pass | 17 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 86 source files, 25195 lines
+- 86 source files, 25238 lines
 - Layering violations: **0**
 - Files over 800 lines: **9**
 - Probable duplicate implementations: **1**

@@ -135,9 +135,16 @@ test.describe('accessibility', () => {
     mkdirSync('test-results', { recursive: true });
     writeFileSync(
       `test-results/axe-summary.${test.info().workerIndex}.json`,
+      // The allow-list itself, not its size.
+      //
+      // The gate is "no violation from a rule outside KNOWN_A11Y_DEBT" — it is
+      // about rule CLASSES. Emitting only `size` let the collector compare a
+      // node count (18) against a rule-class count (7) and report a failure on
+      // a suite that passes. Two different units, one number, a false alarm in a
+      // committed artifact — worse than reporting nothing.
       `${JSON.stringify({
         standard: 'WCAG 2.2 AA (axe-core)',
-        budget: KNOWN_A11Y_DEBT.size,
+        known_debt_rules: [...KNOWN_A11Y_DEBT].sort(),
         pages: [...pagesScanned].sort(),
         violations,
       }, null, 2)}\n`,

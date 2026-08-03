@@ -305,6 +305,22 @@ export function collectAccessibility(json) {
     total += nodes;
   }
   for (const r of Object.values(byRule)) r.pages.sort();
+
+  // The gate is about rule CLASSES, not node counts: the e2e suite fails when a
+  // violation comes from a rule outside KNOWN_A11Y_DEBT, and tolerates any
+  // number of nodes from rules already on that list.
+  //
+  // An earlier version compared `violations_total` (nodes) against the
+  // allow-list's *size* (rule classes) — 18 vs 7 — and reported `passed: false`
+  // for a suite that passes. Two different units through one comparison. A
+  // committed artifact that cries wolf is worse than one that says nothing,
+  // because someone acts on it once and then stops believing any of it.
+  const knownDebt = Array.isArray(json.known_debt_rules) ? [...json.known_debt_rules].sort() : null;
+  const observedRules = Object.keys(byRule).sort();
+  const unexpectedRules = knownDebt === null
+    ? null
+    : observedRules.filter((r) => !knownDebt.includes(r));
+
   return {
     available: true,
     standard: json.standard ?? 'WCAG 2.2 AA (axe-core)',
@@ -312,8 +328,11 @@ export function collectAccessibility(json) {
     violations_total: total,
     by_impact: byImpact,
     by_rule: Object.fromEntries(Object.entries(byRule).sort((a, b) => a[0].localeCompare(b[0]))),
-    known_debt_budget: Number.isInteger(json.budget) ? json.budget : null,
-    passed: json.budget === undefined ? null : total <= json.budget,
+    // Named for what it is: the allow-listed rule classes, and the ones observed
+    // that are not on it. Both are rule classes, so the comparison is meaningful.
+    known_debt_rules: knownDebt,
+    unexpected_rules: unexpectedRules,
+    passed: unexpectedRules === null ? null : unexpectedRules.length === 0,
   };
 }
 

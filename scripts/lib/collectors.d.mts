@@ -210,13 +210,14 @@ export interface AccessibilityPayload {
   violations_total: number;
   by_impact: Record<string, number>;
   by_rule: Record<string, { impact: string | null; nodes: number; pages: string[] }>;
-  known_debt_budget: number | null;
+  known_debt_rules: string[] | null;
+  unexpected_rules: string[] | null;
   passed: boolean | null;
 }
 
 export function collectAccessibility(json: {
   standard?: string;
-  budget?: number;
+  known_debt_rules?: string[];
   pages?: string[];
   violations?: Array<{
     id?: string;

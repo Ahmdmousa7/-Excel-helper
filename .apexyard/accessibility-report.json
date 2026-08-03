@@ -1,34 +1,49 @@
 {
-  "attestation_id": "sha256:5a2c4bbef57e9ba619234fdb7c62e6a117748712b3eae8973e6f90258ac3f3e0",
+  "attestation_id": "sha256:dafe5ddb1b5c47019ce53d9f5715fcd939edb62feeb0660c0bcf3ed93eeed1ab",
   "available": true,
   "by_impact": {
-    "critical": 2,
+    "critical": 5,
     "minor": 0,
     "moderate": 0,
-    "serious": 6
+    "serious": 12
   },
   "by_rule": {
     "button-name": {
       "impact": "critical",
-      "nodes": 2,
+      "nodes": 5,
       "pages": [
-        "the Compare Files tool"
+        "the Compare Files tool",
+        "the QR tool",
+        "the landing view"
       ]
     },
     "color-contrast": {
       "impact": "serious",
-      "nodes": 6,
+      "nodes": 12,
       "pages": [
-        "the Compare Files tool"
+        "the Compare Files tool",
+        "the QR tool",
+        "the landing view"
       ]
     }
   },
-  "known_debt_budget": 7,
-  "pages_scanned": [
-    "the Compare Files tool"
+  "known_debt_rules": [
+    "aria-allowed-attr",
+    "button-name",
+    "color-contrast",
+    "landmark-one-main",
+    "nested-interactive",
+    "page-has-heading-one",
+    "region"
   ],
-  "passed": false,
+  "pages_scanned": [
+    "the Compare Files tool",
+    "the QR tool",
+    "the landing view"
+  ],
+  "passed": true,
   "schema": "apexyard.evidence.accessibility/1",
   "standard": "WCAG 2.2 AA (axe-core)",
-  "violations_total": 8
+  "unexpected_rules": [],
+  "violations_total": 17
 }

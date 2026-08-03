@@ -408,7 +408,7 @@ describe('collector determinism', () => {
     const out = avail(collectAccessibility({
       standard: 'WCAG 2.2 AA',
       pages: ['b', 'a'],
-      budget: 7,
+      known_debt_rules: ['select-name', 'color-contrast'],
       violations: [
         { id: 'select-name', impact: 'critical', nodes: 4, page: 'data-tools' },
         { id: 'select-name', impact: 'critical', nodes: 1, page: 'home' },
@@ -420,11 +420,37 @@ describe('collector determinism', () => {
     expect(out.by_rule['select-name'].nodes).toBe(5);
     expect(out.by_rule['select-name'].pages).toEqual(['data-tools', 'home']);
     expect(out.pages_scanned).toEqual(['a', 'b']);
-    expect(out.passed).toBe(true);   // 7 <= budget 7
+    // Both observed rules are allow-listed, so the gate passes regardless of
+    // how many NODES they produced. Rule classes, not node counts.
+    expect(out.unexpected_rules).toEqual([]);
+    expect(out.passed).toBe(true);
     expect(findNonDeterministic(out)).toEqual([]);
   });
 
-  it('leaves accessibility passed null when no budget is recorded', () => {
+  it('leaves accessibility passed null when no allow-list is recorded', () => {
     expect(avail(collectAccessibility({ violations: [] })).passed).toBeNull();
+  });
+
+  it('fails accessibility when a rule outside the allow-list appears', () => {
+    // The unit mismatch this replaced compared 18 nodes to a 7-rule allow-list
+    // and reported a failure on a passing suite.
+    const out = avail(collectAccessibility({
+      known_debt_rules: ['color-contrast'],
+      violations: [
+        { id: 'color-contrast', impact: 'serious', nodes: 40, page: 'home' },
+        { id: 'select-name', impact: 'critical', nodes: 1, page: 'home' },
+      ],
+    }));
+    expect(out.unexpected_rules).toEqual(['select-name']);
+    expect(out.passed).toBe(false);
+  });
+
+  it('passes when many nodes come from allow-listed rules only', () => {
+    const out = avail(collectAccessibility({
+      known_debt_rules: ['color-contrast'],
+      violations: [{ id: 'color-contrast', impact: 'serious', nodes: 999, page: 'home' }],
+    }));
+    expect(out.violations_total).toBe(999);
+    expect(out.passed).toBe(true);
   });
 });

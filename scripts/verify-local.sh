@@ -225,7 +225,8 @@ run_stage "9. Bundle budget"     budget_and_capture
 #     that deliberately did not run.
 if [ "$ALREADY_ATTESTED" -eq 1 ]; then
   skip_stage "10. Evidence bundle (committed bundle already verifies)"
-  run_stage "11. Evidence self-check" \n    node scripts/verify-evidence.mjs --base "$BASE" --require-gate high
+  run_stage "11. Evidence self-check" \
+    node scripts/verify-evidence.mjs --base "$BASE" --require-gate high
 elif [ "$SKIP_REVIEW" -eq 1 ] || [ "$NOTHING_TO_PUSH" -eq 1 ] || [ -n "$REVIEW_QUALIFIED" ]; then
   skip_stage "10. Evidence bundle"
   skip_stage "11. Evidence self-check"
