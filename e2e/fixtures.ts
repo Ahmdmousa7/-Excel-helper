@@ -24,8 +24,10 @@ export const APP_TITLE = AppShell.APP_TITLE;
  * the message is genuinely outside this codebase's control.
  */
 const EXTERNAL_NOISE: RegExp[] = [
-  /firestore/i,
-  /firebase/i,
+  // `/firestore/i` and `/firebase/i` were REMOVED here for the same reason as
+  // the two entries named above: ADR-0005 deleted Firebase, so a console message
+  // mentioning it is no longer noise this codebase cannot control — it means
+  // Firebase came back, which is a finding.
   /net::ERR_/i,
   /Failed to load resource/i,
   /googleapis\.com/i,

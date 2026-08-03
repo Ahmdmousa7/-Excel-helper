@@ -63,16 +63,11 @@ export default defineConfig({
         // by several lazy tabs becomes its own chunk, fetched on first use.
         manualChunks: {
           // React is on every path.
-          'vendor-react': ['react', 'react-dom'],
-          // Firebase is imported at module scope by firebase.ts, so it lands on
-          // the first-paint path regardless of who uses it.
           //
-          // Since the sign-in gate was removed, the only remaining consumer is
-          // ProjectSummaryTab's optional cloud sync, which no-ops because
-          // `auth.currentUser` is always null. That makes this ~480 KB chunk
-          // almost entirely dead weight — see TD-037 for removing it. Kept as a
-          // named chunk until then so it stays out of the app bundle.
-          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          // `vendor-firebase` used to sit here too — 480 KB gzipped to ~115 KB,
+          // the largest vendor chunk, bigger than React. ADR-0005 deleted
+          // Firebase, so it is gone rather than merely lazy.
+          'vendor-react': ['react', 'react-dom'],
         },
       },
     },

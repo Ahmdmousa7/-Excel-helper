@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Copy, Check, ClipboardList, RefreshCw, Plus, Trash2, Settings2, GripVertical, ArrowUp, ArrowDown, Download, ChevronDown, FileSpreadsheet, FileText, FileJson, Upload, Save } from 'lucide-react';
 import { TRANSLATIONS, Language } from '../utils/translations';
-import { auth, db } from '../firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../utils/firebaseUtils';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -54,75 +51,30 @@ const ProjectSummaryTab: React.FC<Props> = ({ language = 'en' }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // The template lives in localStorage only.
+  //
+  // This used to read a `preferences` blob from `users/{uid}` in Firestore after
+  // loading the local copy, so a template followed you between devices. ADR-0005
+  // removed Firebase; that cross-device sync is gone, and localStorage is
+  // per-browser and per-origin. Clearing site data now loses the template.
   useEffect(() => {
-    const loadFromCloud = async () => {
-      let loadedFields = INITIAL_FIELDS;
-      
-      // Load from local storage immediately as fallback/initial state
-      try {
-        const saved = localStorage.getItem('projectSummaryFields');
-        if (saved) {
-          loadedFields = JSON.parse(saved);
-          setFields(loadedFields);
-          setSavedFields(loadedFields);
-        }
-      } catch (e) {
-        console.error('Failed to parse saved fields', e);
+    try {
+      const saved = localStorage.getItem('projectSummaryFields');
+      if (saved) {
+        const loadedFields = JSON.parse(saved);
+        setFields(loadedFields);
+        setSavedFields(loadedFields);
       }
-
-      // Then try to load from Firestore if user is logged in
-      if (auth.currentUser) {
-        try {
-          const userDocRef = doc(db, 'users', auth.currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            if (data.preferences) {
-              const prefs = JSON.parse(data.preferences);
-              if (prefs.projectSummaryFields) {
-                loadedFields = prefs.projectSummaryFields;
-                setFields(loadedFields);
-                setSavedFields(loadedFields);
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Error loading cloud preferences:", error);
-        }
-      }
-      setIsLoaded(true);
-    };
-
-    loadFromCloud();
+    } catch (e) {
+      console.error('Failed to parse saved fields', e);
+    }
+    setIsLoaded(true);
   }, []);
 
-  const handleSaveTemplate = async () => {
+  const handleSaveTemplate = () => {
     setIsSaving(true);
-    const fieldsJson = JSON.stringify(fields);
-    // Save to local storage
-    localStorage.setItem('projectSummaryFields', fieldsJson);
+    localStorage.setItem('projectSummaryFields', JSON.stringify(fields));
     setSavedFields(fields);
-
-    // Save to cloud if logged in
-    if (auth.currentUser) {
-      try {
-        const userDocRef = doc(db, 'users', auth.currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        let newPrefs = { projectSummaryFields: fields };
-        if (userDoc.exists() && userDoc.data().preferences) {
-           try {
-             newPrefs = { ...JSON.parse(userDoc.data().preferences), projectSummaryFields: fields };
-           } catch(e) {}
-        }
-        
-        await updateDoc(userDocRef, {
-          preferences: JSON.stringify(newPrefs)
-        }).catch(e => handleFirestoreError(e, OperationType.UPDATE, `users/${auth.currentUser?.uid}`));
-      } catch (error) {
-        console.error("Error saving to cloud:", error);
-      }
-    }
     setIsSaving(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);

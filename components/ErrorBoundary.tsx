@@ -57,18 +57,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
-      let errorMessage = this.state.error?.message || 'An unexpected error occurred.';
-      let isFirestoreError = false;
-
-      try {
-        const parsedError = JSON.parse(errorMessage);
-        if (parsedError.operationType && parsedError.error) {
-          isFirestoreError = true;
-          errorMessage = `Database Error (${parsedError.operationType}): ${parsedError.error}`;
-        }
-      } catch (e) {
-        // Not a JSON error string
-      }
+      // Plain message, no special cases.
+      //
+      // This used to JSON.parse the message to unwrap the envelope
+      // `utils/firebaseUtils.ts` threw for Firestore failures, and render it as
+      // "Database Error (update): …". ADR-0005 deleted Firebase, so nothing
+      // throws that shape any more — and the `isFirestoreError` flag it set was
+      // already dead, which ESLint had been reporting as an unused variable.
+      const errorMessage = this.state.error?.message || 'An unexpected error occurred.';
 
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">

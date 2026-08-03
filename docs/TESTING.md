@@ -31,20 +31,13 @@ Components are not unit-tested. They do I/O directly and would each need a DOM p
 | `error-handling` | Empty input, 8,000-char payload, no file loaded, total network failure, rapid tool switching. |
 | `regression` | Pages base path, no 404s, no duplicate routed tools, no leaked object URLs. |
 
-### The auth bypass
+### There is no auth bypass any more
 
-The app is gated behind Google sign-in, which Playwright cannot complete in CI. `components/AuthWrapper.tsx` therefore honours a build-time bypass, double-gated so it cannot exist in production:
+This section used to describe a double-gated `VITE_E2E_AUTH_BYPASS` flag in `components/AuthWrapper.tsx`, which let Playwright past a Google sign-in gate it could not complete. **ADR-0005 removed the gate**, so the flag, the wrapper, and the env var are all gone. Nothing in the tree reads `VITE_E2E_AUTH_BYPASS`.
 
-1. `import.meta.env.MODE !== 'production'` — `npm run build` uses production mode, so Vite tree-shakes the branch out entirely.
-2. `VITE_E2E_AUTH_BYPASS === 'true'` — set only by `npm run build:e2e` and the Playwright web server.
+Playwright still serves the **built** bundle rather than the dev server, so the suite exercises the real production output — which is what catches base-path and bundling breakage before it reaches GitHub Pages.
 
-Both are build-time constants, so this is not a runtime flag anyone can flip. Verify it yourself:
-
-```bash
-npm run build && grep -r VITE_E2E_AUTH_BYPASS dist/   # no matches
-```
-
-Playwright builds with the bypass and serves the **built** bundle rather than the dev server, so the suite exercises the real production output — which is what catches base-path and bundling breakage before it reaches GitHub Pages.
+`build:e2e` and its separate `--outDir dist-e2e` are kept, and the separate directory is still load-bearing: `vite preview` serves a directory live from disk, so any build into the directory being served swaps the bundle mid-run. That once produced a 100-of-101 failure that looked exactly like an app regression.
 
 ### Ratchets, not audits
 

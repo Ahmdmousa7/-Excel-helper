@@ -13,9 +13,14 @@ import { test, expect, Page, Request, Response } from '@playwright/test';
  * Duplicating it here would buy nothing and make every deploy slower.
  */
 
-/** Third-party noise the app does not control and cannot fix. */
+/** Third-party noise the app does not control and cannot fix.
+ *
+ *  `firebaseio` and `firestore` were removed when ADR-0005 deleted Firebase: a
+ *  message naming either would now mean it came back, which is a finding rather
+ *  than noise. The Google entries stay — Sheets sync uses Google Identity
+ *  Services, which is unrelated to Firebase and still in use. */
 const EXTERNAL_NOISE =
-  /googleapis|gstatic|accounts\.google|gsi\/client|firebaseio|firestore|googletagmanager|google-analytics|cdn\.tailwindcss/i;
+  /googleapis|gstatic|accounts\.google|gsi\/client|googletagmanager|google-analytics|cdn\.tailwindcss/i;
 
 function watch(page: Page) {
   const consoleErrors: string[] = [];
@@ -179,10 +184,10 @@ test.describe('live deployment', () => {
   test('the app shell renders, which means the app booted', async ({ page }) => {
     await page.goto('./', { waitUntil: 'domcontentloaded' });
 
-    // This used to assert the Google sign-in button. The gate was removed, so
-    // the thing that proves a working boot is now the shell itself: the sidebar
-    // is rendered by App, not by index.html, so reaching it proves the bundle
-    // parsed, React mounted, and the lazy tab machinery resolved.
+    // This used to assert the Google sign-in button, until ADR-0005 removed the
+    // gate. The shell is what proves a working boot now: `<aside>` is rendered
+    // by App, not by index.html, so reaching it means the bundle parsed and
+    // React mounted.
     //
     // Asserted on desktop AND mobile, and below `md` the sidebar is an
     // off-canvas drawer (TD-005) that starts closed — so this waits for the
@@ -194,6 +199,66 @@ test.describe('live deployment', () => {
     await expect(
       page.locator('aside').first().getByRole('button').first(),
     ).toBeAttached({ timeout: 30_000 });
+
+    // Deliberately NOT asserting anything about lazy tab chunks here.
+    //
+    // `Sidebar` is imported eagerly and rendered outside the <Suspense> boundary
+    // that wraps the tab chunks, so `<aside>` is attached even when a tab chunk
+    // never resolves. And the default tab is Home (`activeTab === -1`), which
+    // has no `component` at all — so the "Loading tool…" fallback never renders
+    // on the landing page, and asserting its absence here would pass no matter
+    // what. Lazy chunks get their own test below.
+  });
+
+  test('tool chunks evaluate, not just download', async ({ page, request }) => {
+    // The residual gap after the asset crawl.
+    //
+    // The crawl proves every chunk SERVES — a 404 or an HTML error page fails
+    // it. It cannot prove a chunk RUNS. A chunk that returns 200 with valid
+    // JavaScript and then throws on evaluation would pass every other test
+    // here, and the user would sit on "Loading tool…" forever.
+    //
+    // Tabs are state, not routes, so there is no URL that mounts a tool. Rather
+    // than drive the sidebar — which is an off-canvas drawer below `md` and
+    // would make this a layout test — this imports the chunks directly in the
+    // page context. That is the actual contract React.lazy depends on.
+    test.slow();
+    await page.goto('./', { waitUntil: 'domcontentloaded' });
+
+    const entrySrc = (
+      await page.locator('script[src]').evaluateAll((els) =>
+        els.map((e) => (e as HTMLScriptElement).src),
+      )
+    ).find((s) => !EXTERNAL_NOISE.test(s))!;
+    const entryJs = await (await request.get(entrySrc)).text();
+
+    // A spread of tools rather than all 28: enough to cover the shared
+    // spreadsheet path, a PDF/canvas tool, and a network tool, without turning a
+    // post-deploy gate into a minute of imports.
+    const TOOLS = ['CleanTool', 'CompareTool', 'MergeTool', 'QrCodeTab', 'excelService'];
+    const failures: string[] = [];
+
+    for (const tool of TOOLS) {
+      const m = entryJs.match(new RegExp(`"\\./(${tool}-[A-Za-z0-9_-]{8}\\.js)"`));
+      if (!m) {
+        failures.push(`${tool}: no chunk reference found in the entry bundle`);
+        continue;
+      }
+      const url = new URL(`assets/${m[1]}`, entrySrc).href;
+      const result = await page.evaluate(async (u) => {
+        try {
+          const mod = await import(/* @vite-ignore */ u);
+          return `ok:${Object.keys(mod).length}`;
+        } catch (e) {
+          return `err:${e instanceof Error ? e.message : String(e)}`;
+        }
+      }, url);
+      if (!result.startsWith('ok:') || result === 'ok:0') {
+        failures.push(`${tool}: ${result}`);
+      }
+    }
+
+    expect(failures, `tool chunks that did not evaluate:\n${failures.join('\n')}`).toEqual([]);
   });
 
   test('CSS is applied, not just downloaded', async ({ page }) => {

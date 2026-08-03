@@ -14,10 +14,10 @@
   "budgets": {
     "initial-load": {
       "label": "Initial load (entry + preloads + CSS)",
-      "budget": 230,
-      "current": 199.3,
-      "target": 170,
-      "why": "What the user waits for. Was 1252 KB before code splitting."
+      "budget": 110,
+      "current": 85.9,
+      "target": 80,
+      "why": "What the user waits for. 1252 KB before code splitting (TD-004), 199.3 KB after, then 85.9 KB once ADR-0005 deleted Firebase — vendor-firebase was ~113 KB gzipped of it, larger than React. Ratcheted 230 -> 110 so that saving cannot quietly be spent."
     },
     "largest-js-chunk": {
       "label": "Largest single JS chunk",
@@ -28,14 +28,14 @@
     },
     "total-js": {
       "label": "Total JavaScript (all chunks)",
-      "budget": 1600,
-      "current": 1410,
-      "why": "Expected to exceed the pre-split total: splitting duplicates some module overhead. Watched for runaway growth, not optimised down."
+      "budget": 1450,
+      "current": 1308.2,
+      "why": "Expected to exceed the pre-split total: splitting duplicates some module overhead. Ratcheted 1600 -> 1450 after ADR-0005 removed Firebase (-101.8 KB). Headroom is deliberate: one new lazy tab should not fail the gate, because a gate that fails routinely gets bypassed. Watched for runaway growth, not optimised down."
     },
     "total-css": {
       "label": "Total CSS",
       "budget": 60,
-      "current": 10.9
+      "current": 11.2
     },
     "total-images": {
       "label": "Total images",
@@ -44,8 +44,8 @@
     },
     "total-assets": {
       "label": "Total shipped assets",
-      "budget": 1700,
-      "current": 1424.1
+      "budget": 1470,
+      "current": 1322.6
     }
   }
 }

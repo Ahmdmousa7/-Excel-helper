@@ -7,7 +7,13 @@ import { makeCsv } from './helpers/makeFiles';
  * Most of this app is client-side by design — spreadsheet transforms, QR
  * generation, PDF assembly all run in the browser. That is a real feature on a
  * flaky connection, but only if the app does not tie its own shoelaces
- * together: one failed Firebase call must not take the tools down with it.
+ * together: one failed network call must not take the tools down with it.
+ *
+ * This used to be specifically about Firebase, which initialised on every load
+ * and retried in the background. ADR-0005 deleted it, so there is far less to go
+ * wrong offline — but the property still needs asserting, because the remaining
+ * network users (Google Sheets sync, the AI calls, the scraper's CORS proxies)
+ * can each fail the same way.
  */
 test.describe('offline', () => {
   test('client-side tools keep working with the network cut', async ({ app, qr, context }) => {
@@ -57,7 +63,7 @@ test.describe('offline', () => {
   test('going offline does not trip the error boundary', async ({ app, context }) => {
     await context.setOffline(true);
     try {
-      // Give Firebase's retry logic time to fail and surface whatever it does.
+      // Give any background request time to fail and surface whatever it does.
       await app.page.waitForTimeout(4000);
       await app.expectHealthy();
     } finally {
