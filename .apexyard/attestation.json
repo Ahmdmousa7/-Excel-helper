@@ -1,147 +1,43 @@
 {
-  "attestation_id": "sha256:15ed3194d3332501e669bd27133044a16bc935d13c97a8255e15a6a98fcc8df9",
+  "attestation_id": "sha256:1d1232918926fdb1aeae1a069e32bce9f1a48f916ac701882f141e3f05b92606",
   "authoritative_source": "attestation",
-  "digest": "sha256:15ed3194d3332501e669bd27133044a16bc935d13c97a8255e15a6a98fcc8df9",
-  "file_count": 35,
+  "digest": "sha256:1d1232918926fdb1aeae1a069e32bce9f1a48f916ac701882f141e3f05b92606",
+  "file_count": 9,
   "files": [
     {
-      "oid": "f902f46e7c487caac44bd40880e9f83f33b8381a",
+      "oid": "d9ca9446a864149a8d79598f98effa65a82c5115",
       "path": ".gitattributes"
     },
     {
-      "oid": "4e859d3317a41d76ac09815f5ceb4a4aace49196",
-      "path": ".githooks/pre-push"
-    },
-    {
-      "oid": "deleted",
-      "path": ".github/PR_BODY.md"
-    },
-    {
-      "oid": "a8a1f65dfe77e88e6bfcf08a5d4afe4e13a1f484",
-      "path": ".github/workflows/ci.yml"
-    },
-    {
-      "oid": "8bd4a249a8974e09058caf8e174b0731f3b8db81",
-      "path": ".gitignore"
-    },
-    {
-      "oid": "b0fd8df2f362d380418bbea48ac90a27fff232f7",
-      "path": "README.md"
-    },
-    {
-      "oid": "f03f28160b7c15cb502724921bb00fad00651fc4",
-      "path": "docs/APEXYARD.md"
-    },
-    {
-      "oid": "9eb73c7d15903c025a0a8f7e848434b8fc4e233e",
-      "path": "docs/adr/ADR-0001-ai-review-runs-locally-not-in-ci.md"
-    },
-    {
-      "oid": "74454f8a9d65d4cc4022a66e53fa74a05d12b1dc",
-      "path": "docs/adr/ADR-0002-review-attestation.md"
-    },
-    {
-      "oid": "b77b1dc214a44d51f769ae5b2495237bab4244eb",
-      "path": "docs/adr/ADR-0003-engineering-evidence-bundle.md"
-    },
-    {
-      "oid": "b2b25673cc40c7e07902119eec10493589a799b7",
-      "path": "docs/quality/architecture-review-2026-08-03.md"
-    },
-    {
-      "oid": "eda56b531d50ba3715a4548d2725274c5c1dabe7",
+      "oid": "78a141b04f586f53677592b0b3658db0cbe5f50a",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "7e298fa5883aab9f2c3123deea547e9297532b75",
-      "path": "e2e/accessibility.spec.ts"
-    },
-    {
-      "oid": "e6754039df86c6108c24328f709e48e0cfb3bc4d",
-      "path": "eslint.config.js"
-    },
-    {
-      "oid": "2a2526ce44476e2075b851a8c528df3a13d7a5a8",
-      "path": "package.json"
-    },
-    {
-      "oid": "054f2dc27d1d9ca897f87c0ef95ed0cfa234400d",
-      "path": "playwright.config.ts"
-    },
-    {
-      "oid": "35a9022615145d2b3160f633936f91bbade8f133",
-      "path": "scripts/attest-review.mjs"
-    },
-    {
-      "oid": "b8844f32c36bc19c2af5c2a0dd6d7012072f397e",
-      "path": "scripts/check-bundle-budget.mjs"
-    },
-    {
-      "oid": "3c19a255982fb3bb5b82976224b55e2a186e4505",
+      "oid": "8cab20045535eec417cf7c5655ce3b8bb4ebe103",
       "path": "scripts/evidence.mjs"
     },
     {
-      "oid": "8a4c63efec66e69c5778305c60ef9488af9b6b35",
-      "path": "scripts/install-hooks.mjs"
-    },
-    {
-      "oid": "327c965e634c18f0fda9972090598c3a117dd524",
-      "path": "scripts/lib/attestation.d.mts"
-    },
-    {
-      "oid": "30868914dfede1c514015ffca8cdbbed34765949",
-      "path": "scripts/lib/attestation.mjs"
-    },
-    {
-      "oid": "41157ec239b30decd702d57fd6ef81631112d08f",
+      "oid": "22d58bbc9cee1aa94f89a961caf37797ba3a476a",
       "path": "scripts/lib/collectors.d.mts"
     },
     {
-      "oid": "5b8cff3fbeb130b430d7527838e88027fe710b98",
+      "oid": "5ec04ddc17f6dd00a6a8dfc64bfc8d994a03b30e",
       "path": "scripts/lib/collectors.mjs"
     },
     {
-      "oid": "d256bcff0b9e8c56c3c7c173866eb4172109dc06",
-      "path": "scripts/lib/evidence.d.mts"
-    },
-    {
-      "oid": "702e44c7c727e28b8c08ecf7ff11b7c1bb47c021",
-      "path": "scripts/lib/evidence.mjs"
-    },
-    {
-      "oid": "badcc0474eeb619a586c1b02f5f5a6fec28c9c96",
-      "path": "scripts/review-local.sh"
-    },
-    {
-      "oid": "6fe3b9dbdafd1de2e606629bb908c90e9bd589ec",
+      "oid": "a71cf8d46fb23007b37bd741b0cb60f3d8d8e147",
       "path": "scripts/scan-secrets.sh"
     },
     {
-      "oid": "46081bd51df1b651ea2661a9cd5fd428049f487f",
-      "path": "scripts/tests/test-attestation.sh"
-    },
-    {
-      "oid": "c0c6e401d42b828ea503022778e20eb304cb2ef1",
-      "path": "scripts/tests/test-evidence.sh"
-    },
-    {
-      "oid": "62c3fda83d1ee6df07fb8c7dede625648cc03b6a",
-      "path": "scripts/verify-evidence.mjs"
-    },
-    {
-      "oid": "84d8d469653d8fbfe70ba59865e145a93f765796",
+      "oid": "1220587b6ca9c6c3a2d4baece1cfac41c8d93ac2",
       "path": "scripts/verify-local.sh"
     },
     {
-      "oid": "37cbb56ff30abec63dbcf32a1ff5c51a9137e51c",
-      "path": "tests/unit/attestation.test.ts"
-    },
-    {
-      "oid": "b38ca47b8fa0b2caf5801f7a506768e04c58119f",
+      "oid": "71d6aef2715cf966e5685fa5730ee2e94455a506",
       "path": "tests/unit/evidence.test.ts"
     },
     {
-      "oid": "c25e55efd4c730419d1483306e9d1e6c33c568e4",
+      "oid": "ab41047bd9e09e8bddcfbaffd53993ffaee03448",
       "path": "tsconfig.json"
     }
   ],
@@ -149,13 +45,13 @@
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 6,
-    "medium": 3
+    "low": 5,
+    "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
   "note": "Mirror of the canonical text manifest. The digest below is computed over that manifest, not over this file.",
-  "reviewed_at_commit": "4f473d1993ffffb3e5cc9abad421a7f2c7a1ccd0",
+  "reviewed_at_commit": "850f97c9871e393b593c631e63458fca20e3f5bb",
   "schema": "apexyard.evidence.attestation/1",
   "scope": "origin/main...HEAD",
   "verdict": "COMMENT"

@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:15ed3194d3332501e669bd27133044a16bc935d13c97a8255e15a6a98fcc8df9",
+  "attestation_id": "sha256:1d1232918926fdb1aeae1a069e32bce9f1a48f916ac701882f141e3f05b92606",
   "available": true,
-  "files_reviewed": 34,
+  "files_reviewed": 9,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 6,
-    "medium": 3
+    "low": 5,
+    "medium": 1
   },
-  "findings_total": 9,
+  "findings_total": 6,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR moves the ApexYard AI review off CI onto the maintainer's machine and replaces the lost CI signal with a content-bound review attestation plus a reproducible engineering evidence bundle: `scripts/lib/{attestation,evidence,collectors}.mjs`, a generator (`evidence.mjs`), one verifier (`verify-evidence.mjs`), a local gate (`verify-local.sh`), a pre-push hook, a secret scan, unit + end-to-end tests, and three ADRs. The design is unusually careful — the attestation binds to git blob OIDs rather than commit SHAs, the artifact id IS the manifest digest so staleness needs no timestamp, determinism is mechanically enforced, and the collectors refuse to report a pass for a tool that never ran. I verified that both High findings recorded in the previous round are genuinely fixed (`readdirSync` is now imported at `scripts/evidence.mjs:30`, and `verify-local.sh:228` now uses a real line continuation). No blocking-handbook violation and nothing critical. Three new medium defects, all latent or narrow-trigger, plus five low items — four of which were recorded in the previous round and are still present.",
+  "summary": "This PR applies five review fixes to the local evidence/verification tooling: reorders `.gitattributes` so the `* text=auto` catch-all no longer overrides `-text` on the attestation signature, drops stale Playwright/axe raw output when `--skip-e2e` skips the stage, switches `collectArchitecture` from a working-tree walk to `git ls-files`, removes the `baseUrl` that contradicted its own comment in `tsconfig.json`, and deletes a stale comment in `scan-secrets.sh` plus the now-dead `root` parameter on `collectEslint`. The `.gitattributes` reorder, the stale-output fix, the tsconfig cleanup and the `collectEslint` signature change are all correct and consistently propagated (`.d.mts`, the one caller, both test call sites — no other importers of the removed re-exports exist). No blocking-handbook violations and no security issues: the new `execFileSync` call has fixed arguments and lives in a Node-only script, not the browser bundle. One medium finding: the `git ls-files` switch does not deliver the determinism its docblock claims, because `ls-files` reads the index (a staged scratch file still counts) and file contents are still read from the working tree.",
   "verdict": "comment"
 }
