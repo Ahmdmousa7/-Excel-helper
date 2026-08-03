@@ -1,33 +1,51 @@
 {
-  "attestation_id": "sha256:a0b4affaccb6b384488a943906a54600741efcb66ddbf63353b37056a12f16c9",
+  "attestation_id": "sha256:20aa94bfdac72a78c79ebadb1026fb294fbff6b342c0584c71ead377810c07eb",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
+    "low": 3,
     "medium": 0
   },
   "findings": [
     {
       "category": "technical-debt",
-      "detail": "The TD-035 fix recommendation reads \"Revisit at TD-028's trigger, alongside TD-035's sibling TD-036\" — TD-035 is the entry being described, so it points at itself. The intended sibling relationship is TD-035 ↔ TD-036 (both are 'second producer / second contributor' deferrals). In the Risk column, `[TD-028]` uses reference-link syntax with no matching definition, so it renders as literal square brackets, unlike the proper `[ADR-0002](../adr/…)` links used elsewhere in this table. This is a living document whose whole value is that a future reader can follow the cross-references at the revisit trigger; a self-loop and a dead-looking link both cost that reader time at exactly the moment the entry is supposed to pay off.",
-      "file": "docs/quality/tech-debt-register.md",
-      "line": 20,
+      "detail": "The fixup commit corrected the ADR in three places to stop overclaiming, but missed the fourth. Line 64 reads \"TD-026 closed as moot\", which directly contradicts line 46 of the same file (\"TD-026 is NOT closed, and this ADR does not close it\") and the register itself, where `docs/quality/tech-debt-register.md:13` carries TD-026 as `open` / Medium with \"Was briefly closed 'as moot' on 2026-08-04 — that was wrong\". Artifacts is the section a future reader skims to find out what this decision did, so the one line that is still wrong is the one most likely to be believed. Secondary: the `Changed:` list on line 63 omits `App.tsx`, `.env.example`, `playwright.config.ts`, `vite-env.d.ts`, `bundle-budget.json`, `docs/TESTING.md`, `.github/workflows/ci.yml` and the three `e2e/` files, all of which this PR changes.",
+      "file": "docs/adr/ADR-0005-no-accounts-no-backend.md",
+      "line": 64,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "TD-035 names itself as its own sibling, and [TD-028] is not a live link"
+      "summary": "ADR Artifacts line still claims TD-026 was closed as moot"
     },
     {
-      "category": "testing",
-      "detail": "Factoring `\\(?` out of the alternation means `\\bfrom` is now also allowed to be followed by an open paren, but there is no ESM edge of the shape `from(\"./x.js\")`. The only thing this widens is the false-positive surface: `Array.from(\"…​.js\")` now matches and would enqueue a bogus URL that 404s and fails the test. In practice this is unreachable — a `.js`-suffixed string literal as the sole argument to `Array.from`/`Object.from` does not occur in a Rollup bundle — which is why this is an observation rather than a request. Recording it because the comment above the regex enumerates exactly three intended forms, and the pattern as written admits a fourth that isn't one of them. I confirmed the other false-positive shapes I could construct are already rejected: `\"from\":\"./x.js\"` and `from:\"./x.js\"` both fail because the character after the quote is `:`, not a specifier. I also grepped for `new Worker(` / `new URL(…, import.meta.url)` module edges in `components/`, `services/`, `utils/`, and `hooks/` and found none, so no real edge class is missed by the crawl.",
-      "file": "e2e/live/deployment.spec.ts",
-      "line": 126,
+      "category": "technical-debt",
+      "detail": "`\"build:e2e\": \"vite build --mode e2e --outDir dist-e2e\"`. The `--mode e2e` flag was there to load the bypass env var; `--outDir dist-e2e` is the part this PR correctly keeps (playwright.config.ts:73 and docs/TESTING.md both explain why the separate directory is still load-bearing). With the bypass gone, `--mode e2e` has no remaining effect: I grepped the whole tree and there is no `import.meta.env` read anywhere, and no `.env.e2e` is referenced by any tracked file. What it does still do is set `import.meta.env.MODE` to `'e2e'` instead of `'production'` in the bundle the suite actually serves — so the moment someone adds a `MODE === 'production'` branch, the e2e build silently diverges from the production build while playwright.config.ts:72 and docs/TESTING.md keep claiming the suite \"exercises the real production output\". Low, not medium, because nothing reads MODE today; it becomes medium the first time something does.",
+      "file": "package.json",
+      "line": 9,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "`build:e2e` still passes `--mode e2e`, which only existed for the auth bypass"
+    },
+    {
+      "category": "typescript",
+      "detail": "The new guard is the right shape of fix and closes the common case. It stops one notch short: `Array.isArray((f as FieldDef).options)` accepts `options: [{}]` or `options: [null]`, and `FieldDef.options` is `string[]` (line 20). Those values flow into state and are rendered as `<option>` children further down the tab, where React throws \"Objects are not valid as a React child\" — from render, outside this try, which is precisely the failure mode the comment on lines 63-71 says it is guarding against: the ErrorBoundary replaces the tab with no route back except clearing site data. Narrow trigger (a hand-edited or third-party-written localStorage value, not a value this app ever writes), which is why this is low rather than medium.",
+      "file": "components/ProjectSummaryTab.tsx",
+      "line": 80,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Template shape guard checks `options` is an array but not that it holds strings"
+    },
+    {
+      "category": "security",
+      "detail": "Recording that I checked the security-baseline handbook against the largest thing in this PR rather than leaving it implicit. Deleting `firestore.rules`, `firebase-applet-config.json` and `firebase.ts` from HEAD does not touch the deployed ruleset, does not invalidate the Web API key (public identifier, still readable in git history and in every bundle already served), and does not remove whatever data accumulated in `users/{uid}`. That is a real residual exposure, but it is not a finding against this diff: the PR states it plainly in ADR-0005's Consequences, reopens TD-026 with \"delete the Firebase project\" as the fix, and notes the deleted deny-by-default ruleset is recoverable from git history for the compare. Removing the client-side sign-in gate is also not a security-baseline violation — per handbook rule 3 a client-side check is a UI affordance, and every tool here is pure client-side computation over files that never leave the browser, so the gate protected no data. The only action left needs Google console access and cannot live in a diff.",
+      "file": "docs/quality/tech-debt-register.md",
+      "line": 13,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Optional `(` applies to the `from` branch too, matching a syntax form that does not exist"
+      "summary": "Residual Firebase exposure is correctly scoped as out-of-repo — no diff-side action"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 4
 }

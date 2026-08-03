@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:a0b4affaccb6b384488a943906a54600741efcb66ddbf63353b37056a12f16c9",
+  "attestation_id": "sha256:20aa94bfdac72a78c79ebadb1026fb294fbff6b342c0584c71ead377810c07eb",
   "audit": {
     "blocking_advisories": [],
     "critical": 0,
@@ -103,12 +103,6 @@
       "licence": "MIT",
       "name": "eslint-plugin-react-hooks",
       "range": "^5.1.0"
-    },
-    {
-      "kind": "production",
-      "licence": "Apache-2.0",
-      "name": "firebase",
-      "range": "^12.11.0"
     },
     {
       "kind": "development",
@@ -239,11 +233,11 @@
   ],
   "licences": {
     "(MIT OR GPL-3.0-or-later)": 1,
-    "Apache-2.0": 7,
+    "Apache-2.0": 6,
     "ISC": 1,
     "MIT": 27,
     "MPL-2.0": 1
   },
-  "production_count": 14,
+  "production_count": 13,
   "schema": "apexyard.evidence.dependencies/1"
 }

@@ -1,14 +1,14 @@
 {
-  "attestation_id": "sha256:a0b4affaccb6b384488a943906a54600741efcb66ddbf63353b37056a12f16c9",
+  "attestation_id": "sha256:20aa94bfdac72a78c79ebadb1026fb294fbff6b342c0584c71ead377810c07eb",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
     "budgets_total": 6,
     "largest_files": [
       {
-        "file": "xlsx.min--cr0b5JH.js",
-        "gzip_bytes": 348146,
-        "raw_bytes": 952848
+        "file": "xlsx.min-DRJ3DCf5.js",
+        "gzip_bytes": 348152,
+        "raw_bytes": 952871
       },
       {
         "file": "PDFButton-DQxKBSaF.js",
@@ -16,19 +16,14 @@
         "raw_bytes": 428977
       },
       {
-        "file": "xlsx-Dsa76irf.js",
-        "gzip_bytes": 162852,
-        "raw_bytes": 499841
+        "file": "xlsx-DOsuy8DS.js",
+        "gzip_bytes": 162855,
+        "raw_bytes": 499864
       },
       {
-        "file": "ProjectSummaryTab-DgUN8aBu.js",
-        "gzip_bytes": 144934,
-        "raw_bytes": 444588
-      },
-      {
-        "file": "vendor-firebase-BiqjBGEv.js",
-        "gzip_bytes": 115266,
-        "raw_bytes": 480734
+        "file": "ProjectSummaryTab-DTNNWL5I.js",
+        "gzip_bytes": 144663,
+        "raw_bytes": 443926
       },
       {
         "file": "geminiService-BA79jQBm.js",
@@ -36,9 +31,9 @@
         "raw_bytes": 278925
       },
       {
-        "file": "index.es-B_TdZdeS.js",
-        "gzip_bytes": 51622,
-        "raw_bytes": 151102
+        "file": "index.es-Cmc8SI6O.js",
+        "gzip_bytes": 51628,
+        "raw_bytes": 151120
       },
       {
         "file": "html2canvas.esm-CBrSDip1.js",
@@ -51,28 +46,33 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-e3dow-eF.js",
-        "gzip_bytes": 43367,
-        "raw_bytes": 135993
+        "file": "HomeTab-BUBV4QK7.js",
+        "gzip_bytes": 43361,
+        "raw_bytes": 135983
       },
       {
-        "file": "index-Fw9-vgaf.js",
-        "gzip_bytes": 33164,
-        "raw_bytes": 109032
+        "file": "index-Dmhk4aOX.js",
+        "gzip_bytes": 31173,
+        "raw_bytes": 103039
       },
       {
-        "file": "jszip.min-DE6liLEe.js",
-        "gzip_bytes": 29690,
-        "raw_bytes": 96496
+        "file": "jszip.min-CiouRDUD.js",
+        "gzip_bytes": 29698,
+        "raw_bytes": 96519
+      },
+      {
+        "file": "QrCodeTab-C9KXqhi4.js",
+        "gzip_bytes": 13678,
+        "raw_bytes": 37385
       }
     ],
     "metrics": [
       {
-        "budget_kb": 230,
-        "gzip_kb": 200.5,
+        "budget_kb": 110,
+        "gzip_kb": 85.9,
         "metric": "Initial load (entry + preloads + CSS)",
         "over": false,
-        "used_pct": 87
+        "used_pct": 78
       },
       {
         "budget_kb": 560,
@@ -83,7 +83,7 @@
       },
       {
         "budget_kb": 60,
-        "gzip_kb": 11.3,
+        "gzip_kb": 11.2,
         "metric": "Total CSS",
         "over": false,
         "used_pct": 19
@@ -96,18 +96,18 @@
         "used_pct": 1
       },
       {
-        "budget_kb": 1600,
-        "gzip_kb": 1413.4,
+        "budget_kb": 1450,
+        "gzip_kb": 1308.1,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
-        "used_pct": 88
+        "used_pct": 90
       },
       {
-        "budget_kb": 1700,
-        "gzip_kb": 1428,
+        "budget_kb": 1470,
+        "gzip_kb": 1322.6,
         "metric": "Total shipped assets",
         "over": false,
-        "used_pct": 84
+        "used_pct": 90
       }
     ],
     "passed": true
@@ -115,18 +115,18 @@
   "eslint": {
     "available": true,
     "errors": 0,
-    "files_with_findings": 50,
+    "files_with_findings": 47,
     "passed": true,
     "top_rules": [
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-explicit-any",
-        "warnings": 290
+        "warnings": 287
       },
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-unused-vars",
-        "warnings": 211
+        "warnings": 208
       },
       {
         "errors": 0,
@@ -145,16 +145,16 @@
       },
       {
         "errors": 0,
-        "rule": "no-empty",
-        "warnings": 5
+        "rule": "jsx-a11y/click-events-have-key-events",
+        "warnings": 4
       },
       {
         "errors": 0,
-        "rule": "jsx-a11y/click-events-have-key-events",
+        "rule": "no-empty",
         "warnings": 4
       }
     ],
-    "warnings": 612
+    "warnings": 605
   },
   "playwright": {
     "available": true,
@@ -176,10 +176,10 @@
   "vitest": {
     "available": true,
     "coverage": {
-      "branches_pct": 87.8,
-      "functions_pct": 75,
-      "lines_pct": 78.13,
-      "statements_pct": 78.13
+      "branches_pct": 88.88,
+      "functions_pct": 85.71,
+      "lines_pct": 96.03,
+      "statements_pct": 96.03
     },
     "passed": true,
     "tests": {

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:a0b4affaccb6b384488a943906a54600741efcb66ddbf63353b37056a12f16c9` |
+| Attestation id | `sha256:20aa94bfdac72a78c79ebadb1026fb294fbff6b342c0584c71ead377810c07eb` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `b6a9e554c449` |
+| Reviewed at commit | `aef971288736` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 2 |
+| Files reviewed | 25 |
 
 ## What this is, and what it is not
 
@@ -30,29 +30,29 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
+| low | 3 |
 | info | 1 |
 
-This PR widens the live-deployment chunk-crawl regex to also follow bare side-effect imports (`import"./x.js"`), which is the form 24 of the 28 lazy tool chunks use to reach the `_commonjs-dynamic-modules` helper whose 404 caused the TD-033 outage. It also registers three new tech-debt entries (TD-034/035/036) found during the prior review rather than fixing them in a hotfix. The regex change is correct and is a genuine tightening as well as a widening — the added `\b` anchors prevent matches inside identifiers, and I traced the false-positive surface (`"from":"./x.js"` JSON, `from:` object keys) and confirmed the pattern rejects them. Two non-blocking nits only.
+This PR completes the removal of Google sign-in and Firebase from a browser-only spreadsheet toolkit: the auth wrapper, Firestore client, rules file and dependency are deleted, ProjectSummaryTab falls back to localStorage-only persistence with a new shape guard, bundle budgets are ratcheted down (initial load 199.3 → 85.9 KB gzipped), and the decision is recorded in ADR-0005. I verified the leftovers question directly — no tracked file still imports firebase, references AuthWrapper, or reads VITE_E2E_AUTH_BYPASS, and no e2e/unit test still asserts the sign-in gate. I also verified the new `tool chunks evaluate` live test against the committed build: all five specifiers (`./CleanTool-…`, `./CompareTool-…`, `./MergeTool-…`, `./QrCodeTab-…`, `./excelService-…`) exist in the real entry chunk `index-v238RPzG.js` with 8-char hashes, resolve to real files under a single `assets/`, and each chunk has exports — so the `assets/assets/` regression the fixup commit describes is genuinely fixed and the test will not go red on every deploy. No blocking-handbook violations and nothing high or critical; three low findings and one informational note, all safe as follow-ups.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 612 warning(s) |
-| Vitest | pass | 134/134 passed, lines 78.13% |
+| ESLint | pass | 0 error(s), 605 warning(s) |
+| Vitest | pass | 134/134 passed, lines 96.03% |
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | pass | 18 violation node(s) |
+| Accessibility | pass | 19 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 86 source files, 25427 lines
+- 83 source files, 25241 lines
 - Layering violations: **0**
 - Files over 800 lines: **9**
 - Probable duplicate implementations: **1**
@@ -66,8 +66,8 @@ reports zero failures for a tool that never executed.
 | `components/FileValidationTab.tsx` | 1058 |
 | `components/SupportChat.tsx` | 898 |
 | `utils/translations.ts` | 893 |
-| `components/ProjectSummaryTab.tsx` | 887 |
 | `components/OcrTab.tsx` | 867 |
+| `components/ProjectSummaryTab.tsx` | 862 |
 | `components/ZidTab.tsx` | 841 |
 | `components/DuplicatesTab.tsx` | 821 |
 
@@ -75,8 +75,8 @@ reports zero failures for a tool that never executed.
 
 ## Dependencies
 
-- 14 production, 23 development
-- Licences: MIT (27), Apache-2.0 (7), (MIT OR GPL-3.0-or-later) (1), ISC (1), MPL-2.0 (1)
+- 13 production, 23 development
+- Licences: MIT (27), Apache-2.0 (6), (MIT OR GPL-3.0-or-later) (1), ISC (1), MPL-2.0 (1)
 
 ## Artifacts
 

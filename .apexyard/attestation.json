@@ -1,9 +1,13 @@
 {
-  "attestation_id": "sha256:9245e198646e6593cdf076e047d1b15272ef8eebba8fb451c9db89586c2b8e4b",
+  "attestation_id": "sha256:20aa94bfdac72a78c79ebadb1026fb294fbff6b342c0584c71ead377810c07eb",
   "files": [
     {
       "oid": "7fea4d77202556f2fafd76941e6ec49587e6dda0",
       "path": ".env.example"
+    },
+    {
+      "oid": "8447d92473cb7a03649d49fe8df0d31a37a484be",
+      "path": ".github/workflows/ci.yml"
     },
     {
       "oid": "0a5bdf5c9ce404e329284fdeb7cddf2779e33321",
@@ -22,7 +26,7 @@
       "path": "components/ErrorBoundary.tsx"
     },
     {
-      "oid": "acc8111c77557ff2bc2f7c03e2bb28f14049c2fb",
+      "oid": "a9ea5f197ca572760d09ac1be422af46ec559a2b",
       "path": "components/ProjectSummaryTab.tsx"
     },
     {
@@ -34,11 +38,11 @@
       "path": "docs/TESTING.md"
     },
     {
-      "oid": "c0b40b8d8478c5b0522c9ec7674fdd46975dd768",
+      "oid": "63f712df866502d7eee3676824288b73c1e0bb48",
       "path": "docs/adr/ADR-0005-no-accounts-no-backend.md"
     },
     {
-      "oid": "184fd81fde71e3ba7d4ea69a09409281e2abdb0c",
+      "oid": "4f79fa45b98694c4115fd3c6133c82acc3e7ec4e",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
@@ -46,7 +50,7 @@
       "path": "e2e/fixtures.ts"
     },
     {
-      "oid": "1e40876a32f1537f1ea9c9c8206e439db56cc63c",
+      "oid": "085e46a68821b1c758d64bdf310cd7e6027a4f5e",
       "path": "e2e/live/deployment.spec.ts"
     },
     {
@@ -100,15 +104,15 @@
   ],
   "findings_by_severity": {
     "critical": 0,
-    "high": 1,
+    "high": 0,
     "info": 1,
     "low": 3,
-    "medium": 1
+    "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "dd3f6556b043c57ed5bc5cf6f59f57de35218168",
+  "reviewed_at_commit": "aef971288736f542caa378e5874674ba65eb5e72",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "COMMENT"
+  "verdict": "APPROVED"
 }
