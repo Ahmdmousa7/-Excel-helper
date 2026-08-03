@@ -127,7 +127,7 @@ else
       printf 'No file content to review. Confirm nothing still imports these.\n'
       RESULTS+=("SKIP|1. ApexYard AI review (deletions only)")
       REVIEW_QUALIFIED="the push is deletions only, so no code was AI-reviewed"
-    elif node scripts/verify-attestation.mjs --base "$BASE" --require-gate high >/dev/null 2>&1; then
+    elif node scripts/verify-evidence.mjs --base "$BASE" --require-gate high >/dev/null 2>&1; then
       # Already attested for exactly this content.
       #
       # Without this, the pre-push hook would re-review on every push — a

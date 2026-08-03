@@ -193,7 +193,7 @@ The attestation answers *was this code reviewed?* The bundle answers *what did t
 ```bash
 npm run evidence            # assemble the bundle
 npm run evidence:check      # prove it reproduces byte for byte
-npm run verify:evidence     # what CI runs
+npm run verify:evidence     # what CI runs — the single verifier
 npm run test:evidence       # 28 end-to-end cases
 ```
 

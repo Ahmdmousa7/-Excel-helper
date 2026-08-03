@@ -1,53 +1,50 @@
 #!/usr/bin/env node
 //
-// verify-evidence.mjs — check the engineering evidence bundle.
+// verify-evidence.mjs — the single verifier for the review evidence.
 //
-// Runs in GitHub Actions with no credentials, no network, and no model. It is a
-// superset of verify-attestation.mjs: it delegates the attestation checks to the
-// same library, then adds the bundle rules.
+// Runs in GitHub Actions with no credentials, no network, and no model.
 //
-// The five things it establishes (requirement 5):
+// THIS REPLACED A SECOND VERIFIER, AND THAT MATTERS
+// -------------------------------------------------
+// There used to be a `verify-attestation.mjs` alongside this, and CI ran both.
+// They shared ~85% of their logic and disagreed on one detail: which paths are
+// excluded from the coverage check. This file excludes the whole `.apexyard/`
+// bundle; the other excluded only the manifest. Since `evidence.mjs` rewrites
+// every artifact on each run, committing the bundle produced files the other
+// verifier saw as "changed but never reviewed" — so the two gates had no fixed
+// point and CI could never be green. An accretion of two near-identical
+// checkers is not a redundancy, it is a place for them to disagree.
+//
+// One verifier. One exclusion rule. The rules below are numbered to match
+// docs/adr/ADR-0003 § "What CI verifies, and what it cannot".
 //
 //   1. ARTIFACTS EXIST         every required file is present
 //   2. ATTESTATION MATCHES     the JSON mirror agrees with the signed manifest
-//      REVIEWED FILES
-//   3. REVIEWED FILES MATCH    every recorded blob OID still resolves at HEAD,
-//      REPOSITORY STATE        and nothing changed here that went unreviewed
-//   4. NO ARTIFACT IS STALE    every artifact's attestation_id is the current
+//   3. FILES MATCH REPO STATE  every recorded blob OID still resolves at HEAD,
+//                              and nothing changed here that went unreviewed
+//   4. NO ARTIFACT IS STALE    every artifact's attestation_id is this
 //                              attestation's digest
-//   5. NOTHING IS              artifacts are canonical and free of
-//      NON-REPRODUCIBLE        timestamp-shaped content
+//   5. REPRODUCIBLE            artifacts are canonical and free of
+//                              timestamp-shaped content
+//   6. SIGNED, IF SIGNERS EXIST
 //
 // What it does NOT establish, stated here because a verifier that overclaims is
 // worse than none: that a model was invoked. The bundle is written by the same
-// machine that could write it by hand. See docs/adr/ADR-0002 and ADR-0003.
+// machine that could write it by hand. See ADR-0002 and ADR-0003.
 //
 // Usage:
 //   node scripts/verify-evidence.mjs [--base <ref>] [--head <ref>]
 //                                    [--require-gate high] [--dir .apexyard]
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseAttestation, digestBody, uncoveredPaths, gateSatisfied, DELETED } from './lib/attestation.mjs';
+import {
+  parseAttestation, digestBody, uncoveredPaths, gateSatisfied, DELETED, SIG_NAMESPACE,
+} from './lib/attestation.mjs';
 import {
   BUNDLE_DIR, REQUIRED_ARTIFACTS, SUMMARY_FILE, checkArtifact, missingArtifacts,
 } from './lib/evidence.mjs';
-
-const problems = [];
-const notes = [];
-
-function git(args) {
-  return execFileSync('git', args, { encoding: 'utf8' }).replace(/\n$/, '');
-}
-function gitOrNull(args) {
-  try {
-    return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
-      .replace(/\n$/, '');
-  } catch {
-    return null;
-  }
-}
 
 const opt = { base: '', head: 'HEAD', requireGate: 'high', dir: BUNDLE_DIR };
 const args = process.argv.slice(2);
@@ -67,6 +64,46 @@ for (let i = 0; i < args.length; i += 1) {
   }
 }
 
+const SIGNERS_FILE = join(opt.dir, 'allowed_signers');
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+// Declared before anything can report, with safe defaults.
+//
+// An earlier version called report() from the middle of the module while
+// `headSha` and `present` were still in their temporal dead zone. `report` was
+// hoisted, so the call resolved — and then threw ReferenceError instead of
+// printing the failure it existed to print. Every early-exit path was broken in
+// exactly the situation it was written for.
+const problems = [];
+const notes = [];
+let present = [];
+let headSha = '?';
+let attestationId = '?';
+let fields = null;
+let changedCount = null;
+
+function git(args_) {
+  return execFileSync('git', args_, { encoding: 'utf8' }).replace(/\n$/, '');
+}
+/** For lookups expected to fail — an attested-as-deleted path has no blob at
+ *  HEAD, and git's "does not exist" on stderr reads like an error when it is
+ *  the correct answer. */
+function gitOrNull(args_) {
+  try {
+    return execFileSync('git', args_, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .replace(/\n$/, '');
+  } catch {
+    return null;
+  }
+}
+function loadArtifact(name) {
+  const p = join(opt.dir, name);
+  if (!existsSync(p)) return null;
+  try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
+}
+
 // ---------------------------------------------------------------------------
 // RULE 1 — the artifacts exist
 // ---------------------------------------------------------------------------
@@ -81,13 +118,11 @@ if (!existsSync(opt.dir)) {
   process.exit(1);
 }
 
-const present = readdirSync(opt.dir).filter((f) => !f.startsWith('.'));
-const missing = missingArtifacts(present);
-for (const m of missing) problems.push(`required artifact ${m} is missing from ${opt.dir}/`);
+present = readdirSync(opt.dir).filter((f) => !f.startsWith('.'));
+for (const m of missingArtifacts(present)) {
+  problems.push(`required artifact ${m} is missing from ${opt.dir}/`);
+}
 
-// ---------------------------------------------------------------------------
-// The attestation is the anchor for everything else
-// ---------------------------------------------------------------------------
 const attPath = join(opt.dir, 'attestation');
 if (!existsSync(attPath)) {
   problems.push(`${attPath} is missing — the bundle has nothing to bind to`);
@@ -102,10 +137,10 @@ try {
   report();
 }
 
-const ID = att.digest;
-const F = att.fields;
+attestationId = att.digest;
+fields = att.fields;
 
-if (ID !== digestBody(att.body)) {
+if (attestationId !== digestBody(att.body)) {
   problems.push(
     'attestation digest does not match its body — the manifest was edited after ' +
     'it was generated. Regenerate rather than hand-editing.',
@@ -116,11 +151,10 @@ if (ID !== digestBody(att.body)) {
 // ---------------------------------------------------------------------------
 // RULE 3 — reviewed files still match repository state
 // ---------------------------------------------------------------------------
-// Unchanged from ADR-0002. This is the load-bearing check; the bundle rules are
-// guards around it.
-const headSha = git(['rev-parse', opt.head]);
+// The load-bearing check. Everything else is a guard around it.
+headSha = git(['rev-parse', opt.head]);
 
-for (const { path, oid } of F.files) {
+for (const { path, oid } of fields.files) {
   const actual = gitOrNull(['rev-parse', `${opt.head}:${path}`]);
   if (oid === DELETED) {
     if (actual !== null) problems.push(`${path} was attested as deleted but exists at ${opt.head}`);
@@ -139,11 +173,12 @@ for (const { path, oid } of F.files) {
   }
 }
 
-// Coverage: nothing may change in this range that the review never saw. The
-// whole bundle directory is excluded — it is generated *from* the review, so
-// requiring it to be reviewed would be circular.
+// Coverage: nothing may change in this range that the review never saw.
+//
+// The entire bundle directory is excluded. It is generated FROM the review, so
+// requiring it to be reviewed would be circular — and getting this exclusion
+// wrong is what gave the old two-verifier setup no fixed point.
 const SELF_PREFIX = `${opt.dir}/`;
-let changed = null;
 if (opt.base) {
   const baseSha = gitOrNull(['rev-parse', '--verify', opt.base]);
   if (baseSha === null) {
@@ -152,10 +187,11 @@ if (opt.base) {
       'check was skipped. Content binding still applied.',
     );
   } else {
-    changed = git(['diff', '--name-only', '-z', `${baseSha}...${headSha}`])
+    const changed = git(['diff', '--name-only', '-z', `${baseSha}...${headSha}`])
       .split('\0')
       .filter((p) => p !== '' && !p.startsWith(SELF_PREFIX) && p !== opt.dir);
-    const gaps = uncoveredPaths(F.files.map((f) => f.path), changed);
+    changedCount = changed.length;
+    const gaps = uncoveredPaths(fields.files.map((f) => f.path), changed);
     if (gaps.length > 0) {
       problems.push(
         `${gaps.length} file(s) changed in this range but were never reviewed:\n` +
@@ -168,53 +204,43 @@ if (opt.base) {
 }
 
 // The recorded review must have been strict enough, and clean.
-for (const r of gateSatisfied(F, opt.requireGate).reasons) problems.push(r);
+for (const r of gateSatisfied(fields, opt.requireGate).reasons) problems.push(r);
 
 // ---------------------------------------------------------------------------
-// RULES 4 and 5 — every artifact is bound to THIS attestation, canonical, and
-// free of non-reproducible content
+// RULES 4 and 5 — bound to THIS attestation, canonical, reproducible
 // ---------------------------------------------------------------------------
 for (const name of REQUIRED_ARTIFACTS) {
   const p = join(opt.dir, name);
   if (!existsSync(p)) continue;   // already reported by rule 1
-  for (const msg of checkArtifact(name, readFileSync(p, 'utf8'), ID)) problems.push(msg);
+  for (const msg of checkArtifact(name, readFileSync(p, 'utf8'), attestationId)) problems.push(msg);
 }
 
 // ---------------------------------------------------------------------------
 // RULE 2 — the JSON mirror agrees with the signed manifest
 // ---------------------------------------------------------------------------
-// `.apexyard/attestation` is authoritative (ADR-0002 kept it unchanged, and the
-// SSH signature covers its bytes). attestation.json is a convenience mirror, so
+// `.apexyard/attestation` is authoritative: ADR-0002 kept it unchanged and the
+// SSH signature covers its bytes. attestation.json is a convenience mirror, so
 // the two are checked against each other rather than trusted to stay in step.
-const mirrorPath = join(opt.dir, 'attestation.json');
-if (existsSync(mirrorPath)) {
-  let mirror = null;
-  try {
-    mirror = JSON.parse(readFileSync(mirrorPath, 'utf8'));
-  } catch {
-    // checkArtifact already reported the parse failure.
+const mirror = loadArtifact('attestation.json');
+if (mirror) {
+  if (mirror.digest !== attestationId) {
+    problems.push(
+      `attestation.json records digest ${mirror.digest} but the manifest's is ${attestationId}`,
+    );
   }
-  if (mirror) {
-    if (mirror.digest !== ID) {
-      problems.push(
-        `attestation.json records digest ${mirror.digest} but the manifest's is ${ID}`,
-      );
-    }
-    const manifestFiles = F.files.map((f) => `${f.oid} ${f.path}`).sort().join('\n');
-    const mirrorFiles = (mirror.files ?? []).map((f) => `${f.oid} ${f.path}`).sort().join('\n');
-    if (manifestFiles !== mirrorFiles) {
-      problems.push(
-        'attestation.json lists a different file set than the manifest — the ' +
-        'mirror is out of step with its source. Regenerate: npm run evidence',
-      );
-    }
-    for (const [k, v] of Object.entries({
-      gate: F.gate, model: F.model, verdict: F.verdict, scope: F.scope,
-    })) {
-      const got = k === 'scope' ? mirror.scope : mirror[k];
-      if (v !== undefined && got !== v) {
-        problems.push(`attestation.json ${k} is ${JSON.stringify(got)}, manifest says ${JSON.stringify(v)}`);
-      }
+  const manifestFiles = fields.files.map((f) => `${f.oid} ${f.path}`).sort().join('\n');
+  const mirrorFiles = (mirror.files ?? []).map((f) => `${f.oid} ${f.path}`).sort().join('\n');
+  if (manifestFiles !== mirrorFiles) {
+    problems.push(
+      'attestation.json lists a different file set than the manifest — the mirror ' +
+      'is out of step with its source. Regenerate: npm run evidence',
+    );
+  }
+  for (const [k, v] of Object.entries({
+    gate: fields.gate, model: fields.model, verdict: fields.verdict, scope: fields.scope,
+  })) {
+    if (v !== undefined && mirror[k] !== v) {
+      problems.push(`attestation.json ${k} is ${JSON.stringify(mirror[k])}, manifest says ${JSON.stringify(v)}`);
     }
   }
 }
@@ -222,18 +248,32 @@ if (existsSync(mirrorPath)) {
 // ---------------------------------------------------------------------------
 // Cross-artifact consistency
 // ---------------------------------------------------------------------------
-// review.json and findings.json are derived from one review, so their counts
-// must agree. A mismatch means one was regenerated and the other was not — the
-// staleness rule catches a *different* attestation, this catches a partial
-// regeneration under the same one.
-function loadArtifact(name) {
-  const p = join(opt.dir, name);
-  if (!existsSync(p)) return null;
-  try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
-}
 const review = loadArtifact('review.json');
 const findings = loadArtifact('findings.json');
 
+// A bundle whose review.json says the review never ran is not a verified
+// bundle. Without this, `available: false` sailed through every other rule —
+// the artifacts were present, canonical, and correctly bound to an attestation
+// that recorded no findings, so nothing objected. That is the same
+// "absence reads as success" failure the collectors were built to avoid, one
+// layer up.
+if (!review) {
+  problems.push('review.json could not be read');
+} else if (review.available !== true) {
+  problems.push(
+    `review.json reports the review did not run (${review.reason ?? 'no reason given'}) — ` +
+    'an unrun review is not a passing one',
+  );
+}
+if (findings && findings.available !== true) {
+  problems.push(
+    `findings.json reports no findings data (${findings.reason ?? 'no reason given'})`,
+  );
+}
+
+// review.json and findings.json come from one review, so their counts must
+// agree. The staleness rule catches a *different* attestation; this catches a
+// partial regeneration under the same one.
 if (review?.available && findings?.available) {
   if (review.findings_total !== findings.total) {
     problems.push(
@@ -249,17 +289,53 @@ if (review?.available && findings?.available) {
   }
 }
 
-// The attestation's own counts must agree with the artifacts derived from the
-// same review. This is what stops a hand-edited artifact from reporting a clean
-// review that the signed manifest contradicts.
-if (review?.available && F.findings) {
-  for (const [sev, n] of Object.entries(F.findings)) {
+// The signed manifest is authoritative over any artifact derived from it. This
+// is what stops a hand-edited review.json from reporting a clean review the
+// manifest contradicts.
+if (review?.available && fields.findings) {
+  for (const [sev, n] of Object.entries(fields.findings)) {
     const got = review.findings_by_severity?.[sev];
     if (got !== undefined && got !== n) {
-      problems.push(
-        `severity "${sev}": the attestation records ${n} but review.json says ${got}`,
-      );
+      problems.push(`severity "${sev}": the attestation records ${n} but review.json says ${got}`);
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// RULE 6 — signature, when signers are registered
+// ---------------------------------------------------------------------------
+// Required only if someone registered a key. An empty or absent signers file
+// means this repo has not opted in, and demanding a signature would fail every
+// build for a control nobody configured. Once signers ARE registered, a missing
+// or bad signature is fatal — otherwise registering a key would be decorative.
+const sigPath = `${attPath}.sig`;
+const signers = existsSync(SIGNERS_FILE)
+  ? readFileSync(SIGNERS_FILE, 'utf8')
+    .split('\n').filter((l) => l.trim() !== '' && !l.trim().startsWith('#')).join('\n')
+  : '';
+
+if (signers === '') {
+  notes.push(
+    'no signers registered, so the attestation is accepted unsigned. Add a ' +
+    `public key to ${SIGNERS_FILE} to require a signature.`,
+  );
+} else if (!existsSync(sigPath)) {
+  problems.push(
+    `signers are registered in ${SIGNERS_FILE} but ${sigPath} is missing — the ` +
+    'attestation was produced without signing',
+  );
+} else {
+  const identity = signers.split('\n')[0].split(/\s+/)[0];
+  try {
+    execFileSync(
+      'ssh-keygen',
+      ['-Y', 'verify', '-f', SIGNERS_FILE, '-I', identity, '-n', SIG_NAMESPACE, '-s', sigPath],
+      { input: readFileSync(attPath), stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+    notes.push(`signature verified for ${identity}`);
+  } catch (err) {
+    const detail = ((err.stderr || '') + (err.stdout || '')).toString().trim();
+    problems.push(`signature did not verify for ${identity}: ${detail || err.message}`);
   }
 }
 
@@ -268,6 +344,7 @@ report();
 // ---------------------------------------------------------------------------
 function report() {
   const m = loadArtifact('metrics.json');
+  const deps = loadArtifact('dependency-report.json');
   const gateRow = (label, section, detail) => {
     if (!section) return `| ${label} | not present | |`;
     if (section.available === false) return `| ${label} | **not run** | ${section.reason} |`;
@@ -278,14 +355,14 @@ function report() {
   const head = [
     '| | |',
     '|---|---|',
-    `| Attestation id | \`${ID ?? '?'}\` |`,
-    `| Reviewed scope | \`${F?.scope ?? '?'}\` |`,
-    `| Reviewed at commit | \`${(F?.head ?? '?').slice(0, 12)}\` |`,
-    `| Verifying commit | \`${(typeof headSha === 'string' ? headSha : '?').slice(0, 12)}\` |`,
-    `| Gate | \`${F?.gate ?? '?'}\` (required at least \`${opt.requireGate}\`) |`,
-    `| Verdict | \`${F?.verdict ?? '?'}\` |`,
-    `| Files attested | ${F?.files.length ?? '?'} |`,
-    `| Files changed here | ${changed === null ? 'not computed' : changed.length} |`,
+    `| Attestation id | \`${attestationId}\` |`,
+    `| Reviewed scope | \`${fields?.scope ?? '?'}\` |`,
+    `| Reviewed at commit | \`${(fields?.head ?? '?').slice(0, 12)}\` |`,
+    `| Verifying commit | \`${headSha.slice(0, 12)}\` |`,
+    `| Gate | \`${fields?.gate ?? '?'}\` (required at least \`${opt.requireGate}\`) |`,
+    `| Verdict | \`${fields?.verdict ?? '?'}\` |`,
+    `| Files attested | ${fields?.files.length ?? '?'} |`,
+    `| Files changed here | ${changedCount === null ? 'not computed' : changedCount} |`,
     `| Artifacts present | ${present.filter((f) => REQUIRED_ARTIFACTS.includes(f) || f === SUMMARY_FILE).length}/${REQUIRED_ARTIFACTS.length + 1} |`,
   ].join('\n');
 
@@ -298,6 +375,7 @@ function report() {
     gateRow('Vitest', m.vitest, (s) => `${s.tests?.passed ?? '?'}/${s.tests?.total ?? '?'} passed`),
     gateRow('Playwright', m.playwright, (s) => `${s.passed_count}/${s.total} passed`),
     gateRow('Bundle budget', m.bundle, (s) => `${s.budgets_ok ?? '?'}/${s.budgets_total ?? '?'} within budget`),
+    gateRow('Production audit', deps?.audit, (s) => `${s.critical ?? '?'} critical, ${s.high ?? '?'} high`),
     '',
     'A gate reading **not run** did not pass — it was never executed.',
   ].join('\n') : '';
@@ -336,12 +414,17 @@ function report() {
     ].join('\n');
 
   process.stdout.write(`${out}\n`);
+
+  // Synchronous, and imported statically at the top.
+  //
+  // This used to be `import('node:fs').then(...)` followed immediately by
+  // process.exit(). The exit won the race every time, so the job summary was
+  // never written — a reporting feature that silently did nothing in the one
+  // environment it existed for.
   if (process.env.GITHUB_STEP_SUMMARY) {
-    // Appended, not written: the aggregate job adds to the same summary.
-    import('node:fs').then(({ appendFileSync }) => {
-      appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${out}\n`);
-    });
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${out}\n`);
   }
+
   if (!ok) {
     process.stderr.write(
       `\n::error title=Evidence bundle::${problems.length} problem(s) — see the job summary.\n`,

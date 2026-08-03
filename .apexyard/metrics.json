@@ -1,21 +1,177 @@
 {
-  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "attestation_id": "sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab",
   "bundle": {
-    "available": false,
-    "reason": "bundle report not captured; run npm run build"
+    "available": true,
+    "budgets_ok": 6,
+    "budgets_total": 6,
+    "largest_files": [
+      {
+        "file": "xlsx.min--cr0b5JH.js",
+        "gzip_bytes": 348146,
+        "raw_bytes": 952848
+      },
+      {
+        "file": "PDFButton-DQxKBSaF.js",
+        "gzip_bytes": 177333,
+        "raw_bytes": 428977
+      },
+      {
+        "file": "xlsx-Dsa76irf.js",
+        "gzip_bytes": 162852,
+        "raw_bytes": 499841
+      },
+      {
+        "file": "ProjectSummaryTab-DgUN8aBu.js",
+        "gzip_bytes": 144934,
+        "raw_bytes": 444588
+      },
+      {
+        "file": "vendor-firebase-BiqjBGEv.js",
+        "gzip_bytes": 115266,
+        "raw_bytes": 480734
+      },
+      {
+        "file": "geminiService-BA79jQBm.js",
+        "gzip_bytes": 56929,
+        "raw_bytes": 278925
+      },
+      {
+        "file": "index.es-B_TdZdeS.js",
+        "gzip_bytes": 51622,
+        "raw_bytes": 151102
+      },
+      {
+        "file": "html2canvas.esm-CBrSDip1.js",
+        "gzip_bytes": 47782,
+        "raw_bytes": 202301
+      },
+      {
+        "file": "vendor-react-C14am9Lm.js",
+        "gzip_bytes": 45350,
+        "raw_bytes": 141455
+      },
+      {
+        "file": "HomeTab-e3dow-eF.js",
+        "gzip_bytes": 43367,
+        "raw_bytes": 135993
+      },
+      {
+        "file": "index-Fw9-vgaf.js",
+        "gzip_bytes": 33164,
+        "raw_bytes": 109032
+      },
+      {
+        "file": "jszip.min-DE6liLEe.js",
+        "gzip_bytes": 29690,
+        "raw_bytes": 96496
+      }
+    ],
+    "metrics": [
+      {
+        "budget_kb": 230,
+        "gzip_kb": 200.5,
+        "metric": "Initial load (entry + preloads + CSS)",
+        "over": false,
+        "used_pct": 87
+      },
+      {
+        "budget_kb": 560,
+        "gzip_kb": 340,
+        "metric": "Largest single JS chunk",
+        "over": false,
+        "used_pct": 61
+      },
+      {
+        "budget_kb": 60,
+        "gzip_kb": 11.3,
+        "metric": "Total CSS",
+        "over": false,
+        "used_pct": 19
+      },
+      {
+        "budget_kb": 120,
+        "gzip_kb": 0.9,
+        "metric": "Total images",
+        "over": false,
+        "used_pct": 1
+      },
+      {
+        "budget_kb": 1600,
+        "gzip_kb": 1413.4,
+        "metric": "Total JavaScript (all chunks)",
+        "over": false,
+        "used_pct": 88
+      },
+      {
+        "budget_kb": 1700,
+        "gzip_kb": 1427.9,
+        "metric": "Total shipped assets",
+        "over": false,
+        "used_pct": 84
+      }
+    ],
+    "passed": true
   },
   "eslint": {
-    "available": false,
-    "reason": "eslint json output not captured; run npm run verify:local"
+    "available": true,
+    "errors": 0,
+    "files_with_findings": 50,
+    "passed": true,
+    "top_rules": [
+      {
+        "errors": 0,
+        "rule": "@typescript-eslint/no-explicit-any",
+        "warnings": 290
+      },
+      {
+        "errors": 0,
+        "rule": "@typescript-eslint/no-unused-vars",
+        "warnings": 211
+      },
+      {
+        "errors": 0,
+        "rule": "jsx-a11y/label-has-associated-control",
+        "warnings": 70
+      },
+      {
+        "errors": 0,
+        "rule": "react-hooks/exhaustive-deps",
+        "warnings": 27
+      },
+      {
+        "errors": 0,
+        "rule": "jsx-a11y/no-static-element-interactions",
+        "warnings": 5
+      },
+      {
+        "errors": 0,
+        "rule": "no-empty",
+        "warnings": 5
+      },
+      {
+        "errors": 0,
+        "rule": "jsx-a11y/click-events-have-key-events",
+        "warnings": 4
+      }
+    ],
+    "warnings": 612
   },
   "playwright": {
-    "available": false,
-    "reason": "playwright json output not captured; run npm run e2e"
+    "available": true,
+    "failed_count": 0,
+    "failures": [],
+    "flaky_count": 0,
+    "passed": true,
+    "passed_count": 101,
+    "skipped_count": 0,
+    "total": 101
   },
   "schema": "apexyard.evidence.metrics/1",
   "typescript": {
-    "available": false,
-    "reason": "tsc output not captured; run npm run verify:local"
+    "available": true,
+    "error_codes": {},
+    "errors": 0,
+    "passed": true
   },
   "vitest": {
     "available": true,
@@ -24,6 +180,14 @@
       "functions_pct": 75,
       "lines_pct": 78.13,
       "statements_pct": 78.13
+    },
+    "passed": true,
+    "tests": {
+      "failed": 0,
+      "passed": 114,
+      "skipped": 0,
+      "suites": 23,
+      "total": 114
     }
   }
 }

@@ -1,6 +1,34 @@
 {
-  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
-  "available": false,
-  "reason": "axe summary not captured; the accessibility e2e suite writes test-results/axe-summary.json when it runs",
-  "schema": "apexyard.evidence.accessibility/1"
+  "attestation_id": "sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab",
+  "available": true,
+  "by_impact": {
+    "critical": 2,
+    "minor": 0,
+    "moderate": 0,
+    "serious": 6
+  },
+  "by_rule": {
+    "button-name": {
+      "impact": "critical",
+      "nodes": 2,
+      "pages": [
+        "the Compare Files tool"
+      ]
+    },
+    "color-contrast": {
+      "impact": "serious",
+      "nodes": 6,
+      "pages": [
+        "the Compare Files tool"
+      ]
+    }
+  },
+  "known_debt_budget": 7,
+  "pages_scanned": [
+    "the Compare Files tool"
+  ],
+  "passed": false,
+  "schema": "apexyard.evidence.accessibility/1",
+  "standard": "WCAG 2.2 AA (axe-core)",
+  "violations_total": 8
 }

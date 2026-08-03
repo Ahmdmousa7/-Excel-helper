@@ -93,6 +93,6 @@ The two cases the whole thing exists for — a file edited after review, and a f
 
 - `scripts/lib/attestation.mjs` (+ `.d.mts`) — the pure logic
 - `scripts/attest-review.mjs` — generator, called by `review-local.sh`
-- `scripts/verify-attestation.mjs` — verifier, run by CI and by the pre-push hook
+- `scripts/verify-evidence.mjs` — the single verifier, run by CI and by the pre-push hook. (A separate `verify-attestation.mjs` existed briefly; it duplicated ~85% of this and disagreed with it on which paths the coverage check excludes, which left the two gates with no fixed point. Removed 2026-08-03 — see docs/quality/architecture-review-2026-08-03.md.)
 - `.github/workflows/ci.yml` — the `attestation` job, part of the required `CI` check
 - `docs/quality/tech-debt-register.md` — TD-027 (residual gap), TD-028 (single-maintainer signing)

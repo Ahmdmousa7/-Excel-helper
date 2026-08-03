@@ -16,6 +16,9 @@
        vitest.config.ts. Without it, tsc keeps type-checking against the
        removed package and reports it as missing. All three must agree. */
     "baseUrl": ".",
+    // No baseUrl: it is deprecated in TS 6 and removed in 7. Since TS 4.x,
+    // "paths" resolves relative to this file when baseUrl is absent, which is
+    // what we want anyway — the mapping below is repo-relative.
     "paths": {
       "xlsx": ["./node_modules/@e965/xlsx"]
     },

@@ -253,16 +253,7 @@ jobs:
               ;;
           esac
 
-      - name: 6. Verify the review attestation
-        # HARD GATE. Fails on a missing, malformed, stale, or under-covering
-        # attestation, on a review weaker than --fail-on high, and on a bad
-        # signature when signers are registered.
-        run: |
-          node scripts/verify-attestation.mjs \
-            --require-gate high \
-            ${{ steps.range.outputs.base && format('--base {0}', steps.range.outputs.base) || '' }}
-
-      - name: 6b. Verify the evidence bundle
+      - name: 6. Verify the evidence bundle
         # HARD GATE, and a superset of the step above: artifacts exist, the JSON
         # mirror agrees with the signed manifest, every artifact carries THIS
         # attestation's id (so a stale one fails), and no artifact contains

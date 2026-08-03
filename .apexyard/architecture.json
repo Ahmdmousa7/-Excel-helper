@@ -1,10 +1,10 @@
 {
-  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "attestation_id": "sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab",
   "available": true,
   "by_directory": {
-    "App.tsx": {
-      "files": 1,
-      "loc": 557
+    "(root)": {
+      "files": 9,
+      "loc": 918
     },
     "components": {
       "files": 40,
@@ -12,59 +12,27 @@
     },
     "e2e": {
       "files": 19,
-      "loc": 1910
-    },
-    "firebase.ts": {
-      "files": 1,
-      "loc": 29
+      "loc": 1962
     },
     "hooks": {
       "files": 2,
       "loc": 170
-    },
-    "index.tsx": {
-      "files": 1,
-      "loc": 23
-    },
-    "playwright.config.ts": {
-      "files": 1,
-      "loc": 105
-    },
-    "playwright.live.config.ts": {
-      "files": 1,
-      "loc": 45
     },
     "services": {
       "files": 5,
       "loc": 703
     },
     "tests": {
-      "files": 4,
-      "loc": 532
+      "files": 5,
+      "loc": 923
     },
     "types": {
       "files": 1,
       "loc": 20
     },
-    "types.ts": {
-      "files": 1,
-      "loc": 28
-    },
     "utils": {
       "files": 5,
       "loc": 1238
-    },
-    "vite-env.d.ts": {
-      "files": 1,
-      "loc": 17
-    },
-    "vite.config.ts": {
-      "files": 1,
-      "loc": 79
-    },
-    "vitest.config.ts": {
-      "files": 1,
-      "loc": 35
     }
   },
   "layering": {
@@ -124,6 +92,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 85,
-  "total_loc": 24712
+  "source_files": 86,
+  "total_loc": 25155
 }

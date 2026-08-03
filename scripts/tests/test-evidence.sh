@@ -55,7 +55,7 @@ git config user.name Tester
 git config commit.gpgsign false
 
 mkdir -p utils components scripts/lib .apexyard/review
-for f in attest-review.mjs verify-attestation.mjs verify-evidence.mjs evidence.mjs; do
+for f in attest-review.mjs verify-evidence.mjs evidence.mjs; do
   cp "$REPO_ROOT/scripts/$f" scripts/
 done
 cp "$REPO_ROOT/scripts/lib/attestation.mjs" "$REPO_ROOT/scripts/lib/evidence.mjs" \

@@ -1,11 +1,43 @@
 {
-  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "attestation_id": "sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab",
   "authoritative_source": "attestation",
-  "digest": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
-  "file_count": 22,
+  "digest": "sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab",
+  "file_count": 42,
   "files": [
     {
-      "oid": "cc8134c8c23ff7a0d8a8b00765c3f6aa71156ca3",
+      "oid": "ca1d9a551b805ee04166a3538b5ed5a9432d68a7",
+      "path": ".apexyard/accessibility-report.json"
+    },
+    {
+      "oid": "588b3f787c7e0a216bc6fecca1f51135b5700ac3",
+      "path": ".apexyard/architecture.json"
+    },
+    {
+      "oid": "eff57d3af2080fc893bfbd34073412231ce32997",
+      "path": ".apexyard/attestation.json"
+    },
+    {
+      "oid": "b9c21c7990fe112472f25ae821899cbd927d92f7",
+      "path": ".apexyard/dependency-report.json"
+    },
+    {
+      "oid": "93754014297775951e67a948809b008a63468811",
+      "path": ".apexyard/findings.json"
+    },
+    {
+      "oid": "4a6d78c230325e3dce82417c3526962bb68cb43a",
+      "path": ".apexyard/metrics.json"
+    },
+    {
+      "oid": "ce9d927b66680ab947e8f689783592c891b33f50",
+      "path": ".apexyard/review-summary.md"
+    },
+    {
+      "oid": "ec1fa48b2b9e46436ab1a63a656da20db07d024b",
+      "path": ".apexyard/review.json"
+    },
+    {
+      "oid": "f902f46e7c487caac44bd40880e9f83f33b8381a",
       "path": ".gitattributes"
     },
     {
@@ -17,11 +49,11 @@
       "path": ".github/PR_BODY.md"
     },
     {
-      "oid": "d0de116d864fc6a1ccfea09b050c78c6c5721701",
+      "oid": "405d358508a8430102c870bc60794a2d8f1c237b",
       "path": ".github/workflows/ci.yml"
     },
     {
-      "oid": "e94de656c4ff4ba0f247f74cec2aeffcb354d80f",
+      "oid": "8bd4a249a8974e09058caf8e174b0731f3b8db81",
       "path": ".gitignore"
     },
     {
@@ -29,7 +61,7 @@
       "path": "README.md"
     },
     {
-      "oid": "e4b265b4f571bae5ce1d63faf3ce84a29e4ba13b",
+      "oid": "a20d5fbcc77e5a49f82fb93278273c38329bffb8",
       "path": "docs/APEXYARD.md"
     },
     {
@@ -41,11 +73,23 @@
       "path": "docs/adr/ADR-0002-review-attestation.md"
     },
     {
+      "oid": "b77b1dc214a44d51f769ae5b2495237bab4244eb",
+      "path": "docs/adr/ADR-0003-engineering-evidence-bundle.md"
+    },
+    {
       "oid": "eda56b531d50ba3715a4548d2725274c5c1dabe7",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "b591e359790d682368226f238f783cf07ec5f80a",
+      "oid": "51636329add46d11863150461b9646a6fa9efb96",
+      "path": "e2e/accessibility.spec.ts"
+    },
+    {
+      "oid": "e6754039df86c6108c24328f709e48e0cfb3bc4d",
+      "path": "eslint.config.js"
+    },
+    {
+      "oid": "2a2526ce44476e2075b851a8c528df3a13d7a5a8",
       "path": "package.json"
     },
     {
@@ -55,6 +99,14 @@
     {
       "oid": "bbf4352f445db88272d4c64fb3e5c8b425783fb6",
       "path": "scripts/attest-review.mjs"
+    },
+    {
+      "oid": "b8844f32c36bc19c2af5c2a0dd6d7012072f397e",
+      "path": "scripts/check-bundle-budget.mjs"
+    },
+    {
+      "oid": "97e00ae5b17a3a8930a534109908998d14c27dcc",
+      "path": "scripts/evidence.mjs"
     },
     {
       "oid": "8a4c63efec66e69c5778305c60ef9488af9b6b35",
@@ -69,11 +121,27 @@
       "path": "scripts/lib/attestation.mjs"
     },
     {
+      "oid": "1abba97c99c1861304f5d9497c58d8f3871927e4",
+      "path": "scripts/lib/collectors.d.mts"
+    },
+    {
+      "oid": "57f3e745fbaaba5258c0334693c054905880a3d3",
+      "path": "scripts/lib/collectors.mjs"
+    },
+    {
+      "oid": "ef00a85b2ade3527b7ab18d296ad5b3d4a1e5243",
+      "path": "scripts/lib/evidence.d.mts"
+    },
+    {
+      "oid": "33a06f2bbe70f8f0ddd728ba05dad796936f3438",
+      "path": "scripts/lib/evidence.mjs"
+    },
+    {
       "oid": "5c165aa3afa3c2c42a824caeaa6526bb7c0312b1",
       "path": "scripts/review-local.sh"
     },
     {
-      "oid": "4d8ef945bb2a5eb7babeed751dd6ba75031f1561",
+      "oid": "6fe3b9dbdafd1de2e606629bb908c90e9bd589ec",
       "path": "scripts/scan-secrets.sh"
     },
     {
@@ -81,29 +149,41 @@
       "path": "scripts/tests/test-attestation.sh"
     },
     {
+      "oid": "b05ecf68063159cbc8912c21ff6739366b7348c1",
+      "path": "scripts/tests/test-evidence.sh"
+    },
+    {
       "oid": "676afa97a2454cf9310e10659efb8dcab15b8a11",
       "path": "scripts/verify-attestation.mjs"
     },
     {
-      "oid": "c8078f013e941a11e031bde8a213996e4a5b18b8",
+      "oid": "fa97e9bde4f5ab6574477608b84169e34d932ef7",
+      "path": "scripts/verify-evidence.mjs"
+    },
+    {
+      "oid": "237104496d7e63357ea96b05c1ee9e88deed11d6",
       "path": "scripts/verify-local.sh"
     },
     {
       "oid": "37cbb56ff30abec63dbcf32a1ff5c51a9137e51c",
       "path": "tests/unit/attestation.test.ts"
+    },
+    {
+      "oid": "121c30ddc59f2d1fbe6ef258d952b9f1761843ce",
+      "path": "tests/unit/evidence.test.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
-    "high": 1,
+    "high": 2,
     "info": 0,
-    "low": 5,
-    "medium": 1
+    "low": 4,
+    "medium": 3
   },
   "gate": "high",
   "model": "claude-opus-5",
   "note": "Mirror of the canonical text manifest. The digest below is computed over that manifest, not over this file.",
-  "reviewed_at_commit": "45b45fea018924e1f6a6c326d45a0bf79cd7830a",
+  "reviewed_at_commit": "88e29193b896f1895a291a3baf1390369326ad2c",
   "schema": "apexyard.evidence.attestation/1",
   "scope": "origin/main...HEAD",
   "verdict": "REQUEST_CHANGES"

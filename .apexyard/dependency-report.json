@@ -1,8 +1,15 @@
 {
-  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "attestation_id": "sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab",
   "audit": {
-    "available": false,
-    "reason": "npm audit output not captured"
+    "blocking_advisories": [],
+    "critical": 0,
+    "high": 0,
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "passed": true,
+    "scope": "production dependencies only (--omit=dev)",
+    "total": 0
   },
   "available": true,
   "development_count": 23,

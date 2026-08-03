@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7` |
+| Attestation id | `sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `45b45fea0189` |
+| Reviewed at commit | `88e29193b896` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **REQUEST_CHANGES** |
-| Files reviewed | 22 |
+| Files reviewed | 42 |
 
 ## What this is, and what it is not
 
@@ -28,31 +28,31 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | Severity | Count |
 |---|---:|
 | critical | 0 |
-| high | 1 |
-| medium | 1 |
-| low | 5 |
+| high | 2 |
+| medium | 3 |
+| low | 4 |
 | info | 0 |
 
-This range moves the ApexYard AI review out of CI onto the maintainer's machine (ADR-0001) and then closes the 'was it actually reviewed?' half of that gap with a content-bound attestation: `scripts/attest-review.mjs` records each reviewed file's git blob OID into `.apexyard/attestation`, and a credential-free CI job (`scripts/verify-attestation.mjs`) recomputes those OIDs, checks coverage, digest integrity, gate strictness, and an optional SSH signature. The design reasoning is unusually well documented and well tested (38 unit + 22 end-to-end cases, including the amend/squash cases that justify OID binding over SHA binding), and the TD-029 Playwright fix (`dist-e2e/` split, `reuseExistingServer` off) is correct. One blocking-in-practice defect: `.gitignore` ignores the entire `.apexyard` directory, so the attestation the new hard gate requires cannot be committed by the documented command — the `Review attestation` job, which the required aggregate `CI` check depends on, will fail on every push and PR. The remaining findings are low-severity polish and one latent CRLF/signature hazard.
+This range moves the AI review off CI (ADR-0001), binds it to content with a signed blob-hash manifest (ADR-0002), and now wraps that manifest in a reproducible evidence bundle (ADR-0003): seven canonical JSON artifacts plus a summary, all keyed on the attestation's own digest so staleness is detectable without a timestamp. The design reasoning, the determinism enforcement, and the test coverage (132 cases across four files, one per verification rule) are genuinely strong, and the 'collectors never fabricate a pass' invariant is the right instinct. Two high-severity defects block it: the committed bundle is stale against HEAD and records a REQUEST_CHANGES verdict with one unresolved high finding, so this PR's own hard gate fails; and more importantly the bundle's committed artifacts can never satisfy `verify-attestation.mjs` (CI step 6), because `attest-review.mjs` and that verifier exclude only the manifest itself while `evidence.mjs` rewrites every artifact on each run — so the two steps disagree and the gate has no fixed point. No PR body was supplied to this run, so checklist §6 (description/glossary) was not assessed; ADR-0003 covers the material decisions, so §7 is satisfied.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
-| TypeScript | not run | tsc output not captured; run npm run verify:local |
-| ESLint | not run | eslint json output not captured; run npm run verify:local |
-| Vitest | not run | ?/? passed, lines 78.13% |
-| Playwright | not run | playwright json output not captured; run npm run e2e |
-| Bundle budget | not run | bundle report not captured; run npm run build |
-| Production audit | not run | npm audit output not captured |
-| Accessibility | not run | axe summary not captured; the accessibility e2e suite writes test-results/axe-summary.json when it runs |
+| TypeScript | pass | 0 error(s) |
+| ESLint | pass | 0 error(s), 612 warning(s) |
+| Vitest | pass | 114/114 passed, lines 78.13% |
+| Playwright | pass | 101/101 passed |
+| Bundle budget | pass | 6 budget(s) within limits |
+| Production audit | pass | 0 critical, 0 high |
+| Accessibility | **FAIL** | 8 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 85 source files, 24712 lines
+- 86 source files, 25155 lines
 - Layering violations: **0**
 - Files over 800 lines: **9**
 - Probable duplicate implementations: **1**
