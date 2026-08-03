@@ -116,7 +116,7 @@ An API key in GitHub Actions is a live, billable credential sitting inside a sys
 
 So the trade here is deliberate: the credential stays on one machine, and CI gives up the ability to enforce that the review happened.
 
-**Be clear about what that costs.** Nothing in the pipeline verifies the AI review took place. There is deliberately **no CI job** for it — not even a green no-op, because a job named after a gate that passes without checking anything reads as coverage on the checks page. The policy is stated in the `CI` job's step summary and nowhere else. Pretending an unenforced convention is a control would be worse than the gap itself.
+**Be clear about what that costs.** CI cannot watch the review happen. What it *can* do is check the trail the review leaves — see [Review attestation](#review-attestation) below. The line worth holding onto: CI verifies that **a review covering this exact code was recorded**, not that **a model was invoked**. The second is not provable by the machine that would fake it.
 
 What holds the line instead is the pre-push habit, made cheap enough to keep:
 
@@ -127,6 +127,48 @@ npm run verify:local
 That runs the AI review **first** — because fixing its findings changes what every later gate sees — then TypeScript, ESLint, Vitest, Playwright, the dependency audit, the secret scan, the build, and the bundle budget. Every stage runs even when an earlier one fails, so one pass shows the whole picture.
 
 Tracked honestly as **TD-027** in the [debt register](quality/tech-debt-register.md).
+
+## Review attestation
+
+The review writes `.apexyard/attestation` — a small committed text file recording, for every file it looked at, that file's **git blob hash**:
+
+```
+apexyard-review-attestation v1
+digest sha256:83f9f57cef…
+--
+scope origin/main...HEAD
+head d5d0f449977c…
+model claude-opus-5
+gate high
+verdict APPROVED
+findings critical=0 high=0 medium=1 low=4 info=0
+files 13
+cc8134c8c23ff7a0d8a8b00765c3f6aa71156ca3 .gitattributes
+deleted .github/PR_BODY.md
+…
+```
+
+The `Review attestation` CI job — which holds no credentials, calls no network, and runs no model — checks five things:
+
+| Check | Catches |
+|---|---|
+| Digest matches the body | Any hand edit. Flipping `gate high` to `gate none` breaks it. |
+| Every recorded hash still resolves at this commit | A reviewed file edited afterwards. **This is the load-bearing check.** |
+| Every changed file appears in the attestation | A file added after the review and never looked at. |
+| Zero findings at or above `high`, **and** the run's own gate was at least that strict | A review laundered through `--fail-on none` or `--fail-on critical`. |
+| Signature valid — only when a key is registered | A manifest produced by an unregistered key. Currently unused; see TD-028. |
+
+**Why blob hashes and not the commit SHA.** A squash merge rewrites every SHA while changing no content. Binding to the commit would make the attestation go stale at merge time on *every* PR, and a gate that fails routinely gets bypassed. Content hashes expire on exactly the right event — a byte of reviewed code changing — and survive rebase, amend, and squash. Both behaviours are pinned by tests.
+
+**There is no timestamp**, deliberately. A timestamp would make the digest differ on every run over identical content, which destroys the only property that makes this checkable. Freshness comes from the hashes.
+
+**What it does not contain:** no prompt text, no finding descriptions, no code excerpts, no credentials. Paths and content hashes are already public in a public repo; a severity count is not a disclosure. The full report stays in the gitignored `.apexyard/review/`.
+
+Full reasoning, including the six alternatives rejected: [ADR-0002](adr/ADR-0002-review-attestation.md).
+
+```bash
+npm run test:attestation    # 22 end-to-end cases against real git repos
+```
 
 ## Running the review on its own
 

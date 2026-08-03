@@ -47,7 +47,9 @@ Every push and pull request runs [CI](.github/workflows/ci.yml). These are its h
 - **Playwright** — the full e2e suite
 - **Bundle budget** — gzipped initial load, measured from the built `index.html`
 
-The **ApexYard AI review is deliberately not in that list.** It runs locally before every push (`npm run verify:local`) because no Anthropic credential is permitted in CI, which means nothing in the pipeline enforces it. That gap is real and is tracked as TD-027 — see [ADR-0001](docs/adr/ADR-0001-ai-review-runs-locally-not-in-ci.md).
+- **Review attestation** — a review covering this exact code was recorded
+
+The **ApexYard AI review itself is deliberately not in that list.** It runs locally before every push (`npm run verify:local`) because no Anthropic credential is permitted in CI. CI gates on the attestation it leaves rather than on the review — which catches a stale review but cannot prove a model ran. Tracked as TD-027; see [ADR-0001](docs/adr/ADR-0001-ai-review-runs-locally-not-in-ci.md) and [ADR-0002](docs/adr/ADR-0002-review-attestation.md).
 
 ESLint **errors** block; ESLint warnings are reported but do not. See [`eslint.config.js`](eslint.config.js) for where that line sits and why.
 
@@ -76,6 +78,8 @@ GitHub verifies everything that does not need a model, across **two** workflows:
 |---|---|---|
 | [`ci.yml`](.github/workflows/ci.yml) | TypeScript, ESLint errors, Vitest + coverage, Playwright, build, bundle budget | `CI` |
 | [`security.yml`](.github/workflows/security.yml) | Production dependency audit, TruffleHog verified-secret scan, committed-env-file check (all blocking); licence, markdown, and link checks (report-only) | `Security` |
+
+CI also verifies the **review attestation** — the trail the local review leaves behind. It confirms that a review covering this exact code was recorded, by checking that every file the review saw still has the git blob hash it recorded. A push whose code changed after the review, or that adds a file the review never saw, fails. It does **not** prove a model was invoked; that is not provable by the machine that would fake it. See [ADR-0002](docs/adr/ADR-0002-review-attestation.md).
 
 Then [`deploy.yml`](.github/workflows/deploy.yml) publishes to Pages — gated on `CI` passing — and verifies the live site.
 

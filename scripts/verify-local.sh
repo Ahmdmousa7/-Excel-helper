@@ -35,6 +35,9 @@ SKIP_REVIEW=0
 SKIP_E2E=0
 NOTHING_TO_PUSH=0
 REVIEW_QUALIFIED=""
+# Declared here so the attestation self-check below can reference it under
+# `set -u` even on the paths where the review stage never assigns it.
+BASE=""
 for a in "$@"; do
   case "$a" in
     --skip-review) SKIP_REVIEW=1 ;;
@@ -124,6 +127,16 @@ else
       printf 'No file content to review. Confirm nothing still imports these.\n'
       RESULTS+=("SKIP|1. ApexYard AI review (deletions only)")
       REVIEW_QUALIFIED="the push is deletions only, so no code was AI-reviewed"
+    elif node scripts/verify-attestation.mjs --base "$BASE" --require-gate high >/dev/null 2>&1; then
+      # Already attested for exactly this content.
+      #
+      # Without this, the pre-push hook would re-review on every push — a
+      # multi-minute model call to re-derive an answer already on disk, and it
+      # would rewrite the attestation and leave the tree dirty every time. The
+      # check is safe precisely because it is the same verification CI runs: it
+      # only passes when every reviewed file still has the blob it was reviewed
+      # at, and nothing uncovered changed.
+      skip_stage "1. ApexYard AI review (already attested for this content)"
     else
       run_stage "1. ApexYard AI review (vs $BASE)" bash scripts/review-local.sh --base "$BASE"
     fi
@@ -150,6 +163,20 @@ run_stage "6. Dependency audit"  npm audit --omit=dev --audit-level=high
 run_stage "7. Secret scan"       bash scripts/scan-secrets.sh
 run_stage "8. Build"             npm run build --silent
 run_stage "9. Bundle budget"     node scripts/check-bundle-budget.mjs
+
+# 10. Verify the attestation the review just wrote, using the same code CI will
+#     run. Catching a mismatch here means the answer arrives in seconds rather
+#     than after a push, a wait, and a red check.
+#
+#     Skipped when the review was skipped: there would be no attestation for
+#     this range, and reporting that as a failure would be noise about a stage
+#     that deliberately did not run.
+if [ "$SKIP_REVIEW" -eq 1 ] || [ "$NOTHING_TO_PUSH" -eq 1 ] || [ -n "$REVIEW_QUALIFIED" ]; then
+  skip_stage "10. Attestation self-check"
+else
+  run_stage "10. Attestation self-check" \
+    node scripts/verify-attestation.mjs --base "$BASE" --require-gate high
+fi
 
 # ---------------------------------------------------------------------------
 printf '\n\033[1m=== local gate summary ===\033[0m\n'

@@ -125,6 +125,28 @@ bash "$RUNNER" \
 RC=$?
 set -e
 
+# ---------------------------------------------------------------------------
+# Record what was reviewed, so CI can check it
+# ---------------------------------------------------------------------------
+# Only in range mode. The attestation binds to git blob OIDs at HEAD, and in
+# `working` or `staged` mode the reviewed content is not committed yet — there
+# would be no OID for CI to compare against.
+#
+# Written on exit 0 AND exit 1 (findings at or above the gate), because the
+# attestation reports what the review found; CI decides whether that is
+# acceptable. NOT written on exit 3 — a reviewer that could not run has
+# nothing to attest, and an attestation is the one thing that must never be
+# produced speculatively.
+if [ "$MODE" = "range" ] && { [ "$RC" -eq 0 ] || [ "$RC" -eq 1 ]; }; then
+  if ! node "$PROJECT_ROOT/scripts/attest-review.mjs" \
+        --base "$BASE" --gate "$FAIL_ON" --model "$MODEL" \
+        --review-json "$PROJECT_ROOT/.apexyard/review/review.json"; then
+    printf '\nreview-local: the review ran but the attestation could not be written.\n' >&2
+    printf '  CI will reject the push without one. Treating as a failure.\n' >&2
+    exit 3
+  fi
+fi
+
 case "$RC" in
   0) printf '\nreview-local: clean at the %s gate.\n' "$FAIL_ON" ;;
   1) printf '\nreview-local: findings at or above %s — see .apexyard/review/review.md\n' "$FAIL_ON" >&2 ;;

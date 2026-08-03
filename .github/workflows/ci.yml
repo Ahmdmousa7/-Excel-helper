@@ -99,6 +99,14 @@ jobs:
       - name: 4. Unit tests
         run: npm run test -- --coverage
 
+      - name: 4b. Attestation end-to-end tests
+        # The unit suite covers the serialisation and the gate arithmetic; this
+        # drives both CLIs against real git repositories. It has to run in CI
+        # rather than only locally, because the verifier it exercises is the
+        # thing CI depends on — a break here would otherwise surface as a
+        # confusing attestation failure on an unrelated PR.
+        run: npm run test:attestation
+
       - name: 7. Build
         run: npm run build
 
@@ -184,18 +192,84 @@ jobs:
           retention-days: 14
 
   # =========================================================================
-  # Single required check, so branch protection needs one entry, not two.
+  # Stage 6 — verify the LOCAL review's attestation. Runs no model.
+  # =========================================================================
+  # This is the closest CI can get to enforcing a local review. It does not
+  # prove a model was invoked — nothing running here can, since the attestation
+  # is produced by the same machine that would fake it. What it does prove is
+  # that a review was recorded covering *exactly this code*: every file it
+  # claims to have reviewed still has the git blob OID it recorded, and nothing
+  # changed in this range that the attestation does not cover.
+  #
+  # That closes the failure that actually happens — reviewing, then amending,
+  # rebasing, or adding one more file, and pushing a review that no longer
+  # describes the code. See docs/adr/ADR-0002.
+  attestation:
+    name: Review attestation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The coverage check diffs base..head, so both ends must be present.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Resolve the range this push or PR represents
+        id: range
+        run: |
+          # A PR compares against its merge base. A push compares against the
+          # commit that was there before. `github.event.before` is all-zeroes
+          # on a branch's first push, in which case there is no meaningful
+          # base and the verifier falls back to content binding alone.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base='${{ github.event.pull_request.base.sha }}'
+          else
+            base='${{ github.event.before }}'
+          fi
+          case "$base" in
+            ''|0000000000000000000000000000000000000000)
+              echo 'base=' >> "$GITHUB_OUTPUT"
+              echo '::notice title=Review attestation::No comparable base for this event; verifying content binding only.'
+              ;;
+            *)
+              if git cat-file -e "${base}^{commit}" 2>/dev/null; then
+                echo "base=$base" >> "$GITHUB_OUTPUT"
+              else
+                echo 'base=' >> "$GITHUB_OUTPUT"
+                echo "::notice title=Review attestation::Base $base is not in this checkout; verifying content binding only."
+              fi
+              ;;
+          esac
+
+      - name: 6. Verify the review attestation
+        # HARD GATE. Fails on a missing, malformed, stale, or under-covering
+        # attestation, on a review weaker than --fail-on high, and on a bad
+        # signature when signers are registered.
+        run: |
+          node scripts/verify-attestation.mjs \
+            --require-gate high \
+            ${{ steps.range.outputs.base && format('--base {0}', steps.range.outputs.base) || '' }}
+
+  # =========================================================================
+  # Single required check, so branch protection needs one entry, not three.
   # =========================================================================
   ci:
     name: CI
     if: always()
-    needs: [quality, e2e]
+    needs: [quality, e2e, attestation]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate the gate results
         run: |
           quality='${{ needs.quality.result }}'
           e2e='${{ needs.e2e.result }}'
+          attestation='${{ needs.attestation.result }}'
 
           {
             echo '## CI gates'
@@ -204,27 +278,31 @@ jobs:
             echo '|---|---|'
             echo "| Lint, type-check, unit + coverage, build, bundle budget | \`$quality\` |"
             echo "| Playwright | \`$e2e\` |"
+            echo "| Review attestation | \`$attestation\` |"
             echo ''
-            echo '### AI review is intentionally executed locally before push.'
+            echo '### The AI review itself runs locally, before the push.'
             echo ''
             echo 'ApexYard'"'"'s Claude-backed review runs on the maintainer'"'"'s'
-            echo 'machine via `npm run verify:local`, before anything is pushed.'
-            echo 'It does not run here and no Anthropic credential exists in'
-            echo 'this repository'"'"'s secrets, workflows, or images — by policy.'
+            echo 'machine via `npm run verify:local`. It does not run here, and'
+            echo 'no Anthropic credential exists in this repository'"'"'s secrets,'
+            echo 'workflows, or images — by policy (ADR-0001).'
             echo ''
-            echo 'There is deliberately **no CI job** for it. An always-green'
-            echo 'job would look like a gate while checking nothing, which is'
-            echo 'worse than an honest absence. Nothing in this pipeline'
-            echo 'verifies the local review happened; that gap is tracked as'
-            echo 'TD-027 and explained in ADR-0001.'
+            echo 'What CI *can* check is the **attestation** that review leaves'
+            echo 'behind: every file it recorded still has the exact git blob it'
+            echo 'reviewed, and nothing changed in this range that it does not'
+            echo 'cover. That catches a review going stale — the failure that'
+            echo 'actually happens. It does **not** prove a model was invoked,'
+            echo 'because the machine that writes the attestation is the same'
+            echo 'one that could fake it. See ADR-0002 for the threat model and'
+            echo 'TD-027 for the residual gap.'
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # `skipped` is NOT a pass. Both jobs are unconditional, so a skip
+          # `skipped` is NOT a pass. All three jobs are unconditional, so a skip
           # means something upstream went wrong — a cancelled run, a bad
           # `if:` added later — and treating it as success would make the
           # required check green for a pipeline that never ran.
           failed=0
-          for r in "$quality" "$e2e"; do
+          for r in "$quality" "$e2e" "$attestation"; do
             case "$r" in
               success) ;;
               *) failed=1 ;;

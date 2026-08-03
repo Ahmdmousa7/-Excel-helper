@@ -21,3 +21,6 @@ test-results
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# The e2e build. Separate from dist/ on purpose — see playwright.config.ts.
+dist-e2e/

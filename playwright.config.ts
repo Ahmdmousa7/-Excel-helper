@@ -72,10 +72,31 @@ export default defineConfig({
     // Build with the e2e bypass, then serve the real production-shaped bundle.
     // Testing the built output rather than the dev server is deliberate: it is
     // what catches base-path and bundling breakage before it reaches Pages.
-    command: `npm run build:e2e && npx vite preview --port ${PORT} --host 127.0.0.1 --strictPort`,
+    //
+    // `--outDir dist-e2e` is load-bearing. `build:e2e` and `build` used to
+    // share `dist/`, and `vite preview` serves that directory live from disk —
+    // so a later production build silently replaced what this server was
+    // serving. Combined with server reuse it produced a 100-of-101 failure
+    // where every test hit the sign-in gate, because the served bundle had
+    // been rebuilt without VITE_E2E_AUTH_BYPASS. Separate directories make
+    // that collision impossible rather than merely unlikely.
+    command: `npm run build:e2e && npx vite preview --outDir dist-e2e --port ${PORT} --host 127.0.0.1 --strictPort`,
     url: `${BASE}${BASE_PATH}`,
     timeout: 180_000,
-    reuseExistingServer: !process.env.CI,
+
+    // Never reuse by default, locally or in CI.
+    //
+    // Reuse trades correctness for start-up time: Playwright cannot tell
+    // whether a server already on the port serves this build, an older one, or
+    // a different project entirely — it only checks that the URL answers. In a
+    // pre-push gate that is the wrong trade, and the failure it produces is
+    // maximally confusing (a hundred "element not found" errors that look like
+    // an app regression). With `strictPort`, an occupied port now fails loudly
+    // instead.
+    //
+    // Set PW_REUSE_SERVER=1 for deliberate fast iteration against a server you
+    // started yourself and know the provenance of.
+    reuseExistingServer: process.env.PW_REUSE_SERVER === '1',
     env: { VITE_E2E_AUTH_BYPASS: 'true' },
     stdout: 'pipe',
     stderr: 'pipe',
