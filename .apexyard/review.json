@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:1d1232918926fdb1aeae1a069e32bce9f1a48f916ac701882f141e3f05b92606",
+  "attestation_id": "sha256:2bf67778eba2cb90c8cc9cf58f9947dfba613568ce16cd85bd25d94cc3b43161",
   "available": true,
-  "files_reviewed": 9,
+  "files_reviewed": 19,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 5,
-    "medium": 1
+    "info": 1,
+    "low": 1,
+    "medium": 0
   },
-  "findings_total": 6,
+  "findings_total": 2,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR applies five review fixes to the local evidence/verification tooling: reorders `.gitattributes` so the `* text=auto` catch-all no longer overrides `-text` on the attestation signature, drops stale Playwright/axe raw output when `--skip-e2e` skips the stage, switches `collectArchitecture` from a working-tree walk to `git ls-files`, removes the `baseUrl` that contradicted its own comment in `tsconfig.json`, and deletes a stale comment in `scan-secrets.sh` plus the now-dead `root` parameter on `collectEslint`. The `.gitattributes` reorder, the stale-output fix, the tsconfig cleanup and the `collectEslint` signature change are all correct and consistently propagated (`.d.mts`, the one caller, both test call sites — no other importers of the removed re-exports exist). No blocking-handbook violations and no security issues: the new `execFileSync` call has fixed arguments and lives in a Node-only script, not the browser bundle. One medium finding: the `git ls-files` switch does not deliver the determinism its docblock claims, because `ls-files` reads the index (a staged scratch file still counts) and file contents are still read from the working tree.",
-  "verdict": "comment"
+  "summary": "Makes `.apexyard/attestation.json` the single canonical attestation artifact and deletes the text manifest plus its JSON mirror (ADR-0004). The digest rule becomes `sha256(canonicalJson(artifact minus attestation_id))`, verifier rule 2 collapses from a two-file cross-check into a self-check, `file_count`/`digest` are dropped as redundant, the schema goes /1 → /2, and `allowed_signers` becomes one shared constant instead of a hardcoded path in the generator. I traced every renamed path (`attestation.json.sig`, `.gitattributes`, CI step 6, both shell suites, both CLIs) and found no dangling reference to the retired file, no dead exports left behind, and no gap where the removed mirror rule used to catch something the new self-check plus `isCanonical()` does not. Two minor observations only; the migration is coherent and well-tested (50 unit cases in attestation.test.ts, matching the count the docs claim).",
+  "verdict": "approved"
 }

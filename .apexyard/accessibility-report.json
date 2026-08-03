@@ -1,16 +1,16 @@
 {
-  "attestation_id": "sha256:1d1232918926fdb1aeae1a069e32bce9f1a48f916ac701882f141e3f05b92606",
+  "attestation_id": "sha256:2bf67778eba2cb90c8cc9cf58f9947dfba613568ce16cd85bd25d94cc3b43161",
   "available": true,
   "by_impact": {
-    "critical": 5,
+    "critical": 6,
     "minor": 0,
     "moderate": 0,
-    "serious": 13
+    "serious": 12
   },
   "by_rule": {
     "button-name": {
       "impact": "critical",
-      "nodes": 5,
+      "nodes": 6,
       "pages": [
         "the Compare Files tool",
         "the QR tool",
@@ -19,7 +19,7 @@
     },
     "color-contrast": {
       "impact": "serious",
-      "nodes": 13,
+      "nodes": 12,
       "pages": [
         "the Compare Files tool",
         "the QR tool",

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:1d1232918926fdb1aeae1a069e32bce9f1a48f916ac701882f141e3f05b92606` |
+| Attestation id | `sha256:2bf67778eba2cb90c8cc9cf58f9947dfba613568ce16cd85bd25d94cc3b43161` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `850f97c9871e` |
+| Reviewed at commit | `554cebe6ee2f` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **COMMENT** |
-| Files reviewed | 9 |
+| Verdict | **APPROVED** |
+| Files reviewed | 19 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 1 |
-| low | 5 |
-| info | 0 |
+| medium | 0 |
+| low | 1 |
+| info | 1 |
 
-This PR applies five review fixes to the local evidence/verification tooling: reorders `.gitattributes` so the `* text=auto` catch-all no longer overrides `-text` on the attestation signature, drops stale Playwright/axe raw output when `--skip-e2e` skips the stage, switches `collectArchitecture` from a working-tree walk to `git ls-files`, removes the `baseUrl` that contradicted its own comment in `tsconfig.json`, and deletes a stale comment in `scan-secrets.sh` plus the now-dead `root` parameter on `collectEslint`. The `.gitattributes` reorder, the stale-output fix, the tsconfig cleanup and the `collectEslint` signature change are all correct and consistently propagated (`.d.mts`, the one caller, both test call sites — no other importers of the removed re-exports exist). No blocking-handbook violations and no security issues: the new `execFileSync` call has fixed arguments and lives in a Node-only script, not the browser bundle. One medium finding: the `git ls-files` switch does not deliver the determinism its docblock claims, because `ls-files` reads the index (a staged scratch file still counts) and file contents are still read from the working tree.
+Makes `.apexyard/attestation.json` the single canonical attestation artifact and deletes the text manifest plus its JSON mirror (ADR-0004). The digest rule becomes `sha256(canonicalJson(artifact minus attestation_id))`, verifier rule 2 collapses from a two-file cross-check into a self-check, `file_count`/`digest` are dropped as redundant, the schema goes /1 → /2, and `allowed_signers` becomes one shared constant instead of a hardcoded path in the generator. I traced every renamed path (`attestation.json.sig`, `.gitattributes`, CI step 6, both shell suites, both CLIs) and found no dangling reference to the retired file, no dead exports left behind, and no gap where the removed mirror rule used to catch something the new self-check plus `isCanonical()` does not. Two minor observations only; the migration is coherent and well-tested (50 unit cases in attestation.test.ts, matching the count the docs claim).
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ This PR applies five review fixes to the local evidence/verification tooling: re
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 612 warning(s) |
-| Vitest | pass | 121/121 passed, lines 78.13% |
+| Vitest | pass | 134/134 passed, lines 78.13% |
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 86 source files, 25238 lines
+- 86 source files, 25350 lines
 - Layering violations: **0**
 - Files over 800 lines: **9**
 - Probable duplicate implementations: **1**
@@ -82,8 +82,7 @@ reports zero failures for a tool that never executed.
 
 | File | Contents |
 |---|---|
-| `attestation` | The canonical, signed, blob-hash manifest. Authoritative. |
-| `attestation.json` | Machine-readable mirror of the same digest. |
+| `attestation.json` | The canonical, signed, blob-hash attestation. Authoritative. |
 | `review.json` | Verdict, model, gate, severity counts. |
 | `findings.json` | Every finding, ordered deterministically. |
 | `metrics.json` | TypeScript, ESLint, Vitest, Playwright, bundle. |

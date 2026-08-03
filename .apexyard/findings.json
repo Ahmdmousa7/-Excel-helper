@@ -1,69 +1,33 @@
 {
-  "attestation_id": "sha256:1d1232918926fdb1aeae1a069e32bce9f1a48f916ac701882f141e3f05b92606",
+  "attestation_id": "sha256:2bf67778eba2cb90c8cc9cf58f9947dfba613568ce16cd85bd25d94cc3b43161",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 5,
-    "medium": 1
+    "info": 1,
+    "low": 1,
+    "medium": 0
   },
   "findings": [
     {
+      "category": "code-smell",
+      "detail": "The \"how to enable signing later\" hint is a bash one-liner — it uses `printf`, `$(git config user.email)`, and `>>`. Interpolating `join(bundleDir, SIGNERS_FILE)` into it emits `.apexyard\\allowed_signers` on win32, where the backslash is a shell escape, so pasting the command appends to `.apexyardallowed_signers`. This repo is developed on Windows, so the broken form is the one the maintainer actually sees. `DEFAULT_OUT` on line 31 already builds its bundle-relative path with a `/` template literal, so the two are inconsistent about the same kind of path.",
+      "file": "scripts/attest-review.mjs",
+      "line": 219,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "path.join() renders a backslash into a POSIX shell command the user is told to paste"
+    },
+    {
       "category": "architecture",
-      "detail": "The docblock states `git ls-files` \"returns exactly what is committed, which is also exactly what the attestation's hashes describe.\" Neither half holds. (1) `git ls-files` lists the *index*, not HEAD — a scratch `.ts` file that has been `git add`-ed but not committed is still counted in `source_files`/`total_loc`, which is the precise failure the comment says it prevents. (2) Even for correctly-tracked files, line 434 reads content with `readFileSync(abs, 'utf8')` from the working tree, so an uncommitted edit to a tracked file still shifts `total_loc`, `by_directory`, and the `oversized` list. This is not a hypothetical flow: `verify-local.sh:84-103` deliberately tolerates a dirty tree (\"A dirty tree is REPORTED, not refused\"), and stage 10 then generates the committed bundle from that tree. The `evidence.mjs --check` determinism pass cannot catch it either — it regenerates in-memory from the same dirty tree and gets the same bytes. Net effect: a committed artifact can describe content that is not committed, which is the same class of gap the change set out to close. Held at medium rather than high because this is internal tooling with no user-facing impact and it fails toward slightly-wrong numbers, not a fabricated pass; it would rise to high if any gate consumed `total_loc`/`oversized` as a threshold.",
-      "file": "scripts/lib/collectors.mjs",
-      "line": 372,
-      "severity": "medium",
+      "detail": "`checkArtifact()` runs `findNonDeterministic()` over every entry in `REQUIRED_ARTIFACTS`, and `attestation.json` is now in that list — so a date-shaped value or a time-like key in the attestation fails verification. Before this change the mirror was built through `envelope()`, which called `assertDeterministic()` and therefore rejected the same content at generation time with a precise message. `buildAttestation()` does not, so that class of input now produces a valid-looking local write and surfaces one step later (pre-push hook or CI) as `attestation.json contains non-reproducible content`. The trigger is remote — it needs a tracked path or field value that both matches `^\\d{4}-\\d{2}-\\d{2}` and parses as a date, e.g. a file literally named `2026-08-03` — and the pre-push hook still catches it before it leaves the machine, which is why this is an observation rather than a request. What would raise it: if the generator's output ever reached CI without `verify-evidence.mjs` running locally first. Worth noting mainly because \"one rule, enforced in one place\" is the invariant this file has twice been bitten by (`isBundlePath`, and `allowed_signers` in the commit right above this one), and the generator/verifier asymmetry is the same shape.",
+      "file": "scripts/lib/attestation.mjs",
+      "line": 226,
+      "severity": "info",
       "suggested_fix": null,
-      "summary": "git ls-files reads the index, and contents still come from the working tree"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`!SKIP_DIR.has(p.split('/')[0])` excludes a skipped directory only when it is the top-level segment, and does not exclude dot-directories at all. `walkSources` (line 394-397) does both: it skips `SKIP_DIR` names at any depth and every dot-directory except `.githooks`. So the two branches of the same function apply different rules. I checked the current tree — all 74 tracked `.ts`/`.tsx` files are outside `SKIP_DIR` and outside dot-directories, so there is no behaviour change today, which is why this is low. It matters later: the two paths silently disagreeing about `source_files` is a non-reproducible-artifact hazard of the same shape as the one this PR is fixing.",
-      "file": "scripts/lib/collectors.mjs",
-      "line": 377,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "SKIP_DIR filter checks only the first path segment in the git path"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`git ls-files` lists index entries, so a source file removed from disk with `rm` (without `git rm`) is still returned. `readFileSync` then throws, line 436 `continue`s, and the file contributes nothing to `total_loc` or `by_directory` — yet `source_files: files.length` still counts it. The directory walk could never produce a path that fails to read, so this inconsistency is new. Narrow trigger (a deletion not staged) and no user impact, but it produces an artifact whose own numbers do not add up, which is the one thing this bundle is supposed to be trusted for.",
-      "file": "scripts/lib/collectors.mjs",
-      "line": 497,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "source_files can now count a file whose LOC is not counted"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`evidence.mjs:160` resolves axe data as `readAxeShards(join(ROOT,'test-results')) ?? readJsonOrNull(join(opt.raw,'axe.json'))`. The new function deletes the shards but not `$RAW/axe.json`, so the second door stays open on exactly the path this function exists to close. Nothing in the repo writes `.apexyard/raw/axe.json` today, so it is inert right now — which is why this is low, and also why it would fail silently: the day anything starts writing that file, `--skip-e2e` would resume reporting a previous run's accessibility numbers as current, and the deletion of the shards would make it *look* handled.",
-      "file": "scripts/verify-local.sh",
-      "line": 199,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "drop_stale_e2e_output leaves the raw/axe.json fallback in place"
-    },
-    {
-      "category": "technical-debt",
-      "detail": "`method: 'regex import scan over .ts/.tsx; misses dynamically built paths'` documents the import-scan limit but not the newly-introduced scope limit — the payload now covers tracked files only, and silently ignores an untracked source file entirely. The docblock at line 411-419 makes the repo's own principle explicit: \"That is a deliberate limit and it is stated in the artifact.\" After this change the artifact states one limit and not the other, so a reader cannot tell whether an absent file was untracked or simply absent.",
-      "file": "scripts/lib/collectors.mjs",
-      "line": 490,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "The artifact's `method` string no longer describes where the file list comes from"
-    },
-    {
-      "category": "testing",
-      "detail": "`tests/unit/evidence.test.ts` imports twelve collectors (lines 17-30) but not `collectArchitecture`, so neither the new git-backed listing nor its two fallback conditions (`files.length > 0` and the `catch` for a non-git directory) is exercised. This is the second consecutive commit to modify this function, and the commit message notes that the previous batch introduced a defect in the same area that only the gate caught — this is the function with the least protection against exactly that. Advisory per the technical-debt handbook rule 6 (a PR extending an untested module should say so explicitly); the commit message says \"Tests: 121 unit, unchanged\" without naming the gap.",
-      "file": "scripts/lib/collectors.mjs",
-      "line": 421,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "collectArchitecture and the new listTrackedSources have no test coverage"
+      "summary": "The verifier enforces the determinism guard on attestation.json; the producer no longer does"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 6
+  "total": 2
 }
