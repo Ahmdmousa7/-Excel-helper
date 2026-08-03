@@ -5,7 +5,7 @@
 # The split between this file and test-evidence.sh is by subject, and it is
 # worth stating so cases stop drifting between them:
 #
-#   here                what attest-review.mjs writes, and the manifest's own
+#   here                what attest-review.mjs writes, and the attestation's own
 #                       properties: blob OIDs, deletions, self-exclusion,
 #                       tamper-evidence of the digest, SSH signing, refusals.
 #
@@ -42,8 +42,14 @@ expect_verify() {
   fi
   ok "$label"
 }
-# For cases where the manifest itself is corrupt, regenerating would overwrite
-# the corruption — so verify without regenerating.
+# Verify without regenerating.
+#
+# Needed because the two are not interchangeable. Regenerating rewrites every
+# derived artifact with the CURRENT attestation's id, which is exactly what a
+# case that re-renders a valid-but-weakened attestation needs — otherwise the
+# staleness rule fires first and hides the finding under test. But when the
+# attestation is unparseable, evidence.mjs cannot run at all, so regenerating
+# would just add its own failure to the output.
 expect_verify_raw() {
   local label="$1" want="$2" needle="${3:-}" out rc
   out=$(node "$REPO_ROOT/scripts/verify-evidence.mjs" --base base 2>&1); rc=$?
@@ -91,6 +97,20 @@ cat > .apexyard/review/review.json <<'JSON'
  "summary":"fine"}
 JSON
 
+# The attested file set, one `<oid> <path>` line each.
+#
+# Read with a JSON parser, not grep. The attestation is canonical JSON now, so a
+# grep for a path would also match it inside an unrelated string, and a grep for
+# an OID would match a prefix of a longer one. The shape of the assertions below
+# is unchanged; only how the lines are produced is.
+att_files() {
+  node --input-type=module -e '
+    import { readFileSync } from "node:fs";
+    const a = JSON.parse(readFileSync(".apexyard/attestation.json", "utf8"));
+    for (const f of a.files) process.stdout.write(`${f.oid} ${f.path}\n`);
+  '
+}
+
 printf '\n== generation ==\n'
 if node scripts/attest-review.mjs --base base --gate high --no-sign >/dev/null 2>&1; then
   ok "attest-review exits 0 on a clean review"
@@ -98,49 +118,71 @@ else
   bad "attest-review exits 0 on a clean review" "non-zero exit"
 fi
 
-[ -f .apexyard/attestation ] && ok "writes .apexyard/attestation" \
-  || bad "writes .apexyard/attestation" "file absent"
+[ -f .apexyard/attestation.json ] && ok "writes .apexyard/attestation.json" \
+  || bad "writes .apexyard/attestation.json" "file absent"
 
-grep -q '^deleted utils/old.ts$' .apexyard/attestation \
+att_files | grep -q '^deleted utils/old.ts$' \
   && ok "records a deleted file as deleted" \
-  || bad "records a deleted file as deleted" "$(grep old.ts .apexyard/attestation || echo none)"
+  || bad "records a deleted file as deleted" "$(att_files | grep old.ts || echo none)"
 
-grep -q "^$(git rev-parse HEAD:utils/c.ts) utils/c.ts$" .apexyard/attestation \
+att_files | grep -q "^$(git rev-parse HEAD:utils/c.ts) utils/c.ts$" \
   && ok "records the real blob oid of an added file" \
   || bad "records the real blob oid of an added file" "oid mismatch"
 
-grep -q '\.apexyard/attestation' .apexyard/attestation \
-  && bad "excludes itself from its own scope" "self-reference present" \
-  || ok "excludes itself from its own scope"
+att_files | grep -q ' \.apexyard/' \
+  && bad "excludes the bundle from its own scope" "self-reference present" \
+  || ok "excludes the bundle from its own scope"
 
-# Unreviewed files must never appear: the manifest is the review's own record of
-# what it read, not a listing of the tree.
-grep -q 'utils/b.ts' .apexyard/attestation \
+# Unreviewed files must never appear: the attestation is the review's own record
+# of what it read, not a listing of the tree.
+att_files | grep -q 'utils/b.ts' \
   && bad "records only files in scope" "unchanged utils/b.ts was recorded" \
   || ok "records only files in scope"
 
+# The digest has to be over canonical bytes, or one id could describe two files.
+if node --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  import { isCanonical } from "./scripts/lib/evidence.mjs";
+  process.exit(isCanonical(readFileSync(".apexyard/attestation.json", "utf8")) ? 0 : 1);
+'; then
+  ok "writes it in canonical form"
+else
+  bad "writes it in canonical form" "not canonical JSON"
+fi
+
 node scripts/evidence.mjs >/dev/null 2>&1
-cp .apexyard/attestation "$WORK/att.good"
+cp .apexyard/attestation.json "$WORK/att.good"
 cp -r .apexyard "$WORK/bundle.good"
 
-printf '\n== the manifest is tamper-evident ==\n'
-sed 's/^gate high$/gate none/' "$WORK/att.good" > .apexyard/attestation
-expect_verify_raw "a hand-weakened gate breaks the digest" 1 "digest does not match"
+printf '\n== the attestation is tamper-evident ==\n'
+sed 's/"gate": "high"/"gate": "none"/' "$WORK/att.good" > .apexyard/attestation.json
+expect_verify_raw "a hand-weakened gate breaks the digest" 1 "fresh digest of its content"
 
-sed 's/^verdict APPROVED$/verdict TOTALLY_FINE/' "$WORK/att.good" > .apexyard/attestation
-expect_verify_raw "any hand edit breaks the digest" 1 "digest does not match"
+sed 's/"verdict": "APPROVED"/"verdict": "TOTALLY_FINE"/' "$WORK/att.good" > .apexyard/attestation.json
+expect_verify_raw "any hand edit breaks the digest" 1 "fresh digest of its content"
 
-rm -f .apexyard/attestation
-expect_verify_raw "a missing manifest fails" 1 "nothing to bind to"
-cp "$WORK/att.good" .apexyard/attestation
+# Reordering keys changes no value and keeps the digest valid — the digest is
+# taken over a re-serialisation. The canonical-form rule is what rejects it, and
+# it has to, because the SIGNATURE is over these bytes.
+node --input-type=module -e '
+  import { readFileSync, writeFileSync } from "node:fs";
+  const a = JSON.parse(readFileSync(process.argv[1], "utf8"));
+  const reversed = Object.fromEntries(Object.entries(a).reverse());
+  writeFileSync(".apexyard/attestation.json", JSON.stringify(reversed, null, 2) + "\n");
+' "$WORK/att.good"
+expect_verify_raw "a reordered but digest-valid attestation is rejected" 1 "canonical form"
 
-# A digest recomputed over a weakened body — the informed forgery. The digest is
+rm -f .apexyard/attestation.json
+expect_verify_raw "a missing attestation fails" 1 "nothing to bind to"
+cp "$WORK/att.good" .apexyard/attestation.json
+
+# A digest recomputed over weakened content — the informed forgery. The digest is
 # internally consistent, so only the gate check catches it. Both exist for this.
 node --input-type=module -e '
 import { renderAttestation, parseAttestation } from "./scripts/lib/attestation.mjs";
 import { readFileSync, writeFileSync } from "node:fs";
 const { fields } = parseAttestation(readFileSync(process.argv[1], "utf8"));
-writeFileSync(".apexyard/attestation", renderAttestation({
+writeFileSync(".apexyard/attestation.json", renderAttestation({
   scope: fields.scope, head: fields.head, model: fields.model,
   gate: "none", verdict: "APPROVED", findings: fields.findings, files: fields.files,
 }));
@@ -151,7 +193,7 @@ node --input-type=module -e '
 import { renderAttestation, parseAttestation } from "./scripts/lib/attestation.mjs";
 import { readFileSync, writeFileSync } from "node:fs";
 const { fields } = parseAttestation(readFileSync(process.argv[1], "utf8"));
-writeFileSync(".apexyard/attestation", renderAttestation({
+writeFileSync(".apexyard/attestation.json", renderAttestation({
   scope: fields.scope, head: fields.head, model: fields.model,
   gate: "high", verdict: "APPROVED",
   findings: { ...fields.findings, high: 2 }, files: fields.files,
@@ -159,7 +201,7 @@ writeFileSync(".apexyard/attestation", renderAttestation({
 ' "$WORK/att.good"
 expect_verify "a valid digest over unresolved High findings is rejected" 1 "unresolved high"
 
-cp "$WORK/att.good" .apexyard/attestation
+cp "$WORK/att.good" .apexyard/attestation.json
 node scripts/evidence.mjs >/dev/null 2>&1
 
 printf '\n== content binding survives history rewriting ==\n'
@@ -188,26 +230,26 @@ if command -v ssh-keygen >/dev/null 2>&1; then
 
   expect_verify_raw "registering a signer makes a missing signature fatal" 1 "produced without signing"
 
-  ssh-keygen -Y sign -q -f "$WORK/key" -n apexyard-review .apexyard/attestation >/dev/null 2>&1
+  ssh-keygen -Y sign -q -f "$WORK/key" -n apexyard-review .apexyard/attestation.json >/dev/null 2>&1
   expect_verify_raw "a valid signature verifies" 0 "signature verified"
 
   # A signature over different content must not validate.
-  cp .apexyard/attestation.sig "$WORK/sig.other"
+  cp .apexyard/attestation.json.sig "$WORK/sig.other"
   node --input-type=module -e '
   import { renderAttestation, parseAttestation } from "./scripts/lib/attestation.mjs";
   import { readFileSync, writeFileSync } from "node:fs";
   const { fields } = parseAttestation(readFileSync(process.argv[1], "utf8"));
-  writeFileSync(".apexyard/attestation", renderAttestation({
+  writeFileSync(".apexyard/attestation.json", renderAttestation({
     scope: fields.scope, head: fields.head, model: "some-other-model",
     gate: "high", verdict: "APPROVED", findings: fields.findings, files: fields.files,
   }));
   ' "$WORK/att.good"
-  cp "$WORK/sig.other" .apexyard/attestation.sig
+  cp "$WORK/sig.other" .apexyard/attestation.json.sig
   node scripts/evidence.mjs >/dev/null 2>&1
   expect_verify_raw "a signature over different content is rejected" 1 "did not verify"
 
-  rm -f .apexyard/allowed_signers .apexyard/attestation.sig
-  cp "$WORK/att.good" .apexyard/attestation
+  rm -f .apexyard/allowed_signers .apexyard/attestation.json.sig
+  cp "$WORK/att.good" .apexyard/attestation.json
   expect_verify "with no signers registered, unsigned is accepted" 0 "no signers registered"
 else
   printf '  skip signature cases (ssh-keygen not on PATH)\n'

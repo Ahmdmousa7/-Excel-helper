@@ -32,8 +32,8 @@ That is the honest state: a rigorous system for describing a poorly-tested appli
 | ApexYard ops fork + 9 handbooks | **KEEP** | The handbooks are what make the review project-specific rather than generic advice. |
 | Review bridge (`apexyard-review-ci.sh`) | **KEEP** | The only way to run the review unattended. Load-bearing. |
 | Composite GitHub Action in the ops fork | **REMOVE (from our path)** | Dead for this project since the review went local. |
-| Attestation (manifest + blob-OID binding) | **KEEP** | Small, heavily tested, solves a real failure that actually happens. |
-| `attestation.json` mirror | **SIMPLIFY** | Exists for format preference; costs a whole cross-check rule. |
+| Attestation (blob-OID binding) | **KEEP** | Small, heavily tested, solves a real failure that actually happens. |
+| `attestation.json` mirror | **SIMPLIFIED — done** | Was a derived duplicate costing a cross-check rule. It is now the attestation itself; the text manifest is gone (ADR-0004). |
 | Second verifier (`verify-attestation.mjs`) | **REMOVED — done today** | Duplicated 85% of the other and disagreed on one rule. |
 | Evidence bundle (7 artifacts) | **KEEP, with a review date** | Requested scope, works — but nothing consumes it programmatically yet. |
 | `.d.mts` declarations (352 lines) | **KEEP** | Tested the alternative; it fails. Cost is bounded by test coverage. |
@@ -85,18 +85,20 @@ Also fixed while consolidating — three more real bugs the review caught in cod
 
 ## Where I would still change things
 
-### `attestation.json` — SIMPLIFY
+### `attestation.json` — SIMPLIFY → **RESOLVED 2026-08-03**
 
-It is a derived duplicate of `.apexyard/attestation` that exists because the requested layout named a `.json` file. It required a whole verification rule (*mirror agrees with manifest*) that exists **only because the mirror exists** — complexity generating complexity.
+It was a derived duplicate of `.apexyard/attestation` that existed because the requested layout named a `.json` file. It required a whole verification rule (*mirror agrees with manifest*) that existed **only because the mirror existed** — complexity generating complexity.
 
-The honest position: keeping the text manifest authoritative was justified by the SSH signature covering its bytes. But **no signer is registered**, so that argument currently protects an unused capability.
+The honest position: keeping the text manifest authoritative was justified by the SSH signature covering its bytes. But **no signer is registered**, so that argument protected an unused capability.
 
 Two coherent options:
 
 1. **Drop the mirror.** One artifact, one format, one rule fewer. Costs the requested JSON shape.
 2. **Make `attestation.json` the only form** and sign it instead. One artifact, JSON as requested.
 
-Both are better than what exists. I did not pick one because "keep the current blob-hash based attestation, do not redesign it" was an explicit instruction, and the format is arguably part of what that protects. **This is a decision for the maintainer, not for me to make quietly.**
+Both were better than what existed. I did not pick one because "keep the current blob-hash based attestation, do not redesign it" was an explicit instruction, and the format is arguably part of what that protects. **This is a decision for the maintainer, not for me to make quietly.**
+
+**The maintainer chose option 2.** `.apexyard/attestation.json` is now the attestation; the text manifest is deleted; rule 2 became a self-check on one file. See [ADR-0004](../adr/ADR-0004-json-is-the-canonical-attestation-format.md) and TD-032. Two redundant fields went with it (`digest`, which always equalled `attestation_id`, and `file_count`, which guarded against a truncation that JSON cannot suffer).
 
 ### `verify-local.sh` — SIMPLIFY
 
@@ -134,7 +136,7 @@ Ambiguous for the **evidence bundle**. It is correct, deterministic, and tested 
 
 ### Is there a simpler solution?
 
-For the attestation: no. It is a text file of `<hash> <path>` rows using hashes git already computes.
+For the attestation: no. It is one canonical-JSON file of `oid`/`path` pairs using hashes git already computes — and since ADR-0004 it shares its serialiser with the rest of the bundle rather than carrying its own.
 
 For the bundle: yes — `review.json` plus the summary would carry 80% of the value. The other five artifacts are requested scope, and I have flagged the rot risk rather than quietly cutting them.
 
@@ -178,7 +180,7 @@ The system is designed for roughly 3–10 maintainers and is being run by one. T
 
 **Yes, for:** blob-OID binding over commit SHAs (squash merges would have broken a SHA binding on every PR); the `available:false` union; naming it an attestation instead of a proof; the local-only credential policy.
 
-**No, for:** building the verifier twice; the `attestation.json` mirror; 4,585 lines of apparatus before writing a single component test.
+**No, for:** building the verifier twice; the `attestation.json` mirror (since removed — ADR-0004); 4,585 lines of apparatus before writing a single component test.
 
 **The last one is the real lesson.** Each step was individually justified, and each was requested. But the cumulative result is that the best-engineered code in this repository is the code that measures the rest.
 
@@ -187,7 +189,7 @@ The system is designed for roughly 3–10 maintainers and is being run by one. T
 ## Recommended order of work
 
 1. **Extract pure logic from the three 1,000+ line components into `utils/` and test it.** This is the only item that improves the *product*.
-2. Decide the `attestation.json` question — drop the mirror, or make it the only form.
+2. ~~Decide the `attestation.json` question — drop the mirror, or make it the only form.~~ **Done 2026-08-03:** made the only form (ADR-0004).
 3. Delete `VariableBalanceTabV2.tsx` or route it (TD-010). The bundle has been reporting it for a day.
 4. Test `verify-local.sh`'s scope selection.
 5. Strip the scorecard's numbers; fold the roadmap into the register.

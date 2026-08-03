@@ -224,8 +224,8 @@ describe('the bundle-path rule (one definition, two callers)', () => {
 
   it('matches everything inside the bundle', () => {
     for (const p of [
-      '.apexyard/attestation',
-      '.apexyard/attestation.sig',
+      '.apexyard/attestation.json',
+      '.apexyard/attestation.json.sig',
       '.apexyard/allowed_signers',
       '.apexyard/review.json',
       '.apexyard/review-summary.md',
@@ -237,7 +237,7 @@ describe('the bundle-path rule (one definition, two callers)', () => {
   });
 
   it('does not match a sibling whose name merely starts the same way', () => {
-    expect(isBundlePath('.apexyard-old/attestation')).toBe(false);
+    expect(isBundlePath('.apexyard-old/attestation.json')).toBe(false);
     expect(isBundlePath('.apexyardish')).toBe(false);
   });
 

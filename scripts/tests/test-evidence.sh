@@ -10,7 +10,7 @@
 # One case per rule, named after the rule:
 #
 #   artifacts exist            a deleted artifact fails
-#   attestation matches        a mirror with a different digest or file set fails
+#   attestation is intact      an edited field, or an id over other content, fails
 #   files match repo state     an edit after review fails; an unreviewed add fails
 #   no artifact is stale       an artifact bound to a different attestation fails
 #   reproducible              a hand-edited or reformatted artifact fails
@@ -82,10 +82,19 @@ node scripts/attest-review.mjs --base base --gate high --no-sign >/dev/null 2>&1
 node scripts/evidence.mjs >/dev/null 2>&1
 
 printf '\n== the bundle generates ==\n'
-for f in attestation attestation.json review.json findings.json metrics.json \
+for f in attestation.json review.json findings.json metrics.json \
          architecture.json dependency-report.json accessibility-report.json review-summary.md; do
   if [ -f ".apexyard/$f" ]; then ok "writes $f"; else bad "writes $f" "absent"; fi
 done
+
+# The retired text manifest must not come back. A stray writer would leave two
+# attestations in the bundle again, which is the whole thing ADR-0004 removed —
+# and nothing else in the suite would notice, because the verifier ignores it.
+if [ -e .apexyard/attestation ]; then
+  bad "does not write the retired text manifest" ".apexyard/attestation exists"
+else
+  ok "does not write the retired text manifest"
+fi
 
 ID=$(node -e "console.log(require('./.apexyard/review.json').attestation_id)")
 if node -e "
@@ -99,13 +108,17 @@ for (const n of names) {
 "; then ok "every artifact carries the same attestation_id"
 else bad "every artifact carries the same attestation_id" "ids differ"; fi
 
-if node -e "
-const t=require('fs').readFileSync('.apexyard/attestation','utf8');
-const d=t.split('\n').find(l=>l.startsWith('digest ')).slice(7);
-const id=require('./.apexyard/review.json').attestation_id;
-process.exit(d===id?0:1);
-"; then ok "the attestation_id IS the manifest digest"
-else bad "the attestation_id IS the manifest digest" "mismatch"; fi
+# The id every artifact carries is the attestation's own digest, recomputed here
+# from the attestation's content rather than read out of it — so this proves the
+# derivation, not just that two fields happen to hold the same string.
+if node --input-type=module -e "
+import { readFileSync } from 'node:fs';
+import { attestationDigest } from './scripts/lib/attestation.mjs';
+const att = JSON.parse(readFileSync('.apexyard/attestation.json', 'utf8'));
+const id = JSON.parse(readFileSync('.apexyard/review.json', 'utf8')).attestation_id;
+process.exit(attestationDigest(att) === id ? 0 : 1);
+"; then ok "the attestation_id IS the digest of the attestation's content"
+else bad "the attestation_id IS the digest of the attestation's content" "mismatch"; fi
 
 cp -r .apexyard "$WORK/bundle.good"
 
@@ -162,26 +175,45 @@ fs.writeFileSync('.apexyard/architecture.json', JSON.stringify(a,null,4)+'\n');
 expect "a reformatted artifact fails the canonical check" 1 "canonical form"
 cp "$WORK/bundle.good/architecture.json" .apexyard/
 
-printf '\n== rule: attestation matches reviewed files ==\n'
+printf '\n== rule: the attestation is intact ==\n'
+# These three cases replaced two that checked a JSON mirror against a separate
+# text manifest. There is one attestation now (ADR-0004), so what is left to
+# check is that it agrees with ITSELF: its id is the digest of its own content.
 patch_artifact attestation.json '
 import { readFileSync, writeFileSync } from "node:fs";
 const p = process.argv[1];
 const a = JSON.parse(readFileSync(p, "utf8"));
-a.digest = "sha256:" + "c".repeat(64);
+a.attestation_id = "sha256:" + "c".repeat(64);
 writeFileSync(p, JSON.stringify(Object.fromEntries(Object.entries(a).sort()), null, 2) + "\n");
 '
-expect "a mirror whose digest disagrees with the manifest fails" 1 "records digest"
+expect "an id that is not the digest of the content fails" 1 "fresh digest of its content"
 cp "$WORK/bundle.good/attestation.json" .apexyard/
 
+# Dropping a file from the attested set is how an unreviewed change would be
+# hidden from the coverage check. The digest is what catches it.
 patch_artifact attestation.json '
 import { readFileSync, writeFileSync } from "node:fs";
 const p = process.argv[1];
 const a = JSON.parse(readFileSync(p, "utf8"));
 a.files = a.files.slice(0, 1);
-a.file_count = 1;
 writeFileSync(p, JSON.stringify(Object.fromEntries(Object.entries(a).sort()), null, 2) + "\n");
 '
-expect "a mirror listing a different file set fails" 1 "different file set"
+expect "a shortened file list fails" 1 "fresh digest of its content"
+cp "$WORK/bundle.good/attestation.json" .apexyard/
+
+# The informed forgery: recompute the id so it IS internally consistent, then let
+# the gate arithmetic catch what the digest cannot. Both rules are load-bearing.
+patch_artifact attestation.json '
+import { readFileSync, writeFileSync } from "node:fs";
+import { attestationDigest } from "./scripts/lib/attestation.mjs";
+import { canonicalJson } from "./scripts/lib/evidence.mjs";
+const p = process.argv[1];
+const a = JSON.parse(readFileSync(p, "utf8"));
+a.gate = "none";
+delete a.attestation_id;
+writeFileSync(p, canonicalJson({ ...a, attestation_id: attestationDigest(a) }));
+'
+expect "a re-digested but weakened gate still fails" 1 "weaker than the required high"
 cp "$WORK/bundle.good/attestation.json" .apexyard/
 
 printf '\n== rule: internally consistent ==\n'
@@ -236,14 +268,18 @@ expect "committing the bundle does not trip the coverage check" 0 "verified"
 # never pass. There was no state of the repository in which CI was green.
 #
 # So: with the bundle committed, re-attest and re-generate, and assert that (a)
-# no bundle path is inside the manifest and (b) verification still passes. If a
-# future change reintroduces a local exclusion list in either script, this fails.
+# no bundle path is inside the attested set and (b) verification still passes. If
+# a future change reintroduces a local exclusion list in either script, this fails.
 node scripts/attest-review.mjs --base base --gate high --no-sign >/dev/null 2>&1
 node scripts/evidence.mjs >/dev/null 2>&1
 
-if grep -qE ' \.apexyard/' .apexyard/attestation; then
-  bad "the generator excludes the bundle from the attested scope" \
-      "$(grep -E ' \.apexyard/' .apexyard/attestation | head -3 | tr '\n' ' ')"
+bundle_paths=$(node --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  const a = JSON.parse(readFileSync(".apexyard/attestation.json", "utf8"));
+  process.stdout.write(a.files.map((f) => f.path).filter((p) => p.startsWith(".apexyard/")).join(" "));
+')
+if [ -n "$bundle_paths" ]; then
+  bad "the generator excludes the bundle from the attested scope" "$bundle_paths"
 else
   ok "the generator excludes the bundle from the attested scope"
 fi
@@ -268,12 +304,12 @@ FILTER_DIR=.apexyard
 printf '%s\n' \
   'components/App.tsx' \
   '.apexyard' \
-  '.apexyard/attestation' \
+  '.apexyard/attestation.json' \
   '.apexyard/review.json' \
-  '.apexyard-old/attestation' \
+  '.apexyard-old/attestation.json' \
   'scripts/evidence.mjs' > "$WORK/paths.txt"
 kept=$(grep -v -e "^${FILTER_DIR}\$" -e "^${FILTER_DIR}/" "$WORK/paths.txt" | tr '\n' ' ')
-expected='components/App.tsx .apexyard-old/attestation scripts/evidence.mjs '
+expected='components/App.tsx .apexyard-old/attestation.json scripts/evidence.mjs '
 if [ "$kept" = "$expected" ]; then
   ok "the review's input filter drops the bundle and keeps everything else"
 else

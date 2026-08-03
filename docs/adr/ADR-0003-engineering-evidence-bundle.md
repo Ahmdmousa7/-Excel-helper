@@ -4,21 +4,21 @@
 **Date:** 2026-08-03
 **Deciders:** Maintainer (Ahmdmousa7)
 **Builds on:** [ADR-0001](ADR-0001-ai-review-runs-locally-not-in-ci.md) (the review is local, no credential in CI) and [ADR-0002](ADR-0002-review-attestation.md) (the blob-hash attestation). Neither is redesigned here.
+**Amended by:** [ADR-0004](ADR-0004-json-is-the-canonical-attestation-format.md), which retired the `attestation.json` mirror this ADR introduced by making it the attestation itself. Verifier rule 2 below changed with it; the other four are untouched.
 
 > In the context of a review whose only output was a verdict, facing a CI job that could confirm *that* code was reviewed but nothing about the quality signals around it, I decided to emit a set of deterministic, machine-readable artifacts all bound to the attestation's digest as their shared id, verified by a credential-free CI job, to make the whole engineering picture reproducible and checkable, accepting that this remains an attestation and that the bundle costs one commit per reviewed push.
 
 ## What changed, and what did not
 
-**Not redesigned.** `.apexyard/attestation` is byte-for-byte the same artifact as in ADR-0002: the canonical text manifest of `<blob oid> <path>` rows, digested with SHA-256, optionally signed with `ssh-keygen -Y sign`. It remains the single authoritative artifact. Squash merges, rebases, and amend commits still verify, because the binding is still to content and not to a commit SHA.
+**Not redesigned.** The attestation carries exactly the content ADR-0002 gave it: `oid`/`path` pairs for every reviewed file, digested with SHA-256, optionally signed with `ssh-keygen -Y sign`. It remains the single authoritative artifact. Squash merges, rebases, and amend commits still verify, because the binding is still to content and not to a commit SHA. *(Its serialisation later changed — ADR-0004 — and the layout below reflects that. Nothing in this ADR's reasoning turned on the format.)*
 
-**Added.** Seven JSON artifacts and one markdown summary, all in `.apexyard/`, all carrying the attestation's digest as `attestation_id`.
+**Added.** Six JSON artifacts and one markdown summary, all in `.apexyard/`, all carrying the attestation's digest as `attestation_id`.
 
 ```
 .apexyard/
-  attestation                    canonical signed manifest — AUTHORITATIVE, unchanged
-  attestation.sig                optional SSH signature over the above
+  attestation.json               canonical signed attestation — AUTHORITATIVE
+  attestation.json.sig           optional SSH signature over the above
   allowed_signers                optional; when non-empty, a signature becomes mandatory
-  attestation.json               machine-readable mirror; digest must equal the manifest's
   review.json                    verdict, model, gate, severity counts
   findings.json                  every finding, deterministically ordered
   metrics.json                   typescript · eslint · vitest · playwright · bundle
@@ -64,7 +64,7 @@ So every collector returns a union: either `{available: false, reason: "..."}` o
 | # | Rule | Catches |
 |---|---|---|
 | 1 | **Artifacts exist** | A bundle missing `metrics.json`, or the summary. |
-| 2 | **Attestation matches the mirror** | `attestation.json` disagreeing with the signed manifest on digest, file set, gate, model, or verdict. |
+| 2 | **The attestation is intact** | An `attestation_id` that is not the digest of the artifact's own content — any hand-edited field. *(ADR-0004. This rule used to compare the mirror against the text manifest.)* |
 | 3 | **Reviewed files match repository state** | Every recorded blob OID must still resolve at HEAD; every `deleted` path must still be absent; nothing changed in this range that the review never saw. **The load-bearing check.** |
 | 4 | **No artifact is stale** | Any artifact whose `attestation_id` is not this attestation's digest. |
 | 5 | **Nothing is non-reproducible** | A hand-edited, reformatted, or non-canonical artifact; timestamp-shaped content. |
@@ -78,7 +78,9 @@ The gate strength check from ADR-0002 still applies: zero findings at or above `
 
 ## Decisions worth recording
 
-**`attestation.json` is a mirror, not a second source of truth.** The bundle layout asked for JSON, and ADR-0002 said not to redesign the attestation — whose bytes an SSH signature covers. Rewriting it as JSON would have changed those bytes. So the text manifest stays authoritative and `attestation.json` mirrors it, with the verifier proving the two agree on digest, file set, gate, model, and verdict. Drift is impossible rather than merely discouraged.
+**~~`attestation.json` is a mirror, not a second source of truth.~~** *Reversed by [ADR-0004](ADR-0004-json-is-the-canonical-attestation-format.md).* The reasoning here was: the bundle layout asked for JSON, ADR-0002 said not to redesign the attestation, and an SSH signature covered the text manifest's bytes — so keep the text form authoritative and prove the mirror agrees with it.
+
+The flaw was in the last step. The signature argument was protecting a capability with **no registered signer**, so the bytes being stable bought nothing; and "prove the two agree" is a verification rule whose only subject is a file this system generates itself. Making the JSON the attestation deleted the mirror, the rule, and the possibility of drift together. Kept here rather than edited away because the mistake — justifying duplication with a control nobody had switched on — is the transferable part.
 
 **The bundle is excluded from its own attested scope.** The artifacts are generated *from* the review, so requiring them to be reviewed would be circular. The verifier skips the whole `.apexyard/` prefix in the coverage check, and there is a regression test asserting that committing the bundle does not trip it. The residual exposure is that a file under `.apexyard/` is never AI-reviewed — acceptable, because it is generated evidence data rather than executable code.
 
@@ -91,7 +93,7 @@ The gate strength check from ADR-0002 still applies: zero findings at or above `
 ## Consequences
 
 - **The bundle is committed.** `.gitignore` previously ignored all of `.apexyard/`, which made the attestation uncommittable and would have failed the CI gate on every push. The review caught that as a High finding before it shipped. Only `review/` and `raw/` stay ignored.
-- **`.gitattributes` pins `.apexyard/*` to LF.** The digests and the signature are defined over LF bytes, so a CRLF checkout would break verification on a machine that did nothing wrong. `attestation.sig` is marked `-text` so git never touches it.
+- **`.gitattributes` pins `.apexyard/*` to LF.** The digests and the signature are defined over LF bytes, so a CRLF checkout would break verification on a machine that did nothing wrong. `attestation.json.sig` is marked `-text` so git never touches it.
 - The local gate grew to eleven stages: the nine quality gates now also **capture** raw output as they run, then stage 10 assembles the bundle and stage 11 verifies it and proves it reproduces. Capturing during the gating run rather than re-running each tool means the evidence describes the run that actually gated.
 - Cost: one commit or amend per reviewed push, and the bundle churns on every review. `architecture.json` is the largest artifact at a few KB.
 - The accessibility suite now writes `test-results/axe-summary.json` in an `afterAll` hook — rule ids, impacts, node counts, page labels. No selectors and no HTML, which would have put fragments of the rendered DOM into a committed artifact.
@@ -102,12 +104,12 @@ Requirement 14: every new verification rule has a regression test.
 
 | Suite | Covers | Count |
 |---|---|---|
-| `tests/unit/attestation.test.ts` | ADR-0002 rules: digest determinism, bytewise path ordering, tamper detection, the subset rule, gate arithmetic | 38 |
-| `tests/unit/evidence.test.ts` | Canonical JSON (sorting, indent, LF, trailing newline, reformat rejection), the determinism guard (13 key shapes, date-shaped values, semver/hash false-positive avoidance), the envelope (schema registry, id format, field collisions), all six artifact rules, presence checks, and every collector — including that each returns `available:false` with a reason and no `passed` field | 44 |
-| `scripts/tests/test-attestation.sh` | Both attestation CLIs against real git repos: edit-after-review, unreviewed add, resurrected deletion, amend, squash, forged-but-consistent manifests, signature verification | 22 |
-| `scripts/tests/test-evidence.sh` | The bundle end to end: generation, shared-id propagation, `--check` reproducibility, byte-identical regeneration, missing artifact, stale artifact, reformatted artifact, mirror digest mismatch, mirror file-set mismatch, review/findings disagreement, counts contradicting the manifest, edit-after-review, unreviewed add, self-attestation exclusion, amend | 28 |
+| `tests/unit/attestation.test.ts` | ADR-0002 and ADR-0004 rules: digest determinism, the one-key-removed digest rule, canonical output, bytewise path ordering, tamper detection, the subset rule, gate arithmetic | 48 |
+| `tests/unit/evidence.test.ts` | Canonical JSON (sorting, indent, LF, trailing newline, reformat rejection), the determinism guard (13 key shapes, date-shaped values, semver/hash false-positive avoidance), the envelope (schema registry, id format, field collisions), all six artifact rules, presence checks, and every collector — including that each returns `available:false` with a reason and no `passed` field | 51 |
+| `scripts/tests/test-attestation.sh` | Both attestation CLIs against real git repos: edit-after-review, unreviewed add, resurrected deletion, amend, squash, forged-but-consistent attestations, non-canonical rejection, signature verification | 21 |
+| `scripts/tests/test-evidence.sh` | The bundle end to end: generation, shared-id propagation, `--check` reproducibility, byte-identical regeneration, missing artifact, stale artifact, reformatted artifact, the three attestation-integrity cases, review/findings disagreement, counts contradicting the attestation, edit-after-review, unreviewed add, self-attestation exclusion, amend | 34 |
 
-**132 tests.** The two cases the whole system exists for — code edited after review, and code added and never reviewed — are asserted at both layers.
+**154 tests.** The two cases the whole system exists for — code edited after review, and code added and never reviewed — are asserted at both layers.
 
 ## Artifacts
 

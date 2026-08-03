@@ -2,14 +2,17 @@
 // engineering evidence bundle.
 //
 // The bundle extends the review attestation from ADR-0002 rather than replacing
-// it. `.apexyard/attestation` stays exactly as it was: the signed, canonical,
-// blob-hash manifest, and the only artifact whose digest is authoritative.
-// Everything here hangs off that digest.
+// it. `.apexyard/attestation.json` is the signed, canonical, blob-hash
+// attestation — the only artifact whose digest is authoritative, and since
+// ADR-0004 the only form the attestation takes. Everything here hangs off that
+// digest.
 //
 // THE ATTESTATION ID
 // ------------------
 // Every artifact carries `attestation_id`, and that id IS the attestation's
-// digest — not a random uuid, not a counter, not a timestamp. That choice does
+// digest — not a random uuid, not a counter, not a timestamp. The attestation's
+// own id is the digest of itself with that key removed, which is what lets one
+// file be both the anchor and a member of the set it anchors. That choice does
 // the staleness work for free: the digest covers the reviewed files' content,
 // so the moment any reviewed byte changes, the attestation's digest changes and
 // every artifact still pointing at the old id is provably stale. There is
@@ -72,7 +75,7 @@ export const SUMMARY_FILE = 'review-summary.md';
 /** Schema ids. Bumped when a shape changes incompatibly, so a verifier reading
  *  an older bundle says so instead of silently misreading it. */
 export const SCHEMAS = {
-  'attestation.json': 'apexyard.evidence.attestation/1',
+  'attestation.json': 'apexyard.evidence.attestation/2',
   'review.json': 'apexyard.evidence.review/1',
   'findings.json': 'apexyard.evidence.findings/1',
   'metrics.json': 'apexyard.evidence.metrics/1',

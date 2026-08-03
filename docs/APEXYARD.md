@@ -130,33 +130,46 @@ Tracked honestly as **TD-027** in the [debt register](quality/tech-debt-register
 
 ## Review attestation
 
-The review writes `.apexyard/attestation` — a small committed text file recording, for every file it looked at, that file's **git blob hash**:
+The review writes `.apexyard/attestation.json` — a small committed file recording, for every file it looked at, that file's **git blob hash**:
 
+```json
+{
+  "attestation_id": "sha256:83f9f57cef…",
+  "files": [
+    { "oid": "cc8134c8c23ff7a0d8a8b00765c3f6aa71156ca3", "path": ".gitattributes" },
+    { "oid": "deleted", "path": ".github/PR_BODY.md" }
+  ],
+  "findings_by_severity": { "critical": 0, "high": 0, "info": 0, "low": 4, "medium": 1 },
+  "gate": "high",
+  "model": "claude-opus-5",
+  "reviewed_at_commit": "d5d0f449977c…",
+  "schema": "apexyard.evidence.attestation/2",
+  "scope": "origin/main...HEAD",
+  "verdict": "APPROVED"
+}
 ```
-apexyard-review-attestation v1
-digest sha256:83f9f57cef…
---
-scope origin/main...HEAD
-head d5d0f449977c…
-model claude-opus-5
-gate high
-verdict APPROVED
-findings critical=0 high=0 medium=1 low=4 info=0
-files 13
-cc8134c8c23ff7a0d8a8b00765c3f6aa71156ca3 .gitattributes
-deleted .github/PR_BODY.md
-…
+
+`attestation_id` is the SHA-256 of this file's canonical JSON with `attestation_id` itself removed — so the artifact carries its own digest, and every other artifact in the bundle points at that same id. To recompute it:
+
+```bash
+node --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  import { attestationDigest } from "./scripts/lib/attestation.mjs";
+  console.log(attestationDigest(JSON.parse(readFileSync(".apexyard/attestation.json", "utf8"))));
+'
 ```
+
+Reaching for `jq 'del(.attestation_id)' | sha256sum` instead will not match, and the reason is worth knowing: the digest is defined over **canonical** JSON — keys sorted recursively, two-space indent, LF, exactly one trailing newline — and `jq` re-indents. That is also why the verifier checks canonical form as a rule of its own: without it, two different byte strings could carry the same id, and it is the bytes that get signed.
 
 The `Review attestation` CI job — which holds no credentials, calls no network, and runs no model — checks five things:
 
 | Check | Catches |
 |---|---|
-| Digest matches the body | Any hand edit. Flipping `gate high` to `gate none` breaks it. |
+| The id is the digest of the content | Any hand edit. Flipping `"gate": "high"` to `"none"` breaks it. |
 | Every recorded hash still resolves at this commit | A reviewed file edited afterwards. **This is the load-bearing check.** |
 | Every changed file appears in the attestation | A file added after the review and never looked at. |
 | Zero findings at or above `high`, **and** the run's own gate was at least that strict | A review laundered through `--fail-on none` or `--fail-on critical`. |
-| Signature valid — only when a key is registered | A manifest produced by an unregistered key. Currently unused; see TD-028. |
+| Signature valid — only when a key is registered | An attestation produced by an unregistered key. Currently unused; see TD-028. |
 
 **Why blob hashes and not the commit SHA.** A squash merge rewrites every SHA while changing no content. Binding to the commit would make the attestation go stale at merge time on *every* PR, and a gate that fails routinely gets bypassed. Content hashes expire on exactly the right event — a byte of reviewed code changing — and survive rebase, amend, and squash. Both behaviours are pinned by tests.
 
@@ -164,10 +177,10 @@ The `Review attestation` CI job — which holds no credentials, calls no network
 
 **What it does not contain:** no prompt text, no finding descriptions, no code excerpts, no credentials. Paths and content hashes are already public in a public repo; a severity count is not a disclosure. The full report stays in the gitignored `.apexyard/review/`.
 
-Full reasoning, including the six alternatives rejected: [ADR-0002](adr/ADR-0002-review-attestation.md).
+Full reasoning, including the six alternatives rejected: [ADR-0002](adr/ADR-0002-review-attestation.md). Why JSON is the one canonical form, rather than a text manifest with a JSON mirror beside it: [ADR-0004](adr/ADR-0004-json-is-the-canonical-attestation-format.md).
 
 ```bash
-npm run test:attestation    # 22 end-to-end cases against real git repos
+npm run test:attestation    # 21 end-to-end cases against real git repos
 ```
 
 ## The evidence bundle
@@ -176,8 +189,7 @@ The attestation answers *was this code reviewed?* The bundle answers *what did t
 
 ```
 .apexyard/
-  attestation                    canonical signed manifest — AUTHORITATIVE
-  attestation.json               machine-readable mirror; digest must match
+  attestation.json               canonical signed attestation — AUTHORITATIVE
   review.json                    verdict, model, gate, severity counts
   findings.json                  every finding, deterministically ordered
   metrics.json                   typescript · eslint · vitest · playwright · bundle
@@ -221,11 +233,11 @@ Every collector returns either `{available: false, reason}` or a payload with `a
 | Rule | Catches |
 |---|---|
 | Artifacts exist | A bundle missing an artifact or the summary |
-| Attestation matches the mirror | `attestation.json` disagreeing with the signed manifest |
+| The attestation is intact | An `attestation_id` that isn't the digest of the attestation's own content |
 | Reviewed files match repo state | A reviewed file edited afterwards; a changed file never reviewed |
 | No artifact is stale | Any `attestation_id` that isn't this attestation's digest |
 | Nothing is non-reproducible | A hand-edited, reformatted, or timestamp-carrying artifact |
-| Internally consistent | `review.json` and `findings.json` disagreeing, or either contradicting the manifest |
+| Internally consistent | `review.json` and `findings.json` disagreeing, or either contradicting the attestation |
 
 Still an attestation, in exactly the ADR-0002 sense: it shows a review covering this code was recorded, not that a model ran. Full architecture: [ADR-0003](adr/ADR-0003-engineering-evidence-bundle.md).
 

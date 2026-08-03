@@ -254,10 +254,11 @@ jobs:
           esac
 
       - name: 6. Verify the evidence bundle
-        # HARD GATE, and a superset of the step above: artifacts exist, the JSON
-        # mirror agrees with the signed manifest, every artifact carries THIS
-        # attestation's id (so a stale one fails), and no artifact contains
-        # timestamp-shaped content or non-canonical formatting.
+        # HARD GATE, and a superset of the step above: artifacts exist, the
+        # attestation's id is the digest of its own content (so a hand-edited
+        # field fails), every artifact carries THAT id (so a stale one fails),
+        # and no artifact contains timestamp-shaped content or non-canonical
+        # formatting.
         #
         # Deliberately NOT `evidence.mjs --check` here. Regenerating in CI would
         # need the raw tool output the local gate captured, which is gitignored;

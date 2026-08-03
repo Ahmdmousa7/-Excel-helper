@@ -4,10 +4,10 @@
 //
 // Called by scripts/review-local.sh after a review completes. Reads the
 // review's own JSON output, resolves the git blob OID of every file that was
-// in scope, and writes .apexyard/attestation — a small text manifest whose
-// digest covers all of it.
+// in scope, and writes .apexyard/attestation.json — canonical JSON carrying its
+// own digest, which covers all of it (ADR-0004).
 //
-// The manifest is committed. CI recomputes the OIDs from its own checkout and
+// The artifact is committed. CI recomputes the OIDs from its own checkout and
 // fails if any has moved, or if a changed file was never attested.
 //
 // It contains: paths, content hashes, the model id, the gate level, the
@@ -23,10 +23,12 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { renderAttestation, DELETED, SEVERITIES, SIG_NAMESPACE } from './lib/attestation.mjs';
-import { isBundlePath } from './lib/evidence.mjs';
+import {
+  renderAttestation, ATTESTATION_FILE, DELETED, SEVERITIES, SIG_NAMESPACE,
+} from './lib/attestation.mjs';
+import { BUNDLE_DIR, isBundlePath } from './lib/evidence.mjs';
 
-const DEFAULT_OUT = '.apexyard/attestation';
+const DEFAULT_OUT = `${BUNDLE_DIR}/${ATTESTATION_FILE}`;
 const SIGNERS_FILE = '.apexyard/allowed_signers';
 
 function git(args, opts = {}) {
@@ -167,8 +169,8 @@ const text = renderAttestation({
 });
 
 mkdirSync(dirname(opt.out), { recursive: true });
-// Explicit LF. Node does not translate newlines, but being explicit here
-// documents that the digest is defined over LF bytes.
+// Explicit LF. Node does not translate newlines, and canonicalJson strips CRLF,
+// but being explicit here documents that the digest is defined over LF bytes.
 writeFileSync(opt.out, text, { encoding: 'utf8' });
 process.stdout.write(`attest-review: wrote ${opt.out} (${files.length} file(s), verdict ${verdict})\n`);
 

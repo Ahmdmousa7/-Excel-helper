@@ -23,9 +23,14 @@
 # The evidence bundle. Its digests and its SSH signature are defined over LF
 # bytes, so a CRLF checkout would break verification on a machine that did
 # nothing wrong. `-text` on the signature keeps git from touching it at all.
-.apexyard/attestation       text eol=lf
-.apexyard/allowed_signers   text eol=lf
-.apexyard/*.json            text eol=lf
-.apexyard/*.md              text eol=lf
-.apexyard/attestation.sig   -text
+#
+# The signature is `attestation.json.sig`, which ends in `.sig` and so is NOT
+# caught by the `*.json` rule above it — checked, not assumed, because the whole
+# point of the ordering comment at the top of this file is that a rule which
+# looks applied may not be. Verify after editing:
+#   git check-attr text eol -- .apexyard/attestation.json.sig
+.apexyard/allowed_signers        text eol=lf
+.apexyard/*.json                 text eol=lf
+.apexyard/*.md                   text eol=lf
+.apexyard/attestation.json.sig   -text
 

@@ -40,11 +40,46 @@
 // A commit-SHA binding would have failed that last row, which matters: a
 // squash merge rewrites every SHA while changing no content, and invalidating
 // the review there would train people to bypass the gate on every merge.
+//
+// ONE ARTIFACT, IN CANONICAL JSON
+// -------------------------------
+// The attestation is `.apexyard/attestation.json` and nothing else. It used to
+// be a line-oriented text manifest with a JSON mirror beside it, which cost a
+// verification rule — *mirror agrees with manifest* — that existed only because
+// the mirror existed. Two files that must agree is a place for them to disagree.
+// See ADR-0004.
+//
+// The digest is defined over the artifact itself:
+//
+//   attestation_id = sha256( canonicalJson( artifact without "attestation_id" ) )
+//
+// That rule is worth stating in one line because a verifier in another language
+// has to reimplement it. Removing exactly one key is the whole trick: it lets
+// the file carry its own digest without a separate header/body split, and it
+// leaves every other field — including `schema` — inside what the digest covers.
+//
+// `canonicalJson` (lib/evidence.mjs) pins the serialisation the digest is taken
+// over: keys sorted recursively, two-space indent, LF, one trailing newline. The
+// attestation uses the same serialiser as every other bundle artifact rather
+// than its own, so there is one definition of "canonical" in the system.
+//
+// There is deliberately **no timestamp**. A timestamp records when a file was
+// written, which nobody needs to know, and it would make the digest differ on
+// every run over identical content — destroying the one property that makes
+// this verifiable. Freshness comes from the OIDs: they stop matching the moment
+// the code changes, which is the actual question being asked.
 
-import { createHash } from 'node:crypto';
+import { canonicalJson, digestOf, SCHEMAS } from './evidence.mjs';
 
-export const ATTESTATION_VERSION = 1;
-export const MAGIC = `apexyard-review-attestation v${ATTESTATION_VERSION}`;
+/** The one attestation artifact. Relative to the bundle directory. */
+export const ATTESTATION_FILE = 'attestation.json';
+
+/** Bumped from /1 when JSON became canonical. The shape barely moved — /1's
+ *  mirror carried these same keys — but the *meaning* of the digest did: it is
+ *  now taken over this file, not over a text manifest beside it. A verifier
+ *  applying /1 semantics to a /2 artifact would recompute the wrong hash, so
+ *  the id has to change with it. */
+export const ATTESTATION_SCHEMA = SCHEMAS[ATTESTATION_FILE];
 
 /** The namespace passed to `ssh-keygen -Y sign -n`. Domain separation: a
  *  signature made for this purpose cannot be replayed as a git commit
@@ -58,6 +93,18 @@ export const DELETED = 'deleted';
 export const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'];
 
 const OID_RE = /^[0-9a-f]{40}$|^[0-9a-f]{64}$/;
+const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
+
+/** The string fields, in the JSON, that carry the review's identity. Mapped to
+ *  shorter internal names on parse so callers are not rewritten every time a
+ *  key is renamed for readability in the file. */
+const STRING_FIELDS = {
+  scope: 'scope',
+  reviewed_at_commit: 'head',
+  model: 'model',
+  gate: 'gate',
+  verdict: 'verdict',
+};
 
 // Two scales, deliberately separate. Merging them was a bug: `info` is a
 // severity a finding can have, but not a threshold anyone would gate on, and
@@ -89,23 +136,29 @@ export function severityRank(sev) {
  *
  * Not `Array.prototype.sort()`. That compares UTF-16 code units, which orders
  * non-BMP characters (emoji, some CJK extensions) differently from the byte
- * order git and `sort` use. The digest has to be reproducible by a verifier
- * that may sort with different tools, so the ordering must be defined on
- * bytes and nothing else.
+ * order git and `sort` use. `canonicalJson` sorts object keys but leaves arrays
+ * alone — array order is data — so the producer defines the order of `files`,
+ * and it has to be an order a verifier using different tools reproduces. That
+ * means bytes and nothing else.
  */
 export function comparePathsBytewise(a, b) {
   return Buffer.compare(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
 }
 
 /**
- * Reject paths that would make the manifest ambiguous.
+ * Reject paths that cannot be round-tripped through git plumbing.
  *
- * The format is line-oriented and space-delimited, so a path containing a
- * newline or a tab could forge extra entries. Git quotes such paths on output;
- * rather than depend on every producer and consumer unquoting identically,
- * this refuses them outright. They do not occur in practice, and failing loudly
- * on one is strictly better than digesting something a verifier reads back
- * differently.
+ * JSON escapes control characters unambiguously, so — unlike the line-oriented
+ * format this replaced — a newline in a path can no longer forge an entry. The
+ * check stays for a different and still-live reason: git *quotes* such paths on
+ * output unless `-z` is used, so a path arriving here already wrapped in quotes
+ * means some caller took an unquoted code path. Attesting `"src/a\nb.ts"`
+ * — quotes and backslash-n included, as a literal filename — would record an
+ * OID against a path that does not exist, and the failure would surface later
+ * as an unexplainable coverage gap.
+ *
+ * These paths do not occur in practice. Failing loudly on one is strictly
+ * better than recording something a verifier resolves differently.
  *
  * Checked by code point rather than by regex literal, so this source file
  * never has to contain a raw control character itself.
@@ -118,8 +171,8 @@ export function assertSafePath(p) {
     const c = p.charCodeAt(i);
     if (c < 0x20 || c === 0x7f) {
       throw new Error(
-        'path contains a control character, which the manifest format cannot ' +
-        `represent unambiguously: ${JSON.stringify(p)}`,
+        'path contains a control character, which git plumbing does not hand ' +
+        `back unquoted: ${JSON.stringify(p)}`,
       );
     }
   }
@@ -130,31 +183,21 @@ export function assertSafePath(p) {
 }
 
 /**
- * Serialise the attestation body.
+ * Build the attestation artifact, minus its `attestation_id`.
  *
- * This byte string is what gets digested and signed, so its stability is the
- * contract. Rules, all deliberate:
- *
- *   - LF only. A CRLF checkout must not change the digest, so producers write
- *     LF and `.gitattributes` pins the file to LF.
- *   - Fixed field order. Not object key order, which is an implementation
- *     detail of whoever built the object.
- *   - Files sorted bytewise, one per line, `<oid> <path>`.
- *   - Trailing newline, so appending is always a clean diff.
- *
- * There is deliberately **no timestamp**. A timestamp records when a file was
- * written, which nobody needs to know, and it would make the digest differ on
- * every run over identical content — destroying the one property that makes
- * this verifiable. Freshness comes from the OIDs: they stop matching the
- * moment the code changes, which is the actual question being asked.
+ * Everything returned here is inside the digest. `attestation_id` is the only
+ * key added afterwards, because it is the hash of this.
  */
-export function buildBody(fields) {
+export function buildAttestation(fields) {
   const { scope, head, model, gate, verdict, findings, files } = fields;
 
   for (const [k, v] of Object.entries({ scope, head, model, gate, verdict })) {
     if (typeof v !== 'string' || v.length === 0) {
       throw new Error(`field "${k}" must be a non-empty string`);
     }
+    // Not a format constraint any more — JSON would escape it — but these five
+    // fields are rendered into markdown table cells in the CI job summary, and
+    // a newline there silently breaks the table it is reporting from.
     if (v.includes('\n')) throw new Error(`field "${k}" must not contain a newline`);
   }
   gateRank(gate);
@@ -173,109 +216,131 @@ export function buildBody(fields) {
   });
   rows.sort((a, b) => comparePathsBytewise(a.path, b.path));
 
-  const counts = SEVERITIES.map((s) => {
+  const findingsBySeverity = {};
+  for (const s of SEVERITIES) {
     const n = findings?.[s] ?? 0;
     if (!Number.isInteger(n) || n < 0) throw new Error(`findings.${s} must be a non-negative integer`);
-    return `${s}=${n}`;
-  }).join(' ');
+    findingsBySeverity[s] = n;
+  }
 
-  const lines = [
-    `scope ${scope}`,
-    `head ${head}`,
-    `model ${model}`,
-    `gate ${gate}`,
-    `verdict ${verdict}`,
-    `findings ${counts}`,
-    `files ${rows.length}`,
-    ...rows.map((r) => `${r.oid} ${r.path}`),
-  ];
-  return lines.join('\n') + '\n';
+  return {
+    schema: ATTESTATION_SCHEMA,
+    scope,
+    reviewed_at_commit: head,
+    model,
+    gate,
+    verdict,
+    findings_by_severity: findingsBySeverity,
+    files: rows,
+  };
 }
 
-export function digestBody(body) {
-  return 'sha256:' + createHash('sha256').update(Buffer.from(body, 'utf8')).digest('hex');
+/**
+ * The digest of an attestation artifact: sha256 over its canonical JSON with
+ * `attestation_id` removed.
+ *
+ * Accepts an artifact with or without the key, so the producer and the verifier
+ * call the identical function — the producer has not computed the id yet, and
+ * the verifier is checking the one already there.
+ */
+export function attestationDigest(artifact) {
+  if (artifact === null || typeof artifact !== 'object' || Array.isArray(artifact)) {
+    throw new Error('attestation must be an object');
+  }
+  const body = { ...artifact };
+  delete body.attestation_id;
+  return digestOf(canonicalJson(body));
 }
 
-/** Full on-disk form: magic, digest, separator, body. The digest covers only
- *  the body, so a verifier splits on the separator and rehashes — no need to
- *  reconstruct the header byte-for-byte. */
+/** The full on-disk form: the artifact plus its own digest, canonically
+ *  serialised. This byte string is what gets signed. */
 export function renderAttestation(fields) {
-  const body = buildBody(fields);
-  return `${MAGIC}\ndigest ${digestBody(body)}\n--\n${body}`;
+  const body = buildAttestation(fields);
+  return canonicalJson({ ...body, attestation_id: attestationDigest(body) });
 }
 
+/**
+ * Read an attestation, checking its shape but NOT its digest — `verifyDigest`
+ * does that, and a caller that wants to report both problems separately needs
+ * to get this far first.
+ *
+ * Returns the recorded id, the parsed artifact, and `fields` under the short
+ * internal names the generator and verifier use.
+ */
 export function parseAttestation(text) {
   if (typeof text !== 'string' || text.length === 0) {
     throw new Error('attestation is empty');
   }
-  // Tolerate a CRLF checkout on read even though producers write LF: failing
-  // here would be a confusing way to learn that .gitattributes was missed.
-  const normalised = text.replace(/\r\n/g, '\n');
 
-  const sep = normalised.indexOf('\n--\n');
-  if (sep === -1) throw new Error('malformed attestation: no "--" separator');
+  let artifact;
+  try {
+    artifact = JSON.parse(text);
+  } catch (err) {
+    throw new Error(`attestation is not valid JSON: ${err.message}`);
+  }
+  if (artifact === null || typeof artifact !== 'object' || Array.isArray(artifact)) {
+    throw new Error('attestation must be a JSON object');
+  }
 
-  const header = normalised.slice(0, sep).split('\n');
-  const body = normalised.slice(sep + 4);
-
-  if (header[0] !== MAGIC) {
+  if (artifact.schema !== ATTESTATION_SCHEMA) {
     throw new Error(
-      `unsupported attestation format: ${JSON.stringify(header[0])} ` +
-      `(expected ${JSON.stringify(MAGIC)})`,
+      `unsupported attestation schema: ${JSON.stringify(artifact.schema)} ` +
+      `(expected ${JSON.stringify(ATTESTATION_SCHEMA)})`,
     );
   }
-  const digestLine = header.find((l) => l.startsWith('digest '));
-  if (!digestLine) throw new Error('malformed attestation: no digest line');
-  const digest = digestLine.slice('digest '.length).trim();
+
+  const digest = artifact.attestation_id;
+  if (typeof digest !== 'string' || !DIGEST_RE.test(digest)) {
+    throw new Error(
+      `attestation_id is not a sha256 digest: ${JSON.stringify(artifact.attestation_id)}`,
+    );
+  }
 
   const fields = { files: [] };
-  for (const line of body.split('\n')) {
-    if (line === '') continue;
-    const sp = line.indexOf(' ');
-    if (sp === -1) throw new Error(`malformed body line: ${JSON.stringify(line)}`);
-    const key = line.slice(0, sp);
-    const value = line.slice(sp + 1);
-
-    switch (key) {
-      case 'scope': case 'head': case 'model': case 'gate': case 'verdict':
-        fields[key] = value; break;
-      case 'findings': {
-        fields.findings = {};
-        for (const pair of value.split(' ')) {
-          const [s, n] = pair.split('=');
-          if (!SEVERITIES.includes(s)) throw new Error(`unknown severity in findings: ${s}`);
-          const parsed = Number.parseInt(n, 10);
-          if (!Number.isInteger(parsed)) throw new Error(`bad count for ${s}: ${n}`);
-          fields.findings[s] = parsed;
-        }
-        break;
-      }
-      case 'files':
-        fields.fileCount = Number.parseInt(value, 10); break;
-      default:
-        // Not an unknown field — an OID-prefixed file row.
-        if (OID_RE.test(key) || key === DELETED) {
-          fields.files.push({ oid: key, path: value });
-        } else {
-          throw new Error(`unrecognised body line: ${JSON.stringify(line)}`);
-        }
+  for (const [jsonKey, name] of Object.entries(STRING_FIELDS)) {
+    const v = artifact[jsonKey];
+    if (typeof v !== 'string' || v.length === 0) {
+      throw new Error(`attestation field "${jsonKey}" is missing or not a string`);
     }
+    fields[name] = v;
   }
 
-  if (fields.fileCount !== undefined && fields.fileCount !== fields.files.length) {
-    throw new Error(
-      `file count mismatch: header says ${fields.fileCount}, body has ${fields.files.length}`,
-    );
+  const counts = artifact.findings_by_severity;
+  if (counts === null || typeof counts !== 'object' || Array.isArray(counts)) {
+    throw new Error('attestation has no findings_by_severity object');
+  }
+  fields.findings = {};
+  for (const [sev, n] of Object.entries(counts)) {
+    if (!SEVERITIES.includes(sev)) throw new Error(`unknown severity in findings_by_severity: ${sev}`);
+    if (!Number.isInteger(n) || n < 0) throw new Error(`bad count for ${sev}: ${JSON.stringify(n)}`);
+    fields.findings[sev] = n;
   }
 
-  return { digest, body, fields };
+  if (!Array.isArray(artifact.files)) throw new Error('attestation has no files array');
+  const seen = new Set();
+  for (const entry of artifact.files) {
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error(`malformed files entry: ${JSON.stringify(entry)}`);
+    }
+    const { path, oid } = entry;
+    assertSafePath(path);
+    if (seen.has(path)) throw new Error(`duplicate path in attestation: ${path}`);
+    seen.add(path);
+    if (typeof oid !== 'string' || !(oid === DELETED || OID_RE.test(oid))) {
+      throw new Error(`invalid oid for ${path}: ${JSON.stringify(oid)}`);
+    }
+    fields.files.push({ path, oid });
+  }
+
+  return { digest, artifact, fields };
 }
 
-/** True when the recorded digest matches a fresh hash of the body. Catches a
- *  hand-edited field — flipping `gate high` to `gate none` breaks this. */
+/** True when the recorded id matches a fresh digest of everything else in the
+ *  file. Catches a hand-edited field — flipping `"gate": "high"` to `"none"`
+ *  breaks this. */
 export function verifyDigest(text) {
-  const { digest, body } = parseAttestation(text);
-  return digest === digestBody(body);
+  const { digest, artifact } = parseAttestation(text);
+  return digest === attestationDigest(artifact);
 }
 
 /**

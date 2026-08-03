@@ -1,9 +1,16 @@
 # ADR-0002 — Prove the local review covered this code, with a content-bound attestation
 
-**Status:** Accepted
+**Status:** Accepted. Serialisation amended by [ADR-0004](ADR-0004-json-is-the-canonical-attestation-format.md).
 **Date:** 2026-08-03
 **Deciders:** Maintainer (Ahmdmousa7)
 **Follows:** [ADR-0001](ADR-0001-ai-review-runs-locally-not-in-ci.md), which moved the AI review out of CI and left TD-027 open — nothing verified the review happened.
+
+> **What ADR-0004 changed, and what it did not.** The attestation is now
+> `.apexyard/attestation.json` in canonical JSON, and the text manifest described
+> in *The design* below is gone. Everything else on this page still holds: the
+> threat model, blob-OID binding over commit-SHA binding, the absence of a
+> timestamp, the five CI checks, and what the artifact deliberately omits. Only
+> the bytes changed.
 
 > In the context of an AI code review that runs only on the maintainer's machine, facing a CI pipeline that could not tell a reviewed push from an unreviewed one, I decided to have the review emit a committed manifest binding each reviewed file to its git blob OID, verified by a CI job that holds no credentials, to make a stale or missing review a hard failure, accepting that this proves *coverage* rather than *execution* and cannot bind the maintainer who chooses to fabricate it.
 
@@ -13,7 +20,7 @@
 
 No artifact a local machine produces can be unforgeable to the person operating that machine. Whoever can run the review can also write its output by hand. No signature changes that, because the signing key and the subject of the claim are held by the same party. Any scheme claiming otherwise on a single-maintainer repo is describing a feeling, not a control.
 
-So the threat model is stated narrowly and the naming follows it. The file is `.apexyard/attestation`, the job is "Review attestation", and the CI summary says in as many words that it does not prove a model ran. Calling it `review-proof.json` would repeat the mistake this project already refused once — dressing an unenforced convention as a gate.
+So the threat model is stated narrowly and the naming follows it. The file is `.apexyard/attestation.json`, the job is "Review attestation", and the CI summary says in as many words that it does not prove a model ran. Calling it `review-proof.json` would repeat the mistake this project already refused once — dressing an unenforced convention as a gate.
 
 | | |
 |---|---|
@@ -36,7 +43,9 @@ Requirement 6 asked for "difficult to fake **accidentally**". That word is doing
 
 ## The design
 
-`.apexyard/attestation` is a small, human-readable, LF-only text file, committed alongside the code it describes:
+**Superseded in part by [ADR-0004](ADR-0004-json-is-the-canonical-attestation-format.md).** The file below is the v1 form, recorded because the five CI checks are still numbered against it. For the format in use, see ADR-0004; the *content* — scope, reviewed commit, model, gate, verdict, per-severity counts, and one `oid`/`path` pair per file in scope — is field-for-field the same.
+
+`.apexyard/attestation` was a small, human-readable, LF-only text file, committed alongside the code it describes:
 
 ```
 apexyard-review-attestation v1
@@ -54,9 +63,9 @@ deleted   <path that the review saw removed>
 ...
 ```
 
-The digest covers everything after `--`. CI runs five checks:
+The digest covered everything after `--`; it now covers the artifact with its own id removed. CI runs five checks:
 
-1. **Integrity.** Recompute the digest. Catches any hand edit — flipping `gate high` to `gate none` breaks it.
+1. **Integrity.** Recompute the digest. Catches any hand edit — flipping the gate from `high` to `none` breaks it.
 2. **Content binding.** Every recorded OID must still resolve to that path at the verifying commit; every `deleted` path must still be absent. **This is the load-bearing check**; the rest are guards around it.
 3. **Coverage.** Every file changed in CI's range must appear in the attestation. The rule is deliberately **subset, not equality**: the attestation may cover more than CI sees (the local run diffs against `origin/main` while a PR job may look at a narrower range), but never less. Without this, an attestation over one unchanged file would satisfy check 2 while the rest of the push went unreviewed.
 4. **Gate strength and cleanliness.** Zero findings at or above `high`, *and* the local run's own threshold must have been at least as strict as `high`. Both, because either alone has a hole: `--fail-on critical` exits 0 on a pile of High findings, so the counts check catches the numbers and the strictness check catches the misconfiguration that produced them.
@@ -78,14 +87,14 @@ Requirement 3. It carries paths, content hashes, the model id, the gate, the ver
 - The attestation must be committed. `scripts/review-local.sh` writes it automatically after a review, and the pre-push hook re-verifies it with the same code CI runs — so a mismatch surfaces in seconds rather than after a push and a red check.
 - It is written on a **failing** review too, recording the real counts, and CI then rejects it. An absent artifact is ambiguous; a present one that says `high=2` is not. It is never written when the reviewer could not run (exit 3) — an attestation is the one thing that must never be produced speculatively.
 - **The residual gap is unchanged and stays open as TD-027.** CI now verifies that a review covering this code was recorded. It does not verify a model was invoked. Anyone reading the CI summary is told so.
-- Cost: one extra commit or amend per reviewed push, and `.apexyard/attestation` churns on every review. Accepted — it is 20 lines of readable text and the diff is legible.
+- Cost: one extra commit or amend per reviewed push, and the attestation churns on every review. Accepted — the diff is legible.
 
 ## Testing
 
 | Suite | Covers | Count |
 |---|---|---|
-| `tests/unit/attestation.test.ts` | Serialisation determinism, bytewise path ordering, digest tamper-detection, the subset rule, gate arithmetic, input validation | 38 |
-| `scripts/tests/test-attestation.sh` | Both CLIs against real git repos: edit-after-review, unreviewed-added-file, resurrected-deletion, message-only amend, squash merge, forged-but-internally-consistent manifests, signature verification | 22 |
+| `tests/unit/attestation.test.ts` | Serialisation determinism, bytewise path ordering, digest tamper-detection, the subset rule, gate arithmetic, input validation | 48 |
+| `scripts/tests/test-attestation.sh` | Both CLIs against real git repos: edit-after-review, unreviewed-added-file, resurrected-deletion, message-only amend, squash merge, forged-but-internally-consistent attestations, signature verification | 21 |
 
 The two cases the whole thing exists for — a file edited after review, and a file added and never reviewed — are asserted end to end, as is the pair that justifies OID binding over SHA binding.
 

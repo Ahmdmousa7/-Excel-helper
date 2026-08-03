@@ -5,8 +5,8 @@
 // Reads the attestation written by attest-review.mjs, plus whatever raw tool
 // output the local gate captured into .apexyard/raw/, and emits the bundle:
 //
-//   .apexyard/attestation            the signed canonical manifest (unchanged)
-//   .apexyard/attestation.json       machine-readable mirror of the same digest
+//   .apexyard/attestation.json       the signed canonical attestation. An INPUT
+//                                    here, not an output — see below.
 //   .apexyard/review.json            verdict, model, gate, counts
 //   .apexyard/findings.json          the itemised findings, deterministically ordered
 //   .apexyard/metrics.json           typescript, eslint, vitest, playwright, bundle
@@ -20,6 +20,13 @@
 // reviewed byte, the digest changes, and every artifact still naming the old id
 // is provably stale.
 //
+// `attestation.json` is the exception, and the reason is structural: it is the
+// artifact the id comes FROM. attest-review.mjs writes it, signs it, and this
+// script only reads it. Rewriting it here would invalidate the signature over
+// its bytes, and — since its own id is the digest of its own content — could not
+// be done idempotently anyway. It is therefore absent from the write set below,
+// which is also why `--check` does not compare it: nothing here generates it.
+//
 // Usage:
 //   node scripts/evidence.mjs [--raw <dir>] [--out <dir>] [--check]
 //
@@ -29,7 +36,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseAttestation } from './lib/attestation.mjs';
+import { parseAttestation, ATTESTATION_FILE } from './lib/attestation.mjs';
 import {
   BUNDLE_DIR, SUMMARY_FILE, canonicalJson, envelope,
 } from './lib/evidence.mjs';
@@ -125,7 +132,7 @@ function readAxeShards(dir) {
 // ---------------------------------------------------------------------------
 // The attestation is the anchor. Without it there is nothing to bind to.
 // ---------------------------------------------------------------------------
-const attestationPath = join(opt.out, 'attestation');
+const attestationPath = join(opt.out, ATTESTATION_FILE);
 if (!existsSync(attestationPath)) {
   fail(
     `no attestation at ${attestationPath}.\n` +
@@ -186,26 +193,11 @@ function directLicences(p) {
 // ---------------------------------------------------------------------------
 // Artifacts
 // ---------------------------------------------------------------------------
-const attestationMirror = envelope('attestation.json', ID, {
-  // A mirror, not a second source of truth. `.apexyard/attestation` remains the
-  // canonical, signed, digest-bearing artifact — ADR-0002 said not to redesign
-  // it, and a JSON rewrite would have changed the bytes the signature covers.
-  // The verifier proves the two agree, so drift is impossible rather than
-  // merely discouraged.
-  authoritative_source: 'attestation',
-  note: 'Mirror of the canonical text manifest. The digest below is computed over that manifest, not over this file.',
-  digest: att.digest,
-  scope: F.scope ?? null,
-  reviewed_at_commit: F.head ?? null,
-  model: F.model ?? null,
-  gate: F.gate ?? null,
-  verdict: F.verdict ?? null,
-  findings_by_severity: Object.fromEntries(
-    SEVERITY_ORDER.map((s) => [s, F.findings?.[s] ?? 0]),
-  ),
-  files: F.files.map(({ path, oid }) => ({ path, oid })),
-  file_count: F.files.length,
-});
+// No attestation artifact is built here. There used to be an `attestation.json`
+// mirror of a separate text manifest, which cost a verification rule — *mirror
+// agrees with manifest* — that existed only because the mirror existed. ADR-0004
+// made the JSON the attestation itself, so there is one artifact and nothing to
+// keep in step.
 
 const review = envelope('review.json', ID,
   collectReview(reviewJson, { model: F.model ?? null, gate: F.gate ?? null }));
@@ -355,8 +347,7 @@ function renderSummary() {
   L.push('');
   L.push('| File | Contents |');
   L.push('|---|---|');
-  L.push('| `attestation` | The canonical, signed, blob-hash manifest. Authoritative. |');
-  L.push('| `attestation.json` | Machine-readable mirror of the same digest. |');
+  L.push('| `attestation.json` | The canonical, signed, blob-hash attestation. Authoritative. |');
   L.push('| `review.json` | Verdict, model, gate, severity counts. |');
   L.push('| `findings.json` | Every finding, ordered deterministically. |');
   L.push('| `metrics.json` | TypeScript, ESLint, Vitest, Playwright, bundle. |');
@@ -372,8 +363,9 @@ function renderSummary() {
 // ---------------------------------------------------------------------------
 // Write, or check
 // ---------------------------------------------------------------------------
+// attestation.json is deliberately absent: attest-review.mjs owns it, and this
+// script must not rewrite the bytes the signature covers. See the header.
 const files = new Map([
-  ['attestation.json', canonicalJson(attestationMirror)],
   ['review.json', canonicalJson(review)],
   ['findings.json', canonicalJson(findings)],
   ['metrics.json', canonicalJson(metrics)],

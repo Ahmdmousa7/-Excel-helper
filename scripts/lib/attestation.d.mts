@@ -1,17 +1,17 @@
 // Types for attestation.mjs.
 //
-// The implementation is plain ESM rather than TypeScript because the two CLIs
-// that use it (`scripts/attest-review.mjs`, `scripts/verify-attestation.mjs`)
-// run under bare `node` in a git hook and in CI, with no build step and no
-// loader. Compiling them would put a toolchain between a push and its own
-// verification, which is the last place to want one.
+// The implementation is plain ESM rather than TypeScript because the CLIs that
+// use it (`scripts/attest-review.mjs`, `scripts/evidence.mjs`,
+// `scripts/verify-evidence.mjs`) run under bare `node` in a git hook and in CI,
+// with no build step and no loader. Compiling them would put a toolchain between
+// a push and its own verification, which is the last place to want one.
 //
 // So the logic stays runnable-as-is and this file gives `tsc --noEmit` and the
 // vitest suite something to check against. Keep the two in sync by hand — the
 // signatures are small and the unit tests exercise every export.
 
-export const ATTESTATION_VERSION: number;
-export const MAGIC: string;
+export const ATTESTATION_FILE: 'attestation.json';
+export const ATTESTATION_SCHEMA: string;
 export const SIG_NAMESPACE: string;
 export const DELETED: 'deleted';
 export const SEVERITIES: readonly string[];
@@ -25,6 +25,16 @@ export interface AttestedFile {
   oid: string;
 }
 
+/**
+ * The fields a parsed attestation exposes, under the short internal names the
+ * generator and the verifier use. `head` is `reviewed_at_commit` in the JSON,
+ * and `findings` is `findings_by_severity`.
+ *
+ * Every one is optional because `gateSatisfied` and the CI job summary have to
+ * report on a partially-readable attestation without throwing — but
+ * `parseAttestation` never returns one with a field missing. It rejects the
+ * artifact instead.
+ */
 export interface AttestationFields {
   scope?: string;
   head?: string;
@@ -32,10 +42,7 @@ export interface AttestationFields {
   gate?: string;
   verdict?: string;
   findings?: Partial<Record<Severity, number>>;
-  fileCount?: number;
   files: AttestedFile[];
-  /** Only present when a producer recorded a signer identity. */
-  signer?: string;
 }
 
 export interface BuildFields {
@@ -48,15 +55,30 @@ export interface BuildFields {
   files: AttestedFile[];
 }
 
+/** The on-disk shape. `attestation_id` is absent from what `buildAttestation`
+ *  returns, because it is the digest of exactly that. */
+export interface Attestation {
+  schema: string;
+  attestation_id?: string;
+  scope: string;
+  reviewed_at_commit: string;
+  model: string;
+  gate: string;
+  verdict: string;
+  findings_by_severity: Record<Severity, number>;
+  files: AttestedFile[];
+}
+
 export function gateRank(gate: string): number;
+export function severityRank(sev: string): number;
 export function comparePathsBytewise(a: string, b: string): number;
 export function assertSafePath(p: string): string;
-export function buildBody(fields: BuildFields): string;
-export function digestBody(body: string): string;
+export function buildAttestation(fields: BuildFields): Attestation;
+export function attestationDigest(artifact: object): string;
 export function renderAttestation(fields: BuildFields): string;
 export function parseAttestation(text: string): {
   digest: string;
-  body: string;
+  artifact: Attestation;
   fields: AttestationFields;
 };
 export function verifyDigest(text: string): boolean;

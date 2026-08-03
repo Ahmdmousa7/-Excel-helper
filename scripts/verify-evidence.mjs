@@ -15,11 +15,17 @@
 // point and CI could never be green. An accretion of two near-identical
 // checkers is not a redundancy, it is a place for them to disagree.
 //
+// The same reasoning retired rule 2's original form. It used to read "the JSON
+// mirror agrees with the signed manifest" — a rule that existed only because
+// there were two attestation artifacts to disagree. ADR-0004 made the JSON the
+// attestation, and the rule collapsed into a self-check on one file.
+//
 // One verifier. One exclusion rule. The rules below are numbered to match
 // docs/adr/ADR-0003 § "What CI verifies, and what it cannot".
 //
 //   1. ARTIFACTS EXIST         every required file is present
-//   2. ATTESTATION MATCHES     the JSON mirror agrees with the signed manifest
+//   2. ATTESTATION IS INTACT   its recorded id is the digest of its own content,
+//                              so no field was edited after it was generated
 //   3. FILES MATCH REPO STATE  every recorded blob OID still resolves at HEAD,
 //                              and nothing changed here that went unreviewed
 //   4. NO ARTIFACT IS STALE    every artifact's attestation_id is this
@@ -40,7 +46,8 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  parseAttestation, digestBody, uncoveredPaths, gateSatisfied, DELETED, SIG_NAMESPACE,
+  parseAttestation, attestationDigest, uncoveredPaths, gateSatisfied,
+  ATTESTATION_FILE, DELETED, SIG_NAMESPACE,
 } from './lib/attestation.mjs';
 import {
   BUNDLE_DIR, REQUIRED_ARTIFACTS, SUMMARY_FILE, checkArtifact, missingArtifacts, isBundlePath,
@@ -123,15 +130,16 @@ for (const m of missingArtifacts(present)) {
   problems.push(`required artifact ${m} is missing from ${opt.dir}/`);
 }
 
-const attPath = join(opt.dir, 'attestation');
+const attPath = join(opt.dir, ATTESTATION_FILE);
 if (!existsSync(attPath)) {
   problems.push(`${attPath} is missing — the bundle has nothing to bind to`);
   report();
 }
 
 let att;
+const attText = readFileSync(attPath, 'utf8');
 try {
-  att = parseAttestation(readFileSync(attPath, 'utf8'));
+  att = parseAttestation(attText);
 } catch (err) {
   problems.push(`attestation is malformed: ${err.message}`);
   report();
@@ -140,10 +148,19 @@ try {
 attestationId = att.digest;
 fields = att.fields;
 
-if (attestationId !== digestBody(att.body)) {
+// ---------------------------------------------------------------------------
+// RULE 2 — the attestation is internally intact
+// ---------------------------------------------------------------------------
+// `attestation_id` is the sha256 of this artifact's canonical JSON with that one
+// key removed, so recomputing it catches any edit to any other field. Flipping
+// `"gate": "high"` to `"none"` to make a failing review look clean fails here.
+//
+// Fatal, not collected: every rule below reads these fields, and reporting a
+// dozen consequences of one edited file buries the cause.
+if (attestationId !== attestationDigest(att.artifact)) {
   problems.push(
-    'attestation digest does not match its body — the manifest was edited after ' +
-    'it was generated. Regenerate rather than hand-editing.',
+    'the attestation\'s id does not match a fresh digest of its content — it was ' +
+    'edited after it was generated. Regenerate rather than hand-editing.',
   );
   report();
 }
@@ -208,40 +225,16 @@ for (const r of gateSatisfied(fields, opt.requireGate).reasons) problems.push(r)
 // ---------------------------------------------------------------------------
 // RULES 4 and 5 — bound to THIS attestation, canonical, reproducible
 // ---------------------------------------------------------------------------
+// attestation.json is in this loop too, and its canonical-form check is not
+// redundant with rule 2. Rule 2 digests the *parsed* object, so a non-canonical
+// file — reordered keys, four-space indent — would still produce the expected
+// id while its bytes differ from the ones the digest is defined over. That would
+// let two distinct byte strings carry the same attestation id, and it is the
+// bytes that get signed. isCanonical() is what makes the mapping one-to-one.
 for (const name of REQUIRED_ARTIFACTS) {
   const p = join(opt.dir, name);
   if (!existsSync(p)) continue;   // already reported by rule 1
   for (const msg of checkArtifact(name, readFileSync(p, 'utf8'), attestationId)) problems.push(msg);
-}
-
-// ---------------------------------------------------------------------------
-// RULE 2 — the JSON mirror agrees with the signed manifest
-// ---------------------------------------------------------------------------
-// `.apexyard/attestation` is authoritative: ADR-0002 kept it unchanged and the
-// SSH signature covers its bytes. attestation.json is a convenience mirror, so
-// the two are checked against each other rather than trusted to stay in step.
-const mirror = loadArtifact('attestation.json');
-if (mirror) {
-  if (mirror.digest !== attestationId) {
-    problems.push(
-      `attestation.json records digest ${mirror.digest} but the manifest's is ${attestationId}`,
-    );
-  }
-  const manifestFiles = fields.files.map((f) => `${f.oid} ${f.path}`).sort().join('\n');
-  const mirrorFiles = (mirror.files ?? []).map((f) => `${f.oid} ${f.path}`).sort().join('\n');
-  if (manifestFiles !== mirrorFiles) {
-    problems.push(
-      'attestation.json lists a different file set than the manifest — the mirror ' +
-      'is out of step with its source. Regenerate: npm run evidence',
-    );
-  }
-  for (const [k, v] of Object.entries({
-    gate: fields.gate, model: fields.model, verdict: fields.verdict, scope: fields.scope,
-  })) {
-    if (v !== undefined && mirror[k] !== v) {
-      problems.push(`attestation.json ${k} is ${JSON.stringify(mirror[k])}, manifest says ${JSON.stringify(v)}`);
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
