@@ -255,6 +255,37 @@ node scripts/attest-review.mjs --base base --gate high --no-sign >/dev/null 2>&1
 node scripts/evidence.mjs >/dev/null 2>&1
 expect "the fixed point is stable across a second round" 0 "verified"
 
+printf '\n== rule: the bundle is not fed into the review ==\n'
+# The THIRD place the bundle-exclusion rule applies, after the attested scope
+# and the coverage check. Reviewing the bundle is a loop that cannot converge:
+# a round that finds a High writes an attestation recording that failure, the
+# next round reads the committed attestation and reports "this records a failing
+# review" as a High of its own. That happened for two consecutive rounds.
+#
+# review-local.sh does the filtering with a literal grep rather than shelling
+# into node, so this exercises the expression on a fixture instead of trusting it.
+FILTER_DIR=.apexyard
+printf '%s\n' \
+  'components/App.tsx' \
+  '.apexyard' \
+  '.apexyard/attestation' \
+  '.apexyard/review.json' \
+  '.apexyard-old/attestation' \
+  'scripts/evidence.mjs' > "$WORK/paths.txt"
+kept=$(grep -v -e "^${FILTER_DIR}\$" -e "^${FILTER_DIR}/" "$WORK/paths.txt" | tr '\n' ' ')
+expected='components/App.tsx .apexyard-old/attestation scripts/evidence.mjs '
+if [ "$kept" = "$expected" ]; then
+  ok "the review's input filter drops the bundle and keeps everything else"
+else
+  bad "the review's input filter drops the bundle and keeps everything else" "got: $kept"
+fi
+
+if grep -q 'grep -v -e "\^\${BUNDLE_DIR}\\\$" -e "\^\${BUNDLE_DIR}/"' "$REPO_ROOT/scripts/review-local.sh"; then
+  ok "review-local.sh still applies that filter"
+else
+  bad "review-local.sh still applies that filter" "the filter was removed or rewritten"
+fi
+
 printf '\n== rule: history rewriting that preserves content ==\n'
 git commit -q --amend -m "commit the bundle, reworded"
 expect "a message-only amend still verifies" 0 "verified"

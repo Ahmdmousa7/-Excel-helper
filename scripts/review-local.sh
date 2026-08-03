@@ -98,6 +98,25 @@ case "$MODE" in
              git ls-files --others --exclude-standard; } | sort -u > "$CHANGED" ;;
 esac
 
+# Drop the evidence bundle from the review's input.
+#
+# The bundle is generated FROM the review, and reviewing it creates a loop that
+# cannot converge: any round that finds a High writes an attestation recording
+# that failure, the next round reads the committed attestation, correctly
+# reports "this bundle records a failing review" as a High of its own, and the
+# gate is red forever. Observed exactly that for two rounds.
+#
+# It is also just not code. There is nothing for a reviewer to say about a
+# canonical JSON file of counts and content hashes that a schema check does not
+# already say better.
+#
+# Third place this same rule applies — the others are the attested scope and the
+# coverage check, both via isBundlePath(). Kept as a literal here rather than
+# shelling into node for one grep; the test below pins them together.
+BUNDLE_DIR=${APEXYARD_BUNDLE_DIR:-.apexyard}
+grep -v -e "^${BUNDLE_DIR}\$" -e "^${BUNDLE_DIR}/" "$CHANGED" > "$CHANGED.filtered" || true
+mv "$CHANGED.filtered" "$CHANGED"
+
 COUNT=$(grep -c . < "$CHANGED" || true)
 if [ "$COUNT" -eq 0 ]; then
   # Exit 3, not 0. "I looked at nothing" is not "I found nothing wrong", and

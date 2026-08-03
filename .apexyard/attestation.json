@@ -1,41 +1,9 @@
 {
-  "attestation_id": "sha256:14aa26fc60bb66a9285d5519005cf2735dc733ec3618a76142e813ad1d461d75",
+  "attestation_id": "sha256:5a2c4bbef57e9ba619234fdb7c62e6a117748712b3eae8973e6f90258ac3f3e0",
   "authoritative_source": "attestation",
-  "digest": "sha256:14aa26fc60bb66a9285d5519005cf2735dc733ec3618a76142e813ad1d461d75",
-  "file_count": 43,
+  "digest": "sha256:5a2c4bbef57e9ba619234fdb7c62e6a117748712b3eae8973e6f90258ac3f3e0",
+  "file_count": 35,
   "files": [
-    {
-      "oid": "222821234ea99434fc447bb8310c239d8756da87",
-      "path": ".apexyard/accessibility-report.json"
-    },
-    {
-      "oid": "7a5e442e8d4c3556521da415f0ad73fd3fb69156",
-      "path": ".apexyard/architecture.json"
-    },
-    {
-      "oid": "848825c3ae21329adda18cac922cf16a88d00b65",
-      "path": ".apexyard/attestation.json"
-    },
-    {
-      "oid": "76d7627134a752fb951684076813b017c7fc29f1",
-      "path": ".apexyard/dependency-report.json"
-    },
-    {
-      "oid": "a97947dfcc8ab05f5254fae93608f14db4d5819c",
-      "path": ".apexyard/findings.json"
-    },
-    {
-      "oid": "e4e6feaad75fd29b6aba6d7b57fd23b8041f3041",
-      "path": ".apexyard/metrics.json"
-    },
-    {
-      "oid": "732d27e6c4d93d03b70d19a79fbeac6d54831385",
-      "path": ".apexyard/review-summary.md"
-    },
-    {
-      "oid": "c9a8db81a641dcae4fd90f1e082a2bdd3bf7a9d3",
-      "path": ".apexyard/review.json"
-    },
     {
       "oid": "f902f46e7c487caac44bd40880e9f83f33b8381a",
       "path": ".gitattributes"
@@ -101,7 +69,7 @@
       "path": "playwright.config.ts"
     },
     {
-      "oid": "bbf4352f445db88272d4c64fb3e5c8b425783fb6",
+      "oid": "35a9022615145d2b3160f633936f91bbade8f133",
       "path": "scripts/attest-review.mjs"
     },
     {
@@ -133,11 +101,11 @@
       "path": "scripts/lib/collectors.mjs"
     },
     {
-      "oid": "ef00a85b2ade3527b7ab18d296ad5b3d4a1e5243",
+      "oid": "d256bcff0b9e8c56c3c7c173866eb4172109dc06",
       "path": "scripts/lib/evidence.d.mts"
     },
     {
-      "oid": "33a06f2bbe70f8f0ddd728ba05dad796936f3438",
+      "oid": "702e44c7c727e28b8c08ecf7ff11b7c1bb47c021",
       "path": "scripts/lib/evidence.mjs"
     },
     {
@@ -153,11 +121,11 @@
       "path": "scripts/tests/test-attestation.sh"
     },
     {
-      "oid": "de30a4a5ab9847679eda1382ed723d53945b1270",
+      "oid": "78f99b27a00d81e0588963c8d37a69c0d556e39f",
       "path": "scripts/tests/test-evidence.sh"
     },
     {
-      "oid": "b723c40994dbafede10eb5bbd230519ddb65f304",
+      "oid": "62c3fda83d1ee6df07fb8c7dede625648cc03b6a",
       "path": "scripts/verify-evidence.mjs"
     },
     {
@@ -169,7 +137,7 @@
       "path": "tests/unit/attestation.test.ts"
     },
     {
-      "oid": "121c30ddc59f2d1fbe6ef258d952b9f1761843ce",
+      "oid": "02ef84f10523874a2da23bd7cfcf1397d05cb919",
       "path": "tests/unit/evidence.test.ts"
     },
     {
@@ -179,15 +147,15 @@
   ],
   "findings_by_severity": {
     "critical": 0,
-    "high": 2,
+    "high": 1,
     "info": 0,
     "low": 5,
-    "medium": 0
+    "medium": 2
   },
   "gate": "high",
   "model": "claude-opus-5",
   "note": "Mirror of the canonical text manifest. The digest below is computed over that manifest, not over this file.",
-  "reviewed_at_commit": "913d1e781056bf8088f179a6b5fdc5e0db5c4b70",
+  "reviewed_at_commit": "68b3aed12bdc2d741badf264efeec18abd0dca25",
   "schema": "apexyard.evidence.attestation/1",
   "scope": "origin/main...HEAD",
   "verdict": "REQUEST_CHANGES"

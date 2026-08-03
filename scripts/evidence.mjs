@@ -72,6 +72,48 @@ function readTextOrNull(path) {
   try { return readFileSync(path, 'utf8'); } catch { return null; }
 }
 
+/**
+ * Merge the per-worker axe shards.
+ *
+ * The accessibility suite writes `axe-summary.<workerIndex>.json` because
+ * Playwright's `afterAll` runs once per worker and `fullyParallel` spreads the
+ * scans across them. A single shared file meant the last worker to finish
+ * overwrote the rest, so the artifact silently reported one worker's subset.
+ *
+ * Merging is a union of violations and pages. `budget` is the ratchet's own size
+ * and identical in every shard, so the first one wins. Sorted, because the
+ * artifact has to reproduce byte for byte and worker completion order does not.
+ */
+function readAxeShards(dir) {
+  if (!existsSync(dir)) return null;
+  let names;
+  try {
+    names = readdirSync(dir).filter((f) => /^axe-summary\.\d+\.json$/.test(f)).sort();
+  } catch {
+    return null;
+  }
+  if (names.length === 0) return null;
+
+  const merged = { standard: null, budget: null, pages: new Set(), violations: [] };
+  for (const name of names) {
+    const shard = readJsonOrNull(join(dir, name));
+    if (!shard) continue;
+    merged.standard ??= shard.standard ?? null;
+    if (merged.budget === null && Number.isInteger(shard.budget)) merged.budget = shard.budget;
+    for (const p of shard.pages ?? []) merged.pages.add(p);
+    for (const v of shard.violations ?? []) merged.violations.push(v);
+  }
+  return {
+    standard: merged.standard ?? undefined,
+    budget: merged.budget ?? undefined,
+    pages: [...merged.pages].sort(),
+    violations: merged.violations.sort(
+      (a, b) => String(a.id).localeCompare(String(b.id))
+        || String(a.page).localeCompare(String(b.page)),
+    ),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // The attestation is the anchor. Without it there is nothing to bind to.
 // ---------------------------------------------------------------------------
@@ -107,8 +149,7 @@ const raw = {
   playwright: readJsonOrNull(join(opt.raw, 'playwright.json')),
   bundle: readJsonOrNull(join(opt.raw, 'bundle.json')),
   audit: readJsonOrNull(join(opt.raw, 'audit.json')),
-  axe: readJsonOrNull(join(ROOT, 'test-results', 'axe-summary.json'))
-    ?? readJsonOrNull(join(opt.raw, 'axe.json')),
+  axe: readAxeShards(join(ROOT, 'test-results')) ?? readJsonOrNull(join(opt.raw, 'axe.json')),
 };
 
 const pkg = readJsonOrNull(join(ROOT, 'package.json'));

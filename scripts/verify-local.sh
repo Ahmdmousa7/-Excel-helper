@@ -34,6 +34,7 @@ cd "$PROJECT_ROOT"
 SKIP_REVIEW=0
 SKIP_E2E=0
 NOTHING_TO_PUSH=0
+ALREADY_ATTESTED=0
 REVIEW_QUALIFIED=""
 # Declared here so the attestation self-check below can reference it under
 # `set -u` even on the paths where the review stage never assigns it.
@@ -137,6 +138,15 @@ else
       # only passes when every reviewed file still has the blob it was reviewed
       # at, and nothing uncovered changed.
       skip_stage "1. ApexYard AI review (already attested for this content)"
+      # Do not regenerate the bundle either.
+      #
+      # The committed bundle is already correct for this content — that is what
+      # the check above just proved, and why the review was skipped. Regenerating
+      # would rebuild it from `.apexyard/review/`, which is gitignored and
+      # therefore absent on a fresh clone: the collectors would return
+      # `available: false` and a good bundle would be replaced by an emptier one.
+      # Nothing would fail; the evidence would just quietly get worse.
+      ALREADY_ATTESTED=1
     else
       run_stage "1. ApexYard AI review (vs $BASE)" bash scripts/review-local.sh --base "$BASE"
     fi
@@ -213,7 +223,10 @@ run_stage "9. Bundle budget"     budget_and_capture
 #     Skipped when the review was skipped: there would be no attestation for
 #     this range, and reporting that as a failure would be noise about a stage
 #     that deliberately did not run.
-if [ "$SKIP_REVIEW" -eq 1 ] || [ "$NOTHING_TO_PUSH" -eq 1 ] || [ -n "$REVIEW_QUALIFIED" ]; then
+if [ "$ALREADY_ATTESTED" -eq 1 ]; then
+  skip_stage "10. Evidence bundle (committed bundle already verifies)"
+  run_stage "11. Evidence self-check" \n    node scripts/verify-evidence.mjs --base "$BASE" --require-gate high
+elif [ "$SKIP_REVIEW" -eq 1 ] || [ "$NOTHING_TO_PUSH" -eq 1 ] || [ -n "$REVIEW_QUALIFIED" ]; then
   skip_stage "10. Evidence bundle"
   skip_stage "11. Evidence self-check"
 else

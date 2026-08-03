@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:14aa26fc60bb66a9285d5519005cf2735dc733ec3618a76142e813ad1d461d75` |
+| Attestation id | `sha256:5a2c4bbef57e9ba619234fdb7c62e6a117748712b3eae8973e6f90258ac3f3e0` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `913d1e781056` |
+| Reviewed at commit | `68b3aed12bdc` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **REQUEST_CHANGES** |
-| Files reviewed | 43 |
+| Files reviewed | 35 |
 
 ## What this is, and what it is not
 
@@ -28,12 +28,12 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | Severity | Count |
 |---|---:|
 | critical | 0 |
-| high | 2 |
-| medium | 0 |
+| high | 1 |
+| medium | 2 |
 | low | 5 |
 | info | 0 |
 
-This range moves the AI review off CI (ADR-0001), binds it to content via a signed blob-hash manifest (ADR-0002), and wraps that in a reproducible evidence bundle (ADR-0003): seven canonical JSON artifacts plus a summary, all keyed on the attestation's own digest so staleness is detectable with no notion of time. The determinism enforcement (four independent layers), the "collectors never fabricate a pass" invariant, and the 132-case test suite are genuinely strong engineering, and the three bugs fixed in verify-evidence.mjs (TDZ report(), the dynamic-import/exit race, available:false passing) were real. Two high-severity defects remain: the committed bundle at HEAD describes HEAD~1 and records two unresolved high findings, so the repo's own hard `Evidence bundle` gate fails on this PR; and the root cause is still present — attest-review.mjs puts the bundle's own artifacts inside the attested scope while evidence.mjs rewrites them on every run, so the gate has no fixed point. Deleting the second verifier fixed only the coverage half of that. No PR body was supplied to this run, so checklist §6 (description / glossary / ticket) was not assessed; §7 is satisfied — ADRs 0001–0003 cover every material decision here.
+This range moves the AI review off CI (ADR-0001), binds it to reviewed content with a blob-hash attestation (ADR-0002), and wraps that in a reproducible evidence bundle of seven canonical JSON artifacts plus a summary, all keyed on the attestation's own digest (ADR-0003). The engineering is strong: the determinism guard, the `Unavailable` union that makes "never ran" impossible to read as "passed", the single `isBundlePath` definition that fixes the earlier no-fixed-point defect, and a large regression suite at both the unit and CLI layers. The blocking problem is the artifact, not the code: the committed `.apexyard/` bundle was generated at HEAD~1 against a review that recorded two unresolved high findings, so the repo's own `Evidence bundle` job fails on this very push for two independent reasons. Beyond that, one real determinism bug in the new axe collector path and one path where the local gate overwrites a valid bundle with an `available:false` one.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ This range moves the AI review off CI (ADR-0001), binds it to content via a sign
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 612 warning(s) |
-| Vitest | pass | 114/114 passed, lines 78.13% |
+| Vitest | pass | 119/119 passed, lines 78.13% |
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 86 source files, 25155 lines
+- 86 source files, 25195 lines
 - Layering violations: **0**
 - Files over 800 lines: **9**
 - Probable duplicate implementations: **1**

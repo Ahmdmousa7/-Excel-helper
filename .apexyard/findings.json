@@ -1,78 +1,87 @@
 {
-  "attestation_id": "sha256:14aa26fc60bb66a9285d5519005cf2735dc733ec3618a76142e813ad1d461d75",
+  "attestation_id": "sha256:5a2c4bbef57e9ba619234fdb7c62e6a117748712b3eae8973e6f90258ac3f3e0",
   "available": true,
   "by_severity": {
     "critical": 0,
-    "high": 2,
+    "high": 1,
     "info": 0,
     "low": 5,
-    "medium": 0
+    "medium": 2
   },
   "findings": [
     {
-      "category": "architecture",
-      "detail": "The manifest records `head 88e29193` (HEAD~1) while HEAD is 913d1e78, and every consequence is checkable from the checkout. (a) Rule 3 content binding: attested `.apexyard/metrics.json` is 4a6d78c2 but `HEAD:.apexyard/metrics.json` is e4e6feaa; `.apexyard/review.json` is ec1fa48b vs c9a8db81; `scripts/verify-evidence.mjs` is fa97e9bd vs b723c409. (b) `scripts/verify-attestation.mjs` is attested at line 48 but was deleted in HEAD, which trips \"was reviewed but is absent at HEAD\". (c) Coverage: `tsconfig.json` and `docs/quality/architecture-review-2026-08-03.md` both changed in d730c7b...HEAD and appear nowhere in the manifest, so `uncoveredPaths` reports them as changed-but-never-reviewed. (d) `gateSatisfied(fields, 'high')` reads `findings high=2` and emits \"2 unresolved high finding(s)\"; `.apexyard/review.json` also carries `verdict: request_changes`. The `Evidence bundle` job is a documented HARD GATE and the `ci` aggregate job treats anything but `success` as failure, so this PR cannot go green as committed — and the failure text will point at the wrong thing (\"changed after it was reviewed\") rather than at \"the review was never re-run for this commit\".",
+      "category": "testing",
+      "detail": "The committed manifest records `head 913d1e78…` (HEAD~1) and `findings critical=0 high=2`, `verdict REQUEST_CHANGES`. Both halves of `verify-evidence.mjs` therefore fail at HEAD 68b3aed. (1) Rule 3, content binding: I resolved the blobs and they have moved — `scripts/lib/evidence.mjs` attested `33a06f2b…` but is `702e44c7…` at HEAD; `scripts/verify-evidence.mjs` `b723c409…` → `62c3fda8…`; `scripts/attest-review.mjs` `bbf4352f…` → `35a90226…`; `tests/unit/evidence.test.ts` `121c30dd…` → `02ef84f1…`; `.apexyard/review.json` `c9a8db81…` → `470e8959…`. Each becomes a \"changed after it was reviewed\" problem. (2) `gateSatisfied(fields, 'high')` emits \"2 unresolved high finding(s)\", so the gate rule fails too. The manifest also lists `.apexyard/*.json` inside the attested scope (lines 11–18), which is exactly what the `isBundlePath` fix in this same range removed — confirming the bundle predates the fix and was never regenerated. Net effect: the one artifact this PR exists to ship is invalid as committed, and the required `CI` check goes red on every push.",
       "file": ".apexyard/attestation",
       "line": 5,
       "severity": "high",
       "suggested_fix": null,
-      "summary": "The committed evidence bundle describes HEAD~1, so this PR's own CI gate fails"
+      "summary": "Committed bundle describes HEAD~1 and a failing review, so the Evidence bundle gate fails"
     },
     {
-      "category": "architecture",
-      "detail": "`EXCLUDED` drops only `.apexyard/attestation`, its `.sig`, and `allowed_signers`. Every other bundle artifact stays in the attested set — the committed manifest proves it, listing `.apexyard/accessibility-report.json`, `architecture.json`, `attestation.json`, `dependency-report.json`, `findings.json`, `metrics.json`, `review-summary.md`, and `review.json` at lines 11-18. Meanwhile `verify-evidence.mjs:181` excludes the whole `.apexyard/` prefix, but ONLY from the coverage check; the rule 3 content-binding loop at lines 157-174 has no such exclusion and walks all of `fields.files`. Since `evidence.mjs` rewrites all seven artifacts on every run, the sequence is: review at HEAD_n attests bundle blobs B_n -> `evidence.mjs` writes B_n+1 -> stage 11 passes locally because HEAD has not moved -> the maintainer commits B_n+1 -> CI now sees attested OID B_n against actual B_n+1 and reports \"changed after it was reviewed\". The next local run then fails verify-evidence, re-runs the review, and repeats. This is precisely the \"no fixed point\" defect the commit message and docs/quality/architecture-review-2026-08-03.md:60 claim to have closed by deleting the second verifier; deleting it aligned the coverage exclusion but left the content-binding asymmetry untouched, which is why the bundle currently on disk is stale. Neither bash suite catches it: the test-evidence.sh fixture (scripts/tests/test-evidence.sh:57-70) never commits a regenerated bundle, so the only path that reaches this state is untested.",
-      "file": "scripts/attest-review.mjs",
-      "line": 130,
-      "severity": "high",
+      "category": "technical-debt",
+      "detail": "When `verify-evidence.mjs` already passes for this content the review is skipped (`skip_stage \"1. ApexYard AI review (already attested for this content)\"`), but that branch sets none of `SKIP_REVIEW` / `NOTHING_TO_PUSH` / `REVIEW_QUALIFIED`, so the guard at line 216 does not fire and stages 10 and 11 run anyway. Stage 10 runs `node scripts/evidence.mjs`, which reads the review output from `.apexyard/review/review.json` — gitignored (`.gitignore:28`), so absent in a fresh clone or after `git clean -xdf`. `collectReview(null)` and `collectFindings(null)` then return `available: false`, `evidence.mjs` overwrites the valid committed `review.json` and `findings.json` with unavailable payloads, and stage 11 fails with \"review.json reports the review did not run — an unrun review is not a passing one\". The reachable flow is ordinary: clone, then `git push origin HEAD:some-branch`, where the pre-push hook picks a merge-base the committed attestation already covers. The gate blocks the push and leaves a degraded bundle in the tree; recovery is `git checkout .apexyard`, which is not obvious from the error.",
+      "file": "scripts/verify-local.sh",
+      "line": 139,
+      "severity": "medium",
       "suggested_fix": null,
-      "summary": "The bundle's own artifacts are inside the attested scope, so the gate has no fixed point"
+      "summary": "\"Already attested\" skip still regenerates the bundle, clobbering it with available:false"
+    },
+    {
+      "category": "testing",
+      "detail": "`observed` and `pagesScanned` are module-level, and `test.afterAll` runs once per worker process, not once per file. `playwright.config.ts:17` sets `fullyParallel: true` and `:30` sets `workers: 4` on CI (CPU count locally), so the five scanning tests in this file are distributed across workers. Each worker imports its own copy of the module, accumulates only the scans it ran, and then writes the full `test-results/axe-summary.json` — last writer wins. `accessibility-report.json` therefore under-reports `violations_total` and `pages_scanned`, and does so differently depending on which worker finishes last. Two consequences specific to this design: the bundle stops being reproducible across runs even though nothing changed (the determinism guard cannot see this — the values are stable-shaped, just incomplete), and because `verify-local.sh` regenerates the bundle on every push, the tree goes dirty with a fresh `accessibility-report.json` each time, producing an endless \"refresh evidence bundle\" commit loop. It is also the same \"absence reads as success\" failure the collectors were built to prevent, one layer out: fewer violations look like fewer violations, not like a partial scan.",
+      "file": "e2e/accessibility.spec.ts",
+      "line": 120,
+      "severity": "medium",
+      "suggested_fix": null,
+      "summary": "afterAll runs per worker, so axe-summary.json records only one worker's subset"
     },
     {
       "category": "code-smell",
-      "detail": "gitattributes resolves each attribute from the LAST matching line. Line 20 unsets `text` for `.apexyard/attestation.sig` specifically to keep git from touching the signature's bytes, and line 22's `* text=auto` then matches the same path and re-sets `text`, silently undoing it. An SSH signature is base64 ASCII, so `text=auto` classifies it as text and a Windows clone with `core.autocrlf=true` gets CRLF — breaking `ssh-keygen -Y verify` on a machine that did nothing wrong, which is the exact failure line 15's comment says the `-text` prevents. The `eol=lf` pins on lines 3-6 and 16-19 survive (eol is a separate attribute and implies text), so only the binary exemption is affected. Low rather than medium only because no `.sig` is tracked today and no signer is registered (TD-028); it becomes a real, hard-to-diagnose failure the day signing is enabled per TD-027's revisit trigger.",
+      "detail": "gitattributes resolves conflicts by giving precedence to the **last** matching line. `*  text=auto` on line 22 matches every path, so for the `text` attribute it overrides the earlier per-path rules — including `.apexyard/attestation.sig  -text` on line 20, whose comment says \"`-text` on the signature keeps git from touching it at all.\" The signature ends up back under `text=auto` eol normalisation. The practical exposure is small (an `ssh-keygen -Y sign` output is ASCII-armoured, so `text=auto` detects it as text and LF is what both ends want), which is why this is low rather than higher — it becomes a real verification failure only if the signature format ever gains a byte git would rewrite. The `eol=lf` pins on lines 3–19 survive, since line 22 sets only `text`.",
       "file": ".gitattributes",
       "line": 22,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Trailing `* text=auto` overrides the `-text` exemption on attestation.sig"
+      "summary": "Catch-all text=auto is last, so it overrides -text on attestation.sig"
     },
     {
       "category": "code-smell",
-      "detail": "`json.filter(...).map((f) => toPosixRelative(f.filePath, root)).sort().length` computes a full list of relativised, sorted paths and discards all of it, keeping only the count. The `.map` and `.sort` are dead work — a leftover from when this field returned the path list — and it is the only caller that makes `toPosixRelative`'s `root` argument load-bearing here. No correctness impact (the count is right), but it reads as though the paths matter, which invites someone to \"fix\" the field by returning the array and quietly changing the artifact schema.",
+      "detail": "`json.filter(…).map((f) => toPosixRelative(f.filePath, root)).sort().length` builds an array of relative paths, sorts it, and discards it — only the count reaches the payload. The `map` and `sort` are dead work, and they are the only reason `collectEslint` takes a `root` parameter at all, which makes the signature look like it produces paths. On a run with many flagged files it also does needless per-file path normalisation. If the paths were meant to be emitted (the sort strongly suggests so), the artifact is silently missing a field the code was written to produce.",
       "file": "scripts/lib/collectors.mjs",
       "line": 147,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "files_with_findings builds and sorts an array only to take its length"
+      "summary": "files_with_findings maps and sorts a list only to read its length"
     },
     {
       "category": "code-smell",
-      "detail": "Lines 128-129 say \"Skipping this file is not cosmetic: it necessarily contains every pattern it searches for, so including it guarantees a self-match\", and line 153 says \"Skipping the pattern-list lines themselves, now that the file is in scope.\" Neither happens: `list_scan_targets` (lines 110-114) is `git ls-files` plus untracked-not-ignored with no exclusion, and nothing filters the `patterns=(...)` lines. Lines 102-109 argue at length for the opposite behaviour — that the file is deliberately in scope because every pattern has a `[` after its prefix and so cannot match itself. The three comments cannot all be true, and in a file whose whole purpose is that \"a pattern that quietly stops matching is exactly the failure a scan should catch\", a comment describing a filter that does not exist is the same class of hazard one level up.",
+      "detail": "Lines 128–129 state \"Skipping this file is not cosmetic: it necessarily contains every pattern it searches for, so including it guarantees a self-match\", and line 153 states \"Skipping the pattern-list lines themselves, now that the file is in scope.\" Neither behaviour exists in the code — `list_scan_targets` has no exclusion — and both directly contradict lines 102–109, which explain at length that the file is deliberately in scope because `[` immediately follows each prefix so no pattern matches itself. On a security-relevant script the cost is real: a reader auditing whether the scanner has a blind spot will find a comment asserting the exact blind spot the code was changed to remove, and may \"restore\" it.",
       "file": "scripts/scan-secrets.sh",
       "line": 128,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Stale comments claim the scanner skips itself, which lines 102-109 explicitly reject"
+      "summary": "Comments claim the scanner skips itself, contradicting the block that says it must not"
     },
     {
-      "category": "technical-debt",
-      "detail": "The header says the two CLIs consuming this module are `scripts/attest-review.mjs` and `scripts/verify-attestation.mjs`. The second was deleted in this same commit. It is now the only dangling reference to the removed file outside the (stale) bundle artifacts and the deliberate historical notes in verify-evidence.mjs:9, ADR-0002:96, and the architecture review — those three describe the removal on purpose; this one describes the file as current. A reader following it looks for a script that is not there.",
-      "file": "scripts/lib/attestation.d.mts",
-      "line": 4,
+      "category": "performance",
+      "detail": "`npx eslint . -f json -o \"$RAW/eslint.json\"` writes the machine-readable capture, then `npm run lint --silent` runs `eslint .` again purely to obtain an exit code. On this repo that is two full lints of every `.ts`/`.tsx` in the pre-push path, and the header comment already names the reason the second run exists (`|| true` on the first would hide the exit status). The two runs also read the tree at slightly different moments, so in principle the gated result and the captured evidence can disagree — the exact property the surrounding comment (\"the evidence is a record of the run that actually gated, not a re-run\") says the design is trying to guarantee.",
+      "file": "scripts/verify-local.sh",
+      "line": 165,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Type declaration header still names the deleted verify-attestation.mjs"
+      "summary": "lint_and_capture runs ESLint over the whole repo twice"
     },
     {
       "category": "typescript",
-      "detail": "The HEAD commit message says \"Also dropped `baseUrl` from tsconfig\" and docs/quality/architecture-review-2026-08-03.md:82 records it under \"Acted on today / FIXED: a deprecation\". `\"baseUrl\": \".\"` is still on line 18. The diff added the explanatory comment on lines 19-21 (\"No baseUrl: it is deprecated in TS 6 and removed in 7\") without removing the setting it describes, and the older TD-001 comment on lines 15-17 still asserts the opposite — that baseUrl is what mirrors the `xlsx` alias. There is no behavioural difference today (`paths` resolves the same either way), so this is a record-integrity problem rather than a build problem: the next person reads a config whose two adjacent comments disagree, and a quality document that says a deprecation is fixed when it is not. Would be medium if `baseUrl` were load-bearing for the alias, which it is not on TS 5.x.",
+      "detail": "Line 18 sets `\"baseUrl\": \".\"`, and lines 19–21 immediately below say \"No baseUrl: it is deprecated in TS 6 and removed in 7. Since TS 4.x, \\\"paths\\\" resolves relative to this file when baseUrl is absent.\" One of the two is wrong, and the comment reads as the intended end state that was not carried out. No functional impact today — `baseUrl: \".\"` plus a repo-relative `paths` entry resolves identically — but the next reader has to decide which line to trust, and the deprecation the comment warns about will land as a build failure on a TS major bump that the comment claims was already handled.",
       "file": "tsconfig.json",
       "line": 18,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "baseUrl was not actually dropped; the file now contradicts itself twice"
+      "summary": "baseUrl is set directly above a comment stating it was removed"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 7
+  "total": 8
 }

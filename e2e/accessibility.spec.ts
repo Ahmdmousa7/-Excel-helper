@@ -117,6 +117,16 @@ test.describe('accessibility', () => {
   // Sorted and free of timings, because the bundle it feeds has to reproduce
   // byte for byte. `budget` is the ratchet's own number, which lets
   // accessibility-report.json state pass/fail rather than only a count.
+  // ONE SHARD PER WORKER, merged by the evidence collector.
+  //
+  // `afterAll` runs once per worker that executed tests from this file, and
+  // `fullyParallel: true` spreads these tests across workers. Writing a single
+  // `axe-summary.json` meant the last worker to finish overwrote the others, so
+  // the artifact recorded one worker's subset and silently under-reported.
+  //
+  // The worker index makes each write independent; the collector globs and
+  // merges. Stale shards from a previous run would inflate the merge, so each
+  // worker truncates its own shard on first write rather than appending.
   test.afterAll(async () => {
     const { mkdirSync, writeFileSync } = await import('node:fs');
     const violations = [...observed].sort(
@@ -124,7 +134,7 @@ test.describe('accessibility', () => {
     );
     mkdirSync('test-results', { recursive: true });
     writeFileSync(
-      'test-results/axe-summary.json',
+      `test-results/axe-summary.${test.info().workerIndex}.json`,
       `${JSON.stringify({
         standard: 'WCAG 2.2 AA (axe-core)',
         budget: KNOWN_A11Y_DEBT.size,
