@@ -54,10 +54,9 @@ import {
   FileSpreadsheet, Layers, Copy, ShoppingCart, Key, X, Check, ShieldPlus, 
   Image as ImageIcon, Scissors, FileImage, Zap, QrCode, FileText, RefreshCw, AlertTriangle, 
   Package, Globe, ScanText, ChevronRight, Hexagon, Palette, ChevronLeft, Info, HelpCircle, RotateCcw,
-  Languages, PanelBottomOpen, PanelBottomClose, Terminal, Store, Network, Link as LinkIcon, ArrowRight, UserPlus, Home, Mic, MicOff, ShieldCheck, ArrowDownRight, Search, Bot, Building2, LogOut, Lightbulb,
+  Languages, PanelBottomOpen, PanelBottomClose, Terminal, Store, Network, Link as LinkIcon, ArrowRight, UserPlus, Home, Mic, MicOff, ShieldCheck, ArrowDownRight, Search, Bot, Building2, Lightbulb,
   Eraser, GitCompare, Filter, Combine, SplitSquareHorizontal, Loader2
 } from 'lucide-react';
-import { logout } from './firebase';
 
 declare let google: any;
 

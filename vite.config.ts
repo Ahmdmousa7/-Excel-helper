@@ -64,7 +64,14 @@ export default defineConfig({
         manualChunks: {
           // React is on every path.
           'vendor-react': ['react', 'react-dom'],
-          // Firebase auth runs before anything renders (components/AuthWrapper).
+          // Firebase is imported at module scope by firebase.ts, so it lands on
+          // the first-paint path regardless of who uses it.
+          //
+          // Since the sign-in gate was removed, the only remaining consumer is
+          // ProjectSummaryTab's optional cloud sync, which no-ops because
+          // `auth.currentUser` is always null. That makes this ~480 KB chunk
+          // almost entirely dead weight — see TD-037 for removing it. Kept as a
+          // named chunk until then so it stays out of the app bundle.
           'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
         },
       },

@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
-import { ChevronLeft, Search, Check, ChevronRight, Palette, Languages, Key, LogOut, Hexagon } from 'lucide-react';
+import { ChevronLeft, Search, Check, ChevronRight, Palette, Languages, Key, Hexagon } from 'lucide-react';
 import { TRANSLATIONS, Language } from '../utils/translations';
-import { logout } from '../firebase';
 
 interface SidebarProps {
   isSidebarCollapsed: boolean;
@@ -182,9 +181,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
         <button onClick={() => setShowKeyModal(true)} className={`flex w-full h-10 ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} items-center gap-1 rounded-sm bg-primary-600 hover:bg-primary-700 text-white text-base font-medium shadow-sm transition-colors`} title="Configure API Keys">
           <Key size={16} />{!isSidebarCollapsed && <span>{t.actions.configureKey}</span>}{(keyCount > 0 || groqKey) && (<div className={`w-2 h-2 bg-green-400 rounded-full border border-primary-600 ${isSidebarCollapsed ? 'absolute top-1 end-1' : 'ms-1'}`}></div>)}
-        </button>
-        <button onClick={logout} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-sm text-xs font-medium border border-red-200 text-red-600 transition-colors hover:bg-red-50`} title="Logout">
-          <div className="flex items-center gap-2"><LogOut size={14} />{!isSidebarCollapsed && <span>Logout</span>}</div>
         </button>
       </div>
     </aside>

@@ -69,17 +69,19 @@ export default defineConfig({
   ],
 
   webServer: {
-    // Build with the e2e bypass, then serve the real production-shaped bundle.
-    // Testing the built output rather than the dev server is deliberate: it is
+    // Serve the real production-shaped bundle rather than the dev server: it is
     // what catches base-path and bundling breakage before it reaches Pages.
     //
-    // `--outDir dist-e2e` is load-bearing. `build:e2e` and `build` used to
-    // share `dist/`, and `vite preview` serves that directory live from disk —
-    // so a later production build silently replaced what this server was
-    // serving. Combined with server reuse it produced a 100-of-101 failure
-    // where every test hit the sign-in gate, because the served bundle had
-    // been rebuilt without VITE_E2E_AUTH_BYPASS. Separate directories make
-    // that collision impossible rather than merely unlikely.
+    // `--outDir dist-e2e` is load-bearing, and still is now that the app has no
+    // sign-in gate. `build:e2e` and `build` used to share `dist/`, and
+    // `vite preview` serves that directory live from disk — so a later
+    // production build silently replaced what this server was serving.
+    // Combined with server reuse that produced a 100-of-101 failure where every
+    // test hit the sign-in gate, because the served bundle had been rebuilt
+    // without the auth bypass that existed at the time. The gate is gone, but
+    // the collision is not: any build into the served directory still swaps the
+    // bundle mid-run. Separate directories make it impossible rather than
+    // merely unlikely.
     command: `npm run build:e2e && npx vite preview --outDir dist-e2e --port ${PORT} --host 127.0.0.1 --strictPort`,
     url: `${BASE}${BASE_PATH}`,
     timeout: 180_000,
@@ -97,7 +99,6 @@ export default defineConfig({
     // Set PW_REUSE_SERVER=1 for deliberate fast iteration against a server you
     // started yourself and know the provenance of.
     reuseExistingServer: process.env.PW_REUSE_SERVER === '1',
-    env: { VITE_E2E_AUTH_BYPASS: 'true' },
     stdout: 'pipe',
     stderr: 'pipe',
   },

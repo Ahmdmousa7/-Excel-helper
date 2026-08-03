@@ -3,14 +3,14 @@ import { test, expect, Page, Request, Response } from '@playwright/test';
 /**
  * Post-deployment verification.
  *
- * Production is behind Google sign-in, so these assert on what is observable
- * from outside that gate: the document serves, every asset resolves, the
- * bundle parses and React mounts, and nothing throws. That is enough to catch
- * the failure modes a Pages deploy actually has — a wrong `base` path, a
- * missing asset, a bundle that 200s but is HTML, a build that white-screens.
+ * These assert that the deploy itself is sound: the document serves, every
+ * asset resolves — including chunks no homepage request touches — the bundle
+ * parses, React mounts, and nothing throws. That is enough to catch the failure
+ * modes a Pages deploy actually has: a wrong `base` path, a missing asset, a
+ * bundle that 200s but is HTML, a build that white-screens, a chunk Jekyll ate.
  *
- * Deeper flows are covered by the pre-merge suite against the built bundle;
- * repeating them here would only prove that sign-in still blocks a robot.
+ * Deeper behaviour is covered by the pre-merge suite against the built bundle.
+ * Duplicating it here would buy nothing and make every deploy slower.
  */
 
 /** Third-party noise the app does not control and cannot fix. */
@@ -176,14 +176,24 @@ test.describe('live deployment', () => {
     expect(w.pageErrors, `uncaught exceptions on load:\n${w.pageErrors.join('\n')}`).toEqual([]);
   });
 
-  test('the sign-in gate renders, which means the app booted', async ({ page }) => {
+  test('the app shell renders, which means the app booted', async ({ page }) => {
     await page.goto('./', { waitUntil: 'domcontentloaded' });
-    // Production has no auth bypass, so a correctly-working deploy shows the
-    // sign-in screen. Reaching it proves the bundle parsed, React mounted,
-    // and Firebase initialised.
+
+    // This used to assert the Google sign-in button. The gate was removed, so
+    // the thing that proves a working boot is now the shell itself: the sidebar
+    // is rendered by App, not by index.html, so reaching it proves the bundle
+    // parsed, React mounted, and the lazy tab machinery resolved.
+    //
+    // Asserted on desktop AND mobile, and below `md` the sidebar is an
+    // off-canvas drawer (TD-005) that starts closed — so this waits for the
+    // element to exist rather than to be visible.
+    await expect(page.locator('aside').first()).toBeAttached({ timeout: 30_000 });
+
+    // A control inside the shell, to distinguish a mounted app from an empty
+    // <aside> left by a half-failed render.
     await expect(
-      page.getByRole('button', { name: /sign in with google/i }),
-    ).toBeVisible({ timeout: 30_000 });
+      page.locator('aside').first().getByRole('button').first(),
+    ).toBeAttached({ timeout: 30_000 });
   });
 
   test('CSS is applied, not just downloaded', async ({ page }) => {
