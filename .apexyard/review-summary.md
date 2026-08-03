@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:5ff063f42017f567b4793d1001268a81af8958e515c33fc0e42a9104ef9c697c` |
+| Attestation id | `sha256:a0b4affaccb6b384488a943906a54600741efcb66ddbf63353b37056a12f16c9` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `be863e026c55` |
+| Reviewed at commit | `b6a9e554c449` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **COMMENT** |
-| Files reviewed | 21 |
+| Verdict | **APPROVED** |
+| Files reviewed | 2 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 3 |
-| low | 3 |
-| info | 0 |
+| medium | 0 |
+| low | 1 |
+| info | 1 |
 
-This PR completes the ADR-0004 migration that makes `.apexyard/attestation.json` the single canonical attestation artifact, collapses two verifiers into `verify-evidence.mjs`, adds `.d.mts` type shims plus two vitest suites and two end-to-end shell suites, wires the bundle check into CI as a hard gate, and ships `public/.nojekyll` with a live-deployment Playwright suite that crawls the static module graph. The work is unusually careful — the digest-over-self rule, the bundle self-exclusion fixed point, the not-run-is-not-passing invariant, and the CRLF/byte-ordering edges all have tests, and the ADRs and tech-debt register are kept in step with the code. No blocking-handbook violations: both blocking handbooks (`frontend-boundaries`, `security-baseline`) scope to `components/`/`services/`/`utils/` and shipped client code, none of which this diff touches; no secrets, no injection vector (every `execFileSync` uses an argv array, never a shell), and no `any`, `@ts-ignore`, or untracked TODO was added. Six non-blocking findings, all in the new verification and deploy-test machinery: two Medium gaps where a check does less than its own comments claim, and four Low.
+This PR widens the live-deployment chunk-crawl regex to also follow bare side-effect imports (`import"./x.js"`), which is the form 24 of the 28 lazy tool chunks use to reach the `_commonjs-dynamic-modules` helper whose 404 caused the TD-033 outage. It also registers three new tech-debt entries (TD-034/035/036) found during the prior review rather than fixing them in a hotfix. The regex change is correct and is a genuine tightening as well as a widening — the added `\b` anchors prevent matches inside identifiers, and I traced the false-positive surface (`"from":"./x.js"` JSON, `from:` object keys) and confirmed the pattern rejects them. Two non-blocking nits only.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 86 source files, 25417 lines
+- 86 source files, 25427 lines
 - Layering violations: **0**
 - Files over 800 lines: **9**
 - Probable duplicate implementations: **1**

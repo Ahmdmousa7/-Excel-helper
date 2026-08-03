@@ -1,102 +1,26 @@
 {
-  "attestation_id": "sha256:5ff063f42017f567b4793d1001268a81af8958e515c33fc0e42a9104ef9c697c",
+  "attestation_id": "sha256:a0b4affaccb6b384488a943906a54600741efcb66ddbf63353b37056a12f16c9",
   "files": [
     {
-      "oid": "1c32a7cfba76441ccb79bcfe4fb701e0073b1a54",
-      "path": ".gitattributes"
-    },
-    {
-      "oid": "8aeb025a99f18c6a7c9d1988c2b64a1d78d39354",
-      "path": ".github/workflows/ci.yml"
-    },
-    {
-      "oid": "a11fd7810c6bde673d707151c96a846ebcc03f96",
-      "path": "docs/APEXYARD.md"
-    },
-    {
-      "oid": "aa2ae1278b0f3be17ce5b2049c8ebc2a9db4c209",
-      "path": "docs/adr/ADR-0002-review-attestation.md"
-    },
-    {
-      "oid": "8d8f193aec3e23f813db0931e6a6a93d18556b07",
-      "path": "docs/adr/ADR-0003-engineering-evidence-bundle.md"
-    },
-    {
-      "oid": "e34e58961324a85aabd5b263bbe1370761b6282b",
-      "path": "docs/adr/ADR-0004-json-is-the-canonical-attestation-format.md"
-    },
-    {
-      "oid": "eb6c281769e8b2359cb7d39cef98fde08d742a7b",
-      "path": "docs/quality/architecture-review-2026-08-03.md"
-    },
-    {
-      "oid": "2cd5dd9dd77c2de7ea9823999bb6f01d4d309dfb",
+      "oid": "ae7e80474823f4048d3e56b802da0bd1d9dfb63e",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "6c26e9622a2161be7d40d18f3090b40244a6452e",
+      "oid": "c7205ad02c59271497e102fa59766272324437fb",
       "path": "e2e/live/deployment.spec.ts"
-    },
-    {
-      "oid": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
-      "path": "public/.nojekyll"
-    },
-    {
-      "oid": "bd25bd47d1ccf4db9e9f9051dd91f9887047b864",
-      "path": "scripts/attest-review.mjs"
-    },
-    {
-      "oid": "25ec5d9fa14918e795490575253b1b493f91c061",
-      "path": "scripts/evidence.mjs"
-    },
-    {
-      "oid": "dbc3a7600e9f091110465f0c00c9418fa0265966",
-      "path": "scripts/lib/attestation.d.mts"
-    },
-    {
-      "oid": "c804ee6b90006dc7296f8ab92e8f180f96481dce",
-      "path": "scripts/lib/attestation.mjs"
-    },
-    {
-      "oid": "3c63567b940838d3da347e4d4d9d4c7980c00f84",
-      "path": "scripts/lib/evidence.d.mts"
-    },
-    {
-      "oid": "c0b834e0876006f1659fa9d5402a6f3cd92ee761",
-      "path": "scripts/lib/evidence.mjs"
-    },
-    {
-      "oid": "773cb5f17b1f4652ac4e814197b84417f6165b12",
-      "path": "scripts/tests/test-attestation.sh"
-    },
-    {
-      "oid": "f908dbfd9ab2c179bc9d7f8d2f701e8793b79b95",
-      "path": "scripts/tests/test-evidence.sh"
-    },
-    {
-      "oid": "c26807f65a9c72432beab2b445e0a3e1d2426d09",
-      "path": "scripts/verify-evidence.mjs"
-    },
-    {
-      "oid": "2db5f84192f1ad82448fb9066c47a1c06b43b118",
-      "path": "tests/unit/attestation.test.ts"
-    },
-    {
-      "oid": "4b62ee2cfe6eaffe705a0abf600ca7f5b369825e",
-      "path": "tests/unit/evidence.test.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 3,
-    "medium": 3
+    "info": 1,
+    "low": 1,
+    "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "be863e026c5567d44c649fd15d4f5ff65e5149df",
+  "reviewed_at_commit": "b6a9e554c4490a5d68307c1903d519e9c9bda4f2",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "COMMENT"
+  "verdict": "APPROVED"
 }
