@@ -225,6 +225,36 @@ git add .apexyard >/dev/null 2>&1
 git -c user.email=t@t -c user.name=t commit -q -m "commit the bundle"
 expect "committing the bundle does not trip the coverage check" 0 "verified"
 
+# THE FIXED POINT. This is the case that was missing, and its absence cost two
+# High findings across two review rounds.
+#
+# The old test above only proved the VERIFIER ignored the bundle in its coverage
+# check. It said nothing about whether the GENERATOR recorded the bundle's own
+# artifacts in the attested scope — and it did, so their OIDs were stale the
+# instant `evidence.mjs` rewrote them (which it does on every run, because their
+# attestation_id tracks the digest). Coverage looked fine; content binding could
+# never pass. There was no state of the repository in which CI was green.
+#
+# So: with the bundle committed, re-attest and re-generate, and assert that (a)
+# no bundle path is inside the manifest and (b) verification still passes. If a
+# future change reintroduces a local exclusion list in either script, this fails.
+node scripts/attest-review.mjs --base base --gate high --no-sign >/dev/null 2>&1
+node scripts/evidence.mjs >/dev/null 2>&1
+
+if grep -qE ' \.apexyard/' .apexyard/attestation; then
+  bad "the generator excludes the bundle from the attested scope" \
+      "$(grep -E ' \.apexyard/' .apexyard/attestation | head -3 | tr '\n' ' ')"
+else
+  ok "the generator excludes the bundle from the attested scope"
+fi
+
+expect "re-attesting with the bundle committed still verifies (a fixed point exists)" 0 "verified"
+
+# And the fixed point is stable: a further round changes nothing.
+node scripts/attest-review.mjs --base base --gate high --no-sign >/dev/null 2>&1
+node scripts/evidence.mjs >/dev/null 2>&1
+expect "the fixed point is stable across a second round" 0 "verified"
+
 printf '\n== rule: history rewriting that preserves content ==\n'
 git commit -q --amend -m "commit the bundle, reworded"
 expect "a message-only amend still verifies" 0 "verified"

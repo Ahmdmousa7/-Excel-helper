@@ -27,6 +27,34 @@ import { createHash } from 'node:crypto';
 
 export const BUNDLE_DIR = '.apexyard';
 
+/**
+ * Is this path part of the evidence bundle?
+ *
+ * THE ONE definition, used by both the generator and the verifier. It lives
+ * here because it lived in two places and they disagreed, which cost two
+ * High-severity findings.
+ *
+ * `attest-review.mjs` excluded only `attestation`, `attestation.sig`, and
+ * `allowed_signers`, so it recorded `.apexyard/*.json` inside the attested
+ * scope — while `evidence.mjs` rewrites every one of those artifacts on each
+ * run, because their `attestation_id` changes with the digest. The recorded
+ * OIDs were therefore stale the instant they were written. `verify-evidence`
+ * excluded the whole directory from its coverage check, so the *coverage* half
+ * looked fine, and the failure surfaced only as an unfixable content-binding
+ * mismatch.
+ *
+ * The bundle is generated FROM the review. Attesting it would be circular:
+ * writing the manifest changes the tree, which changes the manifest. So the
+ * whole directory is out of scope, and both callers ask this function.
+ *
+ * The trade, stated because it is a real exposure: nothing under `.apexyard/`
+ * is ever AI-reviewed. Acceptable — it is generated evidence data, not code
+ * that runs. The scripts that produce it live in `scripts/` and are reviewed.
+ */
+export function isBundlePath(p, dir = BUNDLE_DIR) {
+  return p === dir || p.startsWith(`${dir}/`);
+}
+
 /** The artifacts the bundle must contain. CI fails if any is missing. */
 export const REQUIRED_ARTIFACTS = [
   'attestation.json',

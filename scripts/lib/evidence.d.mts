@@ -8,6 +8,7 @@ export const REQUIRED_ARTIFACTS: string[];
 export const SUMMARY_FILE: string;
 export const SCHEMAS: Record<string, string>;
 
+export function isBundlePath(p: string, dir?: string): boolean;
 export function sortKeysDeep<T>(value: T): T;
 export function canonicalJson(value: unknown): string;
 export function isCanonical(text: string): boolean;

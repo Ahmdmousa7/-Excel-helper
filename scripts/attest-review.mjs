@@ -24,6 +24,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { renderAttestation, DELETED, SEVERITIES, SIG_NAMESPACE } from './lib/attestation.mjs';
+import { isBundlePath } from './lib/evidence.mjs';
 
 const DEFAULT_OUT = '.apexyard/attestation';
 const SIGNERS_FILE = '.apexyard/allowed_signers';
@@ -124,14 +125,14 @@ for (let i = 0; i < tokens.length; ) {
   }
 }
 
-// The attestation file and its signature are excluded from their own scope.
-// Including them would be circular: writing the manifest changes the tree,
-// which would change the manifest.
-const EXCLUDED = new Set([opt.out, `${opt.out}.sig`, SIGNERS_FILE]);
+// The whole evidence bundle is out of scope — see isBundlePath() for why, and
+// for the two High findings that came from this rule living in two files and
+// disagreeing. Do not reintroduce a local exclusion list here.
+const bundleDir = dirname(opt.out);
 
 const files = [];
 for (const [path, status] of scopePaths) {
-  if (EXCLUDED.has(path)) continue;
+  if (isBundlePath(path, bundleDir)) continue;
   if (status === 'D') {
     files.push({ path, oid: DELETED });
     continue;

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab` |
+| Attestation id | `sha256:14aa26fc60bb66a9285d5519005cf2735dc733ec3618a76142e813ad1d461d75` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `88e29193b896` |
+| Reviewed at commit | `913d1e781056` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **REQUEST_CHANGES** |
-| Files reviewed | 42 |
+| Files reviewed | 43 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 2 |
-| medium | 3 |
-| low | 4 |
+| medium | 0 |
+| low | 5 |
 | info | 0 |
 
-This range moves the AI review off CI (ADR-0001), binds it to content with a signed blob-hash manifest (ADR-0002), and now wraps that manifest in a reproducible evidence bundle (ADR-0003): seven canonical JSON artifacts plus a summary, all keyed on the attestation's own digest so staleness is detectable without a timestamp. The design reasoning, the determinism enforcement, and the test coverage (132 cases across four files, one per verification rule) are genuinely strong, and the 'collectors never fabricate a pass' invariant is the right instinct. Two high-severity defects block it: the committed bundle is stale against HEAD and records a REQUEST_CHANGES verdict with one unresolved high finding, so this PR's own hard gate fails; and more importantly the bundle's committed artifacts can never satisfy `verify-attestation.mjs` (CI step 6), because `attest-review.mjs` and that verifier exclude only the manifest itself while `evidence.mjs` rewrites every artifact on each run — so the two steps disagree and the gate has no fixed point. No PR body was supplied to this run, so checklist §6 (description/glossary) was not assessed; ADR-0003 covers the material decisions, so §7 is satisfied.
+This range moves the AI review off CI (ADR-0001), binds it to content via a signed blob-hash manifest (ADR-0002), and wraps that in a reproducible evidence bundle (ADR-0003): seven canonical JSON artifacts plus a summary, all keyed on the attestation's own digest so staleness is detectable with no notion of time. The determinism enforcement (four independent layers), the "collectors never fabricate a pass" invariant, and the 132-case test suite are genuinely strong engineering, and the three bugs fixed in verify-evidence.mjs (TDZ report(), the dynamic-import/exit race, available:false passing) were real. Two high-severity defects remain: the committed bundle at HEAD describes HEAD~1 and records two unresolved high findings, so the repo's own hard `Evidence bundle` gate fails on this PR; and the root cause is still present — attest-review.mjs puts the bundle's own artifacts inside the attested scope while evidence.mjs rewrites them on every run, so the gate has no fixed point. Deleting the second verifier fixed only the coverage half of that. No PR body was supplied to this run, so checklist §6 (description / glossary / ticket) was not assessed; §7 is satisfied — ADRs 0001–0003 cover every material decision here.
 
 ## Quality gates
 

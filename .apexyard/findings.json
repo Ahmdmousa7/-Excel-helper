@@ -1,80 +1,44 @@
 {
-  "attestation_id": "sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab",
+  "attestation_id": "sha256:14aa26fc60bb66a9285d5519005cf2735dc733ec3618a76142e813ad1d461d75",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 2,
     "info": 0,
-    "low": 4,
-    "medium": 3
+    "low": 5,
+    "medium": 0
   },
   "findings": [
     {
       "category": "architecture",
-      "detail": "`verify-evidence.mjs:145` excludes the whole bundle directory from the coverage check, with the correct reason: the bundle is generated *from* the review, so requiring it to be reviewed is circular. But `verify-attestation.mjs:148` (`SELF`) and `attest-review.mjs:130` (`EXCLUDED`) still exclude only `.apexyard/attestation`, its `.sig`, and `allowed_signers`. CI runs BOTH — step 6 uses the narrow exclusion and is a hard gate ahead of step 6b. Because `evidence.mjs` rewrites all seven artifacts whenever the attestation digest changes (and the digest covers `head`, which changes on every amend), there is no ordering that converges: on a first push the artifacts aren't in the attested scope, so committing them yields \"changed in this range but were never reviewed\"; on any later push they ARE attested, but at their pre-regeneration OIDs, so committing the refresh yields \".apexyard/review.json changed after it was reviewed\". Amend-and-rerun reproduces the same state one commit along, forever. `attestation.json` mirrors the digest that covers it, so a fixed point cannot exist by construction. `test-evidence.sh:221` asserts exactly this requirement (\"committing the bundle does not trip the coverage check\") but only against the new verifier, which is why the gap shipped.",
-      "file": "scripts/verify-attestation.mjs",
-      "line": 148,
-      "severity": "high",
-      "suggested_fix": null,
-      "summary": "Committing the evidence bundle can never satisfy CI step 6; the gate has no fixed point"
-    },
-    {
-      "category": "testing",
-      "detail": "The manifest records `head 45b45fea…` (HEAD~1) and 22 files from the previous commit's range, while HEAD (88e2919) changed 28 files. Content binding fails on at least four attested paths — `.gitignore` attested `e94de656…`, now `8bd4a249…`; `package.json` `b591e359…` → `2a2526ce…`; `scripts/verify-local.sh` `c8078f01…` → `23710449…`; `.github/workflows/ci.yml` `d0de116d…` → `405d3585…` — and roughly a dozen files added by HEAD (`scripts/evidence.mjs`, `scripts/lib/{evidence,collectors}.mjs`, `scripts/verify-evidence.mjs`, `tests/unit/evidence.test.ts`, `eslint.config.js`, `docs/adr/ADR-0003…`) appear nowhere in it, so the coverage check fails too. Independently, line 8-9 record `verdict REQUEST_CHANGES` with `findings … high=1`, so `gateSatisfied(F, 'high')` returns \"1 unresolved high finding(s)\" regardless of the OIDs. Both CI steps 6 and 6b are hard gates feeding the required aggregate `CI` check, so this PR fails its own gate on every push. The mechanism is working as designed — it is the bundle that was not refreshed after the ADR-0003 work landed.",
+      "detail": "The manifest records `head 88e29193` (HEAD~1) while HEAD is 913d1e78, and every consequence is checkable from the checkout. (a) Rule 3 content binding: attested `.apexyard/metrics.json` is 4a6d78c2 but `HEAD:.apexyard/metrics.json` is e4e6feaa; `.apexyard/review.json` is ec1fa48b vs c9a8db81; `scripts/verify-evidence.mjs` is fa97e9bd vs b723c409. (b) `scripts/verify-attestation.mjs` is attested at line 48 but was deleted in HEAD, which trips \"was reviewed but is absent at HEAD\". (c) Coverage: `tsconfig.json` and `docs/quality/architecture-review-2026-08-03.md` both changed in d730c7b...HEAD and appear nowhere in the manifest, so `uncoveredPaths` reports them as changed-but-never-reviewed. (d) `gateSatisfied(fields, 'high')` reads `findings high=2` and emits \"2 unresolved high finding(s)\"; `.apexyard/review.json` also carries `verdict: request_changes`. The `Evidence bundle` job is a documented HARD GATE and the `ci` aggregate job treats anything but `success` as failure, so this PR cannot go green as committed — and the failure text will point at the wrong thing (\"changed after it was reviewed\") rather than at \"the review was never re-run for this commit\".",
       "file": ".apexyard/attestation",
       "line": 5,
       "severity": "high",
       "suggested_fix": null,
-      "summary": "The committed attestation is stale against HEAD and records an unresolved high finding"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`report()` is called at lines 94, 102 and 113 — missing attestation, malformed attestation, digest mismatch — but it reads `ID` (const, line 105), `F` (line 106), `headSha` (line 121) and `changed` (line 146), all of which are still in their temporal dead zone at those points. Every one of those three paths dies with `ReferenceError: Cannot access 'ID' before initialization` instead of emitting the `## Evidence bundle FAILED` report, the `::error` annotation, and the remediation block. The `typeof headSha === 'string'` guard at line 284 shows the intent was for `report()` to be callable early; `typeof` does not protect against TDZ (only against undeclared identifiers), so the guard is inert. Node exits 1 on the uncaught throw, so the gate still fails — but with a stack trace in place of the diagnostics, on exactly the paths a maintainer is most likely to hit.",
-      "file": "scripts/verify-evidence.mjs",
-      "line": 94,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "Early report() calls throw ReferenceError instead of printing the failure report"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`import('node:fs').then(({ appendFileSync }) => appendFileSync(...))` schedules a microtask, and `process.exit(1)` / `process.exit(0)` at lines 349 and 351 run synchronously immediately after, so the callback never executes. The `Evidence bundle` job therefore always emits `::error title=Evidence bundle::N problem(s) — see the job summary` pointing at a summary that is empty, and the success path contributes nothing either. `verify-attestation.mjs:286-289` gets this right with a top-level `await import(...)`, so this is a regression against the sibling verifier rather than a shared limitation.",
-      "file": "scripts/verify-evidence.mjs",
-      "line": 341,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "The GitHub job summary is never written — process.exit() beats the async import"
-    },
-    {
-      "category": "testing",
-      "detail": "`.apexyard/review/review.json` is gitignored (`.gitignore:28`), but `evidence.mjs:100` is the only source for `review.json` and `findings.json`. Regenerate the bundle anywhere that file is absent — a second machine, a fresh clone, or after clearing `.apexyard/review/` — and both artifacts become `{available: false, reason: 'no review output at …'}`. Every cross-check that would notice is guarded on it: line 237 (`review?.available && findings?.available`) and line 255 (`review?.available && F.findings`) both short-circuit, `checkArtifact` only inspects canonicality/schema/id/determinism, and `missingArtifacts` only checks presence. So the bundle verifies clean while recording no review data at all — the same \"never ran and passed look identical\" failure the collectors were explicitly written to prevent, reintroduced one layer up at the verifier. The review gate itself is not bypassed (`gateSatisfied` still reads the manifest's counts), which is what keeps this at medium; it would be high if the manifest counts were sourced from `review.json`.",
-      "file": "scripts/verify-evidence.mjs",
-      "line": 237,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "A bundle whose review.json says available:false passes verification"
+      "summary": "The committed evidence bundle describes HEAD~1, so this PR's own CI gate fails"
     },
     {
       "category": "architecture",
-      "detail": "The bundle's central claim is byte-for-byte reproducibility from reviewed content, but two inputs come from the environment rather than from git. `directLicences` (line 127) reads `node_modules/*/package.json`, so the committed `dependency-report.json` records real licences on an installed tree and `{\"unknown\": 27}` without one. `collectArchitecture` (`collectors.mjs:344`, via `walkSources`) walks the filesystem, so an untracked scratch `.ts` file inflates `source_files`, `total_loc` and `by_directory` in a committed artifact that claims to describe the repository. Neither fails the gate today — stage 11's `--check` compares against what stage 10 just wrote, and CI never regenerates — so the effect is a silently environment-dependent artifact plus a misleading \"a collector is not deterministic\" message for anyone who runs `npm run evidence:check` on a fresh clone.",
-      "file": "scripts/evidence.mjs",
-      "line": 127,
-      "severity": "low",
+      "detail": "`EXCLUDED` drops only `.apexyard/attestation`, its `.sig`, and `allowed_signers`. Every other bundle artifact stays in the attested set — the committed manifest proves it, listing `.apexyard/accessibility-report.json`, `architecture.json`, `attestation.json`, `dependency-report.json`, `findings.json`, `metrics.json`, `review-summary.md`, and `review.json` at lines 11-18. Meanwhile `verify-evidence.mjs:181` excludes the whole `.apexyard/` prefix, but ONLY from the coverage check; the rule 3 content-binding loop at lines 157-174 has no such exclusion and walks all of `fields.files`. Since `evidence.mjs` rewrites all seven artifacts on every run, the sequence is: review at HEAD_n attests bundle blobs B_n -> `evidence.mjs` writes B_n+1 -> stage 11 passes locally because HEAD has not moved -> the maintainer commits B_n+1 -> CI now sees attested OID B_n against actual B_n+1 and reports \"changed after it was reviewed\". The next local run then fails verify-evidence, re-runs the review, and repeats. This is precisely the \"no fixed point\" defect the commit message and docs/quality/architecture-review-2026-08-03.md:60 claim to have closed by deleting the second verifier; deleting it aligned the coverage exclusion but left the content-binding asymmetry untouched, which is why the bundle currently on disk is stale. Neither bash suite catches it: the test-evidence.sh fixture (scripts/tests/test-evidence.sh:57-70) never commits a regenerated bundle, so the only path that reaches this state is untested.",
+      "file": "scripts/attest-review.mjs",
+      "line": 130,
+      "severity": "high",
       "suggested_fix": null,
-      "summary": "Two collectors read the working tree, so the bundle records state the repo does not contain"
+      "summary": "The bundle's own artifacts are inside the attested scope, so the gate has no fixed point"
     },
     {
       "category": "code-smell",
-      "detail": "Git resolves attributes with last-matching-line-wins per attribute. `*  text=auto` on line 22 matches `.apexyard/attestation.sig` and re-sets `text`, overriding the deliberate `-text` on line 20 — so git is free to line-ending-normalise the one file the comment says it must not touch. An ssh-keygen armoured signature is detected as text, so on a `core.autocrlf=true` checkout the blob can come back CRLF and `ssh-keygen -Y verify` fails against a manifest that is correct. Latent today: no `attestation.sig` is committed and `allowed_signers` is absent, so nothing verifies signatures yet. It becomes a real verification failure the moment a key is registered (the TD-027 revisit trigger). The `eol=lf` lines above are unaffected — `eol` is a separate attribute that line 22 does not set.",
+      "detail": "gitattributes resolves each attribute from the LAST matching line. Line 20 unsets `text` for `.apexyard/attestation.sig` specifically to keep git from touching the signature's bytes, and line 22's `* text=auto` then matches the same path and re-sets `text`, silently undoing it. An SSH signature is base64 ASCII, so `text=auto` classifies it as text and a Windows clone with `core.autocrlf=true` gets CRLF — breaking `ssh-keygen -Y verify` on a machine that did nothing wrong, which is the exact failure line 15's comment says the `-text` prevents. The `eol=lf` pins on lines 3-6 and 16-19 survive (eol is a separate attribute and implies text), so only the binary exemption is affected. Low rather than medium only because no `.sig` is tracked today and no signer is registered (TD-028); it becomes a real, hard-to-diagnose failure the day signing is enabled per TD-027's revisit trigger.",
       "file": ".gitattributes",
       "line": 22,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Trailing `* text=auto` overrides the `-text` protecting the signature"
+      "summary": "Trailing `* text=auto` overrides the `-text` exemption on attestation.sig"
     },
     {
       "category": "code-smell",
-      "detail": "`files_with_findings` maps every offending ESLint result through `toPosixRelative`, sorts the resulting array, and then discards all of it via `.length`. The path normalisation and the sort are dead work, and the field name reads like it holds the list — a later reader is likely to \"fix\" it by dropping the `.length` and silently put absolute developer paths into a committed artifact, which is exactly the non-reproducibility the module header warns about.",
+      "detail": "`json.filter(...).map((f) => toPosixRelative(f.filePath, root)).sort().length` computes a full list of relativised, sorted paths and discards all of it, keeping only the count. The `.map` and `.sort` are dead work — a leftover from when this field returned the path list — and it is the only caller that makes `toPosixRelative`'s `root` argument load-bearing here. No correctness impact (the count is right), but it reads as though the paths matter, which invites someone to \"fix\" the field by returning the array and quietly changing the artifact schema.",
       "file": "scripts/lib/collectors.mjs",
       "line": 147,
       "severity": "low",
@@ -82,15 +46,33 @@
       "summary": "files_with_findings builds and sorts an array only to take its length"
     },
     {
-      "category": "typescript",
-      "detail": "`(v as { impact?: string }).impact ?? null` casts away the declared type to read `impact`, which `Violation` (line 29) already declares as `impact?: string | null`. The cast is not narrowing anything — it silences nothing and hides the fact that the field is already typed, so a future change to `Violation` will not be type-checked at this line. The broader `results.violations as Violation[]` on line 93 is the load-bearing assertion; leaving the second, redundant one next to it makes the first look equally decorative.",
-      "file": "e2e/accessibility.spec.ts",
-      "line": 99,
+      "category": "code-smell",
+      "detail": "Lines 128-129 say \"Skipping this file is not cosmetic: it necessarily contains every pattern it searches for, so including it guarantees a self-match\", and line 153 says \"Skipping the pattern-list lines themselves, now that the file is in scope.\" Neither happens: `list_scan_targets` (lines 110-114) is `git ls-files` plus untracked-not-ignored with no exclusion, and nothing filters the `patterns=(...)` lines. Lines 102-109 argue at length for the opposite behaviour — that the file is deliberately in scope because every pattern has a `[` after its prefix and so cannot match itself. The three comments cannot all be true, and in a file whose whole purpose is that \"a pattern that quietly stops matching is exactly the failure a scan should catch\", a comment describing a filter that does not exist is the same class of hazard one level up.",
+      "file": "scripts/scan-secrets.sh",
+      "line": 128,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Redundant inline cast to read a property the local type already declares"
+      "summary": "Stale comments claim the scanner skips itself, which lines 102-109 explicitly reject"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "The header says the two CLIs consuming this module are `scripts/attest-review.mjs` and `scripts/verify-attestation.mjs`. The second was deleted in this same commit. It is now the only dangling reference to the removed file outside the (stale) bundle artifacts and the deliberate historical notes in verify-evidence.mjs:9, ADR-0002:96, and the architecture review — those three describe the removal on purpose; this one describes the file as current. A reader following it looks for a script that is not there.",
+      "file": "scripts/lib/attestation.d.mts",
+      "line": 4,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Type declaration header still names the deleted verify-attestation.mjs"
+    },
+    {
+      "category": "typescript",
+      "detail": "The HEAD commit message says \"Also dropped `baseUrl` from tsconfig\" and docs/quality/architecture-review-2026-08-03.md:82 records it under \"Acted on today / FIXED: a deprecation\". `\"baseUrl\": \".\"` is still on line 18. The diff added the explanatory comment on lines 19-21 (\"No baseUrl: it is deprecated in TS 6 and removed in 7\") without removing the setting it describes, and the older TD-001 comment on lines 15-17 still asserts the opposite — that baseUrl is what mirrors the `xlsx` alias. There is no behavioural difference today (`paths` resolves the same either way), so this is a record-integrity problem rather than a build problem: the next person reads a config whose two adjacent comments disagree, and a quality document that says a deprecation is fixed when it is not. Would be medium if `baseUrl` were load-bearing for the alias, which it is not on TS 5.x.",
+      "file": "tsconfig.json",
+      "line": 18,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "baseUrl was not actually dropped; the file now contradicts itself twice"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 9
+  "total": 7
 }

@@ -12,6 +12,7 @@ import {
   envelope,
   checkArtifact,
   missingArtifacts,
+  isBundlePath,
 } from '../../scripts/lib/evidence.mjs';
 import {
   unavailable,
@@ -209,6 +210,45 @@ describe('artifact verification rules', () => {
     });
     expect(checkArtifact('metrics.json', text, ID).some((p) => /non-reproducible/.test(p)))
       .toBe(true);
+  });
+});
+
+describe('the bundle-path rule (one definition, two callers)', () => {
+  // This rule lived in two files and they disagreed, which produced a state
+  // where CI could never be green: the generator recorded the bundle's own
+  // artifacts in the attested scope while the generator that rewrites them ran
+  // on every pass, so their hashes were stale by construction.
+  it('matches the bundle directory itself', () => {
+    expect(isBundlePath('.apexyard')).toBe(true);
+  });
+
+  it('matches everything inside the bundle', () => {
+    for (const p of [
+      '.apexyard/attestation',
+      '.apexyard/attestation.sig',
+      '.apexyard/allowed_signers',
+      '.apexyard/review.json',
+      '.apexyard/review-summary.md',
+      '.apexyard/review/prompt.md',
+      '.apexyard/raw/eslint.json',
+    ]) {
+      expect(isBundlePath(p), p).toBe(true);
+    }
+  });
+
+  it('does not match a sibling whose name merely starts the same way', () => {
+    expect(isBundlePath('.apexyard-old/attestation')).toBe(false);
+    expect(isBundlePath('.apexyardish')).toBe(false);
+  });
+
+  it('does not match ordinary source files', () => {
+    expect(isBundlePath('scripts/evidence.mjs')).toBe(false);
+    expect(isBundlePath('components/App.tsx')).toBe(false);
+  });
+
+  it('honours a custom bundle directory', () => {
+    expect(isBundlePath('evidence/review.json', 'evidence')).toBe(true);
+    expect(isBundlePath('.apexyard/review.json', 'evidence')).toBe(false);
   });
 });
 

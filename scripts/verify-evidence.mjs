@@ -43,7 +43,7 @@ import {
   parseAttestation, digestBody, uncoveredPaths, gateSatisfied, DELETED, SIG_NAMESPACE,
 } from './lib/attestation.mjs';
 import {
-  BUNDLE_DIR, REQUIRED_ARTIFACTS, SUMMARY_FILE, checkArtifact, missingArtifacts,
+  BUNDLE_DIR, REQUIRED_ARTIFACTS, SUMMARY_FILE, checkArtifact, missingArtifacts, isBundlePath,
 } from './lib/evidence.mjs';
 
 const opt = { base: '', head: 'HEAD', requireGate: 'high', dir: BUNDLE_DIR };
@@ -175,10 +175,9 @@ for (const { path, oid } of fields.files) {
 
 // Coverage: nothing may change in this range that the review never saw.
 //
-// The entire bundle directory is excluded. It is generated FROM the review, so
-// requiring it to be reviewed would be circular — and getting this exclusion
-// wrong is what gave the old two-verifier setup no fixed point.
-const SELF_PREFIX = `${opt.dir}/`;
+// The entire bundle directory is excluded, via the SAME function the generator
+// uses. Keeping two copies of this rule is what produced the no-fixed-point
+// defect: see isBundlePath().
 if (opt.base) {
   const baseSha = gitOrNull(['rev-parse', '--verify', opt.base]);
   if (baseSha === null) {
@@ -189,7 +188,7 @@ if (opt.base) {
   } else {
     const changed = git(['diff', '--name-only', '-z', `${baseSha}...${headSha}`])
       .split('\0')
-      .filter((p) => p !== '' && !p.startsWith(SELF_PREFIX) && p !== opt.dir);
+      .filter((p) => p !== '' && !isBundlePath(p, opt.dir));
     changedCount = changed.length;
     const gaps = uncoveredPaths(fields.files.map((f) => f.path), changed);
     if (gaps.length > 0) {

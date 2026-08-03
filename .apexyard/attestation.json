@@ -1,39 +1,39 @@
 {
-  "attestation_id": "sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab",
+  "attestation_id": "sha256:14aa26fc60bb66a9285d5519005cf2735dc733ec3618a76142e813ad1d461d75",
   "authoritative_source": "attestation",
-  "digest": "sha256:cb708707001045e85aea280cecfdad5b3c265c019685b168cb473ca0da75d1ab",
-  "file_count": 42,
+  "digest": "sha256:14aa26fc60bb66a9285d5519005cf2735dc733ec3618a76142e813ad1d461d75",
+  "file_count": 43,
   "files": [
     {
-      "oid": "ca1d9a551b805ee04166a3538b5ed5a9432d68a7",
+      "oid": "222821234ea99434fc447bb8310c239d8756da87",
       "path": ".apexyard/accessibility-report.json"
     },
     {
-      "oid": "588b3f787c7e0a216bc6fecca1f51135b5700ac3",
+      "oid": "7a5e442e8d4c3556521da415f0ad73fd3fb69156",
       "path": ".apexyard/architecture.json"
     },
     {
-      "oid": "eff57d3af2080fc893bfbd34073412231ce32997",
+      "oid": "848825c3ae21329adda18cac922cf16a88d00b65",
       "path": ".apexyard/attestation.json"
     },
     {
-      "oid": "b9c21c7990fe112472f25ae821899cbd927d92f7",
+      "oid": "76d7627134a752fb951684076813b017c7fc29f1",
       "path": ".apexyard/dependency-report.json"
     },
     {
-      "oid": "93754014297775951e67a948809b008a63468811",
+      "oid": "a97947dfcc8ab05f5254fae93608f14db4d5819c",
       "path": ".apexyard/findings.json"
     },
     {
-      "oid": "4a6d78c230325e3dce82417c3526962bb68cb43a",
+      "oid": "e4e6feaad75fd29b6aba6d7b57fd23b8041f3041",
       "path": ".apexyard/metrics.json"
     },
     {
-      "oid": "ce9d927b66680ab947e8f689783592c891b33f50",
+      "oid": "732d27e6c4d93d03b70d19a79fbeac6d54831385",
       "path": ".apexyard/review-summary.md"
     },
     {
-      "oid": "ec1fa48b2b9e46436ab1a63a656da20db07d024b",
+      "oid": "c9a8db81a641dcae4fd90f1e082a2bdd3bf7a9d3",
       "path": ".apexyard/review.json"
     },
     {
@@ -49,7 +49,7 @@
       "path": ".github/PR_BODY.md"
     },
     {
-      "oid": "405d358508a8430102c870bc60794a2d8f1c237b",
+      "oid": "a8a1f65dfe77e88e6bfcf08a5d4afe4e13a1f484",
       "path": ".github/workflows/ci.yml"
     },
     {
@@ -61,7 +61,7 @@
       "path": "README.md"
     },
     {
-      "oid": "a20d5fbcc77e5a49f82fb93278273c38329bffb8",
+      "oid": "f03f28160b7c15cb502724921bb00fad00651fc4",
       "path": "docs/APEXYARD.md"
     },
     {
@@ -69,12 +69,16 @@
       "path": "docs/adr/ADR-0001-ai-review-runs-locally-not-in-ci.md"
     },
     {
-      "oid": "12fd29dfe8ba7b07c98d24aaff881ca1325e294c",
+      "oid": "74454f8a9d65d4cc4022a66e53fa74a05d12b1dc",
       "path": "docs/adr/ADR-0002-review-attestation.md"
     },
     {
       "oid": "b77b1dc214a44d51f769ae5b2495237bab4244eb",
       "path": "docs/adr/ADR-0003-engineering-evidence-bundle.md"
+    },
+    {
+      "oid": "b2b25673cc40c7e07902119eec10493589a799b7",
+      "path": "docs/quality/architecture-review-2026-08-03.md"
     },
     {
       "oid": "eda56b531d50ba3715a4548d2725274c5c1dabe7",
@@ -145,23 +149,19 @@
       "path": "scripts/scan-secrets.sh"
     },
     {
-      "oid": "6f99b04ae0cfa6d078f48006b2f125e3faf6cf34",
+      "oid": "46081bd51df1b651ea2661a9cd5fd428049f487f",
       "path": "scripts/tests/test-attestation.sh"
     },
     {
-      "oid": "b05ecf68063159cbc8912c21ff6739366b7348c1",
+      "oid": "de30a4a5ab9847679eda1382ed723d53945b1270",
       "path": "scripts/tests/test-evidence.sh"
     },
     {
-      "oid": "676afa97a2454cf9310e10659efb8dcab15b8a11",
-      "path": "scripts/verify-attestation.mjs"
-    },
-    {
-      "oid": "fa97e9bde4f5ab6574477608b84169e34d932ef7",
+      "oid": "b723c40994dbafede10eb5bbd230519ddb65f304",
       "path": "scripts/verify-evidence.mjs"
     },
     {
-      "oid": "237104496d7e63357ea96b05c1ee9e88deed11d6",
+      "oid": "b5215315854612d174c3bf5aa048654613d6ec94",
       "path": "scripts/verify-local.sh"
     },
     {
@@ -171,19 +171,23 @@
     {
       "oid": "121c30ddc59f2d1fbe6ef258d952b9f1761843ce",
       "path": "tests/unit/evidence.test.ts"
+    },
+    {
+      "oid": "c25e55efd4c730419d1483306e9d1e6c33c568e4",
+      "path": "tsconfig.json"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 2,
     "info": 0,
-    "low": 4,
-    "medium": 3
+    "low": 5,
+    "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
   "note": "Mirror of the canonical text manifest. The digest below is computed over that manifest, not over this file.",
-  "reviewed_at_commit": "88e29193b896f1895a291a3baf1390369326ad2c",
+  "reviewed_at_commit": "913d1e781056bf8088f179a6b5fdc5e0db5c4b70",
   "schema": "apexyard.evidence.attestation/1",
   "scope": "origin/main...HEAD",
   "verdict": "REQUEST_CHANGES"
