@@ -111,9 +111,19 @@ test.describe('live deployment', () => {
     ).find((s) => !EXTERNAL_NOISE.test(s));
     expect(entry, 'found no first-party entry script').toBeTruthy();
 
-    // Matches both `from"./x.js"` and `import("./x.js")`, single or double
-    // quoted, which is every form Vite emits for a chunk-to-chunk edge.
-    const SPECIFIER = /(?:from|import\s*\()\s*["']([^"']+\.js)["']/g;
+    // Three forms, and the third is the one that matters most here:
+    //
+    //   from"./x.js"      re-export / named import
+    //   import("./x.js")  dynamic import
+    //   import"./x.js"    BARE SIDE-EFFECT IMPORT — no `from`, no paren
+    //
+    // The first version of this test matched only the first two, and 24 of the
+    // 28 tool chunks import the helper in the third form. The crawl reached it
+    // anyway, but only because `xlsx.min` and `jszip.min` happen to also
+    // reference it with `from` — so the test that caught this outage would have
+    // passed the moment that incidental edge changed. `seen.size > 20` would not
+    // have noticed, because there are 82 chunks.
+    const SPECIFIER = /(?:\bfrom|\bimport)\s*\(?\s*["']([^"']+\.js)["']/g;
 
     const queue = [entry!];
     const seen = new Set(queue);
