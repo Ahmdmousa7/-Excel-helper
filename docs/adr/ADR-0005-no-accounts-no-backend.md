@@ -61,4 +61,4 @@ Worth stating, because "removed authentication" invites the wrong inference:
 
 - Deleted: `firebase.ts`, `utils/firebaseUtils.ts`, `components/AuthWrapper.tsx`, `firebase-applet-config.json`, `firebase-blueprint.json`, `firestore.rules`
 - Changed: `index.tsx`, `components/Sidebar.tsx` (Logout removed), `components/ProjectSummaryTab.tsx` (cloud branches removed), `components/ErrorBoundary.tsx` (Firestore-error special case removed), `vite.config.ts`, `package.json`
-- `docs/quality/tech-debt-register.md` — TD-037 closed, TD-026 closed as moot
+- `docs/quality/tech-debt-register.md` — TD-037 closed; **TD-026 stays open**, reworded and re-scoped to the Firebase project itself (see the Consequences section above — deleting the client does not delete the project)

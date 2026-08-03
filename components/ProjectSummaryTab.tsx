@@ -77,7 +77,11 @@ const ProjectSummaryTab: React.FC<Props> = ({ language = 'en' }) => {
               f !== null && typeof f === 'object' &&
               typeof (f as FieldDef).id === 'string' &&
               typeof (f as FieldDef).label === 'string' &&
-              Array.isArray((f as FieldDef).options),
+              // Element types checked too, not just the container. `options` is
+              // `string[]`, and `[null]` or `[{}]` would pass Array.isArray and
+              // then render as <option> children — the same crash one level down.
+              Array.isArray((f as FieldDef).options) &&
+              (f as FieldDef).options.every((o) => typeof o === 'string'),
           );
 
         if (isFieldDefArray) {
