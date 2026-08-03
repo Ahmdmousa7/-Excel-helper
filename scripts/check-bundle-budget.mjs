@@ -150,6 +150,40 @@ for (const [key, spec] of Object.entries(config.budgets)) {
 }
 
 // ---------------------------------------------------------------------------
+// JSON mode, for the evidence bundle
+// ---------------------------------------------------------------------------
+// Emitted before the markdown report and exits immediately, so the collector
+// gets machine-readable facts without parsing a table. Deliberately carries no
+// timestamp and no absolute path: the sizes are derived from content, so this
+// reproduces exactly for a given build.
+if (args.includes('--json')) {
+  const payload = {
+    budgets_ok: rows.filter((r) => !r.over).length,
+    budgets_total: rows.length,
+    passed: rows.every((r) => !r.over),
+    metrics: rows
+      .map((r) => ({
+        metric: r.label,
+        gzip_kb: Number(r.actual.toFixed(1)),
+        budget_kb: r.budget,
+        used_pct: Number(r.pct),
+        over: r.over,
+      }))
+      .sort((a, b) => a.metric.localeCompare(b.metric)),
+    largest_files: files
+      .map((f) => ({
+        file: f.name,
+        raw_bytes: f.bytes,
+        gzip_bytes: f.gzip,
+      }))
+      .sort((a, b) => b.gzip_bytes - a.gzip_bytes || a.file.localeCompare(b.file))
+      .slice(0, 12),
+  };
+  process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+  process.exit(payload.passed ? 0 : 1);
+}
+
+// ---------------------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------------------
 const lines = [];

@@ -1,0 +1,242 @@
+{
+  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "audit": {
+    "available": false,
+    "reason": "npm audit output not captured"
+  },
+  "available": true,
+  "development_count": 23,
+  "direct": [
+    {
+      "kind": "development",
+      "licence": "MPL-2.0",
+      "name": "@axe-core/playwright",
+      "range": "^4.10.1"
+    },
+    {
+      "kind": "production",
+      "licence": "Apache-2.0",
+      "name": "@e965/xlsx",
+      "range": "0.20.3"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "@eslint/js",
+      "range": "^9.17.0"
+    },
+    {
+      "kind": "production",
+      "licence": "Apache-2.0",
+      "name": "@google/genai",
+      "range": "^1.34.0"
+    },
+    {
+      "kind": "development",
+      "licence": "Apache-2.0",
+      "name": "@playwright/test",
+      "range": "^1.49.1"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "@types/papaparse",
+      "range": "^5.5.2"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "@types/qrcode",
+      "range": "^1.5.6"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "@types/react",
+      "range": "^18.2.66"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "@types/react-dom",
+      "range": "^18.2.22"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "@vitejs/plugin-react",
+      "range": "^4.2.1"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "@vitest/coverage-v8",
+      "range": "^2.1.8"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "autoprefixer",
+      "range": "^10.5.4"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "eslint",
+      "range": "^9.17.0"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "eslint-plugin-jsx-a11y",
+      "range": "^6.10.2"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "eslint-plugin-react-hooks",
+      "range": "^5.1.0"
+    },
+    {
+      "kind": "production",
+      "licence": "Apache-2.0",
+      "name": "firebase",
+      "range": "^12.11.0"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "globals",
+      "range": "^15.14.0"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "jsdom",
+      "range": "^25.0.1"
+    },
+    {
+      "kind": "production",
+      "licence": "MIT",
+      "name": "jspdf",
+      "range": "^4.2.1"
+    },
+    {
+      "kind": "production",
+      "licence": "MIT",
+      "name": "jspdf-autotable",
+      "range": "^5.0.7"
+    },
+    {
+      "kind": "production",
+      "licence": "(MIT OR GPL-3.0-or-later)",
+      "name": "jszip",
+      "range": "^3.10.1"
+    },
+    {
+      "kind": "production",
+      "licence": "ISC",
+      "name": "lucide-react",
+      "range": "^0.562.0"
+    },
+    {
+      "kind": "production",
+      "licence": "MIT",
+      "name": "motion",
+      "range": "^12.38.0"
+    },
+    {
+      "kind": "production",
+      "licence": "MIT",
+      "name": "papaparse",
+      "range": "^5.4.1"
+    },
+    {
+      "kind": "production",
+      "licence": "MIT",
+      "name": "pdf-lib",
+      "range": "^1.17.1"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "postcss",
+      "range": "^8.5.25"
+    },
+    {
+      "kind": "development",
+      "licence": "Apache-2.0",
+      "name": "puppeteer",
+      "range": "^24.40.0"
+    },
+    {
+      "kind": "production",
+      "licence": "MIT",
+      "name": "qrcode",
+      "range": "^1.5.3"
+    },
+    {
+      "kind": "production",
+      "licence": "MIT",
+      "name": "react",
+      "range": "^18.2.0"
+    },
+    {
+      "kind": "production",
+      "licence": "MIT",
+      "name": "react-dom",
+      "range": "^18.2.0"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "tailwindcss",
+      "range": "^3.4.19"
+    },
+    {
+      "kind": "development",
+      "licence": "Apache-2.0",
+      "name": "typescript",
+      "range": "^5.2.2"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "typescript-eslint",
+      "range": "^8.19.0"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "vite",
+      "range": "^5.2.0"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "vite-plugin-node-polyfills",
+      "range": "^0.25.0"
+    },
+    {
+      "kind": "development",
+      "licence": "MIT",
+      "name": "vitest",
+      "range": "^2.1.8"
+    },
+    {
+      "kind": "production",
+      "licence": "Apache-2.0",
+      "name": "xlsx-js-style",
+      "range": "^1.2.0"
+    }
+  ],
+  "licences": {
+    "(MIT OR GPL-3.0-or-later)": 1,
+    "Apache-2.0": 7,
+    "ISC": 1,
+    "MIT": 27,
+    "MPL-2.0": 1
+  },
+  "production_count": 14,
+  "schema": "apexyard.evidence.dependencies/1"
+}

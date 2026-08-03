@@ -1,0 +1,129 @@
+{
+  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "available": true,
+  "by_directory": {
+    "App.tsx": {
+      "files": 1,
+      "loc": 557
+    },
+    "components": {
+      "files": 40,
+      "loc": 19221
+    },
+    "e2e": {
+      "files": 19,
+      "loc": 1910
+    },
+    "firebase.ts": {
+      "files": 1,
+      "loc": 29
+    },
+    "hooks": {
+      "files": 2,
+      "loc": 170
+    },
+    "index.tsx": {
+      "files": 1,
+      "loc": 23
+    },
+    "playwright.config.ts": {
+      "files": 1,
+      "loc": 105
+    },
+    "playwright.live.config.ts": {
+      "files": 1,
+      "loc": 45
+    },
+    "services": {
+      "files": 5,
+      "loc": 703
+    },
+    "tests": {
+      "files": 4,
+      "loc": 532
+    },
+    "types": {
+      "files": 1,
+      "loc": 20
+    },
+    "types.ts": {
+      "files": 1,
+      "loc": 28
+    },
+    "utils": {
+      "files": 5,
+      "loc": 1238
+    },
+    "vite-env.d.ts": {
+      "files": 1,
+      "loc": 17
+    },
+    "vite.config.ts": {
+      "files": 1,
+      "loc": 79
+    },
+    "vitest.config.ts": {
+      "files": 1,
+      "loc": 35
+    }
+  },
+  "layering": {
+    "rule": "components -> hooks -> services -> utils; a lower layer must not import a higher one",
+    "violation_count": 0,
+    "violations": []
+  },
+  "method": "regex import scan over .ts/.tsx; misses dynamically built paths",
+  "oversized": {
+    "count": 9,
+    "files": [
+      {
+        "file": "components/VariableBalanceTab.tsx",
+        "loc": 1384
+      },
+      {
+        "file": "components/CompositeTab.tsx",
+        "loc": 1370
+      },
+      {
+        "file": "components/FileValidationTab.tsx",
+        "loc": 1058
+      },
+      {
+        "file": "components/SupportChat.tsx",
+        "loc": 898
+      },
+      {
+        "file": "utils/translations.ts",
+        "loc": 893
+      },
+      {
+        "file": "components/ProjectSummaryTab.tsx",
+        "loc": 887
+      },
+      {
+        "file": "components/OcrTab.tsx",
+        "loc": 867
+      },
+      {
+        "file": "components/ZidTab.tsx",
+        "loc": 841
+      },
+      {
+        "file": "components/DuplicatesTab.tsx",
+        "loc": 821
+      }
+    ],
+    "threshold_loc": 800
+  },
+  "probable_duplicates": [
+    {
+      "base": "components/VariableBalanceTab",
+      "variants": [
+        "components/VariableBalanceTabV2.tsx"
+      ]
+    }
+  ],
+  "schema": "apexyard.evidence.architecture/1",
+  "source_files": 85,
+  "total_loc": 24712
+}

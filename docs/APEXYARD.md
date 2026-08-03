@@ -170,6 +170,65 @@ Full reasoning, including the six alternatives rejected: [ADR-0002](adr/ADR-0002
 npm run test:attestation    # 22 end-to-end cases against real git repos
 ```
 
+## The evidence bundle
+
+The attestation answers *was this code reviewed?* The bundle answers *what did the whole engineering picture look like at that moment?* — and binds every part of the answer to the same reviewed state.
+
+```
+.apexyard/
+  attestation                    canonical signed manifest — AUTHORITATIVE
+  attestation.json               machine-readable mirror; digest must match
+  review.json                    verdict, model, gate, severity counts
+  findings.json                  every finding, deterministically ordered
+  metrics.json                   typescript · eslint · vitest · playwright · bundle
+  architecture.json              layering, file size, duplication
+  dependency-report.json         direct deps, licences, production audit
+  accessibility-report.json      axe violations by rule and impact
+  review-summary.md              the human-readable companion
+  review/  raw/                  gitignored — full report and unnormalised output
+```
+
+**Every artifact carries the same `attestation_id`, and that id is the attestation's digest.** That is what makes staleness detectable with no notion of time: the digest covers the reviewed files' content, so changing one reviewed byte changes the digest and every artifact naming the old id is provably stale. A review of *this* code last week is still valid; a review of *different* code a minute ago is not. A timestamp would have got both of those backwards.
+
+```bash
+npm run evidence            # assemble the bundle
+npm run evidence:check      # prove it reproduces byte for byte
+npm run verify:evidence     # what CI runs
+npm run test:evidence       # 28 end-to-end cases
+```
+
+### Determinism is enforced, not requested
+
+One `duration` from a test reporter would make the bundle differ on every run. Four mechanisms, in the order they fire:
+
+| Mechanism | What it does |
+|---|---|
+| Collectors | Extract only counts, percentages, rule ids, and content hashes. Durations are dropped at the source. |
+| `envelope()` | Runs the determinism guard before returning. A payload with `duration_ms` throws rather than being written. |
+| `canonicalJson()` | Sorted keys, 2-space indent, LF, one trailing newline. Insertion order can't change the bytes. |
+| `evidence.mjs --check` | Regenerates in memory and compares byte for byte. Stage 11 of the local gate. |
+
+The guard rejects time-like **keys** (`timestamp`, `duration`, `pid`, `seed`, …) and date-shaped **values** under innocuous keys (`"version": "2026-08-03"`). It deliberately ignores semvers, hashes, and paths — a guard that fires on `0.20.3` gets switched off within a day.
+
+### Never fabricate a pass
+
+The most important property here, and it isn't about tampering. **"0 failures" and "never ran" look identical in a table and mean opposite things.**
+
+Every collector returns either `{available: false, reason}` or a payload with `available: true`. The unavailable branch carries **no `passed` field at all**, so nothing downstream can read it as a pass. `review-summary.md` renders those as **not run** with the reason, and says outright that a gate reading *not run* is not a gate that passed.
+
+### What CI verifies
+
+| Rule | Catches |
+|---|---|
+| Artifacts exist | A bundle missing an artifact or the summary |
+| Attestation matches the mirror | `attestation.json` disagreeing with the signed manifest |
+| Reviewed files match repo state | A reviewed file edited afterwards; a changed file never reviewed |
+| No artifact is stale | Any `attestation_id` that isn't this attestation's digest |
+| Nothing is non-reproducible | A hand-edited, reformatted, or timestamp-carrying artifact |
+| Internally consistent | `review.json` and `findings.json` disagreeing, or either contradicting the manifest |
+
+Still an attestation, in exactly the ADR-0002 sense: it shows a review covering this code was recorded, not that a model ran. Full architecture: [ADR-0003](adr/ADR-0003-engineering-evidence-bundle.md).
+
 ## Running the review on its own
 
 ```bash

@@ -143,26 +143,68 @@ else
   }
 fi
 
-run_stage "2. TypeScript"        npm run typecheck --silent
-run_stage "3. ESLint"            npm run lint --silent
+# Raw tool output lands here for the evidence collectors to normalise. It is
+# gitignored: it is unnormalised, tool-specific, and full of durations and
+# absolute paths. Only the normalised bundle is committed.
+RAW=".apexyard/raw"
+mkdir -p "$RAW"
+
+# Each stage below both gates AND captures. Capturing separately would mean
+# running every tool twice, and the second run could disagree with the first —
+# so the evidence is a record of the run that actually gated, not a re-run.
+typecheck_and_capture() {
+  npm run typecheck --silent > "$RAW/typescript.txt" 2>&1
+  local rc=$?
+  [ "$rc" -eq 0 ] || cat "$RAW/typescript.txt"
+  return "$rc"
+}
+lint_and_capture() {
+  # -f json to a file, and a second human-readable pass only on failure. eslint
+  # exits non-zero on errors; `|| true` on the json write would hide that, so
+  # the exit code is taken from a `--quiet` run over the same tree.
+  npx eslint . -f json -o "$RAW/eslint.json" >/dev/null 2>&1 || true
+  npm run lint --silent
+}
+vitest_and_capture() {
+  npx vitest run --coverage --reporter=json --outputFile="$RAW/vitest.json" 2>&1 \
+    | tail -20
+  return "${PIPESTATUS[0]}"
+}
+e2e_and_capture() {
+  npx playwright test --reporter=json > "$RAW/playwright.json" 2>"$RAW/playwright.err"
+  local rc=$?
+  [ "$rc" -eq 0 ] || tail -30 "$RAW/playwright.err"
+  return "$rc"
+}
+audit_and_capture() {
+  npm audit --omit=dev --json > "$RAW/audit.json" 2>/dev/null || true
+  npm audit --omit=dev --audit-level=high
+}
+budget_and_capture() {
+  node scripts/check-bundle-budget.mjs --json > "$RAW/bundle.json" 2>/dev/null || true
+  node scripts/check-bundle-budget.mjs
+}
+
+run_stage "2. TypeScript"        typecheck_and_capture
+run_stage "3. ESLint"            lint_and_capture
 # --coverage, matching CI. Without it the v8 coverage thresholds never run
 # locally, so the gate would pass here and fail remotely on the one check the
 # local run exists to pre-empt.
-run_stage "4. Vitest + coverage"  npm run test:coverage --silent
+run_stage "4. Vitest + coverage"  vitest_and_capture
 
 if [ "$SKIP_E2E" -eq 1 ]; then
   skip_stage "5. Playwright"
 else
-  run_stage "5. Playwright"      npm run e2e --silent
+  run_stage "5. Playwright"      e2e_and_capture
 fi
 
 # --omit=dev: a devDependency CVE cannot reach a user of a static site. Gating
 # on it would make the audit permanently red for no user-facing risk, which is
 # how audit gates get disabled. Devtool CVEs are tracked as TD-020 instead.
-run_stage "6. Dependency audit"  npm audit --omit=dev --audit-level=high
+run_stage "6. Dependency audit"  audit_and_capture
 run_stage "7. Secret scan"       bash scripts/scan-secrets.sh
 run_stage "8. Build"             npm run build --silent
-run_stage "9. Bundle budget"     node scripts/check-bundle-budget.mjs
+run_stage "9. Bundle budget"     budget_and_capture
 
 # 10. Verify the attestation the review just wrote, using the same code CI will
 #     run. Catching a mismatch here means the answer arrives in seconds rather
@@ -172,10 +214,20 @@ run_stage "9. Bundle budget"     node scripts/check-bundle-budget.mjs
 #     this range, and reporting that as a failure would be noise about a stage
 #     that deliberately did not run.
 if [ "$SKIP_REVIEW" -eq 1 ] || [ "$NOTHING_TO_PUSH" -eq 1 ] || [ -n "$REVIEW_QUALIFIED" ]; then
-  skip_stage "10. Attestation self-check"
+  skip_stage "10. Evidence bundle"
+  skip_stage "11. Evidence self-check"
 else
-  run_stage "10. Attestation self-check" \
-    node scripts/verify-attestation.mjs --base "$BASE" --require-gate high
+  # 10. Assemble the bundle from the attestation plus the raw output the stages
+  #     above just captured. It runs after every gate so the recorded metrics
+  #     describe the run that actually gated, not a re-run that might disagree.
+  run_stage "10. Evidence bundle"     node scripts/evidence.mjs
+
+  # 11. Verify it with the same code CI runs, then prove it reproduces. The
+  #     --check pass regenerates in memory and compares byte for byte, which is
+  #     how determinism gets demonstrated rather than asserted.
+  run_stage "11. Evidence self-check" \
+    sh -c 'node scripts/verify-evidence.mjs --base "$1" --require-gate high >/dev/null \
+           && node scripts/evidence.mjs --check' _ "$BASE"
 fi
 
 # ---------------------------------------------------------------------------

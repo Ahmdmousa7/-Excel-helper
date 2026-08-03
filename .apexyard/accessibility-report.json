@@ -1,0 +1,6 @@
+{
+  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "available": false,
+  "reason": "axe summary not captured; the accessibility e2e suite writes test-results/axe-summary.json when it runs",
+  "schema": "apexyard.evidence.accessibility/1"
+}

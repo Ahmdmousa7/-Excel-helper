@@ -15,7 +15,19 @@ dist
 coverage
 playwright-report
 test-results
-.apexyard
+# The evidence bundle is COMMITTED — CI verifies it, so it has to be in the
+# checkout. Ignoring the whole directory made the attestation uncommittable and
+# would have failed the Review attestation gate on every push.
+#
+# Two things stay out. Each pattern is on its own line with the comment ABOVE
+# it: gitignore does not support a trailing comment, so `foo/  # why` becomes a
+# pattern containing spaces and a hash, matches nothing, and silently ignores
+# nothing. That mistake staged the full review prompt once.
+#
+# The full local review report. Quotes source lines and includes prompt.md.
+.apexyard/review/
+# Raw tool output — unnormalised, non-deterministic, absolute paths.
+.apexyard/raw/
 
 # --- Editors -----------------------------------------------------------------
 .vscode/*

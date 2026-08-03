@@ -1,0 +1,78 @@
+{
+  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "available": true,
+  "by_severity": {
+    "critical": 0,
+    "high": 1,
+    "info": 0,
+    "low": 5,
+    "medium": 1
+  },
+  "findings": [
+    {
+      "category": "technical-debt",
+      "detail": "Line 18 ignores the whole `.apexyard` directory with no negation. The new `attestation` job in `.github/workflows/ci.yml:250` reads `.apexyard/attestation` from the checkout, and that job is in `needs:` for the required aggregate `ci` job (`ci.yml:265`), so a missing file is a hard merge block. Because git will not descend into an ignored directory, the remediation the tool itself prints — `git add .apexyard/attestation` (`scripts/verify-attestation.mjs:91`, and again at :279) — fails with \"The following paths are ignored by one of your .gitignore files\" and adds nothing. The failure is invisible locally: `verify-local.sh` stage 10 reads the file straight off disk, so the maintainer sees a green local gate and a red CI on every push. `docs/adr/ADR-0002-review-attestation.md:39,78`, `docs/APEXYARD.md:133`, and `README.md:82` all state the file is committed, so this is a genuine contradiction rather than an intentional choice, and it is not recorded anywhere in `docs/quality/tech-debt-register.md`.",
+      "file": ".gitignore",
+      "line": 18,
+      "severity": "high",
+      "suggested_fix": null,
+      "summary": "`.gitignore` ignores `.apexyard`, so the attestation the new CI gate requires cannot be committed"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`scripts/lib/attestation.mjs:138-140` states \"producers write LF and `.gitattributes` pins the file to LF\". No such rule exists — the explicit `eol=lf` entries cover `*.sh`, `*.yml`, `*.yaml`, `*.mjs`, and `.githooks/*`, and the attestation has no extension, so it falls through to `* text=auto` (line 13). `text=auto` normalises to LF in the index but converts on checkout, so on Git for Windows with the default `core.autocrlf=true` the on-disk file is CRLF. `parseAttestation` tolerates that on read (:213), and the blob OIDs are computed over the normalised content, so checks 1-4 survive. The signature does not: `attest-review.mjs:221` signs the raw file bytes and `verify-attestation.mjs:216` verifies against `readFileSync(opt.attestation)`, so a signature produced over CRLF on Windows will not verify over LF in CI. This is latent today only because no key is registered (TD-028); it becomes a build-breaking mismatch on the day signing is enabled, and the failure would read as tampering rather than as line endings.",
+      "file": ".gitattributes",
+      "line": 13,
+      "severity": "medium",
+      "suggested_fix": null,
+      "summary": "No LF pin for `.apexyard/attestation`, contradicting the comment that claims one"
+    },
+    {
+      "category": "code-smell",
+      "detail": "The `--name-status -z` walk keys a single `Map` by path, so a later entry silently overwrites an earlier one. For a rename the old path is set to `'D'` and the new to `'M'` (:118-120), which is right in isolation but wrong when the same path appears twice in one range. Two reachable shapes: a path-swap (`R100 A B` plus `R100 B A`) leaves `A='M'`, `B='D'`; and a rename where the old path is then recreated (`R100 A B` plus `A`/`M` for `A`) can leave `A='D'` depending on the order git emits. Either way a path that exists at HEAD is written as `deleted`, and `verify-attestation.mjs:125` then reports \"<path> was attested as deleted but exists at HEAD\" — a red required check with no remediation that works, since re-running the review reproduces the same manifest. Low because both shapes are uncommon in a single range, and neither is a correctness hole in the gate (it fails closed, not open). It would be medium if the overwrite could go the other way and mark a genuinely-deleted path as present, which the current ordering does not do.",
+      "file": "scripts/attest-review.mjs",
+      "line": 118,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Rename handling can attest an existing path as `deleted`, producing a false CI failure"
+    },
+    {
+      "category": "code-smell",
+      "detail": "Lines 107-108 (\"Skipping this file is not cosmetic: it necessarily contains every pattern it searches for, so including it guarantees a self-match\") and line 132 (\"Skipping the pattern-list lines themselves, now that the file is in scope\") both describe an exclusion that no longer exists — `list_scan_targets` (:89-93) returns every tracked and untracked file with no filter, and there is no `grep -v` on the scanner's own path anywhere. Lines 81-88 state the opposite, correctly and with the reasoning (each pattern's literal text has `[` right after the prefix, which is outside its own character class, so none self-match; I checked `-----BEGIN [A-Z ]*PRIVATE KEY-----` too — the regex needs `PRIVATE` where the literal has `[`, so it does not match itself either). These are leftovers from the version that did exclude the file. On a security control, a reader who trusts line 107 concludes the scanner has a blind spot it does not have — and would be tempted to 'restore' the exclusion that lines 81-88 explain was a genuine blind spot.",
+      "file": "scripts/scan-secrets.sh",
+      "line": 107,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Two comments claim this file is excluded from its own sweep; it is not"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`gateSatisfied` calls `gateRank(fields.gate)` (`attestation.mjs:313`), which throws on any value outside `low|medium|high|critical|none`. Every other failure path in this script funnels through `problem()` and prints the actionable \"## Review attestation FAILED\" summary with the remediation block; this one escapes as an uncaught exception. `buildBody` validates `gate` at write time (:160) so an honest producer cannot emit a bad value, and an internally-consistent forgery with `gate: 'info'` still fails closed (Node exits 1, the required check goes red), so the impact is diagnostics only — a maintainer sees a Node stack trace in the job log and no job summary at all, and has to read the source to work out why. It would be medium if the throw happened before the content-binding loop, but it runs after, so the real checks have already reported.",
+      "file": "scripts/verify-attestation.mjs",
+      "line": 182,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "An unrecognised `gate` value crashes the verifier with a stack trace instead of the FAILED report"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`const identity = fields.signer || signers.split('\\n')[0].split(/\\s+/)[0]` reads a field no producer writes: `buildBody` (`attestation.mjs:182-191`) emits a fixed set of keys with no `signer`, and `parseAttestation`'s `default:` branch (:255-262) throws `unrecognised body line` on anything that is neither a known key nor an OID — so a `signer <id>` line would make the file unparseable rather than populate `fields.signer`. `scripts/lib/attestation.d.mts:38` then documents `signer?: string` as \"Only present when a producer recorded a signer identity\", which no producer can be. The practical consequence is small but real: with two or more keys in `allowed_signers`, verification always attempts identity #1 and reports \"signature did not verify for <first signer>\" when the second maintainer signed, pointing at the wrong person. That is exactly the multi-contributor scenario TD-028 names as the enable trigger.",
+      "file": "scripts/verify-attestation.mjs",
+      "line": 211,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "`fields.signer` is unreachable — the manifest format cannot carry a `signer` line"
+    },
+    {
+      "category": "testing",
+      "detail": "`actions/checkout@v4` with no `ref:` checks out `refs/pull/N/merge` for a `pull_request` event, so `git rev-parse HEAD:<path>` at `verify-attestation.mjs:121` resolves blobs in a synthetic merge of the PR head into the base branch. Coverage (check 3) is unaffected — `merge-base(base.sha, merge) == base.sha`, so `base...HEAD` is exactly the PR's changes. Content binding is: if `main` advances with any change to a file this PR also touches, the merged blob differs from the reviewed one and CI reports \"<path> changed after it was reviewed\" with two OIDs, neither of which the author ever wrote. The suggested fix (`npm run verify:local`) does not clear it until the branch is rebased. Arguably the merged content genuinely was not reviewed, so this is a message-quality problem rather than a wrong verdict — but ADR-0002 § Consequences enumerates the pass/fail cases and does not mention this one, which is the gap worth closing. Low, and near-zero probability on a single-maintainer repo with a linear `main`.",
+      "file": ".github/workflows/ci.yml",
+      "line": 214,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "On `pull_request` the attestation is verified against the merge commit, not the reviewed HEAD"
+    }
+  ],
+  "schema": "apexyard.evidence.findings/1",
+  "total": 7
+}

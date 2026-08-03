@@ -1,0 +1,18 @@
+{
+  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "available": true,
+  "files_reviewed": 21,
+  "findings_by_severity": {
+    "critical": 0,
+    "high": 1,
+    "info": 0,
+    "low": 5,
+    "medium": 1
+  },
+  "findings_total": 7,
+  "gate": "high",
+  "model": "claude-opus-5",
+  "schema": "apexyard.evidence.review/1",
+  "summary": "This range moves the ApexYard AI review out of CI onto the maintainer's machine (ADR-0001) and then closes the 'was it actually reviewed?' half of that gap with a content-bound attestation: `scripts/attest-review.mjs` records each reviewed file's git blob OID into `.apexyard/attestation`, and a credential-free CI job (`scripts/verify-attestation.mjs`) recomputes those OIDs, checks coverage, digest integrity, gate strictness, and an optional SSH signature. The design reasoning is unusually well documented and well tested (38 unit + 22 end-to-end cases, including the amend/squash cases that justify OID binding over SHA binding), and the TD-029 Playwright fix (`dist-e2e/` split, `reuseExistingServer` off) is correct. One blocking-in-practice defect: `.gitignore` ignores the entire `.apexyard` directory, so the attestation the new hard gate requires cannot be committed by the documented command — the `Review attestation` job, which the required aggregate `CI` check depends on, will fail on every push and PR. The remaining findings are low-severity polish and one latent CRLF/signature hazard.",
+  "verdict": "request_changes"
+}

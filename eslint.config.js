@@ -18,6 +18,11 @@ export default tseslint.config(
   {
     ignores: [
       'dist/**',
+      // The e2e build. Separate from dist/ so a production build cannot
+      // overwrite what the Playwright server serves (TD-029) — which means it
+      // also has to be ignored here, or ESLint lints a minified bundle and
+      // reports ~12,700 errors in vendor code.
+      'dist-e2e/**',
       'node_modules/**',
       'coverage/**',
       'playwright-report/**',

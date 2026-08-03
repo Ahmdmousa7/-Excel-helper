@@ -107,6 +107,12 @@ jobs:
         # confusing attestation failure on an unrelated PR.
         run: npm run test:attestation
 
+      - name: 4c. Evidence bundle end-to-end tests
+        # Same reasoning, for the bundle rules: generation, the shared
+        # attestation id, reproducibility, and every failure mode the Evidence
+        # bundle job gates on.
+        run: npm run test:evidence
+
       - name: 7. Build
         run: npm run build
 
@@ -205,7 +211,7 @@ jobs:
   # rebasing, or adding one more file, and pushing a review that no longer
   # describes the code. See docs/adr/ADR-0002.
   attestation:
-    name: Review attestation
+    name: Evidence bundle
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -253,6 +259,21 @@ jobs:
         # signature when signers are registered.
         run: |
           node scripts/verify-attestation.mjs \
+            --require-gate high \
+            ${{ steps.range.outputs.base && format('--base {0}', steps.range.outputs.base) || '' }}
+
+      - name: 6b. Verify the evidence bundle
+        # HARD GATE, and a superset of the step above: artifacts exist, the JSON
+        # mirror agrees with the signed manifest, every artifact carries THIS
+        # attestation's id (so a stale one fails), and no artifact contains
+        # timestamp-shaped content or non-canonical formatting.
+        #
+        # Deliberately NOT `evidence.mjs --check` here. Regenerating in CI would
+        # need the raw tool output the local gate captured, which is gitignored;
+        # the reproduce-byte-for-byte proof runs locally, where those inputs
+        # exist. CI checks the committed bundle's integrity and binding instead.
+        run: |
+          node scripts/verify-evidence.mjs \
             --require-gate high \
             ${{ steps.range.outputs.base && format('--base {0}', steps.range.outputs.base) || '' }}
 

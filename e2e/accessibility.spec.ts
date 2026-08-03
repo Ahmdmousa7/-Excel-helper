@@ -72,9 +72,37 @@ async function scan(page: Page) {
     .analyze();
 }
 
+/**
+ * Every violation this run observed, recorded for the evidence bundle.
+ *
+ * The ratchet above answers "did this get worse?", which is the right question
+ * for a gate but throws away the absolute picture. `accessibility-report.json`
+ * wants the picture: which rules fire, how many nodes, on which pages. So each
+ * scan appends here and a teardown writes the summary.
+ *
+ * Only rule ids, impacts, node COUNTS, and page labels — no selectors and no
+ * HTML. Those would put fragments of the rendered DOM into a committed
+ * artifact, and the rule plus the page is what anyone actually acts on.
+ */
+type AxeObservation = { id: string; impact: string | null; nodes: number; page: string };
+const observed: AxeObservation[] = [];
+const pagesScanned = new Set<string>();
+
 async function expectNoNewViolations(page: Page, where: string) {
   const results = await scan(page);
-  const { known, regressions } = partition(results.violations as Violation[]);
+  const all = results.violations as Violation[];
+
+  pagesScanned.add(where);
+  for (const v of all) {
+    observed.push({
+      id: v.id,
+      impact: (v as { impact?: string }).impact ?? null,
+      nodes: v.nodes?.length ?? 1,
+      page: where,
+    });
+  }
+
+  const { known, regressions } = partition(all);
   if (known.length) console.log(`known a11y debt on ${where}:\n${describeAll(known)}`);
   expect(
     regressions,
@@ -83,6 +111,30 @@ async function expectNoNewViolations(page: Page, where: string) {
 }
 
 test.describe('accessibility', () => {
+  // Written once, after every scan in this file has run, so the evidence
+  // collector has real axe data rather than `available: false`.
+  //
+  // Sorted and free of timings, because the bundle it feeds has to reproduce
+  // byte for byte. `budget` is the ratchet's own number, which lets
+  // accessibility-report.json state pass/fail rather than only a count.
+  test.afterAll(async () => {
+    const { mkdirSync, writeFileSync } = await import('node:fs');
+    const violations = [...observed].sort(
+      (a, b) => a.id.localeCompare(b.id) || a.page.localeCompare(b.page),
+    );
+    mkdirSync('test-results', { recursive: true });
+    writeFileSync(
+      'test-results/axe-summary.json',
+      `${JSON.stringify({
+        standard: 'WCAG 2.2 AA (axe-core)',
+        budget: KNOWN_A11Y_DEBT.size,
+        pages: [...pagesScanned].sort(),
+        violations,
+      }, null, 2)}\n`,
+      'utf8',
+    );
+  });
+
   test('the landing view introduces no new WCAG 2.2 AA violations', async ({ app, page }) => {
     await app.expectHealthy();
     await expectNoNewViolations(page, 'the landing view');

@@ -36,6 +36,27 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 1b. The local review report must never be tracked
+# ---------------------------------------------------------------------------
+# `.apexyard/review/prompt.md` is the full prompt sent to the model, and
+# `review.md` quotes source lines. The normalised bundle is committed on
+# purpose; these two are not.
+#
+# This check exists because the gitignore entry silently failed once: the
+# pattern carried a trailing `# comment`, which gitignore does not support, so
+# it matched nothing and `git add -A` staged the prompt. A pattern that quietly
+# stops matching is exactly the failure a scan should catch.
+leaked=$(git ls-files | grep -E '^\.apexyard/(review|raw)/' || true)
+if [ -n "$leaked" ]; then
+  printf 'FAIL: local review internals are tracked in git:\n' >&2
+  printf '%s\n' "$leaked" | sed 's/^/        /' >&2
+  printf '      Untrack them:  git rm -r --cached .apexyard/review .apexyard/raw\n' >&2
+  FAIL=1
+else
+  printf 'ok  the local review report and raw output are untracked\n'
+fi
+
+# ---------------------------------------------------------------------------
 # 2. Provider key patterns in tracked files
 # ---------------------------------------------------------------------------
 # Anchored, provider-specific prefixes only. Generic words like "token" or

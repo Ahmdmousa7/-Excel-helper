@@ -10,4 +10,13 @@
 # is the worst moment to discover it.
 .githooks/*  text eol=lf
 
+# The evidence bundle. Its digests and its SSH signature are defined over LF
+# bytes, so a CRLF checkout would break verification on a machine that did
+# nothing wrong. `-text` on the signature keeps git from touching it at all.
+.apexyard/attestation       text eol=lf
+.apexyard/allowed_signers   text eol=lf
+.apexyard/*.json            text eol=lf
+.apexyard/*.md              text eol=lf
+.apexyard/attestation.sig   -text
+
 *      text=auto

@@ -1,0 +1,29 @@
+{
+  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "bundle": {
+    "available": false,
+    "reason": "bundle report not captured; run npm run build"
+  },
+  "eslint": {
+    "available": false,
+    "reason": "eslint json output not captured; run npm run verify:local"
+  },
+  "playwright": {
+    "available": false,
+    "reason": "playwright json output not captured; run npm run e2e"
+  },
+  "schema": "apexyard.evidence.metrics/1",
+  "typescript": {
+    "available": false,
+    "reason": "tsc output not captured; run npm run verify:local"
+  },
+  "vitest": {
+    "available": true,
+    "coverage": {
+      "branches_pct": 87.8,
+      "functions_pct": 75,
+      "lines_pct": 78.13,
+      "statements_pct": 78.13
+    }
+  }
+}

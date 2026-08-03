@@ -25,7 +25,11 @@
     "scan:secrets": "bash scripts/scan-secrets.sh",
     "prepare": "node scripts/install-hooks.mjs",
     "preview:e2e": "vite preview --outDir dist-e2e",
-    "test:attestation": "bash scripts/tests/test-attestation.sh"
+    "test:attestation": "bash scripts/tests/test-attestation.sh",
+    "evidence": "node scripts/evidence.mjs",
+    "evidence:check": "node scripts/evidence.mjs --check",
+    "verify:evidence": "node scripts/verify-evidence.mjs",
+    "test:evidence": "bash scripts/tests/test-evidence.sh"
   },
   "dependencies": {
     "@e965/xlsx": "0.20.3",

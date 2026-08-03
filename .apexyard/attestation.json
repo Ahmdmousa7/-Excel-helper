@@ -1,0 +1,110 @@
+{
+  "attestation_id": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "authoritative_source": "attestation",
+  "digest": "sha256:b7e04361566ce98408466fc8c8807ad7856524c490e590b9abb109277245c9a7",
+  "file_count": 22,
+  "files": [
+    {
+      "oid": "cc8134c8c23ff7a0d8a8b00765c3f6aa71156ca3",
+      "path": ".gitattributes"
+    },
+    {
+      "oid": "4e859d3317a41d76ac09815f5ceb4a4aace49196",
+      "path": ".githooks/pre-push"
+    },
+    {
+      "oid": "deleted",
+      "path": ".github/PR_BODY.md"
+    },
+    {
+      "oid": "d0de116d864fc6a1ccfea09b050c78c6c5721701",
+      "path": ".github/workflows/ci.yml"
+    },
+    {
+      "oid": "e94de656c4ff4ba0f247f74cec2aeffcb354d80f",
+      "path": ".gitignore"
+    },
+    {
+      "oid": "b0fd8df2f362d380418bbea48ac90a27fff232f7",
+      "path": "README.md"
+    },
+    {
+      "oid": "e4b265b4f571bae5ce1d63faf3ce84a29e4ba13b",
+      "path": "docs/APEXYARD.md"
+    },
+    {
+      "oid": "9eb73c7d15903c025a0a8f7e848434b8fc4e233e",
+      "path": "docs/adr/ADR-0001-ai-review-runs-locally-not-in-ci.md"
+    },
+    {
+      "oid": "12fd29dfe8ba7b07c98d24aaff881ca1325e294c",
+      "path": "docs/adr/ADR-0002-review-attestation.md"
+    },
+    {
+      "oid": "eda56b531d50ba3715a4548d2725274c5c1dabe7",
+      "path": "docs/quality/tech-debt-register.md"
+    },
+    {
+      "oid": "b591e359790d682368226f238f783cf07ec5f80a",
+      "path": "package.json"
+    },
+    {
+      "oid": "054f2dc27d1d9ca897f87c0ef95ed0cfa234400d",
+      "path": "playwright.config.ts"
+    },
+    {
+      "oid": "bbf4352f445db88272d4c64fb3e5c8b425783fb6",
+      "path": "scripts/attest-review.mjs"
+    },
+    {
+      "oid": "8a4c63efec66e69c5778305c60ef9488af9b6b35",
+      "path": "scripts/install-hooks.mjs"
+    },
+    {
+      "oid": "327c965e634c18f0fda9972090598c3a117dd524",
+      "path": "scripts/lib/attestation.d.mts"
+    },
+    {
+      "oid": "30868914dfede1c514015ffca8cdbbed34765949",
+      "path": "scripts/lib/attestation.mjs"
+    },
+    {
+      "oid": "5c165aa3afa3c2c42a824caeaa6526bb7c0312b1",
+      "path": "scripts/review-local.sh"
+    },
+    {
+      "oid": "4d8ef945bb2a5eb7babeed751dd6ba75031f1561",
+      "path": "scripts/scan-secrets.sh"
+    },
+    {
+      "oid": "6f99b04ae0cfa6d078f48006b2f125e3faf6cf34",
+      "path": "scripts/tests/test-attestation.sh"
+    },
+    {
+      "oid": "676afa97a2454cf9310e10659efb8dcab15b8a11",
+      "path": "scripts/verify-attestation.mjs"
+    },
+    {
+      "oid": "c8078f013e941a11e031bde8a213996e4a5b18b8",
+      "path": "scripts/verify-local.sh"
+    },
+    {
+      "oid": "37cbb56ff30abec63dbcf32a1ff5c51a9137e51c",
+      "path": "tests/unit/attestation.test.ts"
+    }
+  ],
+  "findings_by_severity": {
+    "critical": 0,
+    "high": 1,
+    "info": 0,
+    "low": 5,
+    "medium": 1
+  },
+  "gate": "high",
+  "model": "claude-opus-5",
+  "note": "Mirror of the canonical text manifest. The digest below is computed over that manifest, not over this file.",
+  "reviewed_at_commit": "45b45fea018924e1f6a6c326d45a0bf79cd7830a",
+  "schema": "apexyard.evidence.attestation/1",
+  "scope": "origin/main...HEAD",
+  "verdict": "REQUEST_CHANGES"
+}
