@@ -309,9 +309,21 @@ export function parseAttestation(text) {
   if (counts === null || typeof counts !== 'object' || Array.isArray(counts)) {
     throw new Error('attestation has no findings_by_severity object');
   }
-  fields.findings = {};
-  for (const [sev, n] of Object.entries(counts)) {
+  for (const sev of Object.keys(counts)) {
     if (!SEVERITIES.includes(sev)) throw new Error(`unknown severity in findings_by_severity: ${sev}`);
+  }
+  // Every severity must be PRESENT, not merely valid when present.
+  //
+  // An omitted key reads as zero in both consumers — `gateSatisfied` falls back
+  // to `counts[sev] ?? 0`, and the verifier's attestation-vs-review cross-check
+  // iterates the keys that are there — so dropping `"high"` would launder a
+  // failing review into a clean one. `buildAttestation` always emits all five,
+  // which makes this unreachable from the real producer and is exactly why it is
+  // worth asserting here: the next producer is the one that gets it wrong.
+  fields.findings = {};
+  for (const sev of SEVERITIES) {
+    const n = counts[sev];
+    if (n === undefined) throw new Error(`findings_by_severity is missing "${sev}"`);
     if (!Number.isInteger(n) || n < 0) throw new Error(`bad count for ${sev}: ${JSON.stringify(n)}`);
     fields.findings[sev] = n;
   }

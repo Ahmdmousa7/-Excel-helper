@@ -93,7 +93,7 @@ Requirement 3. It carries paths, content hashes, the model id, the gate, the ver
 
 | Suite | Covers | Count |
 |---|---|---|
-| `tests/unit/attestation.test.ts` | Serialisation determinism, bytewise path ordering, digest tamper-detection, the subset rule, gate arithmetic, input validation | 48 |
+| `tests/unit/attestation.test.ts` | Serialisation determinism, bytewise path ordering, digest tamper-detection, the subset rule, gate arithmetic, input validation | 50 |
 | `scripts/tests/test-attestation.sh` | Both CLIs against real git repos: edit-after-review, unreviewed-added-file, resurrected-deletion, message-only amend, squash merge, forged-but-internally-consistent attestations, signature verification | 21 |
 
 The two cases the whole thing exists for — a file edited after review, and a file added and never reviewed — are asserted end to end, as is the pair that justifies OID binding over SHA binding.

@@ -199,6 +199,24 @@ describe('round-tripping', () => {
     expect(() => parseAttestation(JSON.stringify(artifact)))
       .toThrow(/field "verdict" is missing/);
   });
+
+  it('refuses an attestation that omits a severity, rather than reading it as zero', () => {
+    // Dropping "high" is how a failing review would be laundered into a clean
+    // one: both consumers treat an absent key as zero. buildAttestation always
+    // emits all five, so only a second producer could do this — which is the
+    // case worth failing loudly on.
+    const { artifact } = parseAttestation(renderAttestation(base));
+    delete (artifact.findings_by_severity as Partial<Record<string, number>>).high;
+    expect(() => parseAttestation(JSON.stringify(artifact)))
+      .toThrow(/findings_by_severity is missing "high"/);
+  });
+
+  it('refuses an unknown severity key', () => {
+    const { artifact } = parseAttestation(renderAttestation(base));
+    (artifact.findings_by_severity as Record<string, number>).catastrophic = 0;
+    expect(() => parseAttestation(JSON.stringify(artifact)))
+      .toThrow(/unknown severity in findings_by_severity/);
+  });
 });
 
 describe('input validation', () => {

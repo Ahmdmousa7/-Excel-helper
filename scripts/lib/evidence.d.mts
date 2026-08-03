@@ -6,6 +6,7 @@
 export const BUNDLE_DIR: string;
 export const REQUIRED_ARTIFACTS: string[];
 export const SUMMARY_FILE: string;
+export const SIGNERS_FILE: string;
 export const SCHEMAS: Record<string, string>;
 
 export function isBundlePath(p: string, dir?: string): boolean;

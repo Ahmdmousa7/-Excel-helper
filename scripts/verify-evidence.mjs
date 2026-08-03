@@ -50,7 +50,8 @@ import {
   ATTESTATION_FILE, DELETED, SIG_NAMESPACE,
 } from './lib/attestation.mjs';
 import {
-  BUNDLE_DIR, REQUIRED_ARTIFACTS, SUMMARY_FILE, checkArtifact, missingArtifacts, isBundlePath,
+  BUNDLE_DIR, REQUIRED_ARTIFACTS, SUMMARY_FILE, SIGNERS_FILE as SIGNERS_NAME,
+  checkArtifact, missingArtifacts, isBundlePath,
 } from './lib/evidence.mjs';
 
 const opt = { base: '', head: 'HEAD', requireGate: 'high', dir: BUNDLE_DIR };
@@ -71,7 +72,7 @@ for (let i = 0; i < args.length; i += 1) {
   }
 }
 
-const SIGNERS_FILE = join(opt.dir, 'allowed_signers');
+const SIGNERS_FILE = join(opt.dir, SIGNERS_NAME);
 
 // ---------------------------------------------------------------------------
 // State
@@ -137,9 +138,10 @@ if (!existsSync(attPath)) {
 }
 
 let att;
-const attText = readFileSync(attPath, 'utf8');
 try {
-  att = parseAttestation(attText);
+  // The read stays inside the try: an unreadable file should reach report()
+  // like any other bad attestation, not exit on an uncaught stack trace.
+  att = parseAttestation(readFileSync(attPath, 'utf8'));
 } catch (err) {
   problems.push(`attestation is malformed: ${err.message}`);
   report();

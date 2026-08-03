@@ -72,6 +72,15 @@ export const REQUIRED_ARTIFACTS = [
 /** The human-readable companion. Checked for existence, not for content. */
 export const SUMMARY_FILE = 'review-summary.md';
 
+/** Where registered signer public keys live, relative to the bundle directory.
+ *
+ * A bare filename, joined with the bundle dir by each caller, because the
+ * generator's dir comes from `--out` and the verifier's from `--dir`. It is a
+ * shared constant for the same reason `isBundlePath` is a shared function: the
+ * generator used to hardcode `.apexyard/allowed_signers` while the verifier
+ * derived it, so a non-default directory made them disagree about the same file. */
+export const SIGNERS_FILE = 'allowed_signers';
+
 /** Schema ids. Bumped when a shape changes incompatibly, so a verifier reading
  *  an older bundle says so instead of silently misreading it. */
 export const SCHEMAS = {

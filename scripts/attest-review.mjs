@@ -26,10 +26,9 @@ import { dirname, join } from 'node:path';
 import {
   renderAttestation, ATTESTATION_FILE, DELETED, SEVERITIES, SIG_NAMESPACE,
 } from './lib/attestation.mjs';
-import { BUNDLE_DIR, isBundlePath } from './lib/evidence.mjs';
+import { BUNDLE_DIR, SIGNERS_FILE, isBundlePath } from './lib/evidence.mjs';
 
 const DEFAULT_OUT = `${BUNDLE_DIR}/${ATTESTATION_FILE}`;
-const SIGNERS_FILE = '.apexyard/allowed_signers';
 
 function git(args, opts = {}) {
   return execFileSync('git', args, { encoding: 'utf8', ...opts }).replace(/\n$/, '');
@@ -217,7 +216,7 @@ if (!opt.sign) {
       '  This is supported — the OID binding is what CI actually checks.\n' +
       '  To add provenance later:\n' +
       '    ssh-keygen -t ed25519 -C "review attestation"\n' +
-      `    printf '%s %s\\n' "$(git config user.email)" "$(cat ~/.ssh/id_ed25519.pub)" >> ${SIGNERS_FILE}\n`,
+      `    printf '%s %s\\n' "$(git config user.email)" "$(cat ~/.ssh/id_ed25519.pub)" >> ${join(bundleDir, SIGNERS_FILE)}\n`,
     );
   } else {
     try {

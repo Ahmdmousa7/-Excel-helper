@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   REQUIRED_ARTIFACTS,
   SUMMARY_FILE,
+  SIGNERS_FILE,
   SCHEMAS,
   sortKeysDeep,
   canonicalJson,
@@ -276,6 +277,14 @@ describe('required-artifact presence', () => {
       'accessibility-report.json',
     ]);
     expect(SUMMARY_FILE).toBe('review-summary.md');
+  });
+
+  it('names the signers file once, for both scripts to join with their own dir', () => {
+    // A bare filename, not a path. The generator's directory comes from --out and
+    // the verifier's from --dir; the generator used to hardcode the whole path,
+    // so a non-default directory made them disagree about the same file.
+    expect(SIGNERS_FILE).toBe('allowed_signers');
+    expect(SIGNERS_FILE).not.toContain('/');
   });
 });
 

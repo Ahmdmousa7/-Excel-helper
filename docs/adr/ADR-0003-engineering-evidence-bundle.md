@@ -104,12 +104,12 @@ Requirement 14: every new verification rule has a regression test.
 
 | Suite | Covers | Count |
 |---|---|---|
-| `tests/unit/attestation.test.ts` | ADR-0002 and ADR-0004 rules: digest determinism, the one-key-removed digest rule, canonical output, bytewise path ordering, tamper detection, the subset rule, gate arithmetic | 48 |
-| `tests/unit/evidence.test.ts` | Canonical JSON (sorting, indent, LF, trailing newline, reformat rejection), the determinism guard (13 key shapes, date-shaped values, semver/hash false-positive avoidance), the envelope (schema registry, id format, field collisions), all six artifact rules, presence checks, and every collector — including that each returns `available:false` with a reason and no `passed` field | 51 |
+| `tests/unit/attestation.test.ts` | ADR-0002 and ADR-0004 rules: digest determinism, the one-key-removed digest rule, canonical output, bytewise path ordering, tamper detection, the subset rule, gate arithmetic | 50 |
+| `tests/unit/evidence.test.ts` | Canonical JSON (sorting, indent, LF, trailing newline, reformat rejection), the determinism guard (13 key shapes, date-shaped values, semver/hash false-positive avoidance), the envelope (schema registry, id format, field collisions), all six artifact rules, presence checks, and every collector — including that each returns `available:false` with a reason and no `passed` field | 52 |
 | `scripts/tests/test-attestation.sh` | Both attestation CLIs against real git repos: edit-after-review, unreviewed add, resurrected deletion, amend, squash, forged-but-consistent attestations, non-canonical rejection, signature verification | 21 |
 | `scripts/tests/test-evidence.sh` | The bundle end to end: generation, shared-id propagation, `--check` reproducibility, byte-identical regeneration, missing artifact, stale artifact, reformatted artifact, the three attestation-integrity cases, review/findings disagreement, counts contradicting the attestation, edit-after-review, unreviewed add, self-attestation exclusion, amend | 34 |
 
-**154 tests.** The two cases the whole system exists for — code edited after review, and code added and never reviewed — are asserted at both layers.
+**157 tests.** The two cases the whole system exists for — code edited after review, and code added and never reviewed — are asserted at both layers.
 
 ## Artifacts
 

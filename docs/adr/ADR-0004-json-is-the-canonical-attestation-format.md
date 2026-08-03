@@ -98,7 +98,7 @@ The shape barely moved: `/1`'s mirror carried these same keys. What changed is t
 
 | Suite | Covers | Count |
 |---|---|---|
-| `tests/unit/attestation.test.ts` | The one-key-removed digest rule directly, canonical output, schema refusal, tamper detection on every field, smuggled and removed file entries, parser refusals, plus everything ADR-0002 already covered | 48 |
+| `tests/unit/attestation.test.ts` | The one-key-removed digest rule directly, canonical output, schema refusal, tamper detection on every field, smuggled and removed file entries, parser refusals (including an omitted severity, which both consumers would otherwise read as zero), plus everything ADR-0002 already covered | 50 |
 | `scripts/tests/test-attestation.sh` | Generation against real git repos, including that the output is canonical and that a reordered-but-digest-valid attestation is still rejected | 21 |
 | `scripts/tests/test-evidence.sh` | The three cases that replaced the two mirror cases: an id over other content, a shortened file list, and a re-digested attestation with a weakened gate. Also asserts the retired text manifest is never written again | 34 |
 
