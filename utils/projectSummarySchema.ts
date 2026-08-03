@@ -33,7 +33,18 @@
 
 export interface FieldCondition {
   fieldId: string;
-  value: string | string[];
+  /**
+   * Optional, matching how it is actually consumed.
+   *
+   * `isFieldVisible` reads it as `(cond.value || '').toLowerCase()`, so a
+   * condition with no value is a well-defined state — it compares against the
+   * empty string — and the UI can produce one by picking a dependency field
+   * before choosing a value. The type said `value: string | string[]`, which
+   * made the validator reject such a template and reset the user's work to the
+   * defaults. Losing saved work to be strict about a shape the runtime already
+   * tolerates is the wrong trade; see the tests for both directions.
+   */
+  value?: string | string[];
 }
 
 export interface FieldDef {
@@ -51,10 +62,13 @@ export const isStringArray = (v: unknown): v is string[] =>
 export const isFieldCondition = (v: unknown): v is FieldCondition => {
   if (v === null || typeof v !== 'object') return false;
   const c = v as Record<string, unknown>;
-  // The element check on `value` is not pedantry: `isFieldVisible` calls
-  // `cond.value.some(v => v.toLowerCase())`, so `value: [1]` is a crash.
+  // `value` absent is allowed — see the interface. What is NOT allowed is a
+  // value of the wrong shape: `isFieldVisible` calls
+  // `cond.value.some(v => v.toLowerCase())` once it is an array, so `[1]` is a
+  // crash while `undefined` is a handled state. The distinction is the whole
+  // point: reject what breaks, tolerate what the runtime already handles.
   return typeof c.fieldId === 'string'
-    && (typeof c.value === 'string' || isStringArray(c.value));
+    && (c.value === undefined || typeof c.value === 'string' || isStringArray(c.value));
 };
 
 export const isFieldDef = (v: unknown): v is FieldDef => {

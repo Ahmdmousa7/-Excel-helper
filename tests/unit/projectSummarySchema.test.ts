@@ -48,6 +48,17 @@ describe('isFieldCondition', () => {
     expect(isFieldCondition({ fieldId: 'a', value: {} })).toBe(false);
   });
 
+  it('accepts a condition with no value at all', () => {
+    // The UI can produce this by picking a dependency field before choosing a
+    // value, and `isFieldVisible` handles it as `(cond.value || '')`. Rejecting
+    // it would reset the user's whole template to the defaults — losing work to
+    // be strict about a shape the runtime already tolerates.
+    expect(isFieldCondition({ fieldId: 'integration' })).toBe(true);
+    expect(isFieldDef({
+      id: 'a', label: 'A', options: [], conditions: [{ fieldId: 'integration' }],
+    })).toBe(true);
+  });
+
   it('rejects a missing or non-string fieldId', () => {
     expect(isFieldCondition({ value: 'Yes' })).toBe(false);
     expect(isFieldCondition({ fieldId: 7, value: 'Yes' })).toBe(false);
