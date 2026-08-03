@@ -1,26 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Copy, Check, ClipboardList, RefreshCw, Plus, Trash2, Settings2, GripVertical, ArrowUp, ArrowDown, Download, ChevronDown, FileSpreadsheet, FileText, FileJson, Upload, Save } from 'lucide-react';
 import { TRANSLATIONS, Language } from '../utils/translations';
+// FieldDef/FieldCondition and their validators live in utils/ so the shape rules
+// can be unit-tested — the template in localStorage is this tab's only untrusted
+// input, and since ADR-0005 it is also its only copy.
+import { FieldCondition, FieldDef, isFieldDefArray } from '../utils/projectSummarySchema';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 interface Props {
   language?: Language;
-}
-
-interface FieldCondition {
-  fieldId: string;
-  value: string | string[];
-}
-
-interface FieldDef {
-  id: string;
-  label: string;
-  options: string[];
-  isMultiline?: boolean;
-  condition?: FieldCondition;
-  conditions?: FieldCondition[];
 }
 
 const INITIAL_FIELDS: FieldDef[] = [
@@ -60,31 +50,12 @@ const ProjectSummaryTab: React.FC<Props> = ({ language = 'en' }) => {
     try {
       const saved = localStorage.getItem('projectSummaryFields');
       if (saved) {
-        // Shape-checked, not just parsed.
-        //
-        // `JSON.parse` returns `any`, and handing that straight to a
-        // `FieldDef[]` state threw on the first `fields.map()` in render — which
-        // is OUTSIDE this try, so the catch never saw it and the whole tab was
-        // replaced by the ErrorBoundary with no route back except clearing site
-        // data. That was survivable while Firestore held a second copy; with
-        // localStorage now the only store, a single bad value would strand the
-        // tool permanently. Fall back to the defaults instead.
+        // Shape-checked, not just parsed. `JSON.parse` returns `any`, and handing
+        // that straight to `FieldDef[]` state threw on the first `fields.map()`
+        // in render — OUTSIDE this try, so the catch never saw it.
         const parsed: unknown = JSON.parse(saved);
-        const isFieldDefArray =
-          Array.isArray(parsed) &&
-          parsed.every(
-            (f): f is FieldDef =>
-              f !== null && typeof f === 'object' &&
-              typeof (f as FieldDef).id === 'string' &&
-              typeof (f as FieldDef).label === 'string' &&
-              // Element types checked too, not just the container. `options` is
-              // `string[]`, and `[null]` or `[{}]` would pass Array.isArray and
-              // then render as <option> children — the same crash one level down.
-              Array.isArray((f as FieldDef).options) &&
-              (f as FieldDef).options.every((o) => typeof o === 'string'),
-          );
 
-        if (isFieldDefArray) {
+        if (isFieldDefArray(parsed)) {
           setFields(parsed);
           setSavedFields(parsed);
         } else {
