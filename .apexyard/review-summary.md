@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:dafe5ddb1b5c47019ce53d9f5715fcd939edb62feeb0660c0bcf3ed93eeed1ab` |
+| Attestation id | `sha256:15ed3194d3332501e669bd27133044a16bc935d13c97a8255e15a6a98fcc8df9` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `50fe628639e8` |
+| Reviewed at commit | `4f473d1993ff` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **COMMENT** |
@@ -28,12 +28,12 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | Severity | Count |
 |---|---:|
 | critical | 0 |
-| high | 2 |
-| medium | 0 |
-| low | 4 |
-| info | 1 |
+| high | 0 |
+| medium | 3 |
+| low | 6 |
+| info | 0 |
 
-This PR moves the AI code review off CI onto the maintainer's machine and builds the machinery that lets CI check it anyway: a content-bound review attestation (git blob OIDs, no timestamps), a deterministic evidence bundle under `.apexyard/`, a single verifier, a pre-push hook, and matching unit + shell e2e suites plus three ADRs. The design is unusually careful — the exclusion rule that gives the gate a fixed point lives in one function used by all three callers, `available: false` is never allowed to read as a pass, and the threat model is stated rather than oversold. Two real defects landed in the new code, both of them silent: `scripts/evidence.mjs` calls `readdirSync` without importing it inside a bare `catch`, so the axe shard merge never runs and the accessibility artifact under-reports (the committed bundle records 1 of the 3 pages the suite scans); and a literal `\n` in `scripts/verify-local.sh` makes the pre-push gate report a bogus failure on the routine already-attested path. No blocking-handbook violation and nothing exploitable, but both highs fail the CI severity gate and should land before merge.
+This PR moves the ApexYard AI review off CI onto the maintainer's machine and replaces the lost CI signal with a content-bound review attestation plus a reproducible engineering evidence bundle: `scripts/lib/{attestation,evidence,collectors}.mjs`, a generator (`evidence.mjs`), one verifier (`verify-evidence.mjs`), a local gate (`verify-local.sh`), a pre-push hook, a secret scan, unit + end-to-end tests, and three ADRs. The design is unusually careful — the attestation binds to git blob OIDs rather than commit SHAs, the artifact id IS the manifest digest so staleness needs no timestamp, determinism is mechanically enforced, and the collectors refuse to report a pass for a tool that never ran. I verified that both High findings recorded in the previous round are genuinely fixed (`readdirSync` is now imported at `scripts/evidence.mjs:30`, and `verify-local.sh:228` now uses a real line continuation). No blocking-handbook violation and nothing critical. Three new medium defects, all latent or narrow-trigger, plus five low items — four of which were recorded in the previous round and are still present.
 
 ## Quality gates
 
@@ -41,11 +41,11 @@ This PR moves the AI code review off CI onto the maintainer's machine and builds
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 612 warning(s) |
-| Vitest | pass | 119/119 passed, lines 78.13% |
+| Vitest | pass | 121/121 passed, lines 78.13% |
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | pass | 17 violation node(s) |
+| Accessibility | pass | 18 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.

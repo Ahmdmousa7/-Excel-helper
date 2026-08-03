@@ -1,35 +1,62 @@
 {
-  "attestation_id": "sha256:dafe5ddb1b5c47019ce53d9f5715fcd939edb62feeb0660c0bcf3ed93eeed1ab",
+  "attestation_id": "sha256:15ed3194d3332501e669bd27133044a16bc935d13c97a8255e15a6a98fcc8df9",
   "available": true,
   "by_severity": {
     "critical": 0,
-    "high": 2,
-    "info": 1,
-    "low": 4,
-    "medium": 0
+    "high": 0,
+    "info": 0,
+    "low": 6,
+    "medium": 3
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "Line 30 imports `{ existsSync, mkdirSync, readFileSync, writeFileSync }` from `node:fs` — `readdirSync` is not among them, but line 91 calls it. The call is wrapped in `try { … } catch { return null; }`, and a `ReferenceError` for an undefined identifier is caught by that handler just like an I/O error. So `readAxeShards` returns `null` on every invocation, execution falls through to `readJsonOrNull('.apexyard/raw/axe.json')`, and the per-worker merge added in this PR is dead code from the first run. This regresses to precisely the failure the function's own docblock says it exists to fix: `e2e/accessibility.spec.ts` scans three pages (`the landing view`, `the QR tool`, `the Compare Files tool`, lines 150/155/161) and writes one shard per worker, but the committed `.apexyard/accessibility-report.json` records `pages_scanned: [\"the Compare Files tool\"]` and 8 violation nodes — one worker's subset, with `passed: false` computed against the 7-node budget on incomplete data. The evidence bundle is the artifact CI verifies and a human reads, so a silently truncated accessibility section is a wrong answer presented with the same confidence as a right one. No test exercises this path: `scripts/tests/test-evidence.sh` never creates `test-results/axe-summary.*.json` (its fixture dir does not exist, so `existsSync` short-circuits before the missing identifier is ever reached), and `tests/unit/evidence.test.ts` only tests `collectAccessibility` on a hand-built object.",
-      "file": "scripts/evidence.mjs",
-      "line": 91,
-      "severity": "high",
+      "category": "security",
+      "detail": "Git resolves attributes per-attribute with the LAST matching line winning. `*      text=auto` is line 22, after `.apexyard/attestation.sig   -text` on line 20, so the `text` attribute for the signature resolves to `auto`, not unset — exactly what the comment on line 15 says it is preventing (\"`-text` on the signature keeps git from touching it at all\"). An SSHSIG file is armoured ASCII with no NULs, so auto-detection classifies it as text, and on checkout it is converted to the platform EOL (`core.eol` defaults to `native`; this checkout is on Windows). The sibling lines survive by accident: `.apexyard/attestation text eol=lf` keeps its `eol=lf` because line 22 does not set `eol`, only `text`. The failure is latent today because `.apexyard/allowed_signers` does not exist, but TD-028 commits to registering a key at the second-contributor trigger — at which point a CRLF'd `.sig` makes `ssh-keygen -Y verify` fail and `verify-evidence.mjs:337` reports \"signature did not verify\", which reads as tampering rather than as a checkout artifact.",
+      "file": ".gitattributes",
+      "line": 20,
+      "severity": "medium",
       "suggested_fix": null,
-      "summary": "readAxeShards uses readdirSync without importing it; the bare catch hides it"
+      "summary": "`-text` on attestation.sig is inert — `* text=auto` on the last line overrides it"
     },
     {
-      "category": "code-smell",
-      "detail": "The line reads `run_stage \"11. Evidence self-check\" \\n    node scripts/verify-evidence.mjs …` — a literal backslash-n where a line continuation was intended (compare the correctly-written `\\` + newline form in the `else` branch at lines 241-243). Outside quotes bash resolves `\\n` to the word `n`, so `run_stage` shifts off the label and runs `n node scripts/verify-evidence.mjs --base … --require-gate high`. There is no command `n`, so the stage records `FAIL(127)`, sets `FAILED=1`, and the script prints `Local gates failed. Do not push.` and exits 1 — which `.githooks/pre-push:81` turns into `push aborted`. This fires on the `ALREADY_ATTESTED=1` branch, i.e. the ordinary case of re-pushing content whose review is already on disk (the branch the surrounding comment was written to make cheap). The failure is also maximally misleading: the summary blames the evidence self-check, whose real command never ran, and the documented escape hatch is `git push --no-verify` — which is exactly how a gate stops guarding anything.",
+      "category": "security",
+      "detail": "`const identity = signers.split('\\n')[0].split(/\\s+/)[0]` takes the principal from the first non-comment line, and that single value is passed to `ssh-keygen -Y verify -I`. `-I` asserts *which* principal is expected, so a signature made by the second registered key fails verification against the first principal — the check reports `signature did not verify for <someone-else@example.com>`, i.e. it names the wrong person and looks like tampering. This is precisely the configuration the feature exists for: `scripts/attest-review.mjs:181` and TD-028 both state the signature only becomes load-bearing \"the moment a second contributor appears\", which is the same moment `allowed_signers` gains a second line. Latent today (no signers file), which is why this is medium and not high.",
+      "file": "scripts/verify-evidence.mjs",
+      "line": 327,
+      "severity": "medium",
+      "suggested_fix": null,
+      "summary": "Only the first identity in allowed_signers is ever used to verify the signature"
+    },
+    {
+      "category": "testing",
+      "detail": "`$RAW` is created (`mkdir -p`, line 160) but never cleared, and the guard at line 230 that suppresses bundle generation lists `SKIP_REVIEW`, `NOTHING_TO_PUSH`, and `REVIEW_QUALIFIED` — but not `SKIP_E2E`. So `npm run verify:local -- --skip-e2e` skips stage 5 and then runs stage 10, and `evidence.mjs` picks up the *previous* run's `.apexyard/raw/playwright.json` and `test-results/axe-summary.*.json`. `collectPlaywright` and `collectAccessibility` see non-null input and emit `available: true` with `passed_count`/`violations_total` describing a run that never happened against this code. That is the one property `collectors.mjs:5-9` is built to guarantee (\"'0 failures' and 'never ran' look identical in a summary table and mean opposite things\") — defeated one layer up, in a committed artifact, with no verifier able to notice because CI deliberately does not regenerate. The same staleness applies in a full run if the Playwright stage dies before its reporter writes. The exit-2 \"NOT a valid pre-push state\" message warns the human but does not stop the bundle from being rewritten on disk, which is why this is medium rather than low.",
       "file": "scripts/verify-local.sh",
-      "line": 228,
-      "severity": "high",
+      "line": 230,
+      "severity": "medium",
       "suggested_fix": null,
-      "summary": "Literal `\\n` makes the pre-push gate fail spuriously on the already-attested path"
+      "summary": "`--skip-e2e` regenerates the bundle from the previous run's raw output"
+    },
+    {
+      "category": "architecture",
+      "detail": "`walkSources` reads the filesystem and only excludes `SKIP_DIR` plus dotfiles, so any untracked or newly-gitignored `.ts`/`.tsx` file on the maintainer's machine is counted in `source_files`, `total_loc`, `by_directory`, and possibly `oversized.files` of the committed `architecture.json`. The artifact then describes a repository state that does not exist in git, and nothing can detect it: `evidence.mjs --check` regenerates from the same tree so it agrees, and CI deliberately does not regenerate (ci.yml:262-265). For an artifact whose stated contract is byte-reproducibility from the reviewed content, deriving its inputs from the tree rather than the index is the wrong source.",
+      "file": "scripts/lib/collectors.mjs",
+      "line": 399,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "collectArchitecture walks the working tree, so untracked files enter a committed artifact"
     },
     {
       "category": "code-smell",
-      "detail": "`files_with_findings: json.filter(…).map((f) => toPosixRelative(f.filePath, root)).sort().length` computes relative paths for every ESLint file with findings, sorts them, then keeps only the count. The `.map()` and `.sort()` results are thrown away, so the work is pure waste and — more to the point — the shape reads like an editing casualty: the mapping to POSIX-relative paths and the sort only make sense if the *list* was meant to be emitted (that is exactly why a deterministic sort would be needed). As written, `root` is threaded into `collectEslint` for no observable effect. Harmless at this scale, but the next reader has to decide whether the list was dropped deliberately or by accident.",
+      "detail": "`const ID = att.digest` takes the digest straight from the header, and that value is then stamped into all seven artifacts as `attestation_id`. `parseAttestation` does not check the digest against the body — `verify-evidence.mjs:143` does, and `scripts/lib/attestation.mjs:276` exports `verifyDigest` for exactly this purpose. If the manifest is ever hand-edited or half-written, `npm run evidence` happily produces a fully self-consistent bundle bound to an id no verifier will accept, and the real reason (\"attestation digest does not match its body\") surfaces later from a different script. Impact is small because stage 11 runs the verifier moments later; the cost of fixing is two lines.",
+      "file": "scripts/evidence.mjs",
+      "line": 144,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "The generator trusts the manifest's digest line without rehashing the body"
+    },
+    {
+      "category": "code-smell",
+      "detail": "Carried over — recorded in the previous round's `findings.json` and still present. `json.filter(...).map((f) => toPosixRelative(f.filePath, root)).sort().length` computes POSIX-relative paths for every ESLint file with findings, sorts them, and keeps only the count. The mapping and the deterministic sort only make sense if the *list* was meant to be emitted, so the shape reads as an editing casualty rather than a choice, and `root` is threaded into `collectEslint` for no observable effect. The docblock on line 122 (\"file paths made relative\") describes output the payload does not contain.",
       "file": "scripts/lib/collectors.mjs",
       "line": 147,
       "severity": "low",
@@ -38,41 +65,32 @@
     },
     {
       "category": "code-smell",
-      "detail": "`export { readJson, existsSync, statSync };` re-exports two `node:fs` functions and one private helper. Nothing imports them: `scripts/evidence.mjs:36-40` imports only the `collect*` functions and `SEVERITY_ORDER`, and `tests/unit/evidence.test.ts` imports neither (no occurrence of `readJson`, `existsSync`, or `statSync` in the suite). `readJson` (line 24) is itself unreferenced inside this module — the collectors all take already-parsed JSON — and `statSync` appears only in the line 16 import and this re-export, so it exists solely to be re-exported. Re-exporting `node:fs` from a domain module also blurs the boundary: a future caller could reach `fs` through `collectors.mjs` rather than importing it directly.",
+      "detail": "Carried over — recorded in the previous round and still present. I re-grepped the repo: nothing imports these. `scripts/evidence.mjs:36-40` imports only the `collect*` functions and `SEVERITY_ORDER`; `tests/unit/evidence.test.ts` imports neither; and `collectors.d.mts` does not declare them, so a TypeScript caller could not use them anyway. `readJson` (line 24) is unreferenced inside the module too — every collector takes already-parsed JSON — and `statSync` exists only to be re-exported. Re-exporting `node:fs` from a domain module also blurs the boundary: a future caller could reach `fs` through `collectors.mjs`.",
       "file": "scripts/lib/collectors.mjs",
-      "line": 467,
+      "line": 486,
       "severity": "low",
       "suggested_fix": null,
       "summary": "Dead export: readJson, existsSync, and statSync have no consumer"
     },
     {
       "category": "code-smell",
-      "detail": "Lines 102-109 add a careful explanation that this file is deliberately *not* excluded from its own sweep, including the verification that none of the patterns match their own literal text (every prefix is followed by `[`, which is outside each character class). Two leftover comments from the previous behaviour survive and say the opposite: lines 128-129 (`Skipping this file is not cosmetic: it necessarily contains every pattern it searches for, so including it guarantees a self-match`) and line 153 (`Skipping the pattern-list lines themselves, now that the file is in scope`). Neither describes any code — `list_scan_targets` has no exclusion and the loop has no filter. In a security script this is worse than ordinary comment rot: the surviving comment asserts a self-match is guaranteed, which is a standing invitation for the next maintainer to re-add the exclusion and reintroduce the blind spot lines 102-109 were written to close.",
+      "detail": "Carried over — recorded in the previous round and still present. Lines 98-109 explain, correctly and with the verification, that this file is deliberately *in* its own sweep (every pattern's literal text has a `[` immediately after the prefix, which is outside each character class, so none self-match). Two leftover comments from the previous behaviour say the opposite: lines 128-129 (\"Skipping this file is not cosmetic: it necessarily contains every pattern it searches for, so including it guarantees a self-match\") and line 153 (\"Skipping the pattern-list lines themselves, now that the file is in scope\"). Neither describes any code — `list_scan_targets` has no exclusion and the loop has no filter. In a security script this is worse than ordinary comment rot: the surviving comment asserts a self-match is guaranteed, which invites the next maintainer to re-add the exclusion and reintroduce the blind spot lines 98-109 were written to close.",
       "file": "scripts/scan-secrets.sh",
       "line": 128,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Stale comments claim the scanner skips itself, contradicting the code and the comment above"
+      "summary": "Stale comments claim the scanner skips itself, contradicting the code above them"
     },
     {
       "category": "code-smell",
-      "detail": "The comment added at lines 19-21 states `No baseUrl: it is deprecated in TS 6 and removed in 7` and explains that `paths` resolves relative to the config file when baseUrl is absent — but line 18 sets `\"baseUrl\": \".\"`, and the pre-existing TD-001 comment immediately above it explains why that setting is needed. Two adjacent comments now contradict each other and one contradicts the config. Whoever reads this next either removes a `baseUrl` the TD-001 note says is load-bearing, or spends time working out which comment is stale. Zero runtime impact today — `baseUrl: \".\"` and an absent baseUrl resolve `./node_modules/@e965/xlsx` identically from the repo root.",
+      "detail": "Carried over — recorded in the previous round and still present. The comment added at lines 19-21 states \"No baseUrl: it is deprecated in TS 6 and removed in 7\" and explains that `paths` resolves relative to the config file when baseUrl is absent — but line 18 sets `\"baseUrl\": \".\"`, and the pre-existing TD-001 comment immediately above (lines 15-17) explains why the alias block is needed. Two adjacent comments now contradict each other, and one contradicts the config it annotates. The next reader either deletes a setting the TD-001 note implies is load-bearing, or spends time working out which comment is stale. No runtime impact today: `baseUrl: \".\"` and an absent baseUrl resolve `./node_modules/@e965/xlsx` identically from the repo root.",
       "file": "tsconfig.json",
       "line": 19,
       "severity": "low",
       "suggested_fix": null,
       "summary": "New comment says \"No baseUrl\" directly below `\"baseUrl\": \".\"`"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`if (e.name.startsWith('.') && e.name !== '.githooks') continue;` carves out `.githooks` from the dotfile skip, but the only files `walkSources` collects are those whose extension is in `SOURCE_EXT` (`.ts` / `.tsx`, line 357). `.githooks/pre-push` — the sole entry, added in this PR — has no extension, so descending into the directory yields nothing and the exception has no effect on `architecture.json`. Not a defect; flagging it because the special case reads as intentional coverage of the hooks directory, and a later reader may assume hooks are counted in the architecture snapshot when they are not.",
-      "file": "scripts/lib/collectors.mjs",
-      "line": 352,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "The `.githooks` exception in walkSources can never match anything"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 7
+  "total": 9
 }

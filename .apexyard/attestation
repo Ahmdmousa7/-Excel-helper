@@ -1,12 +1,12 @@
 apexyard-review-attestation v1
-digest sha256:dafe5ddb1b5c47019ce53d9f5715fcd939edb62feeb0660c0bcf3ed93eeed1ab
+digest sha256:15ed3194d3332501e669bd27133044a16bc935d13c97a8255e15a6a98fcc8df9
 --
 scope origin/main...HEAD
-head 50fe628639e85882b7ea39bd737dfbac64fd7645
+head 4f473d1993ffffb3e5cc9abad421a7f2c7a1ccd0
 model claude-opus-5
 gate high
 verdict COMMENT
-findings critical=0 high=2 medium=0 low=4 info=1
+findings critical=0 high=0 medium=3 low=6 info=0
 files 35
 f902f46e7c487caac44bd40880e9f83f33b8381a .gitattributes
 4e859d3317a41d76ac09815f5ceb4a4aace49196 .githooks/pre-push
@@ -20,18 +20,18 @@ f03f28160b7c15cb502724921bb00fad00651fc4 docs/APEXYARD.md
 b77b1dc214a44d51f769ae5b2495237bab4244eb docs/adr/ADR-0003-engineering-evidence-bundle.md
 b2b25673cc40c7e07902119eec10493589a799b7 docs/quality/architecture-review-2026-08-03.md
 eda56b531d50ba3715a4548d2725274c5c1dabe7 docs/quality/tech-debt-register.md
-49be001ab54ea97fbd9f4ee1ef322d234d82886d e2e/accessibility.spec.ts
+7e298fa5883aab9f2c3123deea547e9297532b75 e2e/accessibility.spec.ts
 e6754039df86c6108c24328f709e48e0cfb3bc4d eslint.config.js
 2a2526ce44476e2075b851a8c528df3a13d7a5a8 package.json
 054f2dc27d1d9ca897f87c0ef95ed0cfa234400d playwright.config.ts
 35a9022615145d2b3160f633936f91bbade8f133 scripts/attest-review.mjs
 b8844f32c36bc19c2af5c2a0dd6d7012072f397e scripts/check-bundle-budget.mjs
-63abb95775ff89571c6304a94a214c63540acaa7 scripts/evidence.mjs
+3c19a255982fb3bb5b82976224b55e2a186e4505 scripts/evidence.mjs
 8a4c63efec66e69c5778305c60ef9488af9b6b35 scripts/install-hooks.mjs
 327c965e634c18f0fda9972090598c3a117dd524 scripts/lib/attestation.d.mts
 30868914dfede1c514015ffca8cdbbed34765949 scripts/lib/attestation.mjs
-1abba97c99c1861304f5d9497c58d8f3871927e4 scripts/lib/collectors.d.mts
-57f3e745fbaaba5258c0334693c054905880a3d3 scripts/lib/collectors.mjs
+41157ec239b30decd702d57fd6ef81631112d08f scripts/lib/collectors.d.mts
+5b8cff3fbeb130b430d7527838e88027fe710b98 scripts/lib/collectors.mjs
 d256bcff0b9e8c56c3c7c173866eb4172109dc06 scripts/lib/evidence.d.mts
 702e44c7c727e28b8c08ecf7ff11b7c1bb47c021 scripts/lib/evidence.mjs
 badcc0474eeb619a586c1b02f5f5a6fec28c9c96 scripts/review-local.sh
@@ -39,7 +39,7 @@ badcc0474eeb619a586c1b02f5f5a6fec28c9c96 scripts/review-local.sh
 46081bd51df1b651ea2661a9cd5fd428049f487f scripts/tests/test-attestation.sh
 c0c6e401d42b828ea503022778e20eb304cb2ef1 scripts/tests/test-evidence.sh
 62c3fda83d1ee6df07fb8c7dede625648cc03b6a scripts/verify-evidence.mjs
-74c4b39068b2a55183c6368a1c30fd1081b87ecb scripts/verify-local.sh
+84d8d469653d8fbfe70ba59865e145a93f765796 scripts/verify-local.sh
 37cbb56ff30abec63dbcf32a1ff5c51a9137e51c tests/unit/attestation.test.ts
-02ef84f10523874a2da23bd7cfcf1397d05cb919 tests/unit/evidence.test.ts
+b38ca47b8fa0b2caf5801f7a506768e04c58119f tests/unit/evidence.test.ts
 c25e55efd4c730419d1483306e9d1e6c33c568e4 tsconfig.json

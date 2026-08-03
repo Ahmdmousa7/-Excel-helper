@@ -1,7 +1,7 @@
 {
-  "attestation_id": "sha256:dafe5ddb1b5c47019ce53d9f5715fcd939edb62feeb0660c0bcf3ed93eeed1ab",
+  "attestation_id": "sha256:15ed3194d3332501e669bd27133044a16bc935d13c97a8255e15a6a98fcc8df9",
   "authoritative_source": "attestation",
-  "digest": "sha256:dafe5ddb1b5c47019ce53d9f5715fcd939edb62feeb0660c0bcf3ed93eeed1ab",
+  "digest": "sha256:15ed3194d3332501e669bd27133044a16bc935d13c97a8255e15a6a98fcc8df9",
   "file_count": 35,
   "files": [
     {
@@ -53,7 +53,7 @@
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "49be001ab54ea97fbd9f4ee1ef322d234d82886d",
+      "oid": "7e298fa5883aab9f2c3123deea547e9297532b75",
       "path": "e2e/accessibility.spec.ts"
     },
     {
@@ -77,7 +77,7 @@
       "path": "scripts/check-bundle-budget.mjs"
     },
     {
-      "oid": "63abb95775ff89571c6304a94a214c63540acaa7",
+      "oid": "3c19a255982fb3bb5b82976224b55e2a186e4505",
       "path": "scripts/evidence.mjs"
     },
     {
@@ -93,11 +93,11 @@
       "path": "scripts/lib/attestation.mjs"
     },
     {
-      "oid": "1abba97c99c1861304f5d9497c58d8f3871927e4",
+      "oid": "41157ec239b30decd702d57fd6ef81631112d08f",
       "path": "scripts/lib/collectors.d.mts"
     },
     {
-      "oid": "57f3e745fbaaba5258c0334693c054905880a3d3",
+      "oid": "5b8cff3fbeb130b430d7527838e88027fe710b98",
       "path": "scripts/lib/collectors.mjs"
     },
     {
@@ -129,7 +129,7 @@
       "path": "scripts/verify-evidence.mjs"
     },
     {
-      "oid": "74c4b39068b2a55183c6368a1c30fd1081b87ecb",
+      "oid": "84d8d469653d8fbfe70ba59865e145a93f765796",
       "path": "scripts/verify-local.sh"
     },
     {
@@ -137,7 +137,7 @@
       "path": "tests/unit/attestation.test.ts"
     },
     {
-      "oid": "02ef84f10523874a2da23bd7cfcf1397d05cb919",
+      "oid": "b38ca47b8fa0b2caf5801f7a506768e04c58119f",
       "path": "tests/unit/evidence.test.ts"
     },
     {
@@ -147,15 +147,15 @@
   ],
   "findings_by_severity": {
     "critical": 0,
-    "high": 2,
-    "info": 1,
-    "low": 4,
-    "medium": 0
+    "high": 0,
+    "info": 0,
+    "low": 6,
+    "medium": 3
   },
   "gate": "high",
   "model": "claude-opus-5",
   "note": "Mirror of the canonical text manifest. The digest below is computed over that manifest, not over this file.",
-  "reviewed_at_commit": "50fe628639e85882b7ea39bd737dfbac64fd7645",
+  "reviewed_at_commit": "4f473d1993ffffb3e5cc9abad421a7f2c7a1ccd0",
   "schema": "apexyard.evidence.attestation/1",
   "scope": "origin/main...HEAD",
   "verdict": "COMMENT"
