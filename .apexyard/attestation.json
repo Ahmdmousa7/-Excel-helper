@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:2bf67778eba2cb90c8cc9cf58f9947dfba613568ce16cd85bd25d94cc3b43161",
+  "attestation_id": "sha256:5ff063f42017f567b4793d1001268a81af8958e515c33fc0e42a9104ef9c697c",
   "files": [
     {
       "oid": "1c32a7cfba76441ccb79bcfe4fb701e0073b1a54",
@@ -30,8 +30,16 @@
       "path": "docs/quality/architecture-review-2026-08-03.md"
     },
     {
-      "oid": "a8be00eb0d2738506f0f00f2ba504be038f2637a",
+      "oid": "2cd5dd9dd77c2de7ea9823999bb6f01d4d309dfb",
       "path": "docs/quality/tech-debt-register.md"
+    },
+    {
+      "oid": "6c26e9622a2161be7d40d18f3090b40244a6452e",
+      "path": "e2e/live/deployment.spec.ts"
+    },
+    {
+      "oid": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "path": "public/.nojekyll"
     },
     {
       "oid": "bd25bd47d1ccf4db9e9f9051dd91f9887047b864",
@@ -81,14 +89,14 @@
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 1,
-    "medium": 0
+    "info": 0,
+    "low": 3,
+    "medium": 3
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "554cebe6ee2fd002849accc421ca41230e7260bf",
+  "reviewed_at_commit": "be863e026c5567d44c649fd15d4f5ff65e5149df",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "APPROVED"
+  "verdict": "COMMENT"
 }

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:2bf67778eba2cb90c8cc9cf58f9947dfba613568ce16cd85bd25d94cc3b43161` |
+| Attestation id | `sha256:5ff063f42017f567b4793d1001268a81af8958e515c33fc0e42a9104ef9c697c` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `554cebe6ee2f` |
+| Reviewed at commit | `be863e026c55` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **APPROVED** |
-| Files reviewed | 19 |
+| Verdict | **COMMENT** |
+| Files reviewed | 21 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
-| low | 1 |
-| info | 1 |
+| medium | 3 |
+| low | 3 |
+| info | 0 |
 
-Makes `.apexyard/attestation.json` the single canonical attestation artifact and deletes the text manifest plus its JSON mirror (ADR-0004). The digest rule becomes `sha256(canonicalJson(artifact minus attestation_id))`, verifier rule 2 collapses from a two-file cross-check into a self-check, `file_count`/`digest` are dropped as redundant, the schema goes /1 → /2, and `allowed_signers` becomes one shared constant instead of a hardcoded path in the generator. I traced every renamed path (`attestation.json.sig`, `.gitattributes`, CI step 6, both shell suites, both CLIs) and found no dangling reference to the retired file, no dead exports left behind, and no gap where the removed mirror rule used to catch something the new self-check plus `isCanonical()` does not. Two minor observations only; the migration is coherent and well-tested (50 unit cases in attestation.test.ts, matching the count the docs claim).
+This PR completes the ADR-0004 migration that makes `.apexyard/attestation.json` the single canonical attestation artifact, collapses two verifiers into `verify-evidence.mjs`, adds `.d.mts` type shims plus two vitest suites and two end-to-end shell suites, wires the bundle check into CI as a hard gate, and ships `public/.nojekyll` with a live-deployment Playwright suite that crawls the static module graph. The work is unusually careful — the digest-over-self rule, the bundle self-exclusion fixed point, the not-run-is-not-passing invariant, and the CRLF/byte-ordering edges all have tests, and the ADRs and tech-debt register are kept in step with the code. No blocking-handbook violations: both blocking handbooks (`frontend-boundaries`, `security-baseline`) scope to `components/`/`services/`/`utils/` and shipped client code, none of which this diff touches; no secrets, no injection vector (every `execFileSync` uses an argv array, never a shell), and no `any`, `@ts-ignore`, or untracked TODO was added. Six non-blocking findings, all in the new verification and deploy-test machinery: two Medium gaps where a check does less than its own comments claim, and four Low.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 86 source files, 25350 lines
+- 86 source files, 25417 lines
 - Layering violations: **0**
 - Files over 800 lines: **9**
 - Probable duplicate implementations: **1**

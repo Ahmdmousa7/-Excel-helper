@@ -1,33 +1,69 @@
 {
-  "attestation_id": "sha256:2bf67778eba2cb90c8cc9cf58f9947dfba613568ce16cd85bd25d94cc3b43161",
+  "attestation_id": "sha256:5ff063f42017f567b4793d1001268a81af8958e515c33fc0e42a9104ef9c697c",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 1,
-    "medium": 0
+    "info": 0,
+    "low": 3,
+    "medium": 3
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "The \"how to enable signing later\" hint is a bash one-liner — it uses `printf`, `$(git config user.email)`, and `>>`. Interpolating `join(bundleDir, SIGNERS_FILE)` into it emits `.apexyard\\allowed_signers` on win32, where the backslash is a shell escape, so pasting the command appends to `.apexyardallowed_signers`. This repo is developed on Windows, so the broken form is the one the maintainer actually sees. `DEFAULT_OUT` on line 31 already builds its bundle-relative path with a `/` template literal, so the two are inconsistent about the same kind of path.",
-      "file": "scripts/attest-review.mjs",
-      "line": 219,
-      "severity": "low",
+      "category": "architecture",
+      "detail": "`gateSatisfied` checks two things — gate strictness and per-severity counts — and deliberately documents both. It never looks at `fields.verdict`, and neither does `verify-evidence.mjs` anywhere in rules 1-6 or the cross-artifact block. So an attestation carrying `\"verdict\": \"REQUEST_CHANGES\"` passes CI as long as `high` and `critical` are zero, which is reachable: a reviewer can return `request_changes` on a blocking-handbook or medium finding, and `scripts/review-local.sh` gates only on `--fail-on <severity>` (line 29/142), never on the verdict. `attest-review.mjs:93` widens the hole at the other end — `String(review.verdict || 'unknown').toUpperCase()` turns a review JSON with no verdict field into `\"UNKNOWN\"` and attests it without complaint. Meanwhile both summaries present the value as a result: `verify-evidence.mjs:357` prints `| Verdict | \\`...\\` |` in the CI job summary and `evidence.mjs:254` prints `| Verdict | **...** |` in bold. A field that is displayed as a gate outcome and enforced by nothing is the same shape of problem the ADRs repeatedly refuse — an unenforced convention dressed as a control.",
+      "file": "scripts/lib/attestation.mjs",
+      "line": 384,
+      "severity": "medium",
       "suggested_fix": null,
-      "summary": "path.join() renders a backslash into a POSIX shell command the user is told to paste"
+      "summary": "The recorded verdict is rendered as authoritative but gates nothing"
     },
     {
-      "category": "architecture",
-      "detail": "`checkArtifact()` runs `findNonDeterministic()` over every entry in `REQUIRED_ARTIFACTS`, and `attestation.json` is now in that list — so a date-shaped value or a time-like key in the attestation fails verification. Before this change the mirror was built through `envelope()`, which called `assertDeterministic()` and therefore rejected the same content at generation time with a precise message. `buildAttestation()` does not, so that class of input now produces a valid-looking local write and surfaces one step later (pre-push hook or CI) as `attestation.json contains non-reproducible content`. The trigger is remote — it needs a tracked path or field value that both matches `^\\d{4}-\\d{2}-\\d{2}` and parses as a date, e.g. a file literally named `2026-08-03` — and the pre-push hook still catches it before it leaves the machine, which is why this is an observation rather than a request. What would raise it: if the generator's output ever reached CI without `verify-evidence.mjs` running locally first. Worth noting mainly because \"one rule, enforced in one place\" is the invariant this file has twice been bitten by (`isBundlePath`, and `allowed_signers` in the commit right above this one), and the generator/verifier asymmetry is the same shape.",
-      "file": "scripts/lib/attestation.mjs",
-      "line": 226,
-      "severity": "info",
+      "category": "security",
+      "detail": "`const identity = signers.split('\\n')[0].split(/\\s+/)[0];` takes the principal from the first non-comment line of `allowed_signers` and passes it as `ssh-keygen -Y verify -I <identity>`. `-I` is the *expected* signer, so the verify succeeds only if the signature was made by that one key. With two keys registered, contributor B's genuinely valid signature fails and the job reports `signature did not verify for A@example.com` — a message that reads as tampering when the actual cause is a second entry in the file. That is a hard-gate failure on a correct push, and it lands exactly at the moment the feature is meant to start paying off: `scripts/attest-review.mjs:180-183` says signing \"matters the moment a second contributor appears, which is TD-027's revisit trigger\". `scripts/tests/test-attestation.sh:229` registers exactly one signer, so nothing in the suite exercises the multi-signer path. Kept at Medium rather than High because the repo is single-maintainer today and the signers file is currently absent, so no build fails yet; it becomes High the day a second key is added.",
+      "file": "scripts/verify-evidence.mjs",
+      "line": 322,
+      "severity": "medium",
       "suggested_fix": null,
-      "summary": "The verifier enforces the determinism guard on attestation.json; the producer no longer does"
+      "summary": "Signature verification only ever accepts the first registered signer"
+    },
+    {
+      "category": "testing",
+      "detail": "`SPECIFIER` is `/(?:from|import\\s*\\()\\s*[\"']([^\"']+\\.js)[\"']/g` and the comment above it claims it matches \"every form Vite emits for a chunk-to-chunk edge\". It does not match a bare side-effect import — `;import\"./x.js\"` — which requires neither `from` nor `(`. I checked the committed build: `dist/assets/` contains that exact form in 28 chunks, and the specifier it points at is `_commonjs-dynamic-modules-TDtrdbi3.js`, i.e. the very chunk whose Pages 404 this test was written to catch (`;import\"./_commonjs-dynamic-modules-TDtrdbi3.js\"` in `CleanTool-DkIXRHPi.js`, `VariableBalanceTabV2-Bwa_Ewr7.js`, and 24 others). Today the crawl still reaches it, but only incidentally: `xlsx.min--cr0b5JH.js` and `jszip.min-DE6liLEe.js` happen to also reference it with `from`, and those two are themselves reachable via `from`. Any chunk that becomes side-effect-only — a rollup chunking change, a new CSS-importing or polyfill chunk — has its only inbound edge in the unmatched form, and the crawl walks straight past it while `seen.size > 20` still passes (there are 82 chunks). The failure mode is a green live suite over a site where a tool cannot open, which is precisely the outage this test exists to prevent, and the comment asserting full coverage is what stops a future reader from re-checking.",
+      "file": "e2e/live/deployment.spec.ts",
+      "line": 116,
+      "severity": "medium",
+      "suggested_fix": null,
+      "summary": "Module-graph crawl misses bare side-effect imports, the form that broke the deploy"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`const bundleDir = dirname(opt.out);` then feeds `isBundlePath(path, bundleDir)` at line 136. For any `--out` with no directory component — `--out attestation.json` — `dirname` returns `'.'`, and `isBundlePath(p, '.')` is `p === '.' || p.startsWith('./')`, which no `git diff --name-status` path ever satisfies. The exclusion becomes a no-op and every changed bundle artifact is pulled back into the attested scope. That is the exact defect the comment three lines above warns about — \"the two High findings that came from this rule living in two files and disagreeing. Do not reintroduce a local exclusion list here\" — reachable through a CLI flag instead of a duplicated list, and it reintroduces the no-fixed-point state that `scripts/tests/test-evidence.sh:260-292` was written to lock down (that case uses the default `--out`, so it does not cover this). Low because every caller in the repo uses the default; the cost of the guard is three lines.",
+      "file": "scripts/attest-review.mjs",
+      "line": 132,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "bundleDir derived from --out silently disables the bundle self-exclusion"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`comparePathsBytewise` (line 144) gets a dedicated export, a nine-line doc comment explaining why UTF-16 `Array.sort()` is wrong, and its own unit test, all justified by \"the producer defines the order of `files`, and it has to be an order a verifier using different tools reproduces\". Nothing verifies it. `buildAttestation` sorts on the way out, but `parseAttestation` only checks shape, uniqueness, and OID format; `attestationDigest` re-serialises the parsed object and `canonicalJson` leaves arrays alone, so an out-of-order `files` array produces a self-consistent digest and also passes `isCanonical`. A second producer — the case the adjacent comment at line 315-322 says is \"the next producer is the one that gets it wrong\" — can therefore emit an attestation in any order and be accepted, and the reimplementation guidance in the header becomes untestable folklore. No security impact: the coverage and binding rules operate on the set, not the sequence, which is why this is Low.",
+      "file": "scripts/lib/attestation.mjs",
+      "line": 331,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "parseAttestation never checks the bytewise file ordering it documents as a contract"
+    },
+    {
+      "category": "testing",
+      "detail": "`await page.goto('./', { waitUntil: 'networkidle' }).catch(() => undefined)` appears at lines 58, 180, and 198. If the navigation fails outright — DNS, TLS, a CDN 5xx, a networkidle timeout — the rejection is discarded, the test proceeds, and the assertions that follow are checking empty collectors: `expect(w.notFound).toEqual([])` and `expect(w.consoleErrors).toEqual([])` both pass trivially because nothing was ever observed. Three of the eleven live checks would report green against a site that never responded. The blast radius is limited — `the homepage serves a 200 with HTML` and `React mounts and replaces the static loading shell` do assert on the response and would fail — so this is Low rather than a real hole, but it is the same 'absence reads as success' pattern that `verify-evidence.mjs:248-261` and the collectors were explicitly built to close, and it is running unguarded in the post-deploy gate.",
+      "file": "e2e/live/deployment.spec.ts",
+      "line": 58,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Swallowed navigation failures make three live assertions vacuous"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 6
 }

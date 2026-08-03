@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:2bf67778eba2cb90c8cc9cf58f9947dfba613568ce16cd85bd25d94cc3b43161",
+  "attestation_id": "sha256:5ff063f42017f567b4793d1001268a81af8958e515c33fc0e42a9104ef9c697c",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -104,7 +104,7 @@
       },
       {
         "budget_kb": 1700,
-        "gzip_kb": 1427.9,
+        "gzip_kb": 1428,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 84
