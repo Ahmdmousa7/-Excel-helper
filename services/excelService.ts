@@ -118,10 +118,15 @@ export const getSheetData = (workbook: any, sheetName: string, raw: boolean = fa
     // for every one of them — 800k allocations on the 40k-row sheet the e2e suite
     // already exercises.
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+
+    // Sized to the WIDEST row, not to `data[0]`. `defval: ""` makes every row the
+    // full range width today, so the two agree — but that is SheetJS's invariant,
+    // not this function's, and a short `colRefs` would silently stop correcting
+    // the overhanging columns rather than fail.
+    let width = 0;
+    for (const row of data) if (row.length > width) width = row.length;
     const colRefs: string[] = [];
-    for (let c = 0; c < (data[0]?.length ?? 0); c++) {
-      colRefs.push(XLSX.utils.encode_col(range.s.c + c));
-    }
+    for (let c = 0; c < width; c++) colRefs.push(XLSX.utils.encode_col(range.s.c + c));
 
     for (let r = 0; r < data.length; r++) {
       const rowRef = String(range.s.r + r + 1);

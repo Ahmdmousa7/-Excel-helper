@@ -120,6 +120,17 @@ export function plainNumberString(n: number): string {
  * notation. A *text* cell whose content is literally "1.23E+12" is deliberately
  * left alone — those digits are already gone in the file, and expanding them
  * would invent zeros, which is the same corruption one layer up.
+ *
+ * A deliberate limit: this cannot tell Excel's automatic General-format switch at
+ * 12 digits (the bug) from a column someone formatted `0.00E+00` on purpose (a
+ * choice). Both are corrected, and that is the intended answer for this app —
+ * these sheets carry barcodes, SKUs and prices, the request that prompted the fix
+ * was "I need scientific notation to be a number normally, as is", and a
+ * scientific-formatted barcode column is far more likely to be Excel helping than
+ * a user choosing. Distinguishing them would mean reading `cell.z`, and a cell
+ * whose format is General carries no `z` at all — so the signal is absent exactly
+ * where it would be needed. If a genuine scientific-notation use case turns up,
+ * that is the trade to revisit.
  */
 export function scientificNumberOverride(cell: SheetCell | null | undefined): string | null {
   if (!cell || cell.t !== 'n') return null;

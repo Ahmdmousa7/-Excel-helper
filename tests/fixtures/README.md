@@ -12,10 +12,13 @@ displays a specific value, so a real file you can open in Excel and see the
 behaviour in is worth 18 KB.
 
 `makeScientificNotationXlsx()` in `e2e/helpers/makeFiles.ts` builds the same
-content in code — verified cell-for-cell identical — so the content is defined
-once somewhere a reviewer can read it in a diff. Nothing imports that builder
-yet; the unit suite loads this file. It is there for an upload-driven e2e test to
-use, not because one exists.
+content in code, so it is defined once somewhere a reviewer can read it in a
+diff. `tests/unit/excelServiceCellValues.test.ts` asserts the builder's output
+equals this file sheet for sheet — a continuous check, not a one-time one, so
+neither form can drift from the other.
+
+No e2e spec uploads the builder yet; the unit suite loads this file. It is there
+for an upload-driven test to use, not because one exists.
 
 ---
 

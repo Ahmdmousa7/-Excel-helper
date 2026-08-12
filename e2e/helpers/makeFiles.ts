@@ -84,10 +84,13 @@ export function makeFakeImage(name = 'photo.png'): MadeFile {
  *
  * The same content is committed as
  * `tests/fixtures/scientific-notation-barcodes.xlsx`, which is what the unit
- * suite loads and what you open to see the behaviour in Excel. **No spec imports
- * this builder yet.** It exists so the content is defined once in a form a
- * reviewer can read in a diff, and so an upload-driven e2e test can be written
- * without reaching for the binary — not because anything currently does.
+ * suite loads and what you open to see the behaviour in Excel.
+ *
+ * `tests/unit/excelServiceCellValues.test.ts` imports this builder and asserts
+ * its output equals that fixture sheet for sheet, so the two forms cannot drift.
+ * **No e2e spec uploads it yet** — it is here so the content is defined once
+ * where a reviewer can read it in a diff, and so an upload-driven test can be
+ * written without reaching for the binary.
  */
 export function makeScientificNotationXlsx(name = 'scientific-barcodes.xlsx'): MadeFile {
   const rows: (string | number)[][] = [
