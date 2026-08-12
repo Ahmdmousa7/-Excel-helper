@@ -1,15 +1,15 @@
 {
-  "attestation_id": "sha256:656ca6128222673c47284004dd8afef3ee9d9fa77488b164f042a84c13da29cb",
+  "attestation_id": "sha256:32bbafb4dd8c2f74de17a7d086af1a9d154ff39ad4fe98561b409a2e4a707207",
   "audit": {
     "blocking_advisories": [],
     "critical": 0,
     "high": 0,
     "info": 0,
     "low": 0,
-    "moderate": 0,
+    "moderate": 1,
     "passed": true,
     "scope": "production dependencies only (--omit=dev)",
-    "total": 0
+    "total": 1
   },
   "available": true,
   "development_count": 23,

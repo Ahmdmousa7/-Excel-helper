@@ -1,8 +1,8 @@
 {
-  "attestation_id": "sha256:656ca6128222673c47284004dd8afef3ee9d9fa77488b164f042a84c13da29cb",
+  "attestation_id": "sha256:32bbafb4dd8c2f74de17a7d086af1a9d154ff39ad4fe98561b409a2e4a707207",
   "available": true,
   "by_impact": {
-    "critical": 6,
+    "critical": 5,
     "minor": 0,
     "moderate": 0,
     "serious": 13
@@ -10,7 +10,7 @@
   "by_rule": {
     "button-name": {
       "impact": "critical",
-      "nodes": 6,
+      "nodes": 5,
       "pages": [
         "the Compare Files tool",
         "the QR tool",
@@ -45,5 +45,5 @@
   "schema": "apexyard.evidence.accessibility/1",
   "standard": "WCAG 2.2 AA (axe-core)",
   "unexpected_rules": [],
-  "violations_total": 19
+  "violations_total": 18
 }

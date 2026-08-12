@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:656ca6128222673c47284004dd8afef3ee9d9fa77488b164f042a84c13da29cb` |
+| Attestation id | `sha256:32bbafb4dd8c2f74de17a7d086af1a9d154ff39ad4fe98561b409a2e4a707207` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `e83f5c515a2a` |
+| Reviewed at commit | `f06f23df1b52` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 5 |
+| Files reviewed | 9 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
-| info | 1 |
+| low | 2 |
+| info | 2 |
 
-This PR finishes the post-ADR-0005 hardening of the Project Summary template loader: it extracts `FieldDef`/`FieldCondition` and their runtime guards out of the 800-line tab into a testable `utils/projectSummarySchema.ts`, widens `FieldCondition.value` to optional/nullable so a legitimately valueless condition no longer causes the whole saved template to be discarded, stops `(undefined)` leaking into exported CSV/XLSX/PDF, and adds 23 unit tests that deliberately assert both directions (reject what crashes, accept everything the app writes). The `package.json` change is script-only (`build:e2e` drops a now-vestigial `--mode e2e`), so the absent lockfile change is correct, and the ADR edit resolves a self-contradiction about TD-026. I verified the widened `value` type still narrows correctly at every consumer (`ProjectSummaryTab.tsx:253`, `:256`, `:322`, `:700`, `:711`, `:732`) — no new `any`, no unchecked assertion, and the extraction moves logic in the handbook-sanctioned direction (`components/` → `utils/`, with `utils/` importing nothing). Two non-blocking observations below; nothing here should hold the merge.
+This PR fixes TD-038: `getSheetData(…, raw:false)` returned SheetJS's display text `w`, so Excel's 12-digit scientific switch turned long barcodes into rounded values that still looked like barcodes. The fix is a narrow per-cell override in the new `utils/cellText.ts` (only `t:'n'` cells whose `w` is scientific are replaced, from `cell.v`), plus a hand-rolled exponent expander that removes the locale- and rounding-dependent `toLocaleString('fullwide', …)` call. I verified the override's decline-list against every cell class it claims to leave alone, checked `expandExponential` in both directions (1e21, 1e-7, negatives, 5e300 all round-trip), and confirmed the `data[r][c] → colRefs[c]+rowRef` mapping is correct for `header:1` (SheetJS indexes those rows relative to `range.s.c`/`range.s.r`, and `blankrows` defaults to true for `header:1`, so rows stay aligned). No blocking-handbook violations: `services/` → `utils/` is the allowed direction, `utils/cellText.ts` imports nothing, no new `any`, no new dependency or top-level directory. Four advisory notes below, none merge-blocking.
 
 ## Quality gates
 
@@ -41,18 +41,18 @@ This PR finishes the post-ADR-0005 hardening of the Project Summary template loa
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 605 warning(s) |
-| Vitest | pass | 158/158 passed, lines 96.37% |
+| Vitest | pass | 201/201 passed, lines 95.98% |
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | pass | 19 violation node(s) |
+| Accessibility | pass | 18 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 85 source files, 25487 lines
+- 88 source files, 26099 lines
 - Layering violations: **0**
 - Files over 800 lines: **9**
 - Probable duplicate implementations: **1**

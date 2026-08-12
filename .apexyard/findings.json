@@ -1,33 +1,51 @@
 {
-  "attestation_id": "sha256:656ca6128222673c47284004dd8afef3ee9d9fa77488b164f042a84c13da29cb",
+  "attestation_id": "sha256:32bbafb4dd8c2f74de17a7d086af1a9d154ff39ad4fe98561b409a2e4a707207",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 1,
+    "info": 2,
+    "low": 2,
     "medium": 0
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "Commit e83f5c5 adopted `c.value == null` on the stated principle \"reject what breaks, tolerate what the runtime already handles\" — an explicit `null` is indistinguishable from absent at every consumer, so rejecting it discarded the user's whole template. The three sibling optional fields did not get the same treatment: `isMultiline`, `condition`, and `conditions` are all checked with `=== undefined`, so an explicit `null` on any of them fails `isFieldDef`, which fails `isFieldDefArray`, which throws away the entire saved template and resets to `INITIAL_FIELDS`. Every one of those nulls is already handled at runtime: `isFieldVisible` does `f.conditions || (f.condition ? [f.condition] : [])` (ProjectSummaryTab.tsx:244) — both nulls are falsy and fall through correctly — and `isMultiline` is only ever read for truthiness. This is the same over-rejection data-loss shape the PR just fixed, one field over. Severity is low rather than medium because no current write path produces those nulls: `addCondition` writes `{ fieldId: '', value: '' }` and `removeCondition` writes `[]`, never `null`. It would be medium if a hand-edited localStorage entry, an older build, or a future serializer that emits explicit nulls were in scope — the blast radius when it does trigger is total loss of the user's template, which is the failure mode the test file itself calls the more dangerous one.",
-      "file": "utils/projectSummarySchema.ts",
-      "line": 84,
+      "category": "technical-debt",
+      "detail": "The register entry names the `toLocaleString('fullwide', { useGrouping: false })` rounding trap as the second defect and marks TD-038 closed as of 2026-08-04, and the commit body for 3e2f54f states the guarantee as \"zero Intl calls in the read path\" — checkable by grep. Grep does not agree once you leave `services/`: `components/DuplicatesTab.tsx:45` applies it to *every* number while building dedupe keys, `components/DuplicatesTab.tsx:51` to every scientific-looking string, and `components/FileValidationTab.tsx:271` inside `expandScientific`, which is the tool that advertises \"Scientific Notation → Full Number\" to the user. Both carry the identical pair of defects the entry describes: `maximumFractionDigits` defaults to 3, so a dedupe key for 1234.5678 becomes \"1234.568\", and on an `ar-*` default locale the digits come back Arabic-Indic. That also makes the entry's \"`raw:true` callers — Compare, Merge, Dedupe, Duplicates, Clean — were never exposed\" true only of the `getSheetData` path: Duplicates was exposed to the rounding defect through its own copy. This PR series has twice corrected claims that grep falsified, which is why it is worth naming here rather than shrugging at — a register that overstates a closure is the artifact people plan from. The fix in `services/excelService.ts` itself is correct and complete for the path it covers; only the scope of the closure statement is wrong.",
+      "file": "docs/quality/tech-debt-register.md",
+      "line": 49,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "`== null` tolerance applied to `value` but not to its sibling optional fields"
+      "summary": "TD-038 marked Closed, but three `fullwide` call sites are still live"
+    },
+    {
+      "category": "testing",
+      "detail": "`services/excelService.ts:147-152` documents a second, intentional behaviour change: the old loop ran `Number()` over *string* cells matching scientific notation, so a text cell holding \"1.23E+12\" reached Compare/Merge/Dedupe/Duplicates/Clean as \"1230000000000\", and that branch is now gone in both modes. The reasoning is right (those digits are already lost at rest, expanding them invents zeros), but nothing in the 21 new tests asserts it. The fixture has no text cell containing scientific notation — column C holds plain digit strings — so the only guard on this change is the comment. That matters more than a normal coverage gap because the change is user-visible at 23 call sites across 12 modules and moves in the opposite direction from the rest of the PR: the value the user sees goes from a long number to a visibly scientific string. A future reader who reads only the tests will see nothing distinguishing \"deliberate\" from \"lost in the rewrite\" and may re-add the branch.",
+      "file": "tests/unit/excelServiceCellValues.test.ts",
+      "line": 191,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "The deliberate removal of the string-scientific branch has no test pinning it"
     },
     {
       "category": "code-smell",
-      "detail": "Observation, not a request — the `else` branch and the surrounding `catch` predate this PR's base, so this is outside what the diff adds and I am not asking for it here. Noting it because the PR's own subject is exactly this recovery path: when `isFieldDefArray(parsed)` returns false, the user's customised template is replaced by `INITIAL_FIELDS` and the only signal is `console.error` in a devtools panel they will not have open. From the user's seat that is indistinguishable from \"the app forgot my template.\" The PR correctly identifies over-rejection as the dangerous direction and has now narrowed it substantially, but the residual case is still silent, and the raw string is still sitting in `localStorage` unread at that moment.",
-      "file": "components/ProjectSummaryTab.tsx",
-      "line": 62,
+      "detail": "`colRefs` is deliberately sized to the widest row rather than `data[0]`, with a comment explaining that full-width rows are \"SheetJS's invariant, not this function's\". The very next line takes the corresponding dependency on the row axis: `rowRef = String(range.s.r + r + 1)` assumes `data[r]` is the r-th row of the range, which holds only because `blankrows` defaults to true for `header: 1`. I checked that it does, so this is correct today and not a bug — but the failure mode is the asymmetric one: a short `colRefs` merely stops correcting (safe, as the commit body notes), whereas a dropped blank row shifts every subsequent `rowRef` up by one and applies a barcode correction to the wrong row. Worth a sentence given the care spent on the column axis two lines above.",
+      "file": "services/excelService.ts",
+      "line": 132,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Rejected template falls back to defaults with only a console message"
+      "summary": "Row-index→`rowRef` mapping leans on the SheetJS invariant the width guard refuses to lean on"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "The docstring promises plain decimal digits \"without losing precision\" and closes with \"the digits come from the double itself\", which is exactly right — and is also the ceiling. Above 2^53 the double no longer holds the digits: an 18-digit identifier stored as a number arrives as `v = 123456789012345678`, and `String(v)` yields \"123456789012345680\" — a plausible-looking wrong value, the failure class this module exists to eliminate, now one order of magnitude further out. Nothing here can fix that (the precision is gone in SheetJS's parse, before this function is reached), and it is out of range for the barcodes the module targets: GTIN-14 and 16-digit cases are all under 9.007e15 and are exactly representable, which the tests confirm. Raising this only because the surrounding docs are unusually careful about stating limits — `tests/fixtures/README.md` § \"A limit worth knowing\" covers already-corrupted files but not this one — and long order IDs are plausible input for the Salla and Zid tools.",
+      "file": "utils/cellText.ts",
+      "line": 102,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "`plainNumberString`'s contract has an unstated ceiling at 2^53"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 4
 }

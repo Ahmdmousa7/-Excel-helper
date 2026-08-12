@@ -1,37 +1,53 @@
 {
-  "attestation_id": "sha256:656ca6128222673c47284004dd8afef3ee9d9fa77488b164f042a84c13da29cb",
+  "attestation_id": "sha256:32bbafb4dd8c2f74de17a7d086af1a9d154ff39ad4fe98561b409a2e4a707207",
   "files": [
     {
-      "oid": "8627fde9f3cbcb6053235adc94e6d131f1952918",
-      "path": "components/ProjectSummaryTab.tsx"
+      "oid": "e450e95299c9e34ff84220d103abd353167f266f",
+      "path": ".gitattributes"
     },
     {
-      "oid": "4731d4a7d7357f2be735353fca4f4c3bacd20715",
-      "path": "docs/adr/ADR-0005-no-accounts-no-backend.md"
+      "oid": "6fb206fc489056b1c72ee56e672ee544c170fb1c",
+      "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "d4ebaef2941ca22a0456992cc8670211f7091a66",
-      "path": "package.json"
+      "oid": "124f99d71c43c001dfceeec571316895792bdaf1",
+      "path": "e2e/helpers/makeFiles.ts"
     },
     {
-      "oid": "bd2f2c2c12d0d68b1427d5cda12690c5183d0c61",
-      "path": "tests/unit/projectSummarySchema.test.ts"
+      "oid": "1638e9b189206d53ef77a53c8c891fc1fcfa53fd",
+      "path": "services/excelService.ts"
     },
     {
-      "oid": "b1f6a00594fc635460c570a871b5f91ed15cfe85",
-      "path": "utils/projectSummarySchema.ts"
+      "oid": "5e836b340195b48a9a4e5540f83a9e8f109f6a38",
+      "path": "tests/fixtures/README.md"
+    },
+    {
+      "oid": "5e7ef7a807b81b89272998d23188d9252dd6c5ef",
+      "path": "tests/fixtures/scientific-notation-barcodes.xlsx"
+    },
+    {
+      "oid": "ff4028d8c91e5a85fb4f80e9fb805b999aac0484",
+      "path": "tests/unit/cellText.test.ts"
+    },
+    {
+      "oid": "11a754e03c6e8715e3471c2fb61d5e1790512cfd",
+      "path": "tests/unit/excelServiceCellValues.test.ts"
+    },
+    {
+      "oid": "afaaba0bc83369f4a8132a6d80104ff5ac38912b",
+      "path": "utils/cellText.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 1,
+    "info": 2,
+    "low": 2,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "e83f5c515a2a6405625179dfd05ba7b2e1e9cdc4",
+  "reviewed_at_commit": "f06f23df1b52b4cf00f0c64b679652ea15fd1b5e",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"
