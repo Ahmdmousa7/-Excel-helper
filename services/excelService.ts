@@ -133,11 +133,18 @@ export const getSheetData = (workbook: any, sheetName: string, raw: boolean = fa
     return data;
   }
 
-  // RAW MODE — unchanged. Callers here (Compare, Merge, Dedupe, Duplicates,
-  // Clean) rely on numbers staying numbers for arithmetic and key building, and
-  // raw values never carry the scientific display text, so the corruption above
-  // cannot occur. The only guard needed is JavaScript's own switch to exponent
-  // form at 1e21, which would otherwise reach the UI as "1e+21".
+  // RAW MODE — numbers stay numbers, which is what Compare, Merge, Dedupe,
+  // Duplicates and Clean need for arithmetic and key building. Raw values never
+  // carry the scientific display text, so the corruption above cannot occur here;
+  // the only guard needed is JavaScript's own switch to exponent form at 1e21,
+  // which would otherwise reach the UI as "1e+21".
+  //
+  // ONE DELIBERATE CHANGE, stated because an earlier comment here wrongly claimed
+  // there were none. The old loop had a second branch that ran `Number()` over
+  // *string* cells matching scientific notation, so a text cell containing
+  // "1.23E+12" reached these tools as "1230000000000". That branch is gone: those
+  // digits are already lost in the file, and expanding them invents zeros. Such a
+  // cell now arrives verbatim, consistent with text mode above.
   for (let r = 0; r < data.length; r++) {
     for (let c = 0; c < data[r].length; c++) {
       const val = data[r][c];

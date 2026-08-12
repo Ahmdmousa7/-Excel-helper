@@ -61,6 +61,34 @@ describe('plainNumberString', () => {
     expect(plainNumberString(1e-7)).not.toBe('0');
   });
 
+  it('emits ASCII digits regardless of the runtime locale', () => {
+    // The trap this function used to fall into. `toLocaleString('fullwide', …)`
+    // resolves to the DEFAULT locale's numbering system, so on an ar-EG or ar-SA
+    // browser it returned Arabic-Indic numerals — "١٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠" for
+    // 1e21. A barcode in those digits fails every downstream match and export.
+    // Now expanded by hand, so no locale is consulted at all.
+    for (const n of [1e21, 1.5e21, 1e-7, 1234567890123, 5e300]) {
+      expect(plainNumberString(n), String(n)).toMatch(/^[-+]?[0-9]*\.?[0-9]+$/);
+    }
+    // Belt and braces: assert against the actual Arabic-Indic range.
+    expect(plainNumberString(1e21)).not.toMatch(/[٠-٩۰-۹]/);
+  });
+
+  it('expands the exponent correctly in both directions', () => {
+    expect(plainNumberString(1.23e5)).toBe('123000');
+    expect(plainNumberString(1.2345e2)).toBe('123.45');
+    expect(plainNumberString(-1.5e21)).toBe('-1500000000000000000000');
+    expect(plainNumberString(5e-8)).toBe('0.00000005');
+    expect(plainNumberString(1.25e-7)).toBe('0.000000125');
+  });
+
+  it('round-trips back to the same number', () => {
+    // The strongest property available: expansion must not change the value.
+    for (const n of [1e21, 1.5e21, 1e-7, 5e-8, 1.25e-7, -1.5e21, 1234567890123456]) {
+      expect(Number(plainNumberString(n)), String(n)).toBe(n);
+    }
+  });
+
   it('passes through non-finite values rather than inventing digits', () => {
     expect(plainNumberString(NaN)).toBe('NaN');
     expect(plainNumberString(Infinity)).toBe('Infinity');

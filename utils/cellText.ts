@@ -54,6 +54,26 @@ export function isScientificNotation(s: string): boolean {
 }
 
 /**
+ * Expand JavaScript's exponential form into plain digits, by moving the decimal
+ * point. Pure string work — see `plainNumberString` for why this is not `Intl`.
+ *
+ * Returns the input unchanged if it is not in exponential form.
+ */
+function expandExponential(s: string): string {
+  const m = /^([+-]?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/.exec(s);
+  if (!m) return s;
+
+  const [, sign, intPart, fracPart = '', expStr] = m;
+  const digits = intPart + fracPart;
+  // Where the decimal point lands once the exponent is applied.
+  const point = intPart.length + Number(expStr);
+
+  if (point <= 0) return `${sign}0.${'0'.repeat(-point)}${digits}`;
+  if (point >= digits.length) return sign + digits + '0'.repeat(point - digits.length);
+  return `${sign}${digits.slice(0, point)}.${digits.slice(point)}`;
+}
+
+/**
  * A number as plain decimal digits, never exponential, without losing precision.
  *
  * `String(n)` is exact and non-exponential for everything between 1e-7 and 1e21,
@@ -61,9 +81,23 @@ export function isScientificNotation(s: string): boolean {
  * path. Outside that range JavaScript switches to exponent form and the value has
  * to be expanded.
  *
- * `maximumFractionDigits: 20` is load-bearing. Without it `toLocaleString`
- * defaults to **three** fraction digits, which is how the previous
- * implementation silently turned 1234.5678 into "1234.568" and 1e-7 into "0".
+ * NOT `toLocaleString('fullwide', …)`, which is what both this function and the
+ * code it replaced used to do. `'fullwide'` is a structurally valid but
+ * *unavailable* language subtag, so `ResolveLocale` silently falls back to the
+ * runtime's default locale — and to its default numbering system. On a browser
+ * set to `ar-EG` or `ar-SA` that resolves to `arab`, and the "plain digits" this
+ * function promises come back as Arabic-Indic numerals:
+ *
+ *     (1e21).toLocaleString('fullwide', …)  ->  "١٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠"
+ *
+ * Measured, not theorised. This app ships a full Arabic translation layer, so
+ * that is a live configuration, and a barcode in Arabic-Indic digits would fail
+ * every match, export and scan downstream. `maximumFractionDigits` had a similar
+ * trap — it defaults to **three**, which is how the old code turned 1234.5678
+ * into "1234.568" and 1e-7 into "0".
+ *
+ * Expanding the exponent by hand has neither problem: no locale, no numbering
+ * system, no rounding, and the digits come from the double itself.
  */
 export function plainNumberString(n: number): string {
   if (!Number.isFinite(n)) return String(n);
@@ -71,10 +105,7 @@ export function plainNumberString(n: number): string {
   const s = String(n);
   if (!/[eE]/.test(s)) return s;
 
-  return n.toLocaleString('fullwide', {
-    useGrouping: false,
-    maximumFractionDigits: 20,
-  });
+  return expandExponential(s);
 }
 
 /**

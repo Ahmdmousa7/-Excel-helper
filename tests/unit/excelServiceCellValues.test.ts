@@ -19,8 +19,18 @@ import { getSheetData } from '../../services/excelService';
 
 const FIXTURE = join(__dirname, '..', 'fixtures', 'scientific-notation-barcodes.xlsx');
 
+/**
+ * Parsed with the SAME options production uses.
+ *
+ * `readExcelFile` and `fetchGoogleSheet` both call
+ * `XLSX.read(uint8, { type: 'array', raw: true })`, and whether `cell.w` is even
+ * populated is a function of the parse options — which is the field this whole
+ * bug turns on. `{ type: 'buffer' }` happens to produce identical cells here
+ * (checked), but a test whose value is "it drives the path that actually broke"
+ * should not diverge from that path at the very first step.
+ */
 function loadFixture() {
-  return XLSX.read(readFileSync(FIXTURE), { type: 'buffer' });
+  return XLSX.read(new Uint8Array(readFileSync(FIXTURE)), { type: 'array', raw: true });
 }
 
 /** SKU -> [true barcode, the wrong value the old code produced] */
@@ -135,6 +145,29 @@ describe('getSheetData does not regress the cases that always worked', () => {
 
   it('returns an empty array for a sheet that does not exist', () => {
     expect(getSheetData(loadFixture(), 'NoSuchSheet')).toEqual([]);
+  });
+});
+
+describe('the in-code builder matches the committed fixture', () => {
+  it('produces the same cells, so neither form can drift from the other', async () => {
+    // tests/fixtures/README.md claims the builder is "verified cell-for-cell
+    // identical". That claim rested on a one-time manual check, which is not a
+    // claim a reader can rely on six months from now. This makes it continuous.
+    const { makeScientificNotationXlsx } = await import('../../e2e/helpers/makeFiles');
+    const built = XLSX.read(new Uint8Array(makeScientificNotationXlsx().buffer), {
+      type: 'array',
+      raw: true,
+    });
+
+    for (const sheet of ['Composite', 'Raw']) {
+      const fromBuilder = XLSX.utils.sheet_to_json(built.Sheets[sheet], {
+        header: 1, defval: '', raw: true,
+      });
+      const fromFile = XLSX.utils.sheet_to_json(loadFixture().Sheets[sheet], {
+        header: 1, defval: '', raw: true,
+      });
+      expect(fromBuilder, `sheet ${sheet} differs`).toEqual(fromFile);
+    }
   });
 });
 
