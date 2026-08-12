@@ -4,7 +4,6 @@ import * as XLSX from 'xlsx';
 import { ProcessingStatus, LogEntry } from '../types';
 import { saveWorkbook } from '../services/excelService';
 import { aiService } from '../services/aiServiceFactory';
-import { GEMINI_PRO } from '../services/geminiService';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import ProgressBar from './ProgressBar';
 import { Globe, Download, Search, AlertCircle, Table, ExternalLink, Zap, RefreshCw, CheckSquare } from 'lucide-react';
@@ -180,11 +179,14 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
 
       setProgress(60);
 
-      // Pro, by request. Scraped pages arrive as noisy, half-structured text, so
-      // pulling clean rows out of them is a reasoning task rather than a lookup.
-      // Passed explicitly because OCR's text path shares this function and stays
-      // on Flash — see extractStructuredData.
-      const result = await aiService.extractStructuredData(finalCleanText, queryInstruction, GEMINI_PRO);
+      // 'quality' (currently Gemini Pro), by request. Scraped pages arrive as
+      // noisy, half-structured text, so pulling clean rows out of them is a
+      // reasoning task rather than a lookup. Asked for explicitly because OCR's
+      // text path shares this function and stays on the fast tier.
+      //
+      // A tier, not a model id: this component talks to `aiService`, which is
+      // meant to be swappable for another provider in one line.
+      const result = await aiService.extractStructuredData(finalCleanText, queryInstruction, 'quality');
 
       if (!result || result.length === 0) {
         throw new Error("AI analyzed the page but found no data matching your description. This usually happens if the website is a dynamic Single Page Application (SPA) that hides its data, or if it blocks automated scrapers. Tip: Try taking screenshots of the menu and using the 'OCR / Image Extraction' tab instead!");

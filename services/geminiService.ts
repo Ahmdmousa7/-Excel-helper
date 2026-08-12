@@ -1,21 +1,33 @@
 
 import { GoogleGenAI, Schema, Type } from "@google/genai";
-import { IAiService } from "../types/ai.types";
+import { AiTier, IAiService } from "../types/ai.types";
 
 /**
- * The two models this app uses, named once.
+ * Every model id this SERVICE uses, in one place.
  *
- * They were repeated as string literals at five call sites, which is how a model
- * swap turns into a hunt. Flash is the cheap, fast one for high-volume mechanical
- * work; Pro is for reasoning and anything multimodal.
+ * Not every model id in the app: `components/SupportChat.tsx` bypasses this
+ * service and calls the SDK directly with its own literal, so a model swap has
+ * exactly two homes, not one. Stated because the value of these constants is
+ * "change it here" and a reader who believes that too completely will miss
+ * SupportChat. `grep -rn "gemini-3-" components/ services/` finds both.
+ *
+ * Flash is the cheap, fast one for high-volume mechanical work; Pro is for
+ * reasoning and anything multimodal. Callers outside this file choose a TIER
+ * (see `AiTier`) rather than an id, so the provider stays swappable.
  *
  * Both are *preview* ids and Google retires those. If AI features start failing
- * with a model-not-found error, this is the first place to look — and note that
- * the key Test button only exercises FLASH, so a green "valid" badge says nothing
- * about whether PRO still resolves.
+ * with a model-not-found error, look here first — and note the key Test button
+ * only exercises FLASH, so a green "valid" badge says nothing about whether PRO
+ * still resolves for that key.
  */
 export const GEMINI_FLASH = 'gemini-3-flash-preview';
 export const GEMINI_PRO = 'gemini-3-pro-preview';
+
+/** Gemini's answer to the provider-agnostic tiers in `AiTier`. */
+const MODEL_BY_TIER: Record<AiTier, string> = {
+  fast: GEMINI_FLASH,
+  quality: GEMINI_PRO,
+};
 
 // Key Management
 const GEMINI_KEY_STORAGE = 'gemini_api_key';
@@ -121,11 +133,16 @@ export const translateBatch = async (
     while (attempts < maxRetries) {
         try {
             const client = getAiClient();
-            // Pro, by request. Translation is the one "mechanical" task where
-            // reasoning still pays — idiom, domain terms and the glossary
-            // carve-out are judgement calls. Costs more per batch and has tighter
-            // free-tier limits than Flash, which is what the key rotation below
-            // is for.
+            // Pro, by request. Translation looks mechanical but is not — idiom,
+            // domain terms and the glossary carve-out are judgement calls.
+            //
+            // The cost, stated honestly: Pro has tighter free-tier limits than
+            // Flash and this runs in batches, so 429s are likelier than before.
+            // With SEVERAL keys the handler below rotates and carries on. With
+            // ONE key — the default — `rotateKey()` returns false, so each 429
+            // costs a 60s sleep and `getMaxRetries()` allows 4 attempts: roughly
+            // three minutes before TranslateTab logs the error and stops. Slow to
+            // fail, but it does fail loudly rather than silently.
             const model = GEMINI_PRO;
 
             let translationInstruction = `Translate the following items from ${options.sourceLang} to ${options.targetLang}.`;
@@ -179,15 +196,18 @@ export const translateBatch = async (
 };
 
 /**
- * @param model Defaults to Flash. Web Scraper passes Pro; OCR's text path
+ * @param tier Defaults to 'fast'. Web Scraper asks for 'quality'; OCR's text path
  *   deliberately does not, so switching one does not silently switch the other.
  *   Both share this function, and a hardcoded model here would tie them together.
+ *   A tier rather than a model id keeps the caller free of Gemini specifics — see
+ *   `AiTier`.
  */
 export const extractStructuredData = async (
     text: string,
     prompt: string,
-    model: string = GEMINI_FLASH,
+    tier: AiTier = 'fast',
 ): Promise<any[]> => {
+    const model = MODEL_BY_TIER[tier];
     let attempts = 0;
     const maxRetries = getMaxRetries();
     while (attempts < maxRetries) {
@@ -432,8 +452,8 @@ export class GeminiService implements IAiService {
       return translateBatch(items, options);
   }
 
-  async extractStructuredData(text: string, prompt: string, model?: string): Promise<any[]> {
-      return extractStructuredData(text, prompt, model);
+  async extractStructuredData(text: string, prompt: string, tier?: AiTier): Promise<any[]> {
+      return extractStructuredData(text, prompt, tier);
   }
 
   async processGeneralFile(
