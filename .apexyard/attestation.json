@@ -1,54 +1,30 @@
 {
-  "attestation_id": "sha256:32bbafb4dd8c2f74de17a7d086af1a9d154ff39ad4fe98561b409a2e4a707207",
+  "attestation_id": "sha256:44b0c8836375b88e84a1ecedcbe4ecae175ecca0bcc8dde4aa17be0d4e4c201b",
   "files": [
     {
-      "oid": "e450e95299c9e34ff84220d103abd353167f266f",
-      "path": ".gitattributes"
+      "oid": "06df1e1b3eb2f63d8bfd58a5bbd72805fea37948",
+      "path": "components/WebScraperTab.tsx"
     },
     {
-      "oid": "6fb206fc489056b1c72ee56e672ee544c170fb1c",
-      "path": "docs/quality/tech-debt-register.md"
+      "oid": "29811bc62d32131b6f9e14f6875d27cd0a6dc8e8",
+      "path": "services/geminiService.ts"
     },
     {
-      "oid": "124f99d71c43c001dfceeec571316895792bdaf1",
-      "path": "e2e/helpers/makeFiles.ts"
-    },
-    {
-      "oid": "1638e9b189206d53ef77a53c8c891fc1fcfa53fd",
-      "path": "services/excelService.ts"
-    },
-    {
-      "oid": "5e836b340195b48a9a4e5540f83a9e8f109f6a38",
-      "path": "tests/fixtures/README.md"
-    },
-    {
-      "oid": "5e7ef7a807b81b89272998d23188d9252dd6c5ef",
-      "path": "tests/fixtures/scientific-notation-barcodes.xlsx"
-    },
-    {
-      "oid": "ff4028d8c91e5a85fb4f80e9fb805b999aac0484",
-      "path": "tests/unit/cellText.test.ts"
-    },
-    {
-      "oid": "11a754e03c6e8715e3471c2fb61d5e1790512cfd",
-      "path": "tests/unit/excelServiceCellValues.test.ts"
-    },
-    {
-      "oid": "afaaba0bc83369f4a8132a6d80104ff5ac38912b",
-      "path": "utils/cellText.ts"
+      "oid": "8603b38fe34453f056f8be5772cb61a1ddec9e2e",
+      "path": "types/ai.types.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
-    "low": 2,
-    "medium": 0
+    "info": 0,
+    "low": 1,
+    "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "f06f23df1b52b4cf00f0c64b679652ea15fd1b5e",
+  "reviewed_at_commit": "8e62490dca489c5a3ddbf50b1fe1924d29cbb420",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "APPROVED"
+  "verdict": "COMMENT"
 }

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:32bbafb4dd8c2f74de17a7d086af1a9d154ff39ad4fe98561b409a2e4a707207` |
+| Attestation id | `sha256:44b0c8836375b88e84a1ecedcbe4ecae175ecca0bcc8dde4aa17be0d4e4c201b` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `f06f23df1b52` |
+| Reviewed at commit | `8e62490dca48` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **APPROVED** |
-| Files reviewed | 9 |
+| Verdict | **COMMENT** |
+| Files reviewed | 3 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
-| low | 2 |
-| info | 2 |
+| medium | 1 |
+| low | 1 |
+| info | 0 |
 
-This PR fixes TD-038: `getSheetData(…, raw:false)` returned SheetJS's display text `w`, so Excel's 12-digit scientific switch turned long barcodes into rounded values that still looked like barcodes. The fix is a narrow per-cell override in the new `utils/cellText.ts` (only `t:'n'` cells whose `w` is scientific are replaced, from `cell.v`), plus a hand-rolled exponent expander that removes the locale- and rounding-dependent `toLocaleString('fullwide', …)` call. I verified the override's decline-list against every cell class it claims to leave alone, checked `expandExponential` in both directions (1e21, 1e-7, negatives, 5e300 all round-trip), and confirmed the `data[r][c] → colRefs[c]+rowRef` mapping is correct for `header:1` (SheetJS indexes those rows relative to `range.s.c`/`range.s.r`, and `blankrows` defaults to true for `header:1`, so rows stay aligned). No blocking-handbook violations: `services/` → `utils/` is the allowed direction, `utils/cellText.ts` imports nothing, no new `any`, no new dependency or top-level directory. Four advisory notes below, none merge-blocking.
+This PR centralises Gemini model ids into two exported constants (GEMINI_FLASH / GEMINI_PRO), introduces a provider-agnostic AiTier ('fast' | 'quality') on IAiService.extractStructuredData, and switches two call paths to the Pro model: Web Scraper (via an explicit 'quality' tier) and translateBatch (via a direct GEMINI_PRO assignment). I verified every factual claim in the new comments against the tree — SupportChat.tsx:434 does hold a second hardcoded 'gemini-3-pro-preview' literal, verifyGeminiKey does only exercise Flash, rotateKey() does return false on a single key, getMaxRetries() does yield 4, parseWaitTime() does return 60, and OcrTab.tsx:319 does omit the tier and stay on 'fast'. All of them check out, which is unusually good. The abstraction is sound and backward-compatible (the new param is optional, and GeminiService is the only IAiService implementation). Two non-blocking observations follow: one about the blast radius of moving translateBatch onto Pro's tighter quota, and one about the tier indirection only being wired into one of the four model call sites.
 
 ## Quality gates
 
@@ -45,14 +45,14 @@ This PR fixes TD-038: `getSheetData(…, raw:false)` returned SheetJS's display 
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | pass | 18 violation node(s) |
+| Accessibility | pass | 19 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 88 source files, 26099 lines
+- 88 source files, 26173 lines
 - Layering violations: **0**
 - Files over 800 lines: **9**
 - Probable duplicate implementations: **1**

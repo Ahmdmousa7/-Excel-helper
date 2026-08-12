@@ -1,51 +1,33 @@
 {
-  "attestation_id": "sha256:32bbafb4dd8c2f74de17a7d086af1a9d154ff39ad4fe98561b409a2e4a707207",
+  "attestation_id": "sha256:44b0c8836375b88e84a1ecedcbe4ecae175ecca0bcc8dde4aa17be0d4e4c201b",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
-    "low": 2,
-    "medium": 0
+    "info": 0,
+    "low": 1,
+    "medium": 1
   },
   "findings": [
     {
-      "category": "technical-debt",
-      "detail": "The register entry names the `toLocaleString('fullwide', { useGrouping: false })` rounding trap as the second defect and marks TD-038 closed as of 2026-08-04, and the commit body for 3e2f54f states the guarantee as \"zero Intl calls in the read path\" — checkable by grep. Grep does not agree once you leave `services/`: `components/DuplicatesTab.tsx:45` applies it to *every* number while building dedupe keys, `components/DuplicatesTab.tsx:51` to every scientific-looking string, and `components/FileValidationTab.tsx:271` inside `expandScientific`, which is the tool that advertises \"Scientific Notation → Full Number\" to the user. Both carry the identical pair of defects the entry describes: `maximumFractionDigits` defaults to 3, so a dedupe key for 1234.5678 becomes \"1234.568\", and on an `ar-*` default locale the digits come back Arabic-Indic. That also makes the entry's \"`raw:true` callers — Compare, Merge, Dedupe, Duplicates, Clean — were never exposed\" true only of the `getSheetData` path: Duplicates was exposed to the rounding defect through its own copy. This PR series has twice corrected claims that grep falsified, which is why it is worth naming here rather than shrugging at — a register that overstates a closure is the artifact people plan from. The fix in `services/excelService.ts` itself is correct and complete for the path it covers; only the scope of the closure statement is wrong.",
-      "file": "docs/quality/tech-debt-register.md",
-      "line": 49,
+      "category": "performance",
+      "detail": "The new comment is honest about the 429 cost (rotateKey() returns false on one key, 4 attempts, 60s sleeps, ~3 minutes) but stops one step short of the consequence users actually experience. TranslateTab drives this in a batch loop and its catch does `setStatus(ERROR); return;` — bailing *before* the '--- 4. APPLY RESULTS TO ROWS ---' block. `translationMap` is handler-local, so every batch that already succeeded is thrown away with it. Pro's free-tier RPM is materially tighter than Flash's and the loop only spaces batches by 200ms, so a large sheet now plausibly translates 30 batches, spends three minutes retrying batch 31, and hands the user nothing. Before this change the same path existed but Flash's headroom made it rare; this diff is what moves it from theoretical to likely. Anchoring here because line 146 is the change that raises the probability — the loop itself is outside this diff. Raise to high if Translate is routinely run on sheets large enough to exceed Pro's per-minute quota on a single key, since then the bail-out is the common case rather than the tail.",
+      "file": "services/geminiService.ts",
+      "line": 146,
+      "severity": "medium",
+      "suggested_fix": null,
+      "summary": "Pro on translateBatch makes a whole-run bail-out that discards completed batches much more reachable"
+    },
+    {
+      "category": "architecture",
+      "detail": "The PR's stated goal is that callers choose a tier rather than a model id so the provider stays swappable. That indirection is applied only to extractStructuredData. translateBatch (line 146), processGeneralFile (line 265) and extractFromMedia (line 294) still assign `GEMINI_PRO` directly, so three of the four paths remain expressed in Gemini's vocabulary inside the service. That is defensible — those three are internal to geminiService.ts, and the tier only needs to exist where a *caller outside the file* selects it — but it means MODEL_BY_TIER is currently a one-entry-point map rather than the file's model-selection mechanism, and the next person adding a call site has two conventions to choose between. No user impact; purely a consistency-of-intent note.",
+      "file": "services/geminiService.ts",
+      "line": 27,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "TD-038 marked Closed, but three `fullwide` call sites are still live"
-    },
-    {
-      "category": "testing",
-      "detail": "`services/excelService.ts:147-152` documents a second, intentional behaviour change: the old loop ran `Number()` over *string* cells matching scientific notation, so a text cell holding \"1.23E+12\" reached Compare/Merge/Dedupe/Duplicates/Clean as \"1230000000000\", and that branch is now gone in both modes. The reasoning is right (those digits are already lost at rest, expanding them invents zeros), but nothing in the 21 new tests asserts it. The fixture has no text cell containing scientific notation — column C holds plain digit strings — so the only guard on this change is the comment. That matters more than a normal coverage gap because the change is user-visible at 23 call sites across 12 modules and moves in the opposite direction from the rest of the PR: the value the user sees goes from a long number to a visibly scientific string. A future reader who reads only the tests will see nothing distinguishing \"deliberate\" from \"lost in the rewrite\" and may re-add the branch.",
-      "file": "tests/unit/excelServiceCellValues.test.ts",
-      "line": 191,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "The deliberate removal of the string-scientific branch has no test pinning it"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`colRefs` is deliberately sized to the widest row rather than `data[0]`, with a comment explaining that full-width rows are \"SheetJS's invariant, not this function's\". The very next line takes the corresponding dependency on the row axis: `rowRef = String(range.s.r + r + 1)` assumes `data[r]` is the r-th row of the range, which holds only because `blankrows` defaults to true for `header: 1`. I checked that it does, so this is correct today and not a bug — but the failure mode is the asymmetric one: a short `colRefs` merely stops correcting (safe, as the commit body notes), whereas a dropped blank row shifts every subsequent `rowRef` up by one and applies a barcode correction to the wrong row. Worth a sentence given the care spent on the column axis two lines above.",
-      "file": "services/excelService.ts",
-      "line": 132,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "Row-index→`rowRef` mapping leans on the SheetJS invariant the width guard refuses to lean on"
-    },
-    {
-      "category": "technical-debt",
-      "detail": "The docstring promises plain decimal digits \"without losing precision\" and closes with \"the digits come from the double itself\", which is exactly right — and is also the ceiling. Above 2^53 the double no longer holds the digits: an 18-digit identifier stored as a number arrives as `v = 123456789012345678`, and `String(v)` yields \"123456789012345680\" — a plausible-looking wrong value, the failure class this module exists to eliminate, now one order of magnitude further out. Nothing here can fix that (the precision is gone in SheetJS's parse, before this function is reached), and it is out of range for the barcodes the module targets: GTIN-14 and 16-digit cases are all under 9.007e15 and are exactly representable, which the tests confirm. Raising this only because the surrounding docs are unusually careful about stating limits — `tests/fixtures/README.md` § \"A limit worth knowing\" covers already-corrupted files but not this one — and long order IDs are plausible input for the Salla and Zid tools.",
-      "file": "utils/cellText.ts",
-      "line": 102,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "`plainNumberString`'s contract has an unstated ceiling at 2^53"
+      "summary": "MODEL_BY_TIER is wired into one of four model call sites"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 4
+  "total": 2
 }
