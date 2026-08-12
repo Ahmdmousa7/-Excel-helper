@@ -20,6 +20,13 @@
 # is the worst moment to discover it.
 .githooks/*  text eol=lf
 
+# Committed spreadsheet fixtures are ZIP archives. `* text=auto` above would
+# normally detect that and leave them alone, but "normally" is not a guarantee
+# worth taking on a file whose whole purpose is to hold exact bytes — a single
+# CRLF substitution inside the archive makes it unreadable. Marked explicitly.
+*.xlsx  binary
+*.xls   binary
+
 # The evidence bundle. Its digests and its SSH signature are defined over LF
 # bytes, so a CRLF checkout would break verification on a machine that did
 # nothing wrong. `-text` on the signature keeps git from touching it at all.
