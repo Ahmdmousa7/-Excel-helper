@@ -1,33 +1,37 @@
 /**
- * Reading a spreadsheet cell as the text it actually contains.
+ * Recovering a number that Excel only *displays* in scientific notation.
  *
  * THE BUG THIS EXISTS TO FIX
  * --------------------------
  * SheetJS gives every cell two things: `v`, the value it stores, and `w`, the
- * text Excel would *display*. Reading with `raw: false` returns `w`, which was
- * chosen so text cells keep their leading zeros ("000123" stays "000123").
+ * text Excel would display. Reading a sheet with `raw: false` returns `w`, which
+ * was chosen so text cells keep their leading zeros ("000123" stays "000123").
  *
- * For long numbers that is a data-corruption bug. Excel's General format
- * switches to scientific at 12 digits, so a 13-digit barcode stored as a number
- * has `v = 1234567890123` and `w = "1.23457E+12"` — six significant digits. The
- * old code then "repaired" the scientific string by running `Number()` on it,
+ * For long numbers that is data corruption. Excel's General format switches to
+ * scientific at 12 digits, so a 13-digit barcode stored as a number has
+ * `v = 1234567890123` and `w = "1.23457E+12"` — six significant digits. The old
+ * code then "repaired" the scientific string by running `Number()` on it,
  * producing 1234570000000: a wrong barcode that still looks like a barcode.
- * Verified against a real round-tripped workbook, not a synthetic fixture.
+ * Verified against a real round-tripped workbook, and pinned by the committed
+ * fixture in tests/fixtures/.
  *
- * The true value was in `v` the whole time. So: trust `w` for presentation,
- * except when `w` is scientific, and then expand `v` at full precision.
+ * The true value was in `v` the whole time.
  *
- * WHAT IS DELIBERATELY *NOT* CHANGED
- * ----------------------------------
- * `w` is still preferred for every non-scientific number, which keeps dates,
- * percentages, currency and leading-zero custom formats rendering exactly as
- * they do today. Only the broken case behaves differently. That narrowness is
- * the point: this is a correctness fix, not a reformatting pass.
+ * WHY THIS IS AN *OVERRIDE* AND NOT A FORMATTER
+ * ---------------------------------------------
+ * An earlier version of this module exported `cellToText(cell)` and
+ * `getSheetData` used it for every cell. That was too broad, and the review was
+ * right to call it: it silently changed three other classes of cell. Error cells
+ * went from `""` (SheetJS never formats `t:'e'`, it writes `defval`) to the
+ * literal `"#N/A"` — so a broken VLOOKUP in a barcode column would have started
+ * exporting `#N/A` *as a barcode*, which is the same "wrong value that looks like
+ * a value" this fix exists to remove. Text cells carrying a display format lost
+ * it, and untyped cells started yielding `String(v)` instead of `defval`.
  *
- * Text cells are returned verbatim — letters, punctuation, leading zeros and
- * all. A text cell whose *content* is literally "1.23E+12" is left alone rather
- * than expanded: those digits are already gone in the file, and inventing zeros
- * would be the same corruption one layer up.
+ * So this module answers one narrow question — *does this cell need correcting,
+ * and to what?* — and `getSheetData` keeps SheetJS's own value for every cell
+ * where the answer is no. "Only the broken case behaves differently" is then
+ * provable by inspection rather than asserted in a comment.
  */
 
 /** A SheetJS cell, narrowed to the fields this module reads. */
@@ -53,9 +57,9 @@ export function isScientificNotation(s: string): boolean {
  * A number as plain decimal digits, never exponential, without losing precision.
  *
  * `String(n)` is exact and non-exponential for everything between 1e-7 and 1e21,
- * which covers every barcode, SKU and price this app will ever see, so it is the
- * fast path. Outside that range JavaScript switches to exponent form and the
- * value has to be expanded.
+ * which covers every barcode, SKU and price this app will see, so it is the fast
+ * path. Outside that range JavaScript switches to exponent form and the value has
+ * to be expanded.
  *
  * `maximumFractionDigits: 20` is load-bearing. Without it `toLocaleString`
  * defaults to **three** fraction digits, which is how the previous
@@ -74,45 +78,22 @@ export function plainNumberString(n: number): string {
 }
 
 /**
- * The text a cell actually holds.
+ * The corrected text for a cell whose displayed value has lost digits, or `null`
+ * when the cell needs no correction.
  *
- * Never returns `undefined` — an absent or empty cell is the empty string, which
- * is what the grid consumers expect from `sheet_to_json`'s `defval: ""`.
+ * `null` means "leave whatever the reader produced alone", which is what keeps
+ * this fix from touching dates, percentages, currency, leading-zero formats,
+ * error cells, text cells and blanks.
+ *
+ * Only one shape qualifies: a **number** whose formatted text is scientific
+ * notation. A *text* cell whose content is literally "1.23E+12" is deliberately
+ * left alone — those digits are already gone in the file, and expanding them
+ * would invent zeros, which is the same corruption one layer up.
  */
-export function cellToText(cell: SheetCell | null | undefined): string {
-  if (!cell) return '';
+export function scientificNumberOverride(cell: SheetCell | null | undefined): string | null {
+  if (!cell || cell.t !== 'n') return null;
+  if (typeof cell.v !== 'number') return null;
+  if (typeof cell.w !== 'string' || !isScientificNotation(cell.w)) return null;
 
-  const { t, v, w } = cell;
-
-  if (v === null || v === undefined) {
-    // A cell can carry formatting and no value.
-    return w ?? '';
-  }
-
-  switch (t) {
-    case 'n': {
-      // The whole point: never let a scientific *display* string become the value.
-      if (typeof w === 'string' && w !== '' && !isScientificNotation(w)) return w;
-      return typeof v === 'number' ? plainNumberString(v) : String(v);
-    }
-
-    case 's':
-    case 'str':
-      // Verbatim. Leading zeros, letters, punctuation, spacing — all preserved.
-      return String(v);
-
-    case 'b':
-      return w ?? (v ? 'TRUE' : 'FALSE');
-
-    case 'e':
-      // Error cells: `w` is the familiar "#N/A" form, `v` is a numeric code.
-      return w ?? String(v);
-
-    case 'd':
-      return w ?? (v instanceof Date ? v.toISOString() : String(v));
-
-    default:
-      // Unknown type: prefer the display text, fall back to the value.
-      return w ?? String(v);
-  }
+  return plainNumberString(cell.v);
 }

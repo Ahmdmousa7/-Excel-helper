@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   isScientificNotation,
   plainNumberString,
-  cellToText,
+  scientificNumberOverride,
 } from '../../utils/cellText';
 
 /**
- * The values in these tests are not invented. They are what SheetJS actually
- * produces for a workbook written and read back with plain JS numbers:
+ * The values here are not invented. They are what SheetJS actually produces for a
+ * workbook written and read back with plain JS numbers:
  *
  *   1234567890123    -> v=1234567890123    w="1.23457E+12"
  *   1234567890123456 -> v=1234567890123456 w="1.23457E+15"
@@ -29,7 +29,7 @@ describe('isScientificNotation', () => {
     expect(isScientificNotation('12345678901')).toBe(false);
     expect(isScientificNotation('1234.5678')).toBe(false);
     expect(isScientificNotation('000123')).toBe(false);
-    // The case that would be catastrophic to misfire on: a real SKU.
+    // The case it would be catastrophic to misfire on: a real SKU.
     expect(isScientificNotation('AB-0012-E5')).toBe(false);
     expect(isScientificNotation('E12')).toBe(false);
     expect(isScientificNotation('1.2E')).toBe(false);
@@ -67,83 +67,82 @@ describe('plainNumberString', () => {
   });
 });
 
-describe('cellToText — the corruption this fixes', () => {
-  it('recovers the true barcode instead of expanding the scientific display', () => {
-    // Exactly what SheetJS parsed from a real round-tripped workbook.
-    expect(cellToText({ t: 'n', v: 1234567890123, w: '1.23457E+12' }))
+describe('scientificNumberOverride corrects the broken case', () => {
+  it('recovers the true barcode from the scientific display', () => {
+    expect(scientificNumberOverride({ t: 'n', v: 1234567890123, w: '1.23457E+12' }))
       .toBe('1234567890123');
-    // The old behaviour produced this, which is a plausible-looking wrong barcode.
-    expect(cellToText({ t: 'n', v: 1234567890123, w: '1.23457E+12' }))
+    // What the old code produced instead — a plausible-looking wrong barcode.
+    expect(scientificNumberOverride({ t: 'n', v: 1234567890123, w: '1.23457E+12' }))
       .not.toBe('1234570000000');
   });
 
-  it('recovers a 16-digit number the display had truncated to six digits', () => {
-    expect(cellToText({ t: 'n', v: 1234567890123456, w: '1.23457E+15' }))
+  it('recovers a 16-digit number the display had cut to six digits', () => {
+    expect(scientificNumberOverride({ t: 'n', v: 1234567890123456, w: '1.23457E+15' }))
       .toBe('1234567890123456');
   });
 
-  it('handles an explicitly scientific-formatted cell', () => {
-    expect(cellToText({ t: 'n', v: 1234567890123, w: '1.23E+12', z: '0.00E+00' }))
+  it('corrects an explicitly scientific-formatted cell', () => {
+    expect(scientificNumberOverride({ t: 'n', v: 1234567890123, w: '1.23E+12', z: '0.00E+00' }))
       .toBe('1234567890123');
   });
 });
 
-describe('cellToText — what must keep working exactly as before', () => {
-  it('preserves leading zeros in text cells', () => {
-    expect(cellToText({ t: 's', v: '000123' })).toBe('000123');
-    expect(cellToText({ t: 's', v: '0' })).toBe('0');
+describe('scientificNumberOverride declines everything else', () => {
+  /**
+   * `null` means "leave the reader's value alone". Each case below is a class of
+   * cell that a broader rewrite would have changed — the reason this is an
+   * override and not a formatter.
+   */
+
+  it('declines an ordinary number, so its display format survives', () => {
+    expect(scientificNumberOverride({ t: 'n', v: 12345678901, w: '12345678901' })).toBeNull();
+    expect(scientificNumberOverride({ t: 'n', v: 1234.5678, w: '1234.5678' })).toBeNull();
   });
 
-  it('preserves letters and punctuation in SKUs', () => {
-    expect(cellToText({ t: 's', v: 'AB-0012-X' })).toBe('AB-0012-X');
-    expect(cellToText({ t: 's', v: 'sku/with spaces & symbols' }))
-      .toBe('sku/with spaces & symbols');
+  it('declines dates, percentages and currency', () => {
+    // These are numbers under the hood. Overriding them would turn a date into a
+    // serial number and "15%" into "0.15".
+    expect(scientificNumberOverride({ t: 'n', v: 46238, w: '04/08/2026', z: 'dd/mm/yyyy' })).toBeNull();
+    expect(scientificNumberOverride({ t: 'n', v: 0.15, w: '15%', z: '0%' })).toBeNull();
+    expect(scientificNumberOverride({ t: 'n', v: 5, w: '$5.00', z: '"$"#,##0.00' })).toBeNull();
   });
 
-  it('leaves a text cell that literally contains scientific notation alone', () => {
-    // Those digits are already lost in the file. Expanding it would invent
-    // zeros — the same corruption, one layer up.
-    expect(cellToText({ t: 's', v: '1.23E+12' })).toBe('1.23E+12');
+  it('declines a leading-zero custom format', () => {
+    expect(scientificNumberOverride({ t: 'n', v: 123, w: '000123', z: '000000' })).toBeNull();
   });
 
-  it('keeps the formatted display for ordinary numbers', () => {
-    expect(cellToText({ t: 'n', v: 12345678901, w: '12345678901' })).toBe('12345678901');
-    expect(cellToText({ t: 'n', v: 1234.5678, w: '1234.5678' })).toBe('1234.5678');
+  it('declines text cells, so leading zeros and letters are untouched', () => {
+    expect(scientificNumberOverride({ t: 's', v: '000123' })).toBeNull();
+    expect(scientificNumberOverride({ t: 's', v: 'AB-0012-X' })).toBeNull();
   });
 
-  it('keeps dates, percentages and currency rendering as they do today', () => {
-    // These come through `w`, and `w` is still preferred whenever it is not
-    // scientific — so this fix does not silently reformat anything.
-    expect(cellToText({ t: 'n', v: 46238, w: '04/08/2026', z: 'dd/mm/yyyy' }))
-      .toBe('04/08/2026');
-    expect(cellToText({ t: 'n', v: 0.15, w: '15%', z: '0%' })).toBe('15%');
-    expect(cellToText({ t: 'n', v: 5, w: '$5.00', z: '"$"#,##0.00' })).toBe('$5.00');
-    // A leading-zero custom format, the other way leading zeros can appear.
-    expect(cellToText({ t: 'n', v: 123, w: '000123', z: '000000' })).toBe('000123');
+  it('declines a text cell that literally contains scientific notation', () => {
+    // Those digits are already lost in the file. Expanding would invent zeros —
+    // the same corruption, one layer up.
+    expect(scientificNumberOverride({ t: 's', v: '1.23E+12' })).toBeNull();
   });
 
-  it('falls back to the raw value when there is no formatted text', () => {
-    expect(cellToText({ t: 'n', v: 1234567890123 })).toBe('1234567890123');
+  it('declines error cells, which must stay blank rather than become "#N/A"', () => {
+    // The regression the review caught: a broken VLOOKUP in a barcode column
+    // would otherwise export "#N/A" AS a barcode.
+    expect(scientificNumberOverride({ t: 'e', v: 42, w: '#N/A' })).toBeNull();
   });
 
-  it('handles booleans, errors and dates', () => {
-    expect(cellToText({ t: 'b', v: true })).toBe('TRUE');
-    expect(cellToText({ t: 'b', v: false })).toBe('FALSE');
-    expect(cellToText({ t: 'e', v: 42, w: '#N/A' })).toBe('#N/A');
-    expect(cellToText({ t: 'd', v: new Date('2026-08-04T00:00:00Z'), w: '04/08/2026' }))
-      .toBe('04/08/2026');
+  it('declines booleans and dates', () => {
+    expect(scientificNumberOverride({ t: 'b', v: true, w: 'TRUE' })).toBeNull();
+    expect(scientificNumberOverride({ t: 'd', v: new Date('2026-08-04'), w: '04/08/2026' })).toBeNull();
   });
 
-  it('returns empty string for an absent or valueless cell', () => {
-    expect(cellToText(undefined)).toBe('');
-    expect(cellToText(null)).toBe('');
-    expect(cellToText({})).toBe('');
-    expect(cellToText({ t: 'n', v: null })).toBe('');
+  it('declines a number with no formatted text, since there is nothing to correct', () => {
+    // Nothing displayed it in scientific form, so the reader's own value stands.
+    expect(scientificNumberOverride({ t: 'n', v: 1234567890123 })).toBeNull();
   });
 
-  it('does not turn a zero into an empty string', () => {
-    // `v` of 0 is falsy; a naive guard would drop it.
-    expect(cellToText({ t: 'n', v: 0, w: '0' })).toBe('0');
-    expect(cellToText({ t: 'n', v: 0 })).toBe('0');
+  it('declines untyped, empty and missing cells', () => {
+    expect(scientificNumberOverride(undefined)).toBeNull();
+    expect(scientificNumberOverride(null)).toBeNull();
+    expect(scientificNumberOverride({})).toBeNull();
+    expect(scientificNumberOverride({ t: 'n', v: null, w: '1.23E+12' })).toBeNull();
+    expect(scientificNumberOverride({ v: 1234567890123, w: '1.23E+12' })).toBeNull();
   });
 });

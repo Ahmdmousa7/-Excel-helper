@@ -9,9 +9,13 @@ under test there is the row count, not the bytes.
 
 That reasoning does not apply here. The bug below is *about* how Excel stores and
 displays a specific value, so a real file you can open in Excel and see the
-behaviour in is worth 18 KB. Both forms exist:
+behaviour in is worth 18 KB.
+
 `makeScientificNotationXlsx()` in `e2e/helpers/makeFiles.ts` builds the same
-content in code, so nothing depends on the binary alone.
+content in code — verified cell-for-cell identical — so the content is defined
+once somewhere a reviewer can read it in a diff. Nothing imports that builder
+yet; the unit suite loads this file. It is there for an upload-driven e2e test to
+use, not because one exists.
 
 ---
 
@@ -74,10 +78,19 @@ fine all along — the damage was confined to numbers of 12+ digits.
 `tests/unit/excelServiceCellValues.test.ts` reads **this file** through the real
 `getSheetData` and asserts both directions: the true values are returned, and each
 specific wrong value from the table above is not. Reverting the fix fails those
-assertions by name rather than by a vague diff.
+assertions by name rather than by a vague diff — measured: **12 of 21 fail**.
 
-Fixed in `utils/cellText.ts`. Full reasoning: TD-038 in
-`docs/quality/tech-debt-register.md`.
+Fixed in `utils/cellText.ts` by `scientificNumberOverride()`, which is an
+*override* rather than a reformatter: `getSheetData` keeps SheetJS's own value for
+every cell and replaces only a number whose displayed text is scientific. A first
+attempt rebuilt every value from the cell and silently changed three other
+classes — most importantly error cells, which went from `""` to the literal
+`"#N/A"`, so a broken VLOOKUP in a barcode column would have exported `#N/A` *as
+a barcode*. Verified against a plain `sheet_to_json` baseline: exactly one cell
+class differs.
+
+Full reasoning: TD-038 in `docs/quality/tech-debt-register.md`, which also lists
+the real blast radius — 23 call sites across 12 modules, not the 3 first claimed.
 
 ### A limit worth knowing
 

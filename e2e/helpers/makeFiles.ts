@@ -82,10 +82,12 @@ export function makeFakeImage(name = 'photo.png'): MadeFile {
  * number column arrives with `w` values like "1.23457E+12" while the text column
  * is exact — which makes the text column a built-in oracle for the number one.
  *
- * The same content is committed as `tests/fixtures/scientific-notation-barcodes.xlsx`
- * for the unit suite and for opening in Excel by hand. This builder exists so the
- * e2e suite can upload it without depending on that binary, and so the content is
- * defined once in a form that is reviewable in a diff.
+ * The same content is committed as
+ * `tests/fixtures/scientific-notation-barcodes.xlsx`, which is what the unit
+ * suite loads and what you open to see the behaviour in Excel. **No spec imports
+ * this builder yet.** It exists so the content is defined once in a form a
+ * reviewer can read in a diff, and so an upload-driven e2e test can be written
+ * without reaching for the binary — not because anything currently does.
  */
 export function makeScientificNotationXlsx(name = 'scientific-barcodes.xlsx'): MadeFile {
   const rows: (string | number)[][] = [
@@ -98,15 +100,12 @@ export function makeScientificNotationXlsx(name = 'scientific-barcodes.xlsx'): M
     ['AB-0012-X', 5556667778889, '5556667778889', 1.05, 'alphanumeric SKU'],
   ];
 
+  // No cell-typing loop needed. `aoa_to_sheet` types by `typeof`, so the JS
+  // strings in column C and the two odd SKUs already become `{t:'s'}` with no
+  // numeric-string sniffing — verified, and an earlier version of this builder
+  // carried a loop that re-set them by hand plus a comment claiming otherwise.
+  // The strings in `rows` are what makes the oracle column exact.
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  // Force the third column and the two odd SKUs to text. `aoa_to_sheet` would
-  // otherwise store "1234567890123" as a number and the oracle column would be
-  // subject to the very bug it exists to detect.
-  for (let r = 2; r <= rows.length; r++) {
-    ws[`C${r}`] = { t: 's', v: String(rows[r - 1][2]) };
-  }
-  ws.A6 = { t: 's', v: '000456' };
-  ws.A7 = { t: 's', v: 'AB-0012-X' };
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Composite');

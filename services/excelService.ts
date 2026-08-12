@@ -2,7 +2,7 @@
 import * as XLSX from 'xlsx';
 import XLSX_STYLE from 'xlsx-js-style';
 import { FileData, SheetData } from '../types';
-import { cellToText, plainNumberString } from '../utils/cellText';
+import { scientificNumberOverride, plainNumberString } from '../utils/cellText';
 
 export const readExcelFile = async (file: File): Promise<FileData> => {
   return new Promise((resolve, reject) => {
@@ -90,27 +90,44 @@ export const getSheetData = (workbook: any, sheetName: string, raw: boolean = fa
   const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "", raw: raw }) as any[][];
 
   if (!raw) {
-    // TEXT MODE — read each cell's real content instead of its display text.
+    // TEXT MODE — SheetJS's own output, with ONE class of cell corrected.
     //
     // `sheet_to_json({ raw: false })` returns `w`, the text Excel would DISPLAY.
     // For long numbers that is lossy: Excel's General format switches to
     // scientific at 12 digits, so a 13-digit barcode arrives as "1.23457E+12" —
     // six significant digits. The previous code tried to rescue that by running
     // `Number()` on the scientific string, which produced 1234570000000: a wrong
-    // barcode that still looks like a barcode. `cell.v` had the right value all
-    // along.
+    // barcode that still looks like a barcode. `cell.v` held the true value all
+    // along (TD-038).
     //
-    // So the grid SHAPE still comes from sheet_to_json — same rows, same columns,
-    // same `defval` behaviour as before — and only the values are re-read from
-    // the cells. Keeping the shape identical is deliberate: every consumer
-    // indexes this array positionally.
+    // The correction is an OVERRIDE, not a re-read. `data` keeps SheetJS's value
+    // for every cell, and only a number whose displayed text is scientific is
+    // replaced. An earlier attempt rebuilt every value from the cell and quietly
+    // changed three other classes: error cells went from `""` to the literal
+    // "#N/A" — so a broken VLOOKUP in a barcode column would export `#N/A` AS a
+    // barcode — text cells lost display formats, and untyped cells stopped
+    // yielding `defval`. Overriding instead makes "nothing else changes"
+    // verifiable by reading these six lines.
     //
-    // See utils/cellText.ts for the per-cell rule and its tests.
+    // One further deliberate difference from the old code: a TEXT cell whose
+    // content is literally "1.23E+12" is no longer expanded via `Number()`. Those
+    // digits are already gone in the file; expanding them invents zeros.
+    //
+    // Column labels are hoisted because this runs on the main thread inside a
+    // click handler, and `encode_cell` per cell allocates an object and a string
+    // for every one of them — 800k allocations on the 40k-row sheet the e2e suite
+    // already exercises.
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+    const colRefs: string[] = [];
+    for (let c = 0; c < (data[0]?.length ?? 0); c++) {
+      colRefs.push(XLSX.utils.encode_col(range.s.c + c));
+    }
+
     for (let r = 0; r < data.length; r++) {
+      const rowRef = String(range.s.r + r + 1);
       for (let c = 0; c < data[r].length; c++) {
-        const ref = XLSX.utils.encode_cell({ r: range.s.r + r, c: range.s.c + c });
-        data[r][c] = cellToText(worksheet[ref]);
+        const corrected = scientificNumberOverride(worksheet[colRefs[c] + rowRef]);
+        if (corrected !== null) data[r][c] = corrected;
       }
     }
     return data;

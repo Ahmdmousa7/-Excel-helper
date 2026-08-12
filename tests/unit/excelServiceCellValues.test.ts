@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as XLSX from 'xlsx';
@@ -37,11 +37,21 @@ const CASES: Array<[string, string, string | null]> = [
 ];
 
 describe('getSheetData preserves long barcodes (TD-038)', () => {
-  const rows = getSheetData(loadFixture(), 'Composite') as string[][];
-  const header = rows[0];
-  const numberCol = header.indexOf('Barcode (stored as number)');
-  const textCol = header.indexOf('Barcode (stored as text)');
-  const byKey = new Map(rows.slice(1).map((r) => [String(r[0]), r]));
+  // Loaded in beforeAll, not in the describe body. At collection time a throw —
+  // a missing fixture, corrupt bytes, a future `getSheetData` change — surfaces
+  // as a whole-file collection error, which skips the shape guard below and
+  // reports something far less useful than "the fixture could not be read".
+  let rows: string[][];
+  let numberCol: number;
+  let textCol: number;
+  let byKey: Map<string, string[]>;
+
+  beforeAll(() => {
+    rows = getSheetData(loadFixture(), 'Composite') as string[][];
+    numberCol = rows[0].indexOf('Barcode (stored as number)');
+    textCol = rows[0].indexOf('Barcode (stored as text)');
+    byKey = new Map(rows.slice(1).map((r) => [String(r[0]), r]));
+  });
 
   it('reads the fixture and finds the expected shape', () => {
     // Guards the test itself: if the fixture or the header text ever changes,
@@ -91,8 +101,13 @@ describe('getSheetData preserves long barcodes (TD-038)', () => {
 });
 
 describe('getSheetData does not regress the cases that always worked', () => {
-  const rows = getSheetData(loadFixture(), 'Composite') as string[][];
-  const byKey = new Map(rows.slice(1).map((r) => [String(r[0]), r]));
+  let rows: string[][];
+  let byKey: Map<string, string[]>;
+
+  beforeAll(() => {
+    rows = getSheetData(loadFixture(), 'Composite') as string[][];
+    byKey = new Map(rows.slice(1).map((r) => [String(r[0]), r]));
+  });
 
   it('keeps a leading-zero SKU as text', () => {
     // Text cells were always returned verbatim; this asserts the fix did not
