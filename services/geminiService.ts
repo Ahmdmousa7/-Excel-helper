@@ -2,6 +2,21 @@
 import { GoogleGenAI, Schema, Type } from "@google/genai";
 import { IAiService } from "../types/ai.types";
 
+/**
+ * The two models this app uses, named once.
+ *
+ * They were repeated as string literals at five call sites, which is how a model
+ * swap turns into a hunt. Flash is the cheap, fast one for high-volume mechanical
+ * work; Pro is for reasoning and anything multimodal.
+ *
+ * Both are *preview* ids and Google retires those. If AI features start failing
+ * with a model-not-found error, this is the first place to look — and note that
+ * the key Test button only exercises FLASH, so a green "valid" badge says nothing
+ * about whether PRO still resolves.
+ */
+export const GEMINI_FLASH = 'gemini-3-flash-preview';
+export const GEMINI_PRO = 'gemini-3-pro-preview';
+
 // Key Management
 const GEMINI_KEY_STORAGE = 'gemini_api_key';
 const GROQ_KEY_STORAGE = 'groq_api_key';
@@ -41,7 +56,7 @@ export const verifyGeminiKey = async (keysString: string): Promise<'valid' | 'in
 
     try {
         const ai = new GoogleGenAI({ apiKey: keyToTest });
-        const model = 'gemini-3-flash-preview'; // Lightweight model for check
+        const model = GEMINI_FLASH; // Lightweight model for check
         await ai.models.generateContent({
             model,
             contents: { parts: [{ text: "test" }] }
@@ -106,8 +121,13 @@ export const translateBatch = async (
     while (attempts < maxRetries) {
         try {
             const client = getAiClient();
-            const model = 'gemini-3-flash-preview';
-            
+            // Pro, by request. Translation is the one "mechanical" task where
+            // reasoning still pays — idiom, domain terms and the glossary
+            // carve-out are judgement calls. Costs more per batch and has tighter
+            // free-tier limits than Flash, which is what the key rotation below
+            // is for.
+            const model = GEMINI_PRO;
+
             let translationInstruction = `Translate the following items from ${options.sourceLang} to ${options.targetLang}.`;
             if (options.sourceLang === 'auto' && options.targetLang === 'auto') {
                 translationInstruction = `For each item, detect the primary language. If the text is primarily English, translate it entirely to Arabic. If the text is primarily Arabic, translate it entirely to English. Provide ONLY the translated text in the target language. CRITICAL: Do NOT echo or return the original language text. Output ONLY the final translated text.`;
@@ -158,13 +178,21 @@ export const translateBatch = async (
     return items.map(() => "");
 };
 
-export const extractStructuredData = async (text: string, prompt: string): Promise<any[]> => {
+/**
+ * @param model Defaults to Flash. Web Scraper passes Pro; OCR's text path
+ *   deliberately does not, so switching one does not silently switch the other.
+ *   Both share this function, and a hardcoded model here would tie them together.
+ */
+export const extractStructuredData = async (
+    text: string,
+    prompt: string,
+    model: string = GEMINI_FLASH,
+): Promise<any[]> => {
     let attempts = 0;
     const maxRetries = getMaxRetries();
     while (attempts < maxRetries) {
         try {
             const client = getAiClient();
-            const model = 'gemini-3-flash-preview';
 
             const fullPrompt = `
               ${prompt}
@@ -214,7 +242,7 @@ export const processGeneralFile = async (
   input: { data?: string, mimeType?: string, text?: string },
   instruction: string
 ): Promise<string> => {
-  const model = 'gemini-3-pro-preview'; // Use Pro for general reasoning
+  const model = GEMINI_PRO; // Use Pro for general reasoning
   const client = getAiClient();
 
   const parts: any[] = [];
@@ -243,7 +271,7 @@ export const extractFromMedia = async (
   onProgress?: (msg: string) => void
 ): Promise<any[]> => {
   // Using Pro for high quality OCR reasoning
-  const model = 'gemini-3-pro-preview';
+  const model = GEMINI_PRO;
   
   const prompt = `
     You are an expert AI specialized in Optical Character Recognition (OCR) and Document Understanding.
@@ -404,8 +432,8 @@ export class GeminiService implements IAiService {
       return translateBatch(items, options);
   }
 
-  async extractStructuredData(text: string, prompt: string): Promise<any[]> {
-      return extractStructuredData(text, prompt);
+  async extractStructuredData(text: string, prompt: string, model?: string): Promise<any[]> {
+      return extractStructuredData(text, prompt, model);
   }
 
   async processGeneralFile(

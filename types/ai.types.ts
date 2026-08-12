@@ -4,7 +4,12 @@ export interface IAiService {
         options: { sourceLang: string; targetLang: string; domain: string; glossary: string[] }
     ): Promise<string[]>;
 
-    extractStructuredData(text: string, prompt: string): Promise<any[]>;
+    /**
+     * @param model Optional provider model id. Shared by Web Scraper and OCR's
+     *   text path, which deliberately run on different models — see the
+     *   implementation. Omit it to take the provider's default.
+     */
+    extractStructuredData(text: string, prompt: string, model?: string): Promise<any[]>;
 
     processGeneralFile(
         input: { data?: string; mimeType?: string; text?: string },
