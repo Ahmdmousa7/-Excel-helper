@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:3d966a1203b47e8c8c69266c4b368839a5003c24e6e3fdbc54a8d92f2becd54f",
+  "attestation_id": "sha256:1f6946470480b3619e3090a740ed1373332ed75a0d5a898da318a6975ddc73c3",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -20,7 +20,7 @@
     },
     "services": {
       "files": 5,
-      "loc": 1124
+      "loc": 1128
     },
     "tests": {
       "files": 10,
@@ -86,7 +86,7 @@
       },
       {
         "file": "services/geminiService.ts",
-        "loc": 804
+        "loc": 808
       }
     ],
     "threshold_loc": 800
@@ -101,5 +101,5 @@
   ],
   "schema": "apexyard.evidence.architecture/1",
   "source_files": 91,
-  "total_loc": 27299
+  "total_loc": 27303
 }

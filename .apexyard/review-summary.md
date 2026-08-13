@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:3d966a1203b47e8c8c69266c4b368839a5003c24e6e3fdbc54a8d92f2becd54f` |
+| Attestation id | `sha256:1f6946470480b3619e3090a740ed1373332ed75a0d5a898da318a6975ddc73c3` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `9d6648ef2b97` |
+| Reviewed at commit | `1df34b7d5df3` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 5 |
+| Files reviewed | 3 |
 
 ## What this is, and what it is not
 
@@ -31,9 +31,9 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | high | 0 |
 | medium | 0 |
 | low | 1 |
-| info | 2 |
+| info | 0 |
 
-This PR replaces the Gemini candidate model ids — five of six `quality` entries were invented and both tiers were silently resolving to the same Flash preview — with ids verified against a live key via `scripts/list-gemini-models.mjs`, adds two tests that pin the verified set and require a `*-latest` backstop per tier, teaches `scan-secrets.sh` the current `AQ.…` AI Studio key format, and de-duplicates the id list out of ADR-0006. The change is well-reasoned, the commit bodies carry the WHY, and the test rewrites correctly derive from `MODEL_CANDIDATES` instead of hardcoding ids that never existed. No blocking-handbook violations: no secrets are committed, no component/service layering is crossed, no `any` or suppression is added, and the technical decision is documented in ADR-0006. Three documentation-accuracy nits, none of which affect behaviour.
+This PR is comment- and documentation-only: it corrects three prose claims that had drifted from the code they describe. `services/geminiService.ts` replaces an ordering rule for the `*-latest` aliases that `MODEL_CANDIDATES` did not actually follow with an expected-recency explanation that does; `scripts/scan-secrets.sh` corrects the self-scan-safety argument, which had claimed a single mechanism (`[` after the prefix) when the newly added `AQ\.` pattern is safe by a different one (its own backslash); the ADR bullet records that the fallback test's mock model id was itself fiction. I verified every claim against the code: the quality and fast lists at `services/geminiService.ts:60-77` match the new ordering narrative exactly, and none of the nine patterns at `scripts/scan-secrets.sh:65-75` match their own literal text. No executable behaviour changes, no new dependencies, no technical decision requiring an ADR. One low-severity stale comment in the same file contradicts the block this PR corrects.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 91 source files, 27299 lines
+- 91 source files, 27303 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**

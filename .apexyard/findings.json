@@ -1,42 +1,24 @@
 {
-  "attestation_id": "sha256:3d966a1203b47e8c8c69266c4b368839a5003c24e6e3fdbc54a8d92f2becd54f",
+  "attestation_id": "sha256:1f6946470480b3619e3090a740ed1373332ed75a0d5a898da318a6975ddc73c3",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
+    "info": 0,
     "low": 1,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "The new comment states the `*-latest` aliases \"sit behind the explicit ids of their own family ... because an alias is a moving target: preferring a pinned id keeps behaviour predictable\", and then spends a sentence explaining the one deliberate exception in `fast`. But `quality` has the same exception and it is unexplained: `gemini-pro-latest` (line 59) sits AHEAD of the pinned `gemini-2.5-pro` (line 60), so if `gemini-3.1-pro-preview` is retired the quality tier falls onto a moving alias in preference to a pinned id — the exact thing the sentence says the ordering avoids. This is the same defect the previous wording had (\"sit last in their own family\"), which commit 9d6648e set out to fix; the fix corrected the `fast` case and left the `quality` case. It matters because this comment block is the only record of the ordering judgement, and a comment that misdescribes the list is how the last id error survived nine gate cycles.",
-      "file": "services/geminiService.ts",
-      "line": 43,
+      "detail": "The comment `# Skipping the pattern-list lines themselves, now that the file is in scope.` describes behaviour that does not exist — the grep on the next line (`list_scan_targets | xargs -0 -r grep -IHnE \"$p\"`) has no exclusion for this file or for the `patterns=(...)` block. It directly contradicts the block this PR just rewrote (lines 115-128), which correctly argues the opposite: no skipping is needed because none of the patterns match their own literal text. This matters here specifically because the whole point of the diff is to make the self-scan reasoning survive a future pattern being added — leaving a comment 30 lines below that says the lines are skipped invites the next author to trust a guard that isn't there and skip the per-pattern self-match check the new block asks for. Flagged as low, not medium, because the scanner's behaviour is correct; only the comment is wrong. It would rise to medium if the false comment were load-bearing for a caller.",
+      "file": "scripts/scan-secrets.sh",
+      "line": 154,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "The rewritten alias-ordering rule still contradicts the `quality` list"
-    },
-    {
-      "category": "security",
-      "detail": "Adding the `AQ.…` shape is the right call and the pattern is sound (verified: `AQ\\.[A-Za-z0-9_-]{40,}` produces zero matches across all tracked files today, so it will not turn the scan into a red gate people learn to ignore). The note further down the file justifies scanning this script with its own patterns by asserting \"every pattern's literal text has a `[` immediately after the prefix ... so none of them match themselves\". That is no longer true of the new entry — `AQ` is followed by `\\`, not `[`. The invariant still holds (a backslash is not in the character class), but the recorded reason for it does, and the next person adding a pattern may lean on a rationale that no longer describes the file.",
-      "file": "scripts/scan-secrets.sh",
-      "line": 68,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "New `AQ.` pattern is self-scan-safe, but by a different mechanism than the file documents"
-    },
-    {
-      "category": "technical-debt",
-      "detail": "The bullet immediately above the one this PR rewrote says the non-silent-fallback behaviour was \"Verified in a browser against an endpoint that retires `gemini-3.1-pro`\" — an id the very next bullet now names as one of the five that do not exist on the key. Outside the diff hunks, so noted as info rather than a request, but it is the same document this PR is de-duplicating precisely because it \"has already been wrong about them once\", and a reader checking the verification claim will look for an id that appears nowhere else in the repo.",
-      "file": "docs/adr/ADR-0006-model-tiers-not-model-ids.md",
-      "line": 47,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "A `Consequences` bullet still cites `gemini-3.1-pro`, which this PR declares fiction"
+      "summary": "Stale comment claims pattern-list lines are skipped; nothing skips them"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 1
 }
