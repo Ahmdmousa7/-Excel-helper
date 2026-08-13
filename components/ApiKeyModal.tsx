@@ -114,24 +114,31 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               exist in the DOM BEFORE the text lands in it, or assistive tech has
               nothing to observe and the announcement is unreliable. This element
               is always rendered and only its contents change. */}
-          <div role="status" aria-live="polite" className="sr-only">
-            {geminiStatus === 'valid' && t.actions.valid}
-            {geminiStatus === 'invalid' && t.actions.invalid}
-            {geminiStatus === 'quota' && t.actions.quota}
-            {/* The short status only. Announcing the full help paragraph here as
-                well put it in the accessibility tree twice — once from this
-                region, once from the visible panel below, which `sr-only` does
-                not remove. The badge text is what needs announcing; the detail is
-                read in place. */}
-            {geminiStatus === 'no-model' && t.actions.noModel}
+          {/* One permanent live region that CONTAINS the visible panel, rather
+              than a hidden copy of it.
+
+              Two earlier attempts pulled in opposite directions: announcing the
+              help text from a hidden region put it in the accessibility tree
+              twice, and removing it left the remediation unannounced — the one
+              thing this result exists to say. Nesting the visible panel inside
+              the region settles both: it appears exactly once, and it is
+              announced because it appears inside a region that was already in the
+              DOM. The wrapper is always rendered and only its contents change.
+
+              The help text opens "Your key works." so the announcement is
+              self-contained without repeating the badge. */}
+          <div role="status" aria-live="polite">
+            <span className="sr-only">
+              {geminiStatus === 'valid' && t.actions.valid}
+              {geminiStatus === 'invalid' && t.actions.invalid}
+              {geminiStatus === 'quota' && t.actions.quota}
+            </span>
+            {geminiStatus === 'no-model' && (
+              <div className="mb-2 bg-blue-50 border border-blue-200 p-2 rounded-sm text-[10px] text-blue-800 leading-snug">
+                {t.actions.noModelHelp}
+              </div>
+            )}
           </div>
-          {/* The visible panel. Not a live region itself — that is the element
-              above — so the text is not announced twice. */}
-          {geminiStatus === 'no-model' && (
-            <div className="mb-2 bg-blue-50 border border-blue-200 p-2 rounded-sm text-[10px] text-blue-800 leading-snug">
-              {t.actions.noModelHelp}
-            </div>
-          )}
           <div className="flex justify-between items-start">
             <div className="bg-blue-50 border border-blue-100 p-2 rounded-sm flex items-start space-x-2 flex-1 me-2">
               <ShieldPlus size={14} className="text-primary-600 mt-0.5 shrink-0" />
