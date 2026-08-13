@@ -1,69 +1,60 @@
 {
-  "attestation_id": "sha256:a7c97014cb40ba43de541e575e553af029c96054a4562a95a04301e78bb2cb3f",
+  "attestation_id": "sha256:5ee62bc13af6fa39b8e673d4376642e4bdf745424a09f30c41cf04b6e9725b1c",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 4,
+    "low": 3,
     "medium": 1
   },
   "findings": [
     {
-      "category": "react",
-      "detail": "The notice is appended to `analystMessages` as `{ role: 'assistant', content }`. On the next turn, `handleAnalystSend` builds `historyContext` from `newHistory.slice(-6)` (line 402) and labels every assistant entry `Analyst:` — so the model is told its own previous answer was `Model \"gemini-3.1-flash\" is unavailable; continuing on \"...\". Output quality may differ.` That both consumes one of only six history slots and invites the model to respond to a maintenance message as if it were part of the analysis. The second consequence is visual: the notice renders through the same white assistant bubble at line 658, so a user cannot tell a system notice from an answer. Trigger is narrow (only after a real model retirement), which is why this is medium rather than high; it would be high if the window were larger or the notice were re-emitted per turn.",
+      "category": "code-smell",
+      "detail": "The PR introduces `isNotice` precisely because an app-generated assistant message gets relabelled \"Analyst:\" by `historyContext` and fed back to the model. The catch block pushes `{ role: 'assistant', content: \\`Error: ${e.message}\\` }` with no `isNotice`, so it is the one remaining message in this component that the app writes and the model then reads as its own words. After a quota or key failure mid-conversation the next prompt contains `Analyst: Error: API Key required for analysis`, and the model answers with that as context — the exact failure the commit message calls \"worse than no notice\". The line predates this diff, which is what keeps this out of high; what would raise it is that the error path is not rare (quota and key errors are the common failures here) and the fix is one property.",
       "file": "components/SupportChat.tsx",
-      "line": 461,
+      "line": 516,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "Fallback notice is stored as an assistant turn, so it re-enters the prompt"
+      "summary": "Error messages still leak into the next prompt as \"Analyst:\" text"
     },
     {
       "category": "accessibility",
-      "detail": "Two things weaken the announcement this change is trying to add. First, the `role=\"status\"` element only enters the DOM when `geminiStatus === 'no-model'`, so the region and its text appear in the same commit; the ARIA practice is that a live region must already be in the accessibility tree for an insertion to be reliably announced, and several screen-reader/browser pairs stay silent on a region mounted with content. Second, the comment's own premise — 'a screen reader user presses Test and hears nothing at all' — still holds for the other three outcomes: `valid`, `invalid` and `quota` (lines 86-93) are badge-only with no live region, so the most common results of pressing Test remain unannounced while the rarest one is announced.",
+      "detail": "The permanent live region interpolates `${t.actions.noModel}. ${t.actions.noModelHelp}` and the visible panel two lines below renders `t.actions.noModelHelp` again. The comment at line 123-124 says \"the text is not announced twice\" — that is correct for the *announcement* (only the live region fires), but `sr-only` is a clip technique, not `display:none`, so both copies stay in the accessibility tree. A screen-reader user who Tests, hears the announcement, then browses the dialog to re-read it encounters the help text a second time. Genuinely minor, but it is avoidable by nesting rather than duplicating.",
       "file": "components/ApiKeyModal.tsx",
-      "line": 116,
+      "line": 121,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Live region is created at the same moment as its content, and covers 1 of 4 statuses"
+      "summary": "`noModelHelp` now appears twice in the accessibility tree"
     },
     {
-      "category": "code-smell",
-      "detail": "`advancePastRetiredModel` (services/geminiService.ts:312) builds the notice as a hardcoded English sentence, which was fine while its destinations were `console.warn` and a log panel. This diff promotes it to user-facing chat content in a component that takes `language` and sets `dir=\"rtl\"` for Arabic (line 509), and every other string in that transcript comes from `t`. An Arabic user gets one English LTR sentence mid-conversation, inside an RTL container.",
+      "category": "accessibility",
+      "detail": "The other half of this PR fixes exactly this class in ApiKeyModal: a status change that arrives with no live region is invisible to a screen-reader user. \"Model changed: … Output quality may differ.\" is appended into the transcript container at line 672, which has no `role=\"log\"`, `aria-live`, or `role=\"status\"` anywhere — so the one channel this component has to tell the user the model degraded reaches only sighted users. Low rather than high because the container's silence pre-dates this diff (analyst answers already arrive unannounced), so the notice is not a regression; but this PR is the one that adds a *status* message, as distinct from conversational content, and the accessibility handbook § rule 6 covers exactly that.",
       "file": "components/SupportChat.tsx",
-      "line": 456,
+      "line": 476,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "English-only notice posted into a transcript that supports Arabic"
-    },
-    {
-      "category": "code-smell",
-      "detail": "The new poll body — `box ? Math.round(box.x + box.width) : null` with `timeout: 10_000` — is character-for-character the helper `drawerRightEdge` at line 22, which three tests in the same file already use (lines 186, 198). The only reason not to call it is the custom failure message. Keeping a second copy is how the two drift: a future change to what 'off-canvas' means has to be made in two places, and the file currently teaches both patterns.",
-      "file": "e2e/responsive.spec.ts",
-      "line": 142,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Inline poll duplicates the drawerRightEdge helper defined in the same file"
+      "summary": "The fallback notice is never announced — transcript has no live region"
     },
     {
       "category": "testing",
-      "detail": "The comment is right that the old title overclaimed — but the fix removes the claim rather than the gap. `SupportChat` has no test anywhere (no file under `tests/` or `e2e/` references it), so the exact failure the comment describes — the service contract green while the component passes no callback — is still undetectable, only now for the opposite reason: nothing asserts the component forwards it or renders the result. The service-level tests in this block are the ones that catch a dropped callback; none of them can catch a dropped call site.",
-      "file": "tests/unit/geminiModels.test.ts",
-      "line": 329,
+      "detail": "The `app` fixture calls `shell.goto()` during setup (e2e/fixtures.ts:86-89), which runs before the test body installs `page.route`. The body then calls `await app.goto()` a second time so the route applies. The spec therefore loads the whole app twice on every run, the first time with no interception, and calls `addInitScript` twice. It passes, but `e2e/fixtures.ts:66` documents `shell` as \"the app shell WITHOUT navigating — for tests that control their own load\", which is precisely this case; `e2e/responsive.spec.ts` uses it that way throughout.",
+      "file": "e2e/support-chat-fallback.spec.ts",
+      "line": 28,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "The wiring this PR adds has no test; the rename records the gap without closing it"
+      "summary": "Uses the `app` fixture then navigates again — one wasted unrouted load"
     },
     {
-      "category": "technical-debt",
-      "detail": "Two small regressions in an otherwise correct repair of these rows. The description previously linked `[ADR-0006](../adr/ADR-0006-model-tiers-not-model-ids.md)` and now says plain `ADR-0006`, so the register no longer navigates to the decision it rests on (TD-037 in the same table still links its ADR, so this is now inconsistent within the file). And 'every caller logs it as a warning' is not true of the caller this PR adds — SupportChat has no log panel and posts the notice into the transcript, which is the whole point of the code comment at line 448.",
-      "file": "docs/quality/tech-debt-register.md",
-      "line": 51,
+      "category": "testing",
+      "detail": "The inlined poll carried `message: 'the sidebar never went off-canvas at 375px'`; the shared helper reports the generic 'the drawer never reached its resting position'. Reusing the helper is the right call and this is not a defect — but this suite is unusually disciplined about failure text (every neighbouring `expect` carries a bespoke message naming the viewport), and `drawerRightEdge` is now used at three call sites that fail for three different reasons. An observation, not a request.",
+      "file": "e2e/responsive.spec.ts",
+      "line": 142,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "TD-041 row loses the ADR-0006 link and overstates the caller behaviour"
+      "summary": "De-duplicating the poll dropped its call-site-specific failure message"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 6
+  "total": 5
 }

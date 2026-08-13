@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:a7c97014cb40ba43de541e575e553af029c96054a4562a95a04301e78bb2cb3f` |
+| Attestation id | `sha256:5ee62bc13af6fa39b8e673d4376642e4bdf745424a09f30c41cf04b6e9725b1c` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `128c9bd7af0d` |
+| Reviewed at commit | `20c027529ba7` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **COMMENT** |
-| Files reviewed | 6 |
+| Verdict | **APPROVED** |
+| Files reviewed | 5 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 1 |
-| low | 4 |
+| low | 3 |
 | info | 1 |
 
-This PR closes out three loose ends from the TD-039/TD-041 work: it adds an aria-live announcement to the ApiKeyModal 'no-model' panel, wires SupportChat's Support Chat analyst to the new onNotice fallback callback, repairs two tech-debt-register rows whose 'Fixed by' cells had been copy-pasted from TD-042, replaces a no-op poll in the responsive e2e test with one that waits for the state that actually changes, and renames a unit test whose title claimed coverage it did not have. The e2e fix and the register repair are both correct and well-reasoned — the old poll's predicate really was already true on the first read. Nothing here is blocking: no secrets, no unsanitized HTML (chat content renders as text), no layering violation, no dependency change. One medium finding: representing the fallback notice as a `role: 'assistant'` ChatMessage feeds it back to the model as the analyst's own prior turn on the next request.
+This PR closes four review findings from the TD-041 model-fallback work: it stops the Support Chat fallback notice from leaking back into the analyst's next prompt (new `isNotice` flag filtered out of `historyContext` before the six-message window), replaces ApiKeyModal's status-only-on-`no-model` live region with one permanently-mounted region covering all four Test outcomes, de-duplicates an inlined `drawerRightEdge` poll in the responsive spec, and corrects the TD-041 register row. A new e2e spec drives the real component and asserts both halves — notice visible, notice absent from the second prompt. I verified the mechanism end to end: `handleTestGemini` sets `'idle'` before testing (App.tsx:273) so the live region re-announces on a repeat Test, the retired-model cache means the second turn produces no fresh notice so the filter is genuinely what the test exercises, and the `app.goto()` seeds the API key the analyst path needs. No blocking-handbook violations and no high-severity defects; findings below are all low/medium polish, three of them one-liners.
 
 ## Quality gates
 
@@ -42,7 +42,7 @@ This PR closes out three loose ends from the TD-039/TD-041 work: it adds an aria
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
 | Vitest | pass | 258/258 passed, lines 96.15% |
-| Playwright | pass | 102/102 passed |
+| Playwright | pass | 103/103 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 92 source files, 27911 lines
+- 93 source files, 28024 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
@@ -65,7 +65,7 @@ reports zero failures for a tool that never executed.
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1058 |
 | `components/TranslateTab.tsx` | 953 |
-| `components/SupportChat.tsx` | 926 |
+| `components/SupportChat.tsx` | 950 |
 | `utils/translations.ts` | 908 |
 | `components/OcrTab.tsx` | 881 |
 | `services/geminiService.ts` | 850 |
