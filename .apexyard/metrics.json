@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:407d23dddc45b48406d362a717cfc7789294c800ec6aedafad22122ed29e9540",
+  "attestation_id": "sha256:13fb770a50c434a17e93c6f391f73dd835ff10d74cc7c7d00715b4a70acae7fe",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,8 +21,8 @@
         "raw_bytes": 499864
       },
       {
-        "file": "ProjectSummaryTab-DOdm8Bh_.js",
-        "gzip_bytes": 144777,
+        "file": "ProjectSummaryTab-DNGRj9GV.js",
+        "gzip_bytes": 144779,
         "raw_bytes": 444342
       },
       {
@@ -31,8 +31,8 @@
         "raw_bytes": 280794
       },
       {
-        "file": "index.es-C36igW-c.js",
-        "gzip_bytes": 51631,
+        "file": "index.es-Bs7Izp-F.js",
+        "gzip_bytes": 51633,
         "raw_bytes": 151120
       },
       {
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-zHTOFyOq.js",
-        "gzip_bytes": 43362,
+        "file": "HomeTab-QbnQZ_dk.js",
+        "gzip_bytes": 43361,
         "raw_bytes": 135983
       },
       {
-        "file": "index-DFARg3CX.js",
-        "gzip_bytes": 31678,
+        "file": "index-LKSAYecX.js",
+        "gzip_bytes": 31683,
         "raw_bytes": 104347
       },
       {
@@ -61,7 +61,7 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-DGqBlEAW.js",
+        "file": "QrCodeTab-DmTwFYFZ.js",
         "gzip_bytes": 13679,
         "raw_bytes": 37385
       }
@@ -69,7 +69,7 @@
     "metrics": [
       {
         "budget_kb": 110,
-        "gzip_kb": 86.4,
+        "gzip_kb": 86.5,
         "metric": "Initial load (entry + preloads + CSS)",
         "over": false,
         "used_pct": 79
@@ -104,7 +104,7 @@
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1325.3,
+        "gzip_kb": 1325.4,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -158,13 +158,11 @@
   },
   "playwright": {
     "available": true,
-    "failed_count": 1,
-    "failures": [
-      "modal.spec.ts > API key modal > Tab is trapped inside the dialog"
-    ],
+    "failed_count": 0,
+    "failures": [],
     "flaky_count": 0,
-    "passed": false,
-    "passed_count": 100,
+    "passed": true,
+    "passed_count": 101,
     "skipped_count": 0,
     "total": 101
   },

@@ -97,6 +97,14 @@ const translateErrorToArabic = (errorMsg: string): string => {
         const match = errorMsg.match(/'([^']+)'/);
         return `الكمية غير صحيحة (يجب أن تكون رقماً) '${match ? match[1] : ''}'`;
     }
+    // Checked BEFORE nothing and AFTER "Non-numeric", but the order does not
+    // matter here because the two strings do not overlap — unlike "Missing Qty
+    // for Ingredient" and "Missing SKU for Qty", which both contain "Qty" and
+    // are only distinguished by the longer prefix being tested first.
+    if (errorMsg.includes("Zero Qty")) {
+        const match = errorMsg.match(/'([^']+)'/);
+        return `مقدار الاستخدام من المادة يساوي صفر '${match ? match[1] : ''}'`;
+    }
     if (errorMsg.includes("Possible Typo:")) {
         const matches = errorMsg.match(/'([^']+)'/g);
         if (matches && matches.length >= 2) {
@@ -525,6 +533,26 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
 
                       if (isQtyCol && item.val && isNaN(Number(item.val))) {
                          rowErrors.push(`Non-numeric Qty '${item.val}'`);
+                         rowLocations.push(getCellRef(item.col));
+                      }
+
+                      // A quantity of ZERO, which used to pass silently.
+                      //
+                      // It slipped through both existing checks: "0" is not empty,
+                      // so it is not a Missing Qty, and `Number("0")` is not NaN,
+                      // so it is not a Non-numeric Qty. The row therefore looked
+                      // completely valid while saying this composite uses none of
+                      // an ingredient it names — which is either a typo or a
+                      // deleted line someone forgot to remove, and on import it
+                      // produces a BOM entry that contributes nothing and a line
+                      // cost of zero.
+                      //
+                      // Checked separately from the NaN test rather than folded
+                      // into it, because the two need different messages: "this is
+                      // not a number" and "this is a number that cannot be right"
+                      // send you to different places in the sheet.
+                      if (isQtyCol && item.val && !isNaN(Number(item.val)) && Number(item.val) === 0) {
+                         rowErrors.push(`Zero Qty '${item.val}'`);
                          rowLocations.push(getCellRef(item.col));
                       }
                    }

@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:407d23dddc45b48406d362a717cfc7789294c800ec6aedafad22122ed29e9540` |
+| Attestation id | `sha256:13fb770a50c434a17e93c6f391f73dd835ff10d74cc7c7d00715b4a70acae7fe` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `c72569fab5df` |
+| Reviewed at commit | `e193c6597027` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **COMMENT** |
@@ -33,7 +33,7 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | low | 3 |
 | info | 0 |
 
-This PR closes TD-039, TD-041 and TD-042: it centralises the retire-and-advance model-fallback block into a single `advancePastRetiredModel` helper, threads an optional `onNotice` callback through every AI entry point so a quality downgrade is user-visible outside Translate, adds a `'no-model'` API-key state so a stale `MODEL_CANDIDATES` no longer reads as a bad credential, accepts finite JSON numbers as translations, and replaces two `waitForTimeout` sleeps in the e2e drawer specs with polled assertions. The code changes are well-reasoned, the new unit tests genuinely pin the behaviour (including the `typeof NaN === 'number'` and falsy-`0` traps), and no blocking-handbook rule is violated. Four non-blocking findings: a copy-paste defect in the tech-debt register that records the wrong fix for two of the three closed entries, one AI entry point whose only real call site is still unwired, one leftover inline duplicate of the new `ModelNotice` type, and a missing live region on the new status message.
+This PR closes TD-039, TD-041 and TD-042 and partly addresses TD-040. It centralises five copy-pasted retire-and-advance blocks into one `advancePastRetiredModel` helper, threads an optional `onNotice` callback through every `IAiService` entry point so a silent model downgrade is reported in OCR, Compare and Web Scraper (not just Translate), adds a `no-model` API-key state so a stale `MODEL_CANDIDATES` no longer blames a working key, accepts finite numbers as translations in `alignBatchResults`, and replaces two fixed `waitForTimeout` sleeps in the e2e drawer tests with `expect.poll`. The code is clean: I confirmed the helper preserves each call site's control flow, the notice/progress channel separation is real and pinned by a test, `extractStructuredData` still resolves for callers that pass nothing, and `verifyGeminiKey`'s `invalid` branch is still reachable and tested. No blocking-handbook violations, no security or dependency issues, and no AgDR-material decision (this implements ADR-0006's already-recorded position). The findings are all non-blocking: two are copy-paste defects in the tech-debt register's Closed table, one is a caller that was not wired up, one is an a11y nit on the new modal status block.
 
 ## Quality gates
 
@@ -42,17 +42,17 @@ This PR closes TD-039, TD-041 and TD-042: it centralises the retire-and-advance 
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
 | Vitest | pass | 258/258 passed, lines 96.15% |
-| Playwright | **FAIL** | 100/101 passed |
+| Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | pass | 19 violation node(s) |
+| Accessibility | not run | axe summary not captured; the accessibility e2e suite writes test-results/axe-summary.json when it runs |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 91 source files, 27724 lines
+- 91 source files, 27752 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
@@ -61,8 +61,8 @@ reports zero failures for a tool that never executed.
 
 | File | Lines |
 |---|---:|
+| `components/CompositeTab.tsx` | 1398 |
 | `components/VariableBalanceTab.tsx` | 1384 |
-| `components/CompositeTab.tsx` | 1370 |
 | `components/FileValidationTab.tsx` | 1058 |
 | `components/TranslateTab.tsx` | 953 |
 | `components/SupportChat.tsx` | 909 |

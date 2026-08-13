@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:407d23dddc45b48406d362a717cfc7789294c800ec6aedafad22122ed29e9540",
+  "attestation_id": "sha256:13fb770a50c434a17e93c6f391f73dd835ff10d74cc7c7d00715b4a70acae7fe",
   "available": true,
   "by_severity": {
     "critical": 0,
@@ -11,39 +11,39 @@
   "findings": [
     {
       "category": "technical-debt",
-      "detail": "All three newly-closed rows have byte-identical `Fixed by` cells describing the `alignBatchResults` numeric-translation fix — which is TD-042's fix only. TD-039 was actually fixed by adding the `'no-model'` state to `ApiKeyStatus`, `verifyGeminiKey` and the modal badge; TD-041 by `advancePastRetiredModel` plus the `onNotice` threading. Separately, TD-039's Description cell now ends mid-sentence at ``returns `'valid' \\`` — the `\\|` escapes from the original open-table row were not preserved when the row moved, so the first unescaped `|` terminated the cell and swallowed the rest of the description. The register is a living document whose entire value is being an accurate record; as it stands, anyone who reads why TD-039 or TD-041 was closed is told about a different change entirely, and the two commits in this PR are no longer recoverable from it. Docs-only, no runtime impact, which is why this is not higher.",
+      "detail": "All three new rows in the Closed table (lines 50, 51, 52) carry byte-identical 'Fixed by' text describing the `alignBatchResults` numeric-translation change — which is TD-042's fix only. So the register now claims TD-039 (\"same red invalid badge for a stale model list\") was fixed by accepting finite numbers as translations, and that TD-041 (\"a model fallback is surfaced in Translate only\") was too. Neither is true: TD-039 was fixed by the `no-model` state in `verifyGeminiKey` plus the blue badge in `ApiKeyModal`, and TD-041 by `advancePastRetiredModel` + the `onNotice` parameter on all four entry points. This defeats the exact purpose the register serves — the commit messages in this PR are careful about the why, and the durable artifact a future reader will actually query now gives the wrong answer for two of three entries.",
       "file": "docs/quality/tech-debt-register.md",
       "line": 50,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "Closed rows for TD-039 and TD-041 carry TD-042's fix text; TD-039's description is truncated"
+      "summary": "TD-039 and TD-041 closed rows record TD-042's fix, not their own"
     },
     {
       "category": "accessibility",
-      "detail": "The `no-model` badge (line 93) and the help panel (lines 108-112) are rendered conditionally after the async `handleTestGemini` resolves, with no `role=\"status\"`, `role=\"alert\"` or `aria-live` on either. A screen-reader user who presses Test hears nothing when the result arrives, and this is the one status whose whole purpose is to redirect the user away from the wrong conclusion (\"my key is bad\") — the badge text alone does that work, and it is never announced. The existing `valid`/`invalid`/`quota` badges have the same gap, so this is not a regression and the diff only adds one more instance, which is why it is `low` rather than `medium`.",
+      "detail": "The whole point of the `no-model` state is that the wording carries the diagnosis — 'Key OK', not red, plus a help line telling the user not to rotate the key and naming the script to run. But the badge (line 93) and the help block (lines 108–112) render conditionally with no `role=\"status\"` and no `aria-live` region, so a screen-reader user who activates the Test button hears nothing at all: focus stays on the button, and the result appears silently elsewhere in the dialog. That is worse here than for the pre-existing valid/invalid/quota badges, because this state's entire value is a sentence of guidance the user has no reason to go hunting for. Low rather than medium because the information is present and reachable by re-reading the dialog; it would be medium if the button became disabled or focus moved on completion.",
       "file": "components/ApiKeyModal.tsx",
       "line": 108,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "New 'no-model' badge and help panel appear with no live region"
+      "summary": "New no-model status badge and help text are not announced to screen readers"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "When TD-039 moved to the Closed table its description lost the escape on a pipe: it now ends at ``returns `'valid' \\`` and the rest — ``| 'invalid' \\| 'quota'`, so when the candidate walk falls off the end of `MODEL_CANDIDATES.fast`...`` — is gone. The trailing `\\ ` followed by ` | ` closes the cell early, the code span is left unclosed, and the row renders with a dangling backslash where the explanation used to be. The entry that motivated the headline change in this PR is now the one entry that no longer says what it was about.",
+      "file": "docs/quality/tech-debt-register.md",
+      "line": 50,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "TD-039's Description cell is truncated mid-sentence and breaks the table row"
     },
     {
       "category": "testing",
-      "detail": "The test drives `generateText` directly with a callback, so it proves the service-layer plumbing works — but the only `generateText` call site in the app is `components/SupportChat.tsx:448`, `aiService.generateText(prompt, 'fast')`, with no third argument. Support Chat is therefore still the one feature where a model fallback is invisible, which is precisely the condition TD-041 describes and which this PR's commit message (\"report a fallback everywhere\") and the register's closure of TD-041 both claim is now gone. The test name asserts a caller relationship that does not exist, so the suite will stay green if the gap is never closed. Impact is genuinely small — Support Chat is conversational and its answers are read immediately — which is why this is `low`. It would be `medium` if Support Chat output were exported or persisted the way Translate's workbook is.",
+      "detail": "The test `generateText tells its caller — Support Chat` proves the parameter is threaded through `generateText`, which it is. But `generateText`'s only production caller is `components/SupportChat.tsx:448`, `aiService.generateText(prompt, 'fast')` — no `onNotice`. So Support Chat is still the one surface where a request that quietly moved to a weaker model produces nothing but a `console.warn`, which is the precise condition TD-041 describes and which the register now marks closed. The commit message is honest about this (it claims Web Scraper, Compare and OCR only); the test name and the register's closure are not. A test whose name asserts a wiring that does not exist is the kind that stays green while the gap it names reopens.",
       "file": "tests/unit/geminiModels.test.ts",
       "line": 324,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Test named \"generateText tells its caller — Support Chat\" but no caller passes onNotice"
-    },
-    {
-      "category": "typescript",
-      "detail": "The new file header states the reason `ModelNotice` is imported rather than redeclared: \"a second local copy would let this file and the interface drift — which is the same mistake as the three separate copies of `translateBatch`'s options shape.\" But `translateBatch`'s own `options.onNotice` is still spelled `(message: string) => void` inline, with its own 5-line doc comment duplicating the one now on `ModelNotice` in `types/ai.types.ts` — while the corresponding field in `IAiService` was converted to `ModelNotice`. The two are structurally identical so nothing breaks today; the cost is that the one function the PR is holding up as the cautionary example is the one place the new type was not applied, and the duplicated prose is a second thing to keep in sync.",
-      "file": "services/geminiService.ts",
-      "line": 370,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "translateBatch's options still declares an inline copy of ModelNotice"
+      "summary": "Test named for Support Chat, but Support Chat still does not pass onNotice"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
