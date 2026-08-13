@@ -1,17 +1,9 @@
 {
-  "attestation_id": "sha256:d68686c1d5ebb4740b6bf2a2c191d0bfa81f431b1b9617fb8dbc6689430e84fa",
+  "attestation_id": "sha256:6beb6909af11f384e03d449bd2f8d9f15af992e10ae4a452a54354176c4fd141",
   "files": [
     {
-      "oid": "c42614f9e9089c418f13449931a2c9dc2655deb2",
+      "oid": "eb30795797a2878a5ead5d003f647d12d27b0153",
       "path": "components/ApiKeyModal.tsx"
-    },
-    {
-      "oid": "c2e4e380716549e9e06809fd445e61874286f686",
-      "path": "components/SupportChat.tsx"
-    },
-    {
-      "oid": "d575688f29e872c98f429a689a0dd5f359207266",
-      "path": "e2e/support-chat-fallback.spec.ts"
     }
   ],
   "findings_by_severity": {
@@ -23,7 +15,7 @@
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "be2e76f363dba0976db27cab207de46fc593c83d",
+  "reviewed_at_commit": "f935aab5c86048b64dcd940701ffa211e2152721",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:d68686c1d5ebb4740b6bf2a2c191d0bfa81f431b1b9617fb8dbc6689430e84fa` |
+| Attestation id | `sha256:6beb6909af11f384e03d449bd2f8d9f15af992e10ae4a452a54354176c4fd141` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `be2e76f363db` |
+| Reviewed at commit | `f935aab5c860` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 3 |
+| Files reviewed | 1 |
 
 ## What this is, and what it is not
 
@@ -33,7 +33,7 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | low | 1 |
 | info | 0 |
 
-Three small, focused changes: SupportChat's catch block now tags the user-facing `Error: …` transcript entry with `isNotice` so it is filtered out of the history string sent on the next turn; ApiKeyModal's sr-only live region drops the help paragraph and announces the short status only; and the Support Chat fallback spec switches from the `app` fixture to `shell` (so routes register before navigation) and gains a second test covering the error-leak path. I read the surrounding code and traced both e2e tests against `geminiService.generateText`, `advancePastRetiredModel`, `isModelUnavailable`, `MODEL_CANDIDATES.fast`, and the `shell`/`app` fixtures — the fixture swap is correct (`shell.goto()` still seeds `gemini_api_key`, and nothing calls the Gemini API on load, so the intercept counters are deterministic), and a 400 'API key not valid' correctly falls through `isModelUnavailable` into the catch rather than the fallback walk, which is what the new test relies on. One low-severity accessibility trade-off in the ApiKeyModal change; nothing blocking.
+This PR restructures the Gemini key-test announcement in ApiKeyModal so the single permanent `role="status"` live region now CONTAINS the visible `no-model` help panel instead of holding a hidden duplicate of its text. The short statuses (valid/invalid/quota) stay in an `sr-only` span inside the same always-rendered wrapper. I verified the region is present in the DOM before content lands in it, that the `no-model` badge at line 93 sits outside the region (so it is not double-announced), that `t.actions.noModelHelp` is self-contained ("Your key works. …"), and that the empty wrapper adds no layout in the idle state. The accessibility change is correct; the only thing I'd tidy is the comment stack above it.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 93 source files, 28090 lines
+- 93 source files, 28097 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**

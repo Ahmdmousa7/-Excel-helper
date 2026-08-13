@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:d68686c1d5ebb4740b6bf2a2c191d0bfa81f431b1b9617fb8dbc6689430e84fa",
+  "attestation_id": "sha256:6beb6909af11f384e03d449bd2f8d9f15af992e10ae4a452a54354176c4fd141",
   "available": true,
   "by_severity": {
     "critical": 0,
@@ -10,13 +10,13 @@
   },
   "findings": [
     {
-      "category": "accessibility",
-      "detail": "The de-duplication is real — `sr-only` does not remove the live region's text from the accessibility tree, so the help paragraph was reachable twice. But the fix drops the actionable half of the announcement rather than the duplicate. After pressing Test, a screen-reader user now hears only `t.actions.noModel` (\"No model\"), and `t.actions.noModelHelp` — the text that names `services/geminiService.ts` and the `scripts/list-gemini-models.mjs` command — lives solely in the visible panel at :130, which is not a live region and therefore is not announced on the status change. The user has to already suspect there is more detail and go browse for it. Both goals are achievable: keep the detail in the announcement and remove the duplicate from the other side. Raising this to medium would require the help text to be the only path to recovery, which it isn't (it is still browsable), which is why it is low.",
+      "category": "code-smell",
+      "detail": "Lines 104-129 are ~26 lines of comment for the 12-line live region that follows. The middle block (108-116) is the rationale for the PREVIOUS shape — a hidden `sr-only` region holding a copy of the status text — and its \"Two corrections to the first attempt\" narration no longer matches the code below it, which the newly added block (117-129) then re-explains with a different pair of corrections. A reader has to diff two competing explanations against the JSX to work out which one is live. This is comment cruft accumulating a review changelog in-tree, where git history already holds it; it is not a behavioural defect, which is why it is low. It would rise to medium if a future change followed the stale block's advice (keep the region hidden, announce only the badge) and silently reintroduced the unannounced-remediation bug this PR fixes.",
       "file": "components/ApiKeyModal.tsx",
-      "line": 126,
+      "line": 108,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "no-model remediation text is no longer announced, only the badge"
+      "summary": "Three stacked comment blocks narrate superseded designs above one element"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
