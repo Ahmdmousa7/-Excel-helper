@@ -1,51 +1,33 @@
 {
-  "attestation_id": "sha256:bb7d0233d7e2a451636aa8ffcc6532d7715e3aa49ae6469a16d1576994d37a12",
+  "attestation_id": "sha256:337b9ef9e1fc7fa5c2aed7ed5930bf2300f001e592f1615ac17ae652331970de",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 3,
+    "info": 0,
+    "low": 2,
     "medium": 0
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "A non-array reply (an object, a bare string, a number) and a genuinely empty array both return `received: 0`. `TranslateTab.tsx:307` renders that straight into the user's log as \"Batch returned 0 results for 20 items\", which describes the wrong failure: the model did return something, it just wasn't a list. This is the single message a user gets explaining why a batch was silently dropped from their export, and the PR's own reasoning for extracting this function is that the log is the only place the failure is visible. The tests at `tests/unit/translationBatch.test.ts:33-40` pin the ambiguity rather than resolve it.",
-      "file": "utils/translationBatch.ts",
-      "line": 38,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "`received: 0` conflates an empty array with a non-array reply"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`typeof r === 'string' ? r.trim() : ''` correctly rejects `null` and objects — `String(null)` writing \"null\" into a product-name column is a real hazard. But it also drops finite numbers, and those are plausible here: the prompt at `services/geminiService.ts:339` sends `JSON.stringify(items)` with `responseMimeType: 'application/json'`, and a row whose source text is `\"12345\"` or a price can come back as `[12345]` rather than `[\"12345\"]`. That item is then counted unusable, its row is labelled NOT TRANSLATED, and because `isPartial` is now `missingCount > 0` (`TranslateTab.tsx:490`) a single numeric element renames the entire export to `PARTIAL_` and sets `ProcessingStatus.ERROR`. The blast radius is a whole file, from one cell. Note this is still strictly safer than the pre-PR code, which would have put a number into `Map<string,string>` and thrown on `translationResult.split(\"|||\")` — this is a refinement, not a regression.",
-      "file": "utils/translationBatch.ts",
-      "line": 44,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "A numeric element is discarded as blank, which can force a false PARTIAL export"
-    },
-    {
-      "category": "security",
-      "detail": "This PR hardens `scripts/list-gemini-models.mjs`: it reorders the usage text to lead with the env-var form and prints \"note: the key was passed as an argument, so your shell has recorded it\" (`scripts/list-gemini-models.mjs:53-58`). But `modelUnavailableError` — the message a user actually sees when a tier runs out, and the one ADR-0006 points them at — still says `Run \"node scripts/list-gemini-models.mjs YOUR_API_KEY\"`. The `MODEL_CANDIDATES` docblock at line 27 says the same. Users follow the instruction they are given, so in practice the hardening is bypassed and the key still lands in `.bash_history` / `ConsoleHost_history.txt`. Both lines predate this PR's base; the PR's script change is what made them stale, which is why I'm raising it here rather than treating it as untouched legacy. Low, not medium: local shell history on the developer's own machine, and the script does warn once invoked.",
+      "category": "architecture",
+      "detail": "`retireModel` strikes an id off on the first `isModelUnavailable(error)` hit, and nothing ever removes it from the bucket short of `resetRetiredModels()` (a test seam) or a reload. ADR-0006 makes exactly the right argument for not persisting this — \"a retirement is permanent but a transient 404 is not\" — but that argument applies inside a session too, and the code does not act on it there. `isModelUnavailable` matches on `not_found` / `is not found` / `404`+`model` anywhere in the message, so one transient NOT_FOUND from the API downgrades the `quality` tier to a Flash id for the rest of that key's session, silently for OCR / Compare / Web Scraper (Translate now says so via `onNotice`, which is why this is low rather than higher). The user-facing consequence is a long Translate or OCR session running on a weaker model than the user chose, with no way to recover except reloading the tab and losing the loaded workbook. What would raise this to medium is evidence that Google actually returns transient NOT_FOUND under load; absent that, the trigger is speculative and the failure direction is safe (a weaker translation, not a wrong one).",
       "file": "services/geminiService.ts",
-      "line": 241,
+      "line": 122,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "In-app error still recommends the argv form the PR just warned about"
+      "summary": "An in-session retirement is irreversible; only a page reload clears it"
     },
     {
-      "category": "technical-debt",
-      "detail": "Observation, not a request. The ADR names this honestly — \"it is a gap, not a decision\" — and `services/geminiService.ts:450`, `:522`, `:711` still only `console.warn` on a fallback while `translateBatch` now reports through `onNotice`. That satisfies the technical-debt handbook's \"deliberate, recorded, and owned\" bar, so it is not a violation. The only thing missing is queryability: this PR added TD-039 and TD-040 to the register for two smaller items, and a prose bullet inside an ADR is the one form of record nobody greps. Raising it purely so the asymmetry is a choice rather than an oversight.",
-      "file": "docs/adr/ADR-0006-model-tiers-not-model-ids.md",
-      "line": 44,
-      "severity": "info",
+      "category": "typescript",
+      "detail": "This PR widened `isModelUnavailable` from `any` to `unknown` (line 224) — good — but the two catch blocks it added in the same diff, `generateText` (line 556) and the restructured `processGeneralFile` loop (line 522), still annotate `catch (error: any)`. In both blocks `error` is used only as `isModelUnavailable(error)` and `throw error`, so neither needs `any`; the annotation is inherited idiom rather than a requirement. `handbooks/language/typescript/type-safety.md` flags an `: any` added in the diff without a same-line reason. This is cosmetic today, but it is the seam through which a later edit reaches for an untyped property on an error object without the compiler objecting. The pre-existing `catch (error: any)` at lines 360, 447 and 708 are outside the diff and are not flagged.",
+      "file": "services/geminiService.ts",
+      "line": 556,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "The console-only fallback gap is recorded in the ADR but has no TD id"
+      "summary": "New catch clauses use `error: any` where `unknown` now compiles cleanly"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 4
+  "total": 2
 }

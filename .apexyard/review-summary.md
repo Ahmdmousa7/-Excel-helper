@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:bb7d0233d7e2a451636aa8ffcc6532d7715e3aa49ae6469a16d1576994d37a12` |
+| Attestation id | `sha256:337b9ef9e1fc7fa5c2aed7ed5930bf2300f001e592f1615ac17ae652331970de` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `fc7ce8a16d6d` |
+| Reviewed at commit | `7cdf7b7fff4c` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 3 |
-| info | 1 |
+| low | 2 |
+| info | 0 |
 
-This PR completes the move from hardcoded Gemini model ids to capability tiers: it partitions the session retirement registry per API key, re-resolves the model after every key rotation, stops `verifyGeminiKey` from striking ids off on behalf of a key it is only testing, surfaces model fallbacks to the caller via `onNotice` (log + exported workbook banner), and extracts the batch-alignment guard into `utils/translationBatch.ts` with 11 tests. I read the full diff and the surrounding code in `geminiService.ts` and `TranslateTab.tsx`, and ran the two unit files: 42/42 pass. The counting logic checks out — `totalUnique` excludes already-bilingual items, so `missingCount = totalUnique - processedUniqueCount` cannot produce a spurious PARTIAL, and every rotate site now re-resolves against a `let model`. No blocking-handbook violations and nothing above `low`; three small findings and one observation.
+Replaces hardcoded Gemini preview model ids with a per-tier ordered candidate list plus a per-API-key retirement registry, routes Support Chat through the service instead of the SDK directly, and makes a mid-run model fallback visible to the user in Translate (log + exported workbook banner). It also extracts the batch-alignment guard into `utils/translationBatch.ts` with 12 unit tests, adds SDK-mocked tests for `verifyGeminiKey`/`translateBatch`, records the decision in ADR-0006, and registers the four known gaps as TD-039..TD-042. I verified the layering (utils imports nothing, SupportChat no longer constructs `GoogleGenAI`), the loop-termination of every new candidate walk, that `key` is narrowed by `if (!key) continue` before the new three-way status branch, and that `IAiService`'s new `generateText` has exactly one implementer. No blocking-handbook violations and no correctness defects found; two low, non-blocking notes below.
 
 ## Quality gates
 
@@ -45,14 +45,14 @@ This PR completes the move from hardcoded Gemini model ids to capability tiers: 
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | pass | 18 violation node(s) |
+| Accessibility | pass | 19 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 91 source files, 27224 lines
+- 91 source files, 27229 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
