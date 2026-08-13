@@ -1,16 +1,20 @@
 {
-  "attestation_id": "sha256:3b2458b20f3406197d608dd482e9666865905fa29297ba468a9610b110452948",
+  "attestation_id": "sha256:3d966a1203b47e8c8c69266c4b368839a5003c24e6e3fdbc54a8d92f2becd54f",
   "files": [
     {
-      "oid": "16607a023f982f50c8426bd00be5aa989e17a36e",
+      "oid": "93a963262d4de9fe9cf39aac89bbeb899b837ddf",
       "path": "docs/adr/ADR-0006-model-tiers-not-model-ids.md"
+    },
+    {
+      "oid": "6d7198861d57b5795dae304f87b0a70fddc64761",
+      "path": "docs/quality/tech-debt-register.md"
     },
     {
       "oid": "ea5027ed121eb57b9d572759bc127204bf6e2a1d",
       "path": "scripts/scan-secrets.sh"
     },
     {
-      "oid": "6086c329a44ee7977e7e231e6827120b7cbbd543",
+      "oid": "bbcf922ebc3a9c7519686b46824469810cda6388",
       "path": "services/geminiService.ts"
     },
     {
@@ -21,13 +25,13 @@
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 2,
+    "low": 1,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "7635f912fe12fe1add156919f150168a5c836a08",
+  "reviewed_at_commit": "9d6648ef2b97aaaccaae68d8ea097bd51af6e15b",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

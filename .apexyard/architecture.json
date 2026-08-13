@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:3b2458b20f3406197d608dd482e9666865905fa29297ba468a9610b110452948",
+  "attestation_id": "sha256:3d966a1203b47e8c8c69266c4b368839a5003c24e6e3fdbc54a8d92f2becd54f",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -20,7 +20,7 @@
     },
     "services": {
       "files": 5,
-      "loc": 1118
+      "loc": 1124
     },
     "tests": {
       "files": 10,
@@ -42,7 +42,7 @@
   },
   "method": "regex import scan over .ts/.tsx; misses dynamically built paths",
   "oversized": {
-    "count": 10,
+    "count": 11,
     "files": [
       {
         "file": "components/VariableBalanceTab.tsx",
@@ -83,6 +83,10 @@
       {
         "file": "components/DuplicatesTab.tsx",
         "loc": 821
+      },
+      {
+        "file": "services/geminiService.ts",
+        "loc": 804
       }
     ],
     "threshold_loc": 800
@@ -97,5 +101,5 @@
   ],
   "schema": "apexyard.evidence.architecture/1",
   "source_files": 91,
-  "total_loc": 27293
+  "total_loc": 27299
 }

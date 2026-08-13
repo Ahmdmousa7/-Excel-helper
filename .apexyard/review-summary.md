@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:3b2458b20f3406197d608dd482e9666865905fa29297ba468a9610b110452948` |
+| Attestation id | `sha256:3d966a1203b47e8c8c69266c4b368839a5003c24e6e3fdbc54a8d92f2becd54f` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `7635f912fe12` |
+| Reviewed at commit | `9d6648ef2b97` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 4 |
+| Files reviewed | 5 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 2 |
-| info | 1 |
+| low | 1 |
+| info | 2 |
 
-This PR replaces the `MODEL_CANDIDATES` lists in `services/geminiService.ts` with model ids verified against a real key, records the correction and its impact in ADR-0006, pins the verified ids plus a `*-latest` backstop in `tests/unit/geminiModels.test.ts`, and adds the current Google AI Studio key shape (`AQ.…`) to `scripts/scan-secrets.sh`. The substance is right: I confirmed the new lists are internally consistent, that the rewritten `keeps tiers independent` test actually retires the three non-Flash quality ids and still resolves to `gemini-3.6-flash`, that the `VERIFIED` set covers the union of both tiers exactly, and that the new `AQ\.` pattern matches nothing currently in the tree and cannot self-match the scanner's own pattern list. No blocking-handbook violations and no defect a user will hit; the three findings below are low/info accuracy items in comments and docs, which matters more than usual in a PR whose whole thesis is that inaccurate model-id documentation caused the incident.
+This PR replaces the Gemini candidate model ids — five of six `quality` entries were invented and both tiers were silently resolving to the same Flash preview — with ids verified against a live key via `scripts/list-gemini-models.mjs`, adds two tests that pin the verified set and require a `*-latest` backstop per tier, teaches `scan-secrets.sh` the current `AQ.…` AI Studio key format, and de-duplicates the id list out of ADR-0006. The change is well-reasoned, the commit bodies carry the WHY, and the test rewrites correctly derive from `MODEL_CANDIDATES` instead of hardcoding ids that never existed. No blocking-handbook violations: no secrets are committed, no component/service layering is crossed, no `any` or suppression is added, and the technical decision is documented in ADR-0006. Three documentation-accuracy nits, none of which affect behaviour.
 
 ## Quality gates
 
@@ -52,9 +52,9 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 91 source files, 27293 lines
+- 91 source files, 27299 lines
 - Layering violations: **0**
-- Files over 800 lines: **10**
+- Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
 
 <details><summary>Largest files</summary>
