@@ -38,6 +38,17 @@ interface ChatMessage {
   isPython?: boolean;
   isTable?: boolean;
   tableData?: any[][];
+  /**
+   * A message from the APP, not from the model — currently only the
+   * model-fallback notice.
+   *
+   * It has to be excluded from the history sent back on the next turn.
+   * `historyContext` labels every assistant message "Analyst:", so without this
+   * flag the model would read "Analyst: Model X is unavailable; continuing on
+   * Y" as something it had said, and answer accordingly. A notice that changes
+   * the next answer is worse than no notice.
+   */
+  isNotice?: boolean;
 }
 
 const KNOWLEDGE_BASE: KnowledgeItem[] = [
@@ -237,6 +248,7 @@ const UI_TEXT = {
     chat: 'Chat',
     tips: 'Excel Tips',
     analyst: 'Analyst',
+    modelChanged: 'Model changed',
     messageSent: 'Message Sent!',
     receivedMsg: 'We will email you at',
     shortly: 'shortly.',
@@ -268,6 +280,7 @@ const UI_TEXT = {
     chat: 'محادثة',
     tips: 'نصائح إكسل',
     analyst: 'المحلل',
+    modelChanged: 'تم تغيير الموديل',
     messageSent: 'تم الإرسال!',
     receivedMsg: 'سنتواصل معك عبر البريد',
     shortly: 'قريباً.',
@@ -399,7 +412,9 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
       }
 
       // Build History String to maintain context
-      const historyContext = newHistory.slice(-6).map(m => { // Last 6 messages for context
+      // `.filter(m => !m.isNotice)` FIRST, so app-generated notices are neither
+      // sent to the model nor counted against the six-message window.
+      const historyContext = newHistory.filter(m => !m.isNotice).slice(-6).map(m => { // Last 6 messages for context
          const snippet = m.content.length > 500 ? m.content.substring(0, 500) + "..." : m.content;
          return `${m.role === 'user' ? 'User' : 'Analyst'}: ${snippet}`;
       }).join('\n');
@@ -460,7 +475,16 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
       if (modelNotices.length > 0) {
         setAnalystMessages(prev => [
           ...prev,
-          ...modelNotices.map((content): ChatMessage => ({ role: 'assistant', content })),
+          // `isNotice` keeps these out of the next turn's history — see the flag.
+          // The label is localised; the detail after it is not, because it comes
+          // from the provider layer and is mostly model ids, which have no
+          // translation. A localised lead-in at least marks it as the app
+          // speaking rather than the analyst.
+          ...modelNotices.map((msg): ChatMessage => ({
+            role: 'assistant',
+            content: `${t.modelChanged}: ${msg}`,
+            isNotice: true,
+          })),
         ]);
       }
 

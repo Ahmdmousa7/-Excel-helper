@@ -139,12 +139,7 @@ test.describe('responsive layout', () => {
     // both breakpoints, so `width <= wide.width` was already true on the first
     // read, mid-transition or not, and the poll returned immediately. A poll whose
     // predicate is true before the thing happens is a sleep of zero.
-    await expect
-      .poll(async () => {
-        const box = await shell.sidebar.boundingBox();
-        return box ? Math.round(box.x + box.width) : null;
-      }, { timeout: 10_000, message: 'the sidebar never went off-canvas at 375px' })
-      .toBeLessThanOrEqual(1);
+    await drawerRightEdge(shell.sidebar).toBeLessThanOrEqual(1);
 
     // Now the width comparison means something, because it is measured after the
     // layout settled rather than during it.

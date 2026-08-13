@@ -105,19 +105,25 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               just pasted reads as "your key is wrong" unless something says
               otherwise, and the action needed is in the code, not in the key —
               so it names the file and the command that finds the right ids. */}
-          {/* `role="status"` (aria-live polite): the Test button changes only a
-              small badge and this panel, so without an announcement a screen
-              reader user presses Test and hears nothing at all — and this is the
-              one result whose whole point is telling them NOT to go rotate their
-              key. The badge text is repeated inside the live region so the
-              announcement is self-contained rather than "…app needs updating"
-              with no subject. */}
+          {/* One PERMANENT live region for every Test outcome.
+
+              Two corrections to the first attempt, both from review. It only
+              covered `no-model`, so pressing Test and getting valid, invalid or
+              quota still announced nothing — the three ordinary results. And it
+              was created at the same moment as its content: a live region has to
+              exist in the DOM BEFORE the text lands in it, or assistive tech has
+              nothing to observe and the announcement is unreliable. This element
+              is always rendered and only its contents change. */}
+          <div role="status" aria-live="polite" className="sr-only">
+            {geminiStatus === 'valid' && t.actions.valid}
+            {geminiStatus === 'invalid' && t.actions.invalid}
+            {geminiStatus === 'quota' && t.actions.quota}
+            {geminiStatus === 'no-model' && `${t.actions.noModel}. ${t.actions.noModelHelp}`}
+          </div>
+          {/* The visible panel. Not a live region itself — that is the element
+              above — so the text is not announced twice. */}
           {geminiStatus === 'no-model' && (
-            <div
-              role="status"
-              className="mb-2 bg-blue-50 border border-blue-200 p-2 rounded-sm text-[10px] text-blue-800 leading-snug"
-            >
-              <span className="sr-only">{t.actions.noModel}. </span>
+            <div className="mb-2 bg-blue-50 border border-blue-200 p-2 rounded-sm text-[10px] text-blue-800 leading-snug">
               {t.actions.noModelHelp}
             </div>
           )}
