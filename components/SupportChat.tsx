@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Paperclip, CheckCircle, RefreshCw, BookOpen, Search, Copy, Info, ArrowLeft, PlayCircle, ExternalLink, Lightbulb, LineChart, FileCode, Download, Database, UploadCloud, Trash2 } from 'lucide-react';
 import { Language } from '../utils/translations';
-import { GoogleGenAI } from "@google/genai";
 import { aiService } from '../services/aiServiceFactory';
 import { getStoredApiKey } from '../services/geminiService';
 // excelService statically imports xlsx + xlsx-js-style, so importing it here
@@ -373,11 +372,12 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
     setIsSending(true);
 
     try {
+      // Kept as an early guard: `aiService` throws for a missing key too, but
+      // later and in more generic language. The SDK client that used to be
+      // constructed here is gone — the service owns that now.
       const apiKey = getStoredApiKey();
       if (!apiKey) throw new Error("API Key required for analysis");
 
-      const ai = new GoogleGenAI({ apiKey });
-      
       let contextData = "";
       let fileName = "data.csv";
 
@@ -429,12 +429,14 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
         - End with a code block labelled 'python' containing the full script.
       `;
 
-      // Switched to PRO for better reasoning on data analysis tasks
-      const result = await ai.models.generateContent({
-        model: "gemini-3-pro-preview",
-        contents: prompt
-      });
-      const responseText = result.text || "";
+      // Through `aiService`, not the SDK. This used to call
+      // `ai.models.generateContent` with a hardcoded "gemini-3-pro-preview",
+      // which made Support Chat the only feature with no model fallback — when
+      // Google retired that id it broke outright while everything else degraded.
+      //
+      // 'fast' by request: the fast tier leads with Gemini 3.1 Flash, and if that
+      // id is not on the key the service walks to the next candidate.
+      const responseText = await aiService.generateText(prompt, 'fast');
 
       let tableData: any[][] | undefined;
       if (responseText.includes('|---') || responseText.includes('| ---')) {

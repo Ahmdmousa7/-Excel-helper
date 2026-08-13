@@ -35,10 +35,12 @@ export const MODEL_CANDIDATES: Record<AiTier, readonly string[]> = {
     'gemini-3.1-pro',
     'gemini-3-pro',
     'gemini-3-pro-preview',
+    'gemini-3.1-flash',
     'gemini-3-flash',
     'gemini-3-flash-preview',
   ],
   fast: [
+    'gemini-3.1-flash',
     'gemini-3-flash',
     'gemini-3-flash-preview',
     'gemini-3.1-pro',
@@ -413,6 +415,40 @@ export const processGeneralFile = async (
   }
 };
 
+/**
+ * One prompt in, text out, walking the candidate list on a retired id.
+ *
+ * Support Chat used to call `new GoogleGenAI(...).models.generateContent(...)`
+ * directly with a hardcoded model. That made it the only feature with no
+ * fallback: when `gemini-3-pro-preview` was retired it broke while everything
+ * else degraded. Same shape as `processGeneralFile`'s loop — bounded by the
+ * candidate list, and any non-model error propagates immediately.
+ */
+export const generateText = async (
+  prompt: string,
+  tier: AiTier = 'fast',
+): Promise<string> => {
+  const client = getAiClient();
+  let model = resolveModel(tier);
+
+  for (;;) {
+    try {
+      const response = await client.models.generateContent({
+        model,
+        contents: prompt,
+      });
+      return response.text || "";
+    } catch (error: any) {
+      if (!isModelUnavailable(error)) throw error;
+
+      const next = retireModel(tier, model);
+      if (!next) throw modelUnavailableError(tier);
+      console.warn(`Model "${model}" is retired; trying "${next}".`);
+      model = next;
+    }
+  }
+};
+
 // --- OCR / MULTIMODAL EXTRACTION ---
 
 export const extractFromMedia = async (
@@ -614,5 +650,9 @@ export class GeminiService implements IAiService {
       onProgress?: (msg: string) => void
   ): Promise<any[]> {
       return extractFromMedia(mediaData, instruction, onProgress);
+  }
+
+  async generateText(prompt: string, tier?: AiTier): Promise<string> {
+      return generateText(prompt, tier);
   }
 }

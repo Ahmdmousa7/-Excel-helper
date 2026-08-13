@@ -30,6 +30,17 @@ export interface IAiService {
         instruction: string
     ): Promise<string>;
 
+    /**
+     * One prompt in, text out. The plainest possible call.
+     *
+     * Exists so a caller that needs nothing more than that does not reach for the
+     * provider SDK itself — which is what Support Chat used to do, and why it was
+     * the one feature with no model fallback when an id was retired.
+     *
+     * @param tier Defaults to 'fast'.
+     */
+    generateText(prompt: string, tier?: AiTier): Promise<string>;
+
     extractFromMedia(
         mediaData: { data: string; mimeType: string },
         instruction: string,
