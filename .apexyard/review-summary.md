@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:337b9ef9e1fc7fa5c2aed7ed5930bf2300f001e592f1615ac17ae652331970de` |
+| Attestation id | `sha256:3b2458b20f3406197d608dd482e9666865905fa29297ba468a9610b110452948` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `7cdf7b7fff4c` |
+| Reviewed at commit | `7635f912fe12` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 11 |
+| Files reviewed | 4 |
 
 ## What this is, and what it is not
 
@@ -31,9 +31,9 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | high | 0 |
 | medium | 0 |
 | low | 2 |
-| info | 0 |
+| info | 1 |
 
-Replaces hardcoded Gemini preview model ids with a per-tier ordered candidate list plus a per-API-key retirement registry, routes Support Chat through the service instead of the SDK directly, and makes a mid-run model fallback visible to the user in Translate (log + exported workbook banner). It also extracts the batch-alignment guard into `utils/translationBatch.ts` with 12 unit tests, adds SDK-mocked tests for `verifyGeminiKey`/`translateBatch`, records the decision in ADR-0006, and registers the four known gaps as TD-039..TD-042. I verified the layering (utils imports nothing, SupportChat no longer constructs `GoogleGenAI`), the loop-termination of every new candidate walk, that `key` is narrowed by `if (!key) continue` before the new three-way status branch, and that `IAiService`'s new `generateText` has exactly one implementer. No blocking-handbook violations and no correctness defects found; two low, non-blocking notes below.
+This PR replaces the `MODEL_CANDIDATES` lists in `services/geminiService.ts` with model ids verified against a real key, records the correction and its impact in ADR-0006, pins the verified ids plus a `*-latest` backstop in `tests/unit/geminiModels.test.ts`, and adds the current Google AI Studio key shape (`AQ.…`) to `scripts/scan-secrets.sh`. The substance is right: I confirmed the new lists are internally consistent, that the rewritten `keeps tiers independent` test actually retires the three non-Flash quality ids and still resolves to `gemini-3.6-flash`, that the `VERIFIED` set covers the union of both tiers exactly, and that the new `AQ\.` pattern matches nothing currently in the tree and cannot self-match the scanner's own pattern list. No blocking-handbook violations and no defect a user will hit; the three findings below are low/info accuracy items in comments and docs, which matters more than usual in a PR whose whole thesis is that inaccurate model-id documentation caused the incident.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ Replaces hardcoded Gemini preview model ids with a per-tier ordered candidate li
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
-| Vitest | pass | 243/243 passed, lines 96.09% |
+| Vitest | pass | 246/246 passed, lines 96.09% |
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 91 source files, 27229 lines
+- 91 source files, 27293 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

@@ -1,33 +1,42 @@
 {
-  "attestation_id": "sha256:337b9ef9e1fc7fa5c2aed7ed5930bf2300f001e592f1615ac17ae652331970de",
+  "attestation_id": "sha256:3b2458b20f3406197d608dd482e9666865905fa29297ba468a9610b110452948",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 2,
     "medium": 0
   },
   "findings": [
     {
-      "category": "architecture",
-      "detail": "`retireModel` strikes an id off on the first `isModelUnavailable(error)` hit, and nothing ever removes it from the bucket short of `resetRetiredModels()` (a test seam) or a reload. ADR-0006 makes exactly the right argument for not persisting this — \"a retirement is permanent but a transient 404 is not\" — but that argument applies inside a session too, and the code does not act on it there. `isModelUnavailable` matches on `not_found` / `is not found` / `404`+`model` anywhere in the message, so one transient NOT_FOUND from the API downgrades the `quality` tier to a Flash id for the rest of that key's session, silently for OCR / Compare / Web Scraper (Translate now says so via `onNotice`, which is why this is low rather than higher). The user-facing consequence is a long Translate or OCR session running on a weaker model than the user chose, with no way to recover except reloading the tab and losing the loaded workbook. What would raise this to medium is evidence that Google actually returns transient NOT_FOUND under load; absent that, the trigger is speculative and the failure direction is safe (a weaker translation, not a wrong one).",
+      "category": "code-smell",
+      "detail": "The new docblock (lines 41-43) states the `*-latest` aliases \"sit last in their own family as a permanent backstop\". Neither list matches that. In `quality`, `gemini-pro-latest` is index 1 and the dated Pro id `gemini-2.5-pro` follows it at index 2. In `fast`, `gemini-flash-latest` is index 2 and the dated `gemini-3-flash-preview` follows it at index 3. Since `resolveModel()` returns the first non-retired candidate and the docblock's own premise is that a `-latest` alias \"cannot be retired\", every entry after the alias in the same family is unreachable except in the per-key/per-project NOT_FOUND case the file documents at lines 76-88. So either the ordering is wrong or the comment is — and the new test only pins presence (`.some((m) => m.endsWith('-latest'))`), not the position the comment claims, so appending a dated id after an alias would keep passing. This is the exact failure shape the PR is correcting: a comment asserting a property of the list that nothing checks.",
       "file": "services/geminiService.ts",
-      "line": 122,
+      "line": 63,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "An in-session retirement is irreversible; only a page reload clears it"
+      "summary": "Comment says the -latest aliases sit last in their family; in both tiers they don't"
     },
     {
-      "category": "typescript",
-      "detail": "This PR widened `isModelUnavailable` from `any` to `unknown` (line 224) — good — but the two catch blocks it added in the same diff, `generateText` (line 556) and the restructured `processGeneralFile` loop (line 522), still annotate `catch (error: any)`. In both blocks `error` is used only as `isModelUnavailable(error)` and `throw error`, so neither needs `any`; the annotation is inherited idiom rather than a requirement. `handbooks/language/typescript/type-safety.md` flags an `: any` added in the diff without a same-line reason. This is cosmetic today, but it is the seam through which a later edit reaches for an untyped property on an error object without the compiler objecting. The pre-existing `catch (error: any)` at lines 360, 447 and 708 are outside the diff and are not flagged.",
-      "file": "services/geminiService.ts",
-      "line": 556,
+      "category": "technical-debt",
+      "detail": "Lines 30-31 copy both ordered candidate lists into the ADR. `services/geminiService.ts:45` in this same diff declares that file \"the ONLY place model ids live\", and line 50 of this ADR is a consequence bullet about a document that claimed Pro while the code ran Flash. A hand-maintained second copy of the lists reintroduces precisely that drift: the next `MODEL_CANDIDATES` edit silently makes this ADR wrong, and nothing fails (there is no test in `tests/unit/` that reads any file under `docs/`, so the new pin in `geminiModels.test.ts` does not cover this). The lists are also the least durable part of the ADR — the tier *mapping* table below is the decision worth recording; the ids are an implementation detail with a documented expiry date.",
+      "file": "docs/adr/ADR-0006-model-tiers-not-model-ids.md",
+      "line": 30,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "New catch clauses use `error: any` where `unknown` now compiles cleanly"
+      "summary": "ADR now enumerates both tier lists verbatim, duplicating the source of truth"
+    },
+    {
+      "category": "security",
+      "detail": "`AQ\\.[A-Za-z0-9_-]{40,}` is derived from a single sample (\"the observed key is ~50 characters\", giving ~47 chars after the dot — about 7 characters of margin). For a scanner, the failure mode that costs something is a false negative: a shorter `AQ.`-prefixed key variant would pass the sweep silently, which is the same class of hole this commit is closing. The prose-collision risk the floor guards against is small — `AQ.` followed by 20+ unbroken `[A-Za-z0-9_-]` characters does not occur in English text, and I confirmed the pattern currently matches nothing in the tree (tracked or untracked), so lowering the floor costs no false positives today. Not raised above info because the current floor does catch the credential this project actually uses, and the rationale is recorded on the line above.",
+      "file": "scripts/scan-secrets.sh",
+      "line": 68,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "AQ. pattern's 40-char floor is tuned to one observed key"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 3
 }

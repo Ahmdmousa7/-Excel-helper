@@ -1,61 +1,33 @@
 {
-  "attestation_id": "sha256:337b9ef9e1fc7fa5c2aed7ed5930bf2300f001e592f1615ac17ae652331970de",
+  "attestation_id": "sha256:3b2458b20f3406197d608dd482e9666865905fa29297ba468a9610b110452948",
   "files": [
     {
-      "oid": "cc60e5012b50a168ec8a4275d1db9d7ea24be95e",
-      "path": "components/SupportChat.tsx"
-    },
-    {
-      "oid": "45eaa199a35958a749615adc88e394f441c181ef",
-      "path": "components/TranslateTab.tsx"
-    },
-    {
-      "oid": "68a797a2da03cdf9a8b5e1da207f84b835ef56ba",
+      "oid": "16607a023f982f50c8426bd00be5aa989e17a36e",
       "path": "docs/adr/ADR-0006-model-tiers-not-model-ids.md"
     },
     {
-      "oid": "6597dbdeaac422894f7576ad792aaac6c43958b7",
-      "path": "docs/quality/tech-debt-register.md"
-    },
-    {
-      "oid": "c2f824a06127aa48765fe1723e02ad93167805cc",
-      "path": "scripts/list-gemini-models.mjs"
-    },
-    {
-      "oid": "91bdf4f1e1e79286d51c873233add35374c60acc",
+      "oid": "ea5027ed121eb57b9d572759bc127204bf6e2a1d",
       "path": "scripts/scan-secrets.sh"
     },
     {
-      "oid": "6fe13437b0b4d5663690c4a284c69e563ff59a58",
+      "oid": "6086c329a44ee7977e7e231e6827120b7cbbd543",
       "path": "services/geminiService.ts"
     },
     {
-      "oid": "82e469554d2db2e7b695e508c7ddba604d1a5cf5",
+      "oid": "a5683a3a62f303bdb6c865b3b158bef587ba25f5",
       "path": "tests/unit/geminiModels.test.ts"
-    },
-    {
-      "oid": "06a03eaaeb285b6330702e4e985b9123de3baf29",
-      "path": "tests/unit/translationBatch.test.ts"
-    },
-    {
-      "oid": "e4ab9e153c1450a071deb3c7d952d77543566c34",
-      "path": "types/ai.types.ts"
-    },
-    {
-      "oid": "29bfda8cf6c1af4b301a3ff48415c02891961400",
-      "path": "utils/translationBatch.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 2,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "7cdf7b7fff4cfe5c5294953f5e053881c62f808f",
+  "reviewed_at_commit": "7635f912fe12fe1add156919f150168a5c836a08",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

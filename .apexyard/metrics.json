@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:337b9ef9e1fc7fa5c2aed7ed5930bf2300f001e592f1615ac17ae652331970de",
+  "attestation_id": "sha256:3b2458b20f3406197d608dd482e9666865905fa29297ba468a9610b110452948",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,18 +21,18 @@
         "raw_bytes": 499864
       },
       {
-        "file": "ProjectSummaryTab-C8OhjkuV.js",
-        "gzip_bytes": 144783,
+        "file": "ProjectSummaryTab-CSfcWrvD.js",
+        "gzip_bytes": 144775,
         "raw_bytes": 444342
       },
       {
-        "file": "geminiService-BivbtA0u.js",
-        "gzip_bytes": 57816,
-        "raw_bytes": 281149
+        "file": "geminiService-BOH4C2t5.js",
+        "gzip_bytes": 57834,
+        "raw_bytes": 281148
       },
       {
-        "file": "index.es-BB_y9c4Q.js",
-        "gzip_bytes": 51634,
+        "file": "index.es-B82se7Nw.js",
+        "gzip_bytes": 51627,
         "raw_bytes": 151120
       },
       {
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-DIqgQ293.js",
-        "gzip_bytes": 43363,
+        "file": "HomeTab-BJYmUXoX.js",
+        "gzip_bytes": 43359,
         "raw_bytes": 135983
       },
       {
-        "file": "index-CO5FQ3LZ.js",
-        "gzip_bytes": 31167,
+        "file": "index-CyFNlpy6.js",
+        "gzip_bytes": 31153,
         "raw_bytes": 103016
       },
       {
@@ -61,7 +61,7 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-BmiYj6hB.js",
+        "file": "QrCodeTab-mhtpt5W2.js",
         "gzip_bytes": 13678,
         "raw_bytes": 37385
       }
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1310.3,
+        "gzip_kb": 1310.2,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 90
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1324.8,
+        "gzip_kb": 1324.6,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -184,10 +184,10 @@
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 243,
+      "passed": 246,
       "skipped": 0,
       "suites": 53,
-      "total": 243
+      "total": 246
     }
   }
 }
