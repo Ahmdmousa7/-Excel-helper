@@ -115,11 +115,17 @@ patterns=(
 # This file is NOT excluded from its own sweep.
 #
 # It used to be, on the assumption that a file containing the patterns must
-# match them. Checked, and that is false: every pattern's literal text has a
-# `[` immediately after the prefix (`sk-ant-[A-Za-z0-9_-]{20,}`), and `[` is
-# not in the character class, so none of them match themselves. The exclusion
-# bought nothing and created a real blind spot — a key pasted into the
-# scanner would have been the one place the scanner never looked.
+# match them. Checked, and that is false — but NOT for one single reason, so a
+# newly added pattern needs checking rather than assuming:
+#
+#   - Most have a `[` immediately after the literal prefix
+#     (`sk-ant-[A-Za-z0-9_-]{20,}`), and `[` is not in the character class.
+#   - `AQ\.[A-Za-z0-9_-]{40,}` is safe by a different mechanism: its own text
+#     carries a backslash where the pattern requires a literal dot.
+#
+# Either way, none match themselves. The exclusion bought nothing and created a
+# real blind spot — a key pasted into the scanner would have been the one place
+# the scanner never looked.
 list_scan_targets() {
   { git ls-files -z
     git ls-files -z --others --exclude-standard

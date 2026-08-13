@@ -40,13 +40,17 @@ import { AiTier, IAiService } from "../types/ai.types";
  *     There is no non-preview `gemini-3.1-pro`.
  *   - `gemini-pro-latest` / `gemini-flash-latest` are moving aliases Google
  *     maintains, so they cannot be retired out from under us. Each tier carries
- *     one as a permanent backstop — the thing this file lacked. They sit behind
- *     the explicit ids of their own family rather than at the very end of the
- *     list, because an alias is a moving target: preferring a pinned id keeps
- *     behaviour predictable, and the alias is there to catch the case where every
- *     pinned id has gone. In `fast`, `gemini-3-flash-preview` deliberately sits
- *     AFTER `gemini-flash-latest` — it is a dated preview, so the alias is the
- *     safer of the two.
+ *     one as a permanent backstop — the thing this file lacked.
+ *
+ *     There is no tidy rule for where they sit, and two earlier versions of this
+ *     comment invented one that the lists did not follow. What the order actually
+ *     reflects is EXPECTED RECENCY: `gemini-pro-latest` is ahead of
+ *     `gemini-2.5-pro` because the alias almost certainly points at something
+ *     newer than 2.5, and `gemini-flash-latest` is ahead of
+ *     `gemini-3-flash-preview` because a dated preview is the more fragile of the
+ *     two. Where an explicit id is known to be newest — `gemini-3.1-pro-preview`,
+ *     `gemini-3.6-flash` — it leads, because a pinned id is predictable and an
+ *     alias can move under you between two runs with no commit to point at.
  *
  * This is the ONLY place model ids live. `components/SupportChat.tsx` used to
  * hold its own literal and call the SDK directly, which is why it was the single
