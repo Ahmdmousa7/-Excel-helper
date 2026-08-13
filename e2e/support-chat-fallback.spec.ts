@@ -25,7 +25,11 @@ const ANSWER_ONE = 'The first answer is 42.';
 const ANSWER_TWO = 'The second answer is 43.';
 
 test.describe('Support Chat — model fallback', () => {
-  test('posts the fallback to the user and keeps it out of the next prompt', async ({ app, page }) => {
+  // `shell`, not `app`: the `app` fixture navigates during setup, which happens
+  // before the test body registers its routes — so the first load would be
+  // unrouted and immediately thrown away by a second navigation. `shell` hands
+  // over the page without loading it.
+  test('posts the fallback to the user and keeps it out of the next prompt', async ({ shell, page }) => {
     test.setTimeout(120_000);
 
     /** Every prompt the app sends, so the second one can be inspected. */
@@ -52,7 +56,7 @@ test.describe('Support Chat — model fallback', () => {
       });
     });
 
-    await app.goto();
+    await shell.goto();
     // The launcher is an icon-only button in the fixed corner container.
     await page.locator('div.fixed.bottom-6 > button').last().click();
     await page.getByRole('button', { name: 'Analyst', exact: true }).click();
@@ -83,5 +87,57 @@ test.describe('Support Chat — model fallback', () => {
       'quality may differ',
     );
     expect(secondPrompt).not.toContain('Model changed');
+  });
+
+  test('an error message also stays out of the next prompt', async ({ shell, page }) => {
+    /**
+     * Same bug, different message, and this one predates the notice: the catch
+     * block pushes `Error: …` as an assistant turn, so a rate limit ended up in
+     * the model's context as "Analyst: Error: 429 quota exceeded" — a failure
+     * report attributed to the model itself.
+     */
+    test.setTimeout(120_000);
+
+    const prompts: string[] = [];
+    let calls = 0;
+
+    await page.route('**/generativelanguage.googleapis.com/**', async (route) => {
+      calls += 1;
+      prompts.push(route.request().postData() ?? '');
+      // Fail the FIRST question outright with something that is not a model
+      // retirement, so it lands in the catch rather than the fallback walk.
+      if (calls === 1) {
+        return route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 400, message: 'API key not valid' } }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ candidates: [{ content: { parts: [{ text: ANSWER_TWO }] } }] }),
+      });
+    });
+
+    await shell.goto();
+    await page.locator('div.fixed.bottom-6 > button').last().click();
+    await page.getByRole('button', { name: 'Analyst', exact: true }).click();
+
+    const input = page
+      .locator('div.fixed.bottom-6 textarea, div.fixed.bottom-6 input[type="text"]')
+      .last();
+
+    await input.fill('First question');
+    await input.press('Enter');
+    await expect(page.getByText(/^Error:/)).toBeVisible({ timeout: 30_000 });
+
+    await input.fill('Second question');
+    await input.press('Enter');
+    await expect(page.getByText(ANSWER_TWO)).toBeVisible({ timeout: 60_000 });
+
+    const secondPrompt = prompts[prompts.length - 1];
+    expect(secondPrompt).toContain('First question');
+    expect(secondPrompt, 'the error message leaked into the next prompt').not.toContain('API key not valid');
   });
 });

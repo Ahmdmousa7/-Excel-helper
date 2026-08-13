@@ -118,7 +118,12 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             {geminiStatus === 'valid' && t.actions.valid}
             {geminiStatus === 'invalid' && t.actions.invalid}
             {geminiStatus === 'quota' && t.actions.quota}
-            {geminiStatus === 'no-model' && `${t.actions.noModel}. ${t.actions.noModelHelp}`}
+            {/* The short status only. Announcing the full help paragraph here as
+                well put it in the accessibility tree twice — once from this
+                region, once from the visible panel below, which `sr-only` does
+                not remove. The badge text is what needs announcing; the detail is
+                read in place. */}
+            {geminiStatus === 'no-model' && t.actions.noModel}
           </div>
           {/* The visible panel. Not a live region itself — that is the element
               above — so the text is not announced twice. */}

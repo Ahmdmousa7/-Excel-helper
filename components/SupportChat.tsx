@@ -513,7 +513,12 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
       setAnalystMessages(prev => [...prev, botMsg]);
 
     } catch (e: any) {
-      setAnalystMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e.message}` }]);
+      // `isNotice` here too. An error is the app speaking, not the analyst, and
+      // without the flag it went into the next prompt as
+      // "Analyst: Error: 429 quota exceeded" — the model then has a rate-limit
+      // message in its context as if it had produced it. Same bug as the fallback
+      // notice, one line further down, and it predates that fix.
+      setAnalystMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e.message}`, isNotice: true }]);
     } finally {
       setIsSending(false);
       // Don't clear file selections to allow follow-up questions on same file
