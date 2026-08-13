@@ -124,31 +124,35 @@ export const verifyGeminiKey = async (keysString: string): Promise<'valid' | 'in
     // nobody had struck off yet and report a perfectly good key as "invalid".
     // The worst possible answer from a diagnostic: it sends the user to rotate a
     // key that was never the problem.
-    const tier: AiTier = 'fast';
-    let model = resolveModel(tier);
-
-    for (;;) {
+    // Walks its OWN copy of the candidate list and never calls `retireModel`.
+    //
+    // The registry is module-level and shared by every feature, but model
+    // availability is per key and per project — and the key under test here is
+    // whatever was typed into the modal, which is not necessarily the key the
+    // app will use. Striking an id off on its behalf would let testing one key
+    // disable a model for another. A local walk gives the same answer without
+    // that side effect.
+    for (const candidate of MODEL_CANDIDATES.fast) {
         try {
             await ai.models.generateContent({
-                model,
+                model: candidate,
                 contents: { parts: [{ text: "test" }] }
             });
             return 'valid';
         } catch (e: any) {
             if (isModelUnavailable(e)) {
-                const next = retireModel(tier, model);
-                // Every candidate gone is a broken app, not a broken key. Still
-                // reported as 'invalid' because that is all this signature can
-                // say — the thrown error elsewhere carries the real explanation.
-                if (!next) return 'invalid';
-                console.warn(`Model "${model}" is retired; testing key against "${next}".`);
-                model = next;
+                console.warn(`Model "${candidate}" unavailable for this key; trying the next.`);
                 continue;
             }
             if (e.message?.includes('429') || e.message?.includes('quota')) return 'quota';
             return 'invalid';
         }
     }
+
+    // Every candidate rejected: a broken app, not a broken key. 'invalid' is all
+    // this signature can express — the error thrown by the real calls carries the
+    // full explanation and points at the model-listing script.
+    return 'invalid';
 };
 
 export const verifyGroqKey = async (key: string): Promise<boolean> => {
@@ -169,8 +173,10 @@ export const verifyGroqKey = async (key: string): Promise<boolean> => {
  * Retrying that is pointless — it will never succeed — and rotating keys does not
  * help either, because the model is gone for every key.
  */
-export const isModelUnavailable = (error: any): boolean => {
-  const msg = (error?.message ?? String(error ?? '')).toLowerCase();
+export const isModelUnavailable = (error: unknown): boolean => {
+  // `unknown`, not `any`: the body already treats the input as untrusted, and
+  // the tests deliberately pass undefined, null and a bare string.
+  const msg = String((error as { message?: unknown })?.message ?? error ?? '').toLowerCase();
   return msg.includes('no longer available')
       || msg.includes('not_found')
       || msg.includes('is not found')

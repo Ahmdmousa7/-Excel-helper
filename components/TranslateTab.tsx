@@ -161,7 +161,12 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       const data = getSheetData(fileData.workbook, selectedSheet);
       const outputData = JSON.parse(JSON.stringify(data)); // Deep clone
       
-      const summaryData: string[][] = [["Row", "Source Text", "Translated Text", "Final Output"]];
+      // Fourth column is "Status", not "Final Output": it carries
+      // Translated / Already bilingual / NOT TRANSLATED, and the partial banner
+      // tells the reader to look for "NOT TRANSLATED" in it. A mislabelled
+      // header in the exported workbook is the one place that cannot be
+      // explained away later.
+      const summaryData: string[][] = [["Row", "Source Text", "Translated Text", "Status"]];
       
       // --- 1. SETUP OUTPUT HEADERS ---
       // Determine if we need a single dedicated output column
@@ -273,13 +278,34 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
                   glossary: glossaryList
               });
 
-              // Map results back
+              // Only record results that actually contain something.
+              //
+              // `translateBatch` does NOT always throw on failure: an
+              // unparseable model reply makes it return `items.map(() => "")`,
+              // and an empty reply parses to `[]`. Writing those blanks into the
+              // map made them indistinguishable from real translations — rows
+              // showed "Translated" beside an empty cell, and the batch was
+              // credited in full. Counting only what came back keeps every number
+              // and label downstream honest.
+              let batchTranslated = 0;
               translations.forEach((result, idx) => {
+                  const text = typeof result === 'string' ? result.trim() : '';
+                  if (!text) return;
                   translationMap.set(currentBatchKeys[idx], result);
+                  batchTranslated++;
                   addLog(`Translated: "${currentBatchItems[idx]}" -> "${result}"`, 'success');
               });
 
-              processedUniqueCount += currentBatchItems.length;
+              if (batchTranslated < currentBatchItems.length) {
+                  // Silent, so it has to be said out loud.
+                  addLog(
+                    `${currentBatchItems.length - batchTranslated} item(s) in this batch came back empty — ` +
+                    `left untranslated.`,
+                    'error',
+                  );
+              }
+
+              processedUniqueCount += batchTranslated;
               setProgress((processedUniqueCount / totalUnique) * 90); // 90% progress for translation phase
               await delay(200); // Slight delay to be nice to API
 
@@ -421,7 +447,15 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       // A partial run gets a banner at the top of the Summary sheet, before the
       // header row. Someone who opens the file months later has no logs and no
       // UI — the workbook has to say so itself.
-      if (batchError) {
+      // Partial is a fact about the RESULT, not about whether an exception was
+      // thrown. A batch that silently returned blanks leaves the file just as
+      // incomplete as one that threw, so both are judged by the same count.
+      const missingCount = totalUnique - processedUniqueCount;
+      const isPartial = Boolean(batchError) || missingCount > 0;
+      const partialReason = batchError
+        ?? `${missingCount} item(s) came back with no translation`;
+
+      if (isPartial) {
         // `processedUniqueCount`, NOT `translationMap.size`. The map is
         // pre-seeded with already-bilingual items that were never sent to the
         // model, so its size is (skipped + translated) measured against a total
@@ -430,7 +464,7 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
           ["*** PARTIAL TRANSLATION — THIS FILE IS NOT COMPLETE ***", "", "", ""],
           [`Translated ${processedUniqueCount} of ${totalUnique} items that needed translation.`, "", "", ""],
           [`${alreadyBilingualKeys.size} further item(s) were already bilingual and were never sent.`, "", "", ""],
-          [`Stopped because: ${batchError}`, "", "", ""],
+          [`Stopped because: ${partialReason}`, "", "", ""],
           ['Rows marked "NOT TRANSLATED" below keep their original text.', "", "", ""],
           ["", "", "", ""],
         );
@@ -442,11 +476,11 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
         : fileData.name;
 
       // The filename is the marker that survives being emailed on.
-      saveWorkbook(newWb, `${batchError ? 'PARTIAL_' : ''}Translated_${outName}`);
+      saveWorkbook(newWb, `${isPartial ? 'PARTIAL_' : ''}Translated_${outName}`);
 
-      if (batchError) {
+      if (isPartial) {
         addLog(
-          `PARTIAL: translated ${processedUniqueCount} of ${totalUnique} items. ` +
+          `PARTIAL: translated ${processedUniqueCount} of ${totalUnique} items (${partialReason}). ` +
           `The file was still exported — untranslated rows keep their original text. ` +
           `Re-run to continue, or add more API keys (one per line) so rate limits rotate instead of stopping.`,
           'error',

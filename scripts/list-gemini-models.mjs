@@ -14,12 +14,23 @@
 // asks the API instead. The answer is authoritative and specific to YOUR key —
 // availability differs by tier.
 //
-// The key is never printed, never written anywhere, and never leaves this
-// process except in the request to Google.
+// The key is never printed by this script — `safe()` redacts it from every line
+// of output, so the result is safe to paste into a chat or an issue.
 //
-// Usage:
-//   node scripts/list-gemini-models.mjs YOUR_API_KEY
-//   GEMINI_API_KEY=... node scripts/list-gemini-models.mjs
+// It is NOT safe from your shell, though. A key passed as an argument lands in
+// `.bash_history` / `ConsoleHost_history.txt` and is visible in `ps` and Task
+// Manager for the life of the process. The environment-variable form avoids
+// both, so it is listed first:
+//
+//   PowerShell:
+//     $env:GEMINI_API_KEY = "AIza..."
+//     node scripts/list-gemini-models.mjs
+//
+//   bash:
+//     GEMINI_API_KEY=AIza... node scripts/list-gemini-models.mjs
+//
+//   Argument form, convenient and less private:
+//     node scripts/list-gemini-models.mjs AIza...
 //
 // Get the key from the app's API Key modal, or https://aistudio.google.com/app/apikey
 
@@ -29,10 +40,21 @@ const key = process.argv[2] || process.env.GEMINI_API_KEY;
 
 if (!key) {
   process.stderr.write(
-    'Usage: node scripts/list-gemini-models.mjs YOUR_API_KEY\n' +
-    '   or: GEMINI_API_KEY=... node scripts/list-gemini-models.mjs\n',
+    'Give the script a Gemini API key.\n\n' +
+    '  Preferred — keeps the key out of shell history:\n' +
+    '    PowerShell:  $env:GEMINI_API_KEY = "AIza..."; node scripts/list-gemini-models.mjs\n' +
+    '    bash:        GEMINI_API_KEY=AIza... node scripts/list-gemini-models.mjs\n\n' +
+    '  Also works, but the key is recorded in your shell history:\n' +
+    '    node scripts/list-gemini-models.mjs AIza...\n',
   );
   process.exit(2);
+}
+
+if (process.argv[2]) {
+  process.stderr.write(
+    'note: the key was passed as an argument, so your shell has recorded it.\n' +
+    '      Use $env:GEMINI_API_KEY / GEMINI_API_KEY=... to avoid that.\n\n',
+  );
 }
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -73,6 +95,21 @@ try {
   const candidates = {};
   for (const [, tier, body] of (block?.[1] ?? '').matchAll(/(\w+)\s*:\s*\[([^\]]*)\]/g)) {
     candidates[tier] = [...body.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  }
+
+  // Fail loudly if the parse came up empty.
+  //
+  // Without this, a reformat or a rename makes `candidates` `{}`, the loop below
+  // never runs, and the script prints "Every tier resolves" and exits 0 — a false
+  // all-clear from the exact tool `modelUnavailableError` tells users to trust.
+  const tiers = Object.keys(candidates);
+  if (tiers.length === 0 || tiers.some((t) => candidates[t].length === 0)) {
+    process.stderr.write(
+      'Could not read MODEL_CANDIDATES out of services/geminiService.ts.\n' +
+      'The shape it expects is `tier: [ \'id\', ... ]` with single quotes.\n' +
+      'Refusing to report on a list this script could not parse.\n',
+    );
+    process.exit(2);
   }
 
   process.stdout.write('\nWhat this app will try, in order:\n');
