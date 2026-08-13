@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:6311a27412632a7cc217d2df703a3372b5b36d3cc6096572824c28d13817ec4b",
+  "attestation_id": "sha256:2549f874cdb07eb7363f7acd2b7151d94455974776191812d4ed69840d408b54",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,18 +21,18 @@
         "raw_bytes": 499864
       },
       {
-        "file": "ProjectSummaryTab-BfNwx2sQ.js",
-        "gzip_bytes": 144782,
+        "file": "ProjectSummaryTab-BEvD5g6s.js",
+        "gzip_bytes": 144773,
         "raw_bytes": 444342
       },
       {
-        "file": "geminiService-Y8Bvb0nj.js",
-        "gzip_bytes": 57546,
-        "raw_bytes": 280760
+        "file": "geminiService-dWqyPNwL.js",
+        "gzip_bytes": 57654,
+        "raw_bytes": 280853
       },
       {
-        "file": "index.es-DHZK9Nhs.js",
-        "gzip_bytes": 51627,
+        "file": "index.es-1tief4lQ.js",
+        "gzip_bytes": 51628,
         "raw_bytes": 151120
       },
       {
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-DJHgLR8y.js",
-        "gzip_bytes": 43360,
+        "file": "HomeTab-CgO7kJ-q.js",
+        "gzip_bytes": 43357,
         "raw_bytes": 135983
       },
       {
-        "file": "index-CrjIS_R6.js",
-        "gzip_bytes": 31154,
+        "file": "index-tTCEmRof.js",
+        "gzip_bytes": 31153,
         "raw_bytes": 103016
       },
       {
@@ -61,8 +61,8 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-BumS4gdZ.js",
-        "gzip_bytes": 13680,
+        "file": "QrCodeTab-DFKAXgg2.js",
+        "gzip_bytes": 13677,
         "raw_bytes": 37385
       }
     ],
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1309.7,
+        "gzip_kb": 1309.9,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 90
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1324.2,
+        "gzip_kb": 1324.3,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -158,13 +158,15 @@
   },
   "playwright": {
     "available": true,
-    "failed_count": 0,
-    "failures": [],
+    "failed_count": 1,
+    "failures": [
+      "smoke.spec.ts > smoke > the tool navigation renders its groups"
+    ],
     "flaky_count": 0,
-    "passed": true,
-    "passed_count": 0,
+    "passed": false,
+    "passed_count": 100,
     "skipped_count": 0,
-    "total": 0
+    "total": 101
   },
   "schema": "apexyard.evidence.metrics/1",
   "typescript": {
@@ -184,10 +186,10 @@
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 221,
+      "passed": 227,
       "skipped": 0,
-      "suites": 47,
-      "total": 221
+      "suites": 48,
+      "total": 227
     }
   }
 }

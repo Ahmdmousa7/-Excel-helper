@@ -1,69 +1,51 @@
 {
-  "attestation_id": "sha256:6311a27412632a7cc217d2df703a3372b5b36d3cc6096572824c28d13817ec4b",
+  "attestation_id": "sha256:2549f874cdb07eb7363f7acd2b7151d94455974776191812d4ed69840d408b54",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 4,
-    "medium": 2
+    "info": 2,
+    "low": 1,
+    "medium": 1
   },
   "findings": [
     {
       "category": "architecture",
-      "detail": "When a quality-tier id is retired, `translateBatch` walks the list and can end up on `gemini-3.1-flash` / `gemini-3-flash-preview` (the last three entries of the quality tier). The only record is `console.warn`. TranslateTab has an `addLog` channel and writes a self-describing banner into the exported workbook precisely because \"someone who opens the file months later has no logs and no UI\" (components/TranslateTab.tsx:473-475) — yet a catalog translated by Flash instead of Pro is indistinguishable from one translated by Pro in the log, the summary sheet, and the filename. `extractFromMedia` already does the right thing here (geminiService.ts:629, `onProgress?.('Model … unavailable — trying …')`); the translate path is the gap. Trigger is narrow (only after a retirement), which is why this is medium rather than high; it would be high if the degraded model produced a different output schema.",
-      "file": "services/geminiService.ts",
-      "line": 298,
+      "detail": "The removed line was `model: \"gemini-3-pro-preview\"` with the comment \"Switched to PRO for better reasoning on data analysis tasks\" — an explicit, documented model choice. The replacement passes `'fast'`, and `MODEL_CANDIDATES.fast` leads with `gemini-3.1-flash`, `gemini-3-flash`, `gemini-3-flash-preview` before it ever reaches a Pro id (services/geminiService.ts:43-49). So the *normal* path for this feature is now Flash, not Pro. That is a change in output quality for the one feature in the app that asks the model to reason over a spreadsheet and emit a runnable Python script — exactly the workload the earlier comment said needed Pro. The fallback fix (the actual point of this PR) is orthogonal to the tier and does not require it: `generateText(prompt, 'quality')` gets the same candidate walk with the intended model. The inline comment says \"'fast' by request\", which is a claim a reviewer cannot verify from the diff; if the downgrade was intentional, the reason belongs in the commit body next to the decision it reverses. Kept at medium rather than high because output is still produced and the revert is one argument.",
+      "file": "components/SupportChat.tsx",
+      "line": 439,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "A silent Pro-to-Flash downgrade is recorded only in the browser console"
+      "summary": "Data-analyst call moved from Pro to the Flash-leading 'fast' tier"
     },
     {
       "category": "testing",
-      "detail": "The describe block is introduced as \"the highest-consequence behaviour in this change\", but `verifyWith` is a hand-written re-implementation of the loop and `verifyGeminiKey` is never imported or called. All four tests would stay green if `verifyGeminiKey` were reverted to a single `resolveModel('fast')` call — the exact regression the block exists to prevent. The docstring is honest about this (\"The exact loop `verifyGeminiKey` runs\"), which is the tell: the assertion is on the duplicate, so the duplicate is what is protected. The other new suites (`walking the candidate list`, `modelUnavailableError`) do call the real exports and are fine.",
+      "detail": "The SDK mock returns `{ text: 'ok' }` (line 25). `translateBatch` does `JSON.parse(response.text || \"[]\")` (services/geminiService.ts:295), and `'ok'` is not valid JSON, so every one of the four `translateBatch` tests lands in the `catch` at line 297 and receives `items.map(() => \"\")` — i.e. `['']`. The notice assertions still hold (the fallback happens before the parse), so three of the tests are fine by accident. The fourth is not: `it('still translates when the caller passes no handler')` at line 225 asserts only `.resolves.toBeDefined()` (line 231), and `['']` is defined. The test therefore passes on a run that translated nothing — which is precisely the silent-blank failure mode commits 4c9f7f5 and 0cb84be exist to eliminate, and the one the new TranslateTab guard at components/TranslateTab.tsx:319-330 is written to catch. A false-green here is the same shape the PR calls out in its own comments. No user impact, hence low.",
       "file": "tests/unit/geminiModels.test.ts",
-      "line": 92,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "The verifyGeminiKey tests exercise a copy of the loop, not verifyGeminiKey"
-    },
-    {
-      "category": "architecture",
-      "detail": "`verifyGeminiKey` deliberately refuses to write to this registry, and the comment at geminiService.ts:129-134 gives the reason: \"model availability is per key and per project … striking an id off on its behalf would let testing one key disable a model for another.\" But every real call path (`translateBatch`, `extractStructuredData`, `processGeneralFile`, `generateText`, `extractFromMedia`) does write to it, keyed on the model id alone — and this app rotates keys (`rotateKey()`, geminiService.ts:211, invoked from the 429 handler at line 311). So if the first key in the textarea lacks access to `gemini-3.1-pro`, that id is struck off for the whole session and the second key — which may well have access — silently gets a weaker model until the page is reloaded. Consequence is degradation, never a hard failure, hence low.",
-      "file": "services/geminiService.ts",
-      "line": 61,
+      "line": 25,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "retiredModels is global but availability is per key, contradicting verifyGeminiKey's own rationale"
+      "summary": "All four translateBatch tests run through the JSON-parse failure path"
     },
     {
       "category": "code-smell",
-      "detail": "Two leftovers from before `isPartial` was widened past `batchError`. (1) When the run completes but some items came back blank, the Summary sheet reads `Stopped because: N item(s) came back with no translation` (line 493 rendering `partialReason` from line 482) — nothing stopped; every batch ran. (2) The `addLog` at line 520 still asserts unconditionally that \"untranslated rows keep their original text\", which is the exact inaccuracy the banner immediately above was just fixed to avoid: in `separate` mode the translation column is left blank (lines 494-504, and the write at line 432). A user in `separate` mode reads the log and goes hunting for text that was never written.",
-      "file": "components/TranslateTab.tsx",
-      "line": 482,
-      "severity": "low",
+      "detail": "Below the code-smells handbook's duplication threshold (one new site, ~12 lines, not 15+ in 2+ places), so this is an observation rather than a finding. `generateText` (465-486) is a character-for-character copy of the `for (;;) { try … catch { retireModel } }` block in `processGeneralFile` (438-452) — the author's own doc comment says \"Same shape as `processGeneralFile`'s loop\". With `verifyGeminiKey` now carrying a third, deliberately different variant (it walks but must not record), the retire-and-advance policy lives in several places and a future change to it — say, logging the walk or capping it — has to be made in each.",
+      "file": "services/geminiService.ts",
+      "line": 465,
+      "severity": "info",
       "suggested_fix": null,
-      "summary": "Partial-run messaging outside the banner still says \"stopped\" and \"keeps its original text\""
+      "summary": "generateText duplicates processGeneralFile's retire-and-advance loop verbatim"
     },
     {
-      "category": "code-smell",
-      "detail": "The block opens with \"Walks the candidate list, exactly as the real calls do\" and then, eight lines later, states the opposite: \"Walks its OWN copy of the candidate list and never calls `retireModel`\" — which is what the code actually does and is the more important fact. The middle paragraph also argues against a version of the function that no longer exists (\"Resolving alone was not enough, and the comment that claimed otherwise was wrong\"). In a codebase where comments are this load-bearing, a reader who stops at the first line takes away the wrong invariant — and it is the invariant the new test at tests/unit/geminiModels.test.ts:140 exists to protect.",
+      "category": "typescript",
+      "detail": "Observation on a design choice this PR makes, not a request. `translateBatch`'s signature promises `Promise<string[]>`, while line 295 returns whatever `JSON.parse` produced — an object, a number, a nested array, or a short array are all possible from a model reply. This PR correctly defends against that, but it does so in the *caller* (components/TranslateTab.tsx:328-330 checks `Array.isArray` and length), so the type still lies at the boundary and any future caller inherits the hazard without the guard. `TranslateTab` is the only caller today, so nothing is broken. Noting it because the guard's own comment identifies the parse as the root cause, and the cheaper long-term home for that check is inside the function whose return type makes the promise.",
       "file": "services/geminiService.ts",
-      "line": 119,
-      "severity": "low",
+      "line": 295,
+      "severity": "info",
       "suggested_fix": null,
-      "summary": "verifyGeminiKey's comment block stacks two contradictory drafts"
-    },
-    {
-      "category": "code-smell",
-      "detail": "If every id in `MODEL_CANDIDATES.fast` is unavailable for a key, the loop falls through to `return 'invalid'`. The comment concedes the problem (\"a broken app, not a broken key\"), but App.tsx:273-275 pipes the result straight into `setGeminiStatus`, so the user sees the same red \"invalid\" badge and is sent to rotate a key that works — narrower than the bug this PR fixes, but the same failure. `modelUnavailableError`'s useful text is never reached on this path because Test does not call it.",
-      "file": "services/geminiService.ts",
-      "line": 155,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "An all-candidates-dead key still reports 'invalid', the misdiagnosis this change set out to fix"
+      "summary": "translateBatch is typed string[] but returns unvalidated JSON.parse output"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 6
+  "total": 4
 }

@@ -434,8 +434,17 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
       // which made Support Chat the only feature with no model fallback — when
       // Google retired that id it broke outright while everything else degraded.
       //
-      // 'fast' by request: the fast tier leads with Gemini 3.1 Flash, and if that
-      // id is not on the key the service walks to the next candidate.
+      // 'fast' — Gemini 3.1 Flash — by explicit request on 2026-08-12, and it is
+      // a deliberate DOWNGRADE, not a side effect of the refactor above.
+      //
+      // The line this replaced said "Switched to PRO for better reasoning on
+      // data analysis tasks", and the prompt above does ask for reasoning over a
+      // spreadsheet plus a runnable Pandas script — the strongest case for Pro in
+      // the app. The maintainer asked for Flash here anyway, after reviewing which
+      // model each module used. Recorded because the local review flagged this as
+      // an unexplained quality regression, which it would be without this note.
+      //
+      // Reverting is this one argument: 'quality'. See ADR-0006.
       const responseText = await aiService.generateText(prompt, 'fast');
 
       let tableData: any[][] | undefined;

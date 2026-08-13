@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:6311a27412632a7cc217d2df703a3372b5b36d3cc6096572824c28d13817ec4b",
+  "attestation_id": "sha256:2549f874cdb07eb7363f7acd2b7151d94455974776191812d4ed69840d408b54",
   "available": true,
-  "files_reviewed": 7,
+  "files_reviewed": 8,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 4,
-    "medium": 2
+    "info": 2,
+    "low": 1,
+    "medium": 1
   },
-  "findings_total": 6,
+  "findings_total": 4,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR replaces the two pinned Gemini model constants with per-tier candidate lists plus a session-level 'retired model' registry, routes Support Chat through the service (removing the last direct SDK call in a component), makes the model-listing script read the real candidate list instead of a hand-copied one, and hardens TranslateTab against silently-empty or length-mismatched batch results. The direction is good and the correctness work in TranslateTab is genuinely valuable — the batch length check closes a real silent-corruption path, and routing SupportChat through `aiService` removes a frontend-boundaries violation rather than adding one. The 20 unit tests in `tests/unit/geminiModels.test.ts` pass locally. No blocking handbook violations and no security findings; the findings below are two medium gaps (a test that exercises a copy of the implementation instead of the implementation, and a model downgrade that is invisible outside the console) plus four low-severity accuracy/consistency items.",
+  "summary": "This PR consolidates Gemini model-id resolution into `services/geminiService.ts`: `verifyGeminiKey` now walks the candidate list itself (without polluting the shared retired-model registry), `translateBatch` reports mid-run model fallbacks to its caller via a new `onNotice` hook, and a new `generateText` exposes a plain prompt→text call so `SupportChat` can drop its direct `GoogleGenAI` construction. `TranslateTab` gains genuine correctness fixes — batch length-mismatch rejection, blank-result accounting, a three-state row status, and mode-accurate partial banners — and `list-gemini-models.mjs` now refuses to report a false all-clear when it cannot parse `MODEL_CANDIDATES`. No blocking-handbook violations: the change actively removes a `frontend-boundaries` §2/§4 violation (SDK client inside a component) and introduces no new secret, injection, or authorization surface. Findings are advisory; the notable one is that routing Support Chat through the service also silently changed its model tier from Pro to Flash.",
   "verdict": "comment"
 }

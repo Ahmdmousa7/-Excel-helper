@@ -1,13 +1,17 @@
 {
-  "attestation_id": "sha256:6311a27412632a7cc217d2df703a3372b5b36d3cc6096572824c28d13817ec4b",
+  "attestation_id": "sha256:2549f874cdb07eb7363f7acd2b7151d94455974776191812d4ed69840d408b54",
   "files": [
     {
       "oid": "fa3ae0dc2020408d781054ff0fbed04470fd68e9",
       "path": "components/SupportChat.tsx"
     },
     {
-      "oid": "fa79ed28eb411c48e6ed1fdcfbfb4c7e8dc431b2",
+      "oid": "c51fefa8d9f2a159733c40ba1ab3eca41dd747b2",
       "path": "components/TranslateTab.tsx"
+    },
+    {
+      "oid": "28938c7cfb329a5d163045e8fcb36609690738df",
+      "path": "docs/quality/tech-debt-register.md"
     },
     {
       "oid": "c2f824a06127aa48765fe1723e02ad93167805cc",
@@ -18,28 +22,28 @@
       "path": "scripts/scan-secrets.sh"
     },
     {
-      "oid": "690090faa79ce4b0df55b6b0ae7f9514692739f8",
+      "oid": "cd8fd7e621886f0e02069729a9b6c6697e3aa81c",
       "path": "services/geminiService.ts"
     },
     {
-      "oid": "f37ad6c27eaa589ab135db5e3b242b157e65646f",
+      "oid": "bd823db09ae40524a854bffdc1ba96c304885991",
       "path": "tests/unit/geminiModels.test.ts"
     },
     {
-      "oid": "b7f6b07d32cf8811c05a4775ab6b20309f671827",
+      "oid": "e4ab9e153c1450a071deb3c7d952d77543566c34",
       "path": "types/ai.types.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 4,
-    "medium": 2
+    "info": 2,
+    "low": 1,
+    "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "0cb84be3da75cd576adbd1893f65cb1c1e00de5d",
+  "reviewed_at_commit": "9ba5f969ec031297df0a8ed365511766f1c6fca0",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "COMMENT"
