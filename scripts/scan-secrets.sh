@@ -151,7 +151,12 @@ for p in "${patterns[@]}"; do
   # -r on xargs: with an empty file list, xargs would otherwise run grep with
   # no file arguments, and grep would block reading stdin — hanging the scan.
   #
-  # Skipping the pattern-list lines themselves, now that the file is in scope.
+  # Nothing here skips this file's own pattern list, and an earlier version of
+  # this comment claimed otherwise. Nothing needs to: the patterns cannot match
+  # their own text, for the two reasons set out above `list_scan_targets`. A line
+  # claiming a skip that does not exist is worse than no line — it tells whoever
+  # adds the next pattern that they are protected by a mechanism that was never
+  # there.
   done <<EOF
 $(list_scan_targets | xargs -0 -r grep -IHnE "$p" 2>/dev/null || true)
 EOF
