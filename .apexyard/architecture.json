@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:44b0c8836375b88e84a1ecedcbe4ecae175ecca0bcc8dde4aa17be0d4e4c201b",
+  "attestation_id": "sha256:6311a27412632a7cc217d2df703a3372b5b36d3cc6096572824c28d13817ec4b",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,7 +8,7 @@
     },
     "components": {
       "files": 39,
-      "loc": 19011
+      "loc": 19154
     },
     "e2e": {
       "files": 19,
@@ -20,15 +20,15 @@
     },
     "services": {
       "files": 5,
-      "loc": 794
+      "loc": 1006
     },
     "tests": {
-      "files": 8,
-      "loc": 1645
+      "files": 9,
+      "loc": 1862
     },
     "types": {
       "files": 1,
-      "loc": 39
+      "loc": 50
     },
     "utils": {
       "files": 6,
@@ -42,7 +42,7 @@
   },
   "method": "regex import scan over .ts/.tsx; misses dynamically built paths",
   "oversized": {
-    "count": 9,
+    "count": 10,
     "files": [
       {
         "file": "components/VariableBalanceTab.tsx",
@@ -57,8 +57,12 @@
         "loc": 1058
       },
       {
+        "file": "components/TranslateTab.tsx",
+        "loc": 910
+      },
+      {
         "file": "components/SupportChat.tsx",
-        "loc": 898
+        "loc": 900
       },
       {
         "file": "utils/translations.ts",
@@ -92,6 +96,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 88,
-  "total_loc": 26173
+  "source_files": 89,
+  "total_loc": 26756
 }

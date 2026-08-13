@@ -267,6 +267,15 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       // Set when a batch fails. Non-null means the run is PARTIAL and every
       // marker below (summary column, header note, filename, logs) switches on.
       let batchError: string | null = null;
+      // Model fallbacks that happened during this run, de-duplicated.
+      //
+      // The quality tier degrades to a Flash id rather than failing outright when
+      // every Pro id is retired. That is the right behaviour — a slightly weaker
+      // translation beats no file — but it silently changes the quality of every
+      // item after it, and a `console.warn` is not something anyone reads. A run
+      // that quietly dropped tier is worth knowing about when you are checking
+      // the output, so it goes in the log and in the exported workbook.
+      const modelNotices = new Set<string>();
 
       for (let i = 0; i < totalUnique; i += batchSize) {
           const batchEnd = Math.min(i + batchSize, totalUnique);
@@ -278,7 +287,12 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
                   sourceLang: direction === 'auto' ? 'auto' : (direction === 'ar_en' ? 'ar' : 'en'),
                   targetLang: direction === 'auto' ? 'auto' : (direction === 'ar_en' ? 'en' : 'ar'),
                   domain: domain,
-                  glossary: glossaryList
+                  glossary: glossaryList,
+                  onNotice: (message) => {
+                      if (modelNotices.has(message)) return;
+                      modelNotices.add(message);
+                      addLog(message, 'warning');
+                  },
               });
 
               // Positional mapping is only safe if the model returned exactly one
@@ -478,8 +492,29 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       // incomplete as one that threw, so both are judged by the same count.
       const missingCount = totalUnique - processedUniqueCount;
       const isPartial = Boolean(batchError) || missingCount > 0;
+      // "Stopped because:" is only true of the throwing case. When batches ran to
+      // the end and simply returned blanks, nothing stopped — the run completed
+      // and came up short — and labelling that "stopped" sends the reader looking
+      // for a failure that never happened.
       const partialReason = batchError
-        ?? `${missingCount} item(s) came back with no translation`;
+        ? `Stopped because: ${batchError}`
+        : `Ran to the end, but ${missingCount} item(s) came back with no translation.`;
+
+      // Independent of `isPartial`: a run can fall back to a weaker model and
+      // still translate every item. The file is complete, but not produced by the
+      // model the user chose, and the workbook is the only record that outlives
+      // the session's logs.
+      //
+      // Unshifted BEFORE the partial banner below, so that when both apply the
+      // banner ends up on top — an incomplete file is the more urgent fact, and
+      // the last `unshift` is the one a reader sees first.
+      if (modelNotices.size > 0) {
+        summaryData.unshift(
+          ["*** THIS RUN DID NOT USE THE PREFERRED MODEL ***", "", "", ""],
+          ...[...modelNotices].map((n) => [n, "", "", ""]),
+          ["", "", "", ""],
+        );
+      }
 
       if (isPartial) {
         // `processedUniqueCount`, NOT `translationMap.size`. The map is
@@ -490,7 +525,7 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
           ["*** PARTIAL TRANSLATION — THIS FILE IS NOT COMPLETE ***", "", "", ""],
           [`Translated ${processedUniqueCount} of ${totalUnique} items that needed translation.`, "", "", ""],
           [`${alreadyBilingualKeys.size} further item(s) were already bilingual and were never sent.`, "", "", ""],
-          [`Stopped because: ${partialReason}`, "", "", ""],
+          [partialReason, "", "", ""],
           // Mode-accurate. In bilingual and template modes an untranslated row
           // falls back to its original text; in `separate` mode the translation
           // column is simply left blank. Claiming "keeps its original text" for
@@ -516,7 +551,7 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
 
       if (isPartial) {
         addLog(
-          `PARTIAL: translated ${processedUniqueCount} of ${totalUnique} items (${partialReason}). ` +
+          `PARTIAL: translated ${processedUniqueCount} of ${totalUnique} items. ${partialReason} ` +
           `The file was still exported — untranslated rows keep their original text. ` +
           `Re-run to continue, or add more API keys (one per line) so rate limits rotate instead of stopping.`,
           'error',

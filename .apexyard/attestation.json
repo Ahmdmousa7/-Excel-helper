@@ -1,16 +1,32 @@
 {
-  "attestation_id": "sha256:44b0c8836375b88e84a1ecedcbe4ecae175ecca0bcc8dde4aa17be0d4e4c201b",
+  "attestation_id": "sha256:6311a27412632a7cc217d2df703a3372b5b36d3cc6096572824c28d13817ec4b",
   "files": [
     {
-      "oid": "06df1e1b3eb2f63d8bfd58a5bbd72805fea37948",
-      "path": "components/WebScraperTab.tsx"
+      "oid": "fa3ae0dc2020408d781054ff0fbed04470fd68e9",
+      "path": "components/SupportChat.tsx"
     },
     {
-      "oid": "29811bc62d32131b6f9e14f6875d27cd0a6dc8e8",
+      "oid": "fa79ed28eb411c48e6ed1fdcfbfb4c7e8dc431b2",
+      "path": "components/TranslateTab.tsx"
+    },
+    {
+      "oid": "c2f824a06127aa48765fe1723e02ad93167805cc",
+      "path": "scripts/list-gemini-models.mjs"
+    },
+    {
+      "oid": "8880c4766d942596da57e2d69dd1e73cc1184f21",
+      "path": "scripts/scan-secrets.sh"
+    },
+    {
+      "oid": "690090faa79ce4b0df55b6b0ae7f9514692739f8",
       "path": "services/geminiService.ts"
     },
     {
-      "oid": "8603b38fe34453f056f8be5772cb61a1ddec9e2e",
+      "oid": "f37ad6c27eaa589ab135db5e3b242b157e65646f",
+      "path": "tests/unit/geminiModels.test.ts"
+    },
+    {
+      "oid": "b7f6b07d32cf8811c05a4775ab6b20309f671827",
       "path": "types/ai.types.ts"
     }
   ],
@@ -18,12 +34,12 @@
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 1,
-    "medium": 1
+    "low": 4,
+    "medium": 2
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "8e62490dca489c5a3ddbf50b1fe1924d29cbb420",
+  "reviewed_at_commit": "0cb84be3da75cd576adbd1893f65cb1c1e00de5d",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "COMMENT"

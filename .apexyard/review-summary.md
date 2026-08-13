@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:44b0c8836375b88e84a1ecedcbe4ecae175ecca0bcc8dde4aa17be0d4e4c201b` |
+| Attestation id | `sha256:6311a27412632a7cc217d2df703a3372b5b36d3cc6096572824c28d13817ec4b` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `8e62490dca48` |
+| Reviewed at commit | `0cb84be3da75` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **COMMENT** |
-| Files reviewed | 3 |
+| Files reviewed | 7 |
 
 ## What this is, and what it is not
 
@@ -29,32 +29,32 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 1 |
-| low | 1 |
+| medium | 2 |
+| low | 4 |
 | info | 0 |
 
-This PR centralises Gemini model ids into two exported constants (GEMINI_FLASH / GEMINI_PRO), introduces a provider-agnostic AiTier ('fast' | 'quality') on IAiService.extractStructuredData, and switches two call paths to the Pro model: Web Scraper (via an explicit 'quality' tier) and translateBatch (via a direct GEMINI_PRO assignment). I verified every factual claim in the new comments against the tree — SupportChat.tsx:434 does hold a second hardcoded 'gemini-3-pro-preview' literal, verifyGeminiKey does only exercise Flash, rotateKey() does return false on a single key, getMaxRetries() does yield 4, parseWaitTime() does return 60, and OcrTab.tsx:319 does omit the tier and stay on 'fast'. All of them check out, which is unusually good. The abstraction is sound and backward-compatible (the new param is optional, and GeminiService is the only IAiService implementation). Two non-blocking observations follow: one about the blast radius of moving translateBatch onto Pro's tighter quota, and one about the tier indirection only being wired into one of the four model call sites.
+This PR replaces the two pinned Gemini model constants with per-tier candidate lists plus a session-level 'retired model' registry, routes Support Chat through the service (removing the last direct SDK call in a component), makes the model-listing script read the real candidate list instead of a hand-copied one, and hardens TranslateTab against silently-empty or length-mismatched batch results. The direction is good and the correctness work in TranslateTab is genuinely valuable — the batch length check closes a real silent-corruption path, and routing SupportChat through `aiService` removes a frontend-boundaries violation rather than adding one. The 20 unit tests in `tests/unit/geminiModels.test.ts` pass locally. No blocking handbook violations and no security findings; the findings below are two medium gaps (a test that exercises a copy of the implementation instead of the implementation, and a model downgrade that is invisible outside the console) plus four low-severity accuracy/consistency items.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 605 warning(s) |
-| Vitest | pass | 201/201 passed, lines 95.98% |
-| Playwright | pass | 101/101 passed |
+| ESLint | pass | 0 error(s), 606 warning(s) |
+| Vitest | pass | 221/221 passed, lines 95.98% |
+| Playwright | pass | 0/0 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | pass | 19 violation node(s) |
+| Accessibility | not run | axe summary not captured; the accessibility e2e suite writes test-results/axe-summary.json when it runs |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 88 source files, 26173 lines
+- 89 source files, 26756 lines
 - Layering violations: **0**
-- Files over 800 lines: **9**
+- Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
 
 <details><summary>Largest files</summary>
@@ -64,7 +64,8 @@ reports zero failures for a tool that never executed.
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/CompositeTab.tsx` | 1370 |
 | `components/FileValidationTab.tsx` | 1058 |
-| `components/SupportChat.tsx` | 898 |
+| `components/TranslateTab.tsx` | 910 |
+| `components/SupportChat.tsx` | 900 |
 | `utils/translations.ts` | 893 |
 | `components/OcrTab.tsx` | 867 |
 | `components/ZidTab.tsx` | 841 |

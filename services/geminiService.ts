@@ -116,22 +116,19 @@ export const verifyGeminiKey = async (keysString: string): Promise<'valid' | 'in
     const keyToTest = keys[0];
     const ai = new GoogleGenAI({ apiKey: keyToTest });
 
-    // Walks the candidate list, exactly as the real calls do.
+    // Walks its OWN copy of the candidate list, and never calls `retireModel`.
     //
-    // Resolving alone was not enough, and the comment that claimed otherwise was
-    // wrong: `retiredModels` starts empty on every page load, and Test is
-    // usually the FIRST call a user makes — so it would hit the retired id
-    // nobody had struck off yet and report a perfectly good key as "invalid".
-    // The worst possible answer from a diagnostic: it sends the user to rotate a
-    // key that was never the problem.
-    // Walks its OWN copy of the candidate list and never calls `retireModel`.
+    // It has to walk: `retiredModels` starts empty on every page load and Test is
+    // usually the FIRST call a user makes, so resolving alone would hand it the
+    // retired id nobody had struck off yet and report a perfectly good key as
+    // "invalid" — the worst answer a diagnostic can give, since it sends the user
+    // to rotate a key that was never the problem.
     //
-    // The registry is module-level and shared by every feature, but model
-    // availability is per key and per project — and the key under test here is
-    // whatever was typed into the modal, which is not necessarily the key the
-    // app will use. Striking an id off on its behalf would let testing one key
-    // disable a model for another. A local walk gives the same answer without
-    // that side effect.
+    // It must not RECORD, though: the registry is shared by every feature, while
+    // model availability is per key and per project — and the key under test is
+    // whatever was typed into the modal, not necessarily the one the app uses.
+    // Striking an id off on its behalf would let testing one key disable a model
+    // for another.
     for (const candidate of MODEL_CANDIDATES.fast) {
         try {
             await ai.models.generateContent({
@@ -236,8 +233,20 @@ export const parseWaitTime = (error: any) => {
 // Function implementations requested by errors
 
 export const translateBatch = async (
-    items: {text: string, context?: string}[], 
-    options: { sourceLang: string, targetLang: string, domain: string, glossary: string[] }
+    items: {text: string, context?: string}[],
+    options: {
+        sourceLang: string,
+        targetLang: string,
+        domain: string,
+        glossary: string[],
+        /**
+         * Called when the run moves to a different model. A fallback to a Flash
+         * id changes the quality of every translation after it, and a
+         * `console.warn` is not something a user reads — the caller needs to be
+         * able to put this in the log and in the exported report.
+         */
+        onNotice?: (message: string) => void,
+    }
 ): Promise<string[]> => {
     let attempts = 0;
     const maxRetries = getMaxRetries();
@@ -295,7 +304,9 @@ export const translateBatch = async (
             if (isModelUnavailable(error)) {
                 const next = retireModel(tier, model);
                 if (next) {
-                    console.warn(`Model "${model}" is retired; trying "${next}".`);
+                    const notice = `Model "${model}" is unavailable; continuing on "${next}". Translation quality may differ.`;
+                    console.warn(notice);
+                    options.onNotice?.(notice);
                     model = next;
                     continue;
                 }

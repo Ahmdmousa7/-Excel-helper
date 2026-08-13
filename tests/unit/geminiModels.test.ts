@@ -1,4 +1,34 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+/**
+ * Shared with the `@google/genai` mock below.
+ *
+ * `vi.hoisted` because `vi.mock` is lifted above every other statement in the
+ * file — a plain `const` declared here would still be in its temporal dead zone
+ * when the factory runs.
+ */
+const mockState = vi.hoisted(() => ({
+  tried: [] as string[],
+  working: '',
+  retired: new Error('This model is no longer available. status: NOT_FOUND'),
+}));
+
+// Replaces the SDK so `verifyGeminiKey` — the real one — can be driven against a
+// key for which only some models exist.
+vi.mock('@google/genai', () => ({
+  GoogleGenAI: class {
+    models = {
+      generateContent: async ({ model }: { model: string }) => {
+        mockState.tried.push(model);
+        if (mockState.working === '__quota__') throw new Error('429 quota exceeded');
+        if (model !== mockState.working) throw mockState.retired;
+        return { text: 'ok' };
+      },
+    };
+  },
+  Type: {},
+}));
+
 import {
   MODEL_CANDIDATES,
   resolveModel,
@@ -7,6 +37,8 @@ import {
   isModelUnavailable,
   isKeyIssue,
   modelUnavailableError,
+  verifyGeminiKey,
+  translateBatch,
 } from '../../services/geminiService';
 
 /**
@@ -69,66 +101,134 @@ describe('isModelUnavailable', () => {
 
 describe('verifyGeminiKey walks past retired models', () => {
   /**
-   * The highest-consequence behaviour in this change, and the one a browser test
-   * cannot pin cheaply: Test is usually the FIRST call after a page load, so the
-   * retired-model registry is still empty and it meets the dead id itself. Before
-   * the fix it answered "invalid" — sending the user to rotate a key that was
-   * never the problem.
+   * The highest-consequence behaviour in this change: Test is usually the FIRST
+   * call after a page load, so the retired-model registry is still empty and it
+   * meets the dead id itself. Before the fix it answered "invalid" — sending the
+   * user to rotate a key that was never the problem.
+   *
+   * These call the REAL `verifyGeminiKey` against a mocked SDK. An earlier
+   * version re-implemented the loop in the test instead, which meant all four
+   * would have stayed green if the function were reverted to a single
+   * `resolveModel()` call — a test that cannot fail proves nothing.
    */
-  const RETIRED = new Error('This model is no longer available. status: NOT_FOUND');
-
-  /** Stands in for the SDK: fails for every id except `working`. */
-  const fakeSdk = (working: string, tried: string[]) => ({
-    models: {
-      generateContent: async ({ model }: { model: string }) => {
-        tried.push(model);
-        if (model !== working) throw RETIRED;
-        return { text: 'ok' };
-      },
-    },
+  beforeEach(() => {
+    mockState.tried.length = 0;
+    resetRetiredModels();
   });
 
-  /** The exact loop `verifyGeminiKey` runs, over the real candidate list. */
-  const verifyWith = async (sdk: ReturnType<typeof fakeSdk>) => {
-    for (const candidate of MODEL_CANDIDATES.fast) {
-      try {
-        await sdk.models.generateContent({ model: candidate });
-        return 'valid';
-      } catch (e) {
-        if (isModelUnavailable(e)) continue;
-        return 'invalid';
-      }
-    }
-    return 'invalid';
-  };
-
   it('reports VALID when only the last candidate survives', async () => {
-    const tried: string[] = [];
-    const last = MODEL_CANDIDATES.fast[MODEL_CANDIDATES.fast.length - 1];
-    expect(await verifyWith(fakeSdk(last, tried))).toBe('valid');
-    expect(tried).toEqual([...MODEL_CANDIDATES.fast]);
+    mockState.working = MODEL_CANDIDATES.fast[MODEL_CANDIDATES.fast.length - 1];
+    expect(await verifyGeminiKey('AIzaKEY')).toBe('valid');
+    expect(mockState.tried).toEqual([...MODEL_CANDIDATES.fast]);
   });
 
   it('reports VALID on the first candidate without trying the rest', async () => {
-    const tried: string[] = [];
-    expect(await verifyWith(fakeSdk(MODEL_CANDIDATES.fast[0], tried))).toBe('valid');
-    expect(tried).toHaveLength(1);
+    mockState.working = MODEL_CANDIDATES.fast[0];
+    expect(await verifyGeminiKey('AIzaKEY')).toBe('valid');
+    expect(mockState.tried).toHaveLength(1);
   });
 
-  it('reports invalid only when every candidate is gone', async () => {
-    const tried: string[] = [];
-    expect(await verifyWith(fakeSdk('a-model-not-in-the-list', tried))).toBe('invalid');
-    expect(tried).toEqual([...MODEL_CANDIDATES.fast]);
+  it('reports invalid only after every candidate is gone', async () => {
+    mockState.working = 'a-model-not-in-the-list';
+    expect(await verifyGeminiKey('AIzaKEY')).toBe('invalid');
+    expect(mockState.tried).toEqual([...MODEL_CANDIDATES.fast]);
   });
 
   it('does not strike ids off the shared registry', async () => {
     // Availability is per key and per project. The key under test is whatever
     // was typed into the modal, so retiring on its behalf could disable a model
     // for a different, working key.
-    resetRetiredModels();
+    mockState.working = 'a-model-not-in-the-list';
     const before = resolveModel('fast');
-    await verifyWith(fakeSdk('nothing-works', []));
+    await verifyGeminiKey('AIzaKEY');
     expect(resolveModel('fast')).toBe(before);
+  });
+
+  it('reports quota without walking the list', async () => {
+    // A rate limit says nothing about the model, so it must stop immediately
+    // rather than burn every candidate.
+    mockState.working = '__quota__';
+    expect(await verifyGeminiKey('AIzaKEY')).toBe('quota');
+    expect(mockState.tried).toHaveLength(1);
+  });
+
+  it('reports invalid for an empty key without calling the API', async () => {
+    expect(await verifyGeminiKey('   ')).toBe('invalid');
+    expect(mockState.tried).toHaveLength(0);
+  });
+});
+
+describe('translateBatch reports a model fallback to its caller', () => {
+  /**
+   * The quality tier ends in Flash ids, so a Pro retirement degrades the run
+   * instead of failing it — the right trade for a 500-row job, but it changes
+   * the quality of every item after the switch. Before this, the only record was
+   * a `console.warn`, which is to say no record at all: the exported workbook
+   * looked identical to one produced entirely on Pro.
+   */
+  const originalLocalStorage = (globalThis as any).localStorage;
+
+  beforeEach(() => {
+    mockState.tried.length = 0;
+    resetRetiredModels();
+    // `environment: 'node'`, and `getAiClient()` reads the key from storage.
+    (globalThis as any).localStorage = {
+      getItem: (k: string) => (k === 'gemini_api_key' ? 'AIzaKEY' : ''),
+      setItem: () => {},
+    };
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    (globalThis as any).localStorage = originalLocalStorage;
+    vi.restoreAllMocks();
+  });
+
+  const opts = (onNotice?: (m: string) => void) => ({
+    sourceLang: 'en',
+    targetLang: 'ar',
+    domain: 'retail',
+    glossary: [],
+    onNotice,
+  });
+
+  it('names both the dead model and the one it moved to', async () => {
+    mockState.working = MODEL_CANDIDATES.quality[1];
+    const notices: string[] = [];
+    await translateBatch([{ text: 'Blue Shirt' }], opts((m) => notices.push(m)));
+
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toContain(MODEL_CANDIDATES.quality[0]);
+    expect(notices[0]).toContain(MODEL_CANDIDATES.quality[1]);
+  });
+
+  it('says quality may differ, since that is the consequence the user cares about', async () => {
+    // The fallback list crosses from Pro to Flash. A notice that only named ids
+    // would leave the reader to know which of those is the weaker model.
+    mockState.working = MODEL_CANDIDATES.quality[MODEL_CANDIDATES.quality.length - 1];
+    const notices: string[] = [];
+    await translateBatch([{ text: 'Blue Shirt' }], opts((m) => notices.push(m)));
+
+    expect(notices.length).toBeGreaterThan(0);
+    expect(notices[notices.length - 1]).toMatch(/quality may differ/i);
+  });
+
+  it('stays silent when the preferred model answers', async () => {
+    // A notice on every run is a notice nobody reads.
+    mockState.working = MODEL_CANDIDATES.quality[0];
+    const notices: string[] = [];
+    await translateBatch([{ text: 'Blue Shirt' }], opts((m) => notices.push(m)));
+
+    expect(notices).toEqual([]);
+  });
+
+  it('still translates when the caller passes no handler', async () => {
+    // `onNotice` is optional; a missing one must not turn a survivable
+    // retirement into a crash.
+    mockState.working = MODEL_CANDIDATES.quality[1];
+    await expect(
+      translateBatch([{ text: 'Blue Shirt' }], opts(undefined)),
+    ).resolves.toBeDefined();
   });
 });
 

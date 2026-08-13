@@ -15,7 +15,22 @@ export type AiTier = 'fast' | 'quality';
 export interface IAiService {
     translateBatch(
         items: { text: string; context?: string }[],
-        options: { sourceLang: string; targetLang: string; domain: string; glossary: string[] }
+        options: {
+            sourceLang: string;
+            targetLang: string;
+            domain: string;
+            glossary: string[];
+            /**
+             * Called when the run moves to a different model mid-flight.
+             *
+             * The quality tier ends in Flash ids so a retirement degrades the
+             * translation rather than failing the run — but that changes the
+             * quality of every item after it, and a `console.warn` is not
+             * something a user reads. The caller needs it to be able to put the
+             * fallback in the log and in the exported file.
+             */
+            onNotice?: (message: string) => void;
+        }
     ): Promise<string[]>;
 
     /**
