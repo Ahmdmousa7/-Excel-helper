@@ -1,14 +1,24 @@
 {
-  "attestation_id": "sha256:f18d718d9b65948dfc1bd122d2175a5487adf88ac424c9f83b204119494dc32c",
+  "attestation_id": "sha256:817530462a2e160bc26722ebc0c7e83b062672befea0a60dbb6eab2bea78303a",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 0,
+    "low": 1,
     "medium": 0
   },
-  "findings": [],
+  "findings": [
+    {
+      "category": "technical-debt",
+      "detail": "The Consequences section now carries \"**Deferred on 2026-08-13** at the maintainer's request\", but the header block (Status: Accepted / Date: 2026-08-03) records only the original decision date. A reader arriving at an ADR dated 2026-08-03 and finding a statement dated ten days later cannot tell whether the ADR was amended or whether the date is wrong — and the file gives no signal that its body has moved since acceptance. This matters more here than in a normal doc because ADR-0005 is the document TD-026 links back to as the authority for what the Firebase removal did and did not settle; the two are now mutually cross-referencing, so the amendment trail is the only way to see which one moved last. Not a correctness problem: the added sentence is accurate and consistent with the register entry, and it explicitly defers detail to the register rather than duplicating the triggers.",
+      "file": "docs/adr/ADR-0005-no-accounts-no-backend.md",
+      "line": 4,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "ADR header still dates the file 2026-08-03 while a bullet now claims 2026-08-13"
+    }
+  ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 0
+  "total": 1
 }

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:f18d718d9b65948dfc1bd122d2175a5487adf88ac424c9f83b204119494dc32c` |
+| Attestation id | `sha256:817530462a2e160bc26722ebc0c7e83b062672befea0a60dbb6eab2bea78303a` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `9bba38e3acae` |
+| Reviewed at commit | `d57ec9ae54d1` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 1 |
+| Files reviewed | 2 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 0 |
+| low | 1 |
 | info | 0 |
 
-This PR replaces a single inline comment in `scripts/scan-secrets.sh` that claimed the pattern loop skips the script's own pattern-list lines — a mechanism that does not exist — with an accurate note explaining why no skip is needed. The change is comment-only: no shell logic, no patterns, and no control flow are touched. I verified the replacement's central claim by checking each of the nine patterns against its own literal text in the file; none self-match, for exactly the reasons the comment gives. No findings.
+Documentation-only change: two single-line edits that record the maintainer's 2026-08-13 decision to defer TD-026 (the still-live Firebase project, its unverified deployed ruleset, and its API key readable in git history). The register entry's `Blocked by` column is corrected from a blocker that no longer exists ("Needs Firebase console access") to "deferred by decision, not blocked", the fix column gains the deferral rationale plus three concrete revisit triggers, and ADR-0005's TD-026 consequence bullet is kept in sync. The change is accurate against both documents' existing content, correctly keeps the status `open` rather than quietly closing a live exposure, and satisfies the register's own rule that debt be deliberate and recorded rather than silent. No code, no dependencies, no material technical decision — AgDR: N/A.
 
 ## Quality gates
 
