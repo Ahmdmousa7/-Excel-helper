@@ -739,9 +739,14 @@ export const extractFromMedia = async (
 };
 
 export class GeminiService implements IAiService {
+  // `Parameters<>` rather than a third copy of the shape. This class, the module
+  // function and `IAiService` all declared it, and the last change updated two of
+  // the three: `onNotice` reached the module function at runtime only because
+  // this method forwards `options` wholesale, and callers type-check against
+  // `IAiService`, so nothing failed — the declaration was just quietly wrong.
   async translateBatch(
       items: { text: string; context?: string }[],
-      options: { sourceLang: string; targetLang: string; domain: string; glossary: string[] }
+      options: Parameters<typeof translateBatch>[1]
   ): Promise<string[]> {
       return translateBatch(items, options);
   }

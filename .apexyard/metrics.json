@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:1dc78c632744ce6a5d4ab1985a0fe052ea00d5ed52ee5f63a3eaf3dc9c4af44a",
+  "attestation_id": "sha256:3c983c3328dd34c5a71e8bf9592066d7ec5ba80306f50579afe845f8380bdb5a",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,18 +21,18 @@
         "raw_bytes": 499864
       },
       {
-        "file": "ProjectSummaryTab-Co8PjRsR.js",
-        "gzip_bytes": 144781,
+        "file": "ProjectSummaryTab-D0Od_W3V.js",
+        "gzip_bytes": 144776,
         "raw_bytes": 444342
       },
       {
-        "file": "geminiService-BqA4ybzw.js",
-        "gzip_bytes": 57790,
-        "raw_bytes": 281117
+        "file": "geminiService-BDCJh5v_.js",
+        "gzip_bytes": 57806,
+        "raw_bytes": 281139
       },
       {
-        "file": "index.es-Cqejw6nL.js",
-        "gzip_bytes": 51634,
+        "file": "index.es-DBw6OkZt.js",
+        "gzip_bytes": 51629,
         "raw_bytes": 151120
       },
       {
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-TPVgoKj1.js",
-        "gzip_bytes": 43360,
+        "file": "HomeTab-CrWFWPW8.js",
+        "gzip_bytes": 43359,
         "raw_bytes": 135983
       },
       {
-        "file": "index-CwLkOhBW.js",
-        "gzip_bytes": 31162,
+        "file": "index-Bbf1nGCO.js",
+        "gzip_bytes": 31145,
         "raw_bytes": 103016
       },
       {
@@ -61,8 +61,8 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-DYq2Rjf0.js",
-        "gzip_bytes": 13678,
+        "file": "QrCodeTab-95P-eThy.js",
+        "gzip_bytes": 13677,
         "raw_bytes": 37385
       }
     ],
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1310.3,
+        "gzip_kb": 1310.2,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 90
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1324.7,
+        "gzip_kb": 1324.6,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -158,13 +158,11 @@
   },
   "playwright": {
     "available": true,
-    "failed_count": 1,
-    "failures": [
-      "responsive.spec.ts > responsive layout > mobile navigation drawer > the trigger opens it and the backdrop closes it"
-    ],
+    "failed_count": 0,
+    "failures": [],
     "flaky_count": 0,
-    "passed": false,
-    "passed_count": 100,
+    "passed": true,
+    "passed_count": 101,
     "skipped_count": 0,
     "total": 101
   },
@@ -186,10 +184,10 @@
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 242,
+      "passed": 243,
       "skipped": 0,
       "suites": 53,
-      "total": 242
+      "total": 243
     }
   }
 }

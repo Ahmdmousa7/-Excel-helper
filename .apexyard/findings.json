@@ -1,49 +1,49 @@
 {
-  "attestation_id": "sha256:1dc78c632744ce6a5d4ab1985a0fe052ea00d5ed52ee5f63a3eaf3dc9c4af44a",
+  "attestation_id": "sha256:3c983c3328dd34c5a71e8bf9592066d7ec5ba80306f50579afe845f8380bdb5a",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 3,
+    "info": 1,
+    "low": 2,
     "medium": 1
   },
   "findings": [
     {
-      "category": "architecture",
-      "detail": "`retiredModels` is a module-level Set and `retireModel()` strikes an id off for the whole session across every tier and every key. The PR's own reasoning in `verifyGeminiKey` (services/geminiService.ts:128-131) states the opposite premise for that function — \"model availability is per key and per project\" — and deliberately refuses to record there for exactly this reason. The real call paths do record. The app explicitly supports multiple keys (`rotateKey()` reorders them, `getStoredApiKey()` returns `geminiKeys[0]`, and TranslateTab's own partial message tells users to \"add more API keys (one per line)\"), and Gemini returns a NOT_FOUND/404 for a model the *project behind that key* cannot use — which `isModelUnavailable()` cannot distinguish from a genuine retirement. Concrete failure: a user has two keys, key B's project lacks `gemini-3.1-pro`. A 429 on key A rotates to key B, key B's next call 404s on `gemini-3.1-pro`, and the id is struck off for the rest of the session — so every later Translate/OCR/Compare/Web-Scraper call runs on a weaker model even after rotation puts key A back in front. It self-corrects on reload and the fallback still produces output, which is why this is medium rather than high; it would be high if the retirement were persisted (it deliberately is not, per the comment at services/geminiService.ts:53-60).",
-      "file": "services/geminiService.ts",
-      "line": 72,
+      "category": "code-smell",
+      "detail": "`currentBatchItems` is `uniqueItems.slice(...)`, and `uniqueItems` holds `{ text, context }` objects (built at TranslateTab.tsx:242), not strings. So `addLog(`Translated: \"${currentBatchItems[idx]}\" -> \"${result}\"`)` renders as `Translated: \"[object Object]\" -> \"قميص أزرق\"` for every successfully translated item. The expression predates this PR, but the block containing it was rewritten twice within this diff (the blank-result filter, then the `alignBatchResults` refactor) and carried forward unchanged. It matters here specifically because this PR's whole thesis is that the log is the record a user actually reads — and this is the one log line that fires on the happy path, so it is the majority of what they read. The exported workbook is unaffected, which is why this is medium rather than high.",
+      "file": "components/TranslateTab.tsx",
+      "line": 317,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "Session-global model retirement is keyed on the model only, not the key that failed"
+      "summary": "Per-item success log prints \"[object Object]\" for the source text"
     },
     {
       "category": "code-smell",
-      "detail": "The workbook banner twelve lines above (components/TranslateTab.tsx:534-539) branches on `mode === 'separate'` precisely so a separate-mode user is not sent hunting for text that was never written — the comment at :529-533 says so explicitly. The in-app log message added in the same block does not branch: it states unconditionally \"untranslated rows keep their original text\". In `separate` mode without `mergeSource`, an untranslated row's target column is written as `tText` = `\"\"` (components/TranslateTab.tsx:446), so the log contradicts both the workbook and the code. The log is the message the user actually reads first, in the session where they can still act on it.",
-      "file": "components/TranslateTab.tsx",
-      "line": 555,
+      "detail": "`alignBatchResults` returns `usable` (the count of non-blank results), and four tests assert on it — but TranslateTab does not read it. Instead it recomputes exactly the same number as `batchTranslated` by incrementing inside the `forEach` at TranslateTab.tsx:315. The two derivations agree today by construction (both count trimmed non-empty strings), so this is not a bug; it is a second source of truth for the number that drives `processedUniqueCount`, the PARTIAL banner, and the filename prefix. If either definition of \"counts as translated\" is ever changed, only one side moves, and the divergence surfaces as a workbook whose banner disagrees with its own Status column — the class of silent-wrongness this util was extracted to prevent.",
+      "file": "utils/translationBatch.ts",
+      "line": 45,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Partial-run log claims original text is kept, which is false in `separate` mode"
+      "summary": "`usable` is computed and tested but never read in production"
     },
     {
-      "category": "code-smell",
-      "detail": "The comment that used to sit above `const model = GEMINI_PRO;` survived the deletion of that line and now makes two claims the code no longer supports. It opens \"Pro, by request\" while `model` is `resolveModel('quality')`, which can legitimately be a Flash id once a Pro id is struck off — the degradation this PR exists to enable. It closes with \"roughly three minutes before TranslateTab logs the error and stops\", but TranslateTab no longer stops: it `break`s, exports a PARTIAL_-prefixed workbook, and sets ERROR (components/TranslateTab.tsx:352-371, 550). This codebase leans on comments as its primary documentation — every other comment in this diff was updated with care — so a stale one here is the kind that gets trusted and mis-plans the next change.",
+      "category": "typescript",
+      "detail": "`IAiService.translateBatch` (types/ai.types.ts:18) and the free `translateBatch` (services/geminiService.ts:287) both gained `onNotice?`, but the class wrapper that implements the interface still declares `options: { sourceLang; targetLang; domain; glossary }`. Nothing breaks today: the wrapper forwards `options` wholesale, and TypeScript's method-parameter bivariance means the narrower type still satisfies `implements IAiService`, so `aiService.translateBatch(..., { onNotice })` in TranslateTab compiles and works. But the class is the seam `aiServiceFactory.ts` exists for (\"simply replace GeminiService with the new implementation\"), and it now advertises a contract that is one field short of the interface it implements. A caller holding the concrete `GeminiService` type and passing an object literal with `onNotice` would be rejected by the excess-property check for a property the function actually honours.",
       "file": "services/geminiService.ts",
-      "line": 261,
+      "line": 744,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "translateBatch's comment block now describes behaviour the PR changed"
+      "summary": "GeminiService.translateBatch's options type omits the new onNotice"
     },
     {
-      "category": "testing",
-      "detail": "The model registry got 26 tests; the guard that this PR describes as preventing \"silent corruption: plausible translations attached to the wrong products, invisible in the output\" got none. It is the highest-consequence branch added here (a short array from the model would otherwise mis-file every result after the gap) and it is the one whose regression is invisible — reverting `translations.length !== currentBatchItems.length` to a bare `forEach` leaves every existing test green and produces output that looks correct. The same applies to the empty-result filter at :325-331 and the `processedUniqueCount` / `isPartial` derivation at :493-494, which the PR's own comments flag as previously miscounting.",
-      "file": "components/TranslateTab.tsx",
-      "line": 309,
-      "severity": "low",
+      "category": "code-smell",
+      "detail": "The rewritten comment reads `# Google API (Gemini). No exemptions — see the note above.`, but the note explaining why `AIza…` carries no exemption starts at line 76, nine lines below. The text immediately above (lines 62-64) is about anchored provider prefixes, not exemptions — so a reader following the pointer lands on the wrong paragraph. Purely a navigation nit in a file that is otherwise scrupulous about explaining itself.",
+      "file": "scripts/scan-secrets.sh",
+      "line": 67,
+      "severity": "info",
       "suggested_fix": null,
-      "summary": "The batch length-mismatch guard — the silent-corruption fix — has no test"
+      "summary": "Comment points \"above\" at a note that is below it"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

@@ -313,9 +313,14 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
                   aligned.translations.forEach((result, idx) => {
                       if (!result) return;
                       translationMap.set(currentBatchKeys[idx], result);
-                      batchTranslated++;
-                      addLog(`Translated: "${currentBatchItems[idx]}" -> "${result}"`, 'success');
+                      // `.text`, not the item. These are `{ text, context }`, so
+                      // interpolating the object logged `Translated: "[object
+                      // Object]" -> "قميص أزرق"` for every row — the per-item log
+                      // is the one place a user can check a translation against
+                      // its source, and it showed everything except the source.
+                      addLog(`Translated: "${currentBatchItems[idx].text}" -> "${result}"`, 'success');
                   });
+                  batchTranslated = aligned.usable;
               }
 
               // Only for a batch that was ACCEPTED. A discarded one already said

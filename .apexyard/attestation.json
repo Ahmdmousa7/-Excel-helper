@@ -1,12 +1,12 @@
 {
-  "attestation_id": "sha256:334ee3831b23e8bbda36473045ae9dbbf2ff91a575d787e17e1e771bdc7e07be",
+  "attestation_id": "sha256:3c983c3328dd34c5a71e8bf9592066d7ec5ba80306f50579afe845f8380bdb5a",
   "files": [
     {
       "oid": "cc60e5012b50a168ec8a4275d1db9d7ea24be95e",
       "path": "components/SupportChat.tsx"
     },
     {
-      "oid": "a9ba81c3d8d4034aaad788997464c1f741fcb1a7",
+      "oid": "c40667d01519d63f721e42edc8dc851c0a756aea",
       "path": "components/TranslateTab.tsx"
     },
     {
@@ -26,11 +26,11 @@
       "path": "scripts/scan-secrets.sh"
     },
     {
-      "oid": "a6f85ec076148d1cfd620c78a6993b9cb0b960bf",
+      "oid": "203d02ebefbb1aef55b1bd1d6031bd9a11bdd8b2",
       "path": "services/geminiService.ts"
     },
     {
-      "oid": "ba3d6b0e42fcdc78aa1fb6e786fad88353a2c052",
+      "oid": "82e469554d2db2e7b695e508c7ddba604d1a5cf5",
       "path": "tests/unit/geminiModels.test.ts"
     },
     {
@@ -49,13 +49,13 @@
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 3,
-    "medium": 0
+    "info": 1,
+    "low": 2,
+    "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "637052e9f602cc6de8edb27e2513f243ab358feb",
+  "reviewed_at_commit": "cca18b8055d5fbf56045618ddbe97796d0cadc83",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

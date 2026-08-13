@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:1dc78c632744ce6a5d4ab1985a0fe052ea00d5ed52ee5f63a3eaf3dc9c4af44a` |
+| Attestation id | `sha256:3c983c3328dd34c5a71e8bf9592066d7ec5ba80306f50579afe845f8380bdb5a` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `45af942c3782` |
+| Reviewed at commit | `cca18b8055d5` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 9 |
+| Files reviewed | 11 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 1 |
-| low | 3 |
-| info | 0 |
+| low | 2 |
+| info | 1 |
 
-This PR replaces hardcoded Gemini preview model ids with per-tier ordered candidate lists that the service walks past retired ids, routes Support Chat through `aiService.generateText` instead of the SDK directly (on the 'fast' tier, deliberately, per ADR-0006), surfaces model fallbacks to TranslateTab's log and exported workbook, and hardens TranslateTab's batch handling against length-mismatched and empty model replies by exporting an explicitly-marked PARTIAL file instead of discarding completed batches. The change is well-tested (26 new unit tests, all passing locally against a mocked SDK), the decision is recorded in ADR-0006, and the two residual gaps are already registered as TD-039/TD-040. No blocking-handbook violations: SupportChat now has zero SDK/model literals, model output is not rendered as HTML anywhere the diff touches, and no secrets or privileged keys are introduced. Findings are advisory: one medium correctness concern about session-global retirement interacting with per-key model availability, plus three low-severity accuracy/coverage items.
+This PR completes the model-tier refactor: it partitions the retired-model registry per API key (so one key's project-level NOT_FOUND no longer downgrades every other key for the session), re-resolves the model after `rotateKey()` at all three rotation sites, surfaces model fallbacks to the caller via a new `onNotice` callback that TranslateTab writes into both the log and the exported workbook, extracts the batch-alignment guard into `utils/translationBatch.ts` with direct unit tests, and records the tier contract in ADR-0006 plus TD-039/TD-040. The reasoning is sound and unusually well-evidenced — the reworked `geminiModels.test.ts` now drives the real `verifyGeminiKey` against a mocked SDK instead of re-implementing its loop, which fixes a suite that could not fail. No blocking-handbook violations and no correctness defects in the new logic; four low/informational nits below.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ This PR replaces hardcoded Gemini preview model ids with per-tier ordered candid
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
-| Vitest | pass | 242/242 passed, lines 96.09% |
-| Playwright | **FAIL** | 100/101 passed |
+| Vitest | pass | 243/243 passed, lines 96.09% |
+| Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 91 source files, 27176 lines
+- 91 source files, 27214 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -64,7 +64,7 @@ reports zero failures for a tool that never executed.
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/CompositeTab.tsx` | 1370 |
 | `components/FileValidationTab.tsx` | 1058 |
-| `components/TranslateTab.tsx` | 938 |
+| `components/TranslateTab.tsx` | 942 |
 | `components/SupportChat.tsx` | 909 |
 | `utils/translations.ts` | 893 |
 | `components/OcrTab.tsx` | 867 |
