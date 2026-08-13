@@ -64,7 +64,7 @@ fi
 # names constantly, and a scanner people learn to ignore protects nothing.
 patterns=(
   'sk-ant-[A-Za-z0-9_-]{20,}'          # Anthropic
-  'AIza[0-9A-Za-z_-]{35}'              # Google API — keep in sync with GOOGLE_KEY_PATTERN
+  'AIza[0-9A-Za-z_-]{35}'              # Google API (Gemini). No exemptions — see the note above.
   'AKIA[0-9A-Z]{16}'                   # AWS access key
   'ghp_[A-Za-z0-9]{36}'                # GitHub PAT
   'github_pat_[A-Za-z0-9_]{40,}'       # GitHub fine-grained PAT

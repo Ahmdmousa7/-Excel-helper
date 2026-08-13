@@ -246,6 +246,12 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       
       addLog(`Found ${totalUnique} unique items to translate (Deduplicated from ${data.length} rows). Skipped ${translationMap.size} bilingual items.`, 'info');
 
+      // Snapshot of the keys that were pre-seeded as already-bilingual, taken
+      // BEFORE any batch runs. Without it `translationMap.has(key)` cannot tell
+      // "the model translated this" from "this was already bilingual so we never
+      // sent it", and every count and row label downstream conflates the two.
+      const alreadyBilingualKeys = new Set(translationMap.keys());
+
       // --- 3. BATCH TRANSLATION OF UNIQUES ---
       const glossaryList = glossary.split(',').map(s => s.trim()).filter(s => s.length > 0);
 
@@ -389,14 +395,19 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
 
           // Per-row truth, not a blanket "Processed". After a partial run this
           // column is the only place that says which rows actually got a
-          // translation, so it has to distinguish them rather than assert
-          // success for every row the loop happened to visit.
-          const wasTranslated = key !== undefined && translationMap.has(key);
+          // translation, so it distinguishes three real outcomes rather than
+          // two: a row skipped for being already bilingual was never sent to the
+          // model, and calling that "Translated" is not true.
+          const status = alreadyBilingualKeys.has(key)
+            ? "Already bilingual"
+            : translationMap.has(key)
+              ? "Translated"
+              : "NOT TRANSLATED";
           summaryData.push([
             String(i + 1),
             originalParts.join(", "),
             translationResult,
-            wasTranslated ? "Translated" : "NOT TRANSLATED",
+            status,
           ]);
       }
 
@@ -411,9 +422,14 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       // header row. Someone who opens the file months later has no logs and no
       // UI — the workbook has to say so itself.
       if (batchError) {
+        // `processedUniqueCount`, NOT `translationMap.size`. The map is
+        // pre-seeded with already-bilingual items that were never sent to the
+        // model, so its size is (skipped + translated) measured against a total
+        // that excludes the skipped — which could report "45 of 20".
         summaryData.unshift(
           ["*** PARTIAL TRANSLATION — THIS FILE IS NOT COMPLETE ***", "", "", ""],
-          [`Translated ${translationMap.size} of ${totalUnique} unique items before stopping.`, "", "", ""],
+          [`Translated ${processedUniqueCount} of ${totalUnique} items that needed translation.`, "", "", ""],
+          [`${alreadyBilingualKeys.size} further item(s) were already bilingual and were never sent.`, "", "", ""],
           [`Stopped because: ${batchError}`, "", "", ""],
           ['Rows marked "NOT TRANSLATED" below keep their original text.', "", "", ""],
           ["", "", "", ""],
@@ -430,7 +446,7 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
 
       if (batchError) {
         addLog(
-          `PARTIAL: translated ${translationMap.size} of ${totalUnique} items. ` +
+          `PARTIAL: translated ${processedUniqueCount} of ${totalUnique} items. ` +
           `The file was still exported — untranslated rows keep their original text. ` +
           `Re-run to continue, or add more API keys (one per line) so rate limits rotate instead of stopping.`,
           'error',

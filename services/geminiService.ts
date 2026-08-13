@@ -26,9 +26,10 @@ import { AiTier, IAiService } from "../types/ai.types";
  * `node scripts/list-gemini-models.mjs YOUR_KEY` prints what your key can
  * actually use, and is the way to confirm rather than infer.
  *
- * NOT every model id in the app: `components/SupportChat.tsx` bypasses this
- * service and calls the SDK directly, so it resolves nothing and gets no
- * fallback. `grep -rn "gemini" components/ services/` finds both homes.
+ * This is now the ONLY place model ids live. `components/SupportChat.tsx` used to
+ * hold its own literal and call the SDK directly, which is why it was the single
+ * feature with no fallback when an id was retired; it goes through
+ * `generateText()` now. `grep -rn "gemini-" components/` should stay empty.
  */
 export const MODEL_CANDIDATES: Record<AiTier, readonly string[]> = {
   quality: [
@@ -113,20 +114,40 @@ export const verifyGeminiKey = async (keysString: string): Promise<'valid' | 'in
     if (keys.length === 0) return 'invalid';
     
     const keyToTest = keys[0];
+    const ai = new GoogleGenAI({ apiKey: keyToTest });
 
-    try {
-        const ai = new GoogleGenAI({ apiKey: keyToTest });
-        // The cheapest tier, resolved through the candidate list so a retired id
-        // does not make a perfectly good key report "invalid".
-        const model = resolveModel('fast');
-        await ai.models.generateContent({
-            model,
-            contents: { parts: [{ text: "test" }] }
-        });
-        return 'valid';
-    } catch (e: any) {
-        if (e.message?.includes('429') || e.message?.includes('quota')) return 'quota';
-        return 'invalid';
+    // Walks the candidate list, exactly as the real calls do.
+    //
+    // Resolving alone was not enough, and the comment that claimed otherwise was
+    // wrong: `retiredModels` starts empty on every page load, and Test is
+    // usually the FIRST call a user makes — so it would hit the retired id
+    // nobody had struck off yet and report a perfectly good key as "invalid".
+    // The worst possible answer from a diagnostic: it sends the user to rotate a
+    // key that was never the problem.
+    const tier: AiTier = 'fast';
+    let model = resolveModel(tier);
+
+    for (;;) {
+        try {
+            await ai.models.generateContent({
+                model,
+                contents: { parts: [{ text: "test" }] }
+            });
+            return 'valid';
+        } catch (e: any) {
+            if (isModelUnavailable(e)) {
+                const next = retireModel(tier, model);
+                // Every candidate gone is a broken app, not a broken key. Still
+                // reported as 'invalid' because that is all this signature can
+                // say — the thrown error elsewhere carries the real explanation.
+                if (!next) return 'invalid';
+                console.warn(`Model "${model}" is retired; testing key against "${next}".`);
+                model = next;
+                continue;
+            }
+            if (e.message?.includes('429') || e.message?.includes('quota')) return 'quota';
+            return 'invalid';
+        }
     }
 };
 
