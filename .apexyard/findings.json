@@ -1,24 +1,51 @@
 {
-  "attestation_id": "sha256:817530462a2e160bc26722ebc0c7e83b062672befea0a60dbb6eab2bea78303a",
+  "attestation_id": "sha256:d19946bfaeaa9aab4b53adc61ad008e4010b763d0275c2ff977a2a30fd442c26",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 1,
-    "medium": 0
+    "low": 3,
+    "medium": 1
   },
   "findings": [
     {
-      "category": "technical-debt",
-      "detail": "The Consequences section now carries \"**Deferred on 2026-08-13** at the maintainer's request\", but the header block (Status: Accepted / Date: 2026-08-03) records only the original decision date. A reader arriving at an ADR dated 2026-08-03 and finding a statement dated ten days later cannot tell whether the ADR was amended or whether the date is wrong — and the file gives no signal that its body has moved since acceptance. This matters more here than in a normal doc because ADR-0005 is the document TD-026 links back to as the authority for what the Firebase removal did and did not settle; the two are now mutually cross-referencing, so the amendment trail is the only way to see which one moved last. Not a correctness problem: the added sentence is accurate and consistent with the register entry, and it explicitly defers detail to the register rather than duplicating the triggers.",
-      "file": "docs/adr/ADR-0005-no-accounts-no-backend.md",
-      "line": 4,
+      "category": "code-smell",
+      "detail": "`String(r)` on an arbitrary finite number is not a lossless round-trip of what the model meant. A model that replies with a 17-digit code as a JSON number — `12345678901234567` — is parsed to the nearest double and `String()` yields `12345678901234568`: a wrong code that still looks like a code. Above 1e21, `String(1e21)` yields `\"1e+21\"`, which lands in the cell as exponent text. This is precisely the failure class TD-038 in `docs/quality/tech-debt-register.md` describes (\"1234570000000: a wrong barcode that still looks like a barcode\"), and the new branch reopens a narrow path to it. The direction of error also reverses for these cases: before this change the row came back blank and the export was marked `PARTIAL_` — loudly incomplete; now it is silently wrong, which is strictly harder for a user to notice. 13-digit EAN barcodes are exact as doubles, so the common case is safe, which is why this is medium and not high. What would raise it: `translateBatch`'s prompt or schema permitting a numeric reply for a long code, or any evidence of the model returning a number for a non-numeric source item (nothing in `alignBatchResults` can tell the two apart — it never sees `items`).",
+      "file": "utils/translationBatch.ts",
+      "line": 74,
+      "severity": "medium",
+      "suggested_fix": null,
+      "summary": "Accepting any finite number can silently corrupt a long numeric code"
+    },
+    {
+      "category": "code-smell",
+      "detail": "Lines 26–30 still say \"the cap is no longer needed — left to the CPU count locally, held at 4 on CI\", immediately above the new paragraph explaining why it *is* capped at 4 locally. A reader of `workers: 4` now finds two adjacent, contradictory rationales and no way to tell which is current. That matters more than usual here because this comment is the entire record of an unproven change — the register defers to it — and a contradiction is exactly what erodes trust in a comment block doing load-bearing documentation work.",
+      "file": "playwright.config.ts",
+      "line": 26,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "ADR header still dates the file 2026-08-03 while a bullet now claims 2026-08-13"
+      "summary": "Stale comment left above the new one now states the opposite"
+    },
+    {
+      "category": "testing",
+      "detail": "The unit tests pin `received === null` at the `alignBatchResults` boundary, but the ternary that turns it into user-facing text — the actual deliverable of the second half of TD-042, since the point was the log wording, not the field — is untested. `TranslateTab.tsx` has no unit coverage, so a future edit that collapses the ternary back to a single interpolation would print `Batch returned null results for 20 items` and no test would notice. The register's closing note for TD-042 credits \"five new tests in tests/unit/translationBatch.test.ts\" without mentioning that the component change is uncovered, which per the technical-debt handbook rule 6 is the coverage gap worth stating explicitly.",
+      "file": "components/TranslateTab.tsx",
+      "line": 311,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "The new log-wording branch is the one part of TD-042 with no test"
+    },
+    {
+      "category": "testing",
+      "detail": "`expect.poll` defaults its timeout to `testConfig.expect.timeout`, which `playwright.config.ts:51` already sets to `10_000`. The three new `timeout: 10_000` options are therefore redundant, and they are the same shape as the thing the `modal.spec.ts` change in this PR just removed on principle (\"no per-assertion override... 5 s was an arbitrary number\"). If the project default is ever raised to absorb CI contention, these three call sites silently stay at 10 s and become the new unexplained tightening.",
+      "file": "e2e/responsive.spec.ts",
+      "line": 31,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Poll helpers re-pin the 10 s timeout the config already provides"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 1
+  "total": 4
 }

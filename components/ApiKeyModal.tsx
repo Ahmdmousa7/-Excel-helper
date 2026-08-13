@@ -2,14 +2,15 @@ import React from 'react';
 import { X, Check, AlertTriangle, ShieldPlus, RefreshCw, UserPlus, Zap, Key } from 'lucide-react';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { useModalA11y } from '../hooks/useModalA11y';
+import { ApiKeyStatus } from '../types/ai.types';
 
 interface ApiKeyModalProps {
   language: Language;
   onClose: () => void;
   geminiKey: string;
   setGeminiKey: (key: string) => void;
-  geminiStatus: 'idle' | 'valid' | 'invalid' | 'quota';
-  setGeminiStatus: (status: 'idle' | 'valid' | 'invalid' | 'quota') => void;
+  geminiStatus: ApiKeyStatus;
+  setGeminiStatus: (status: ApiKeyStatus) => void;
   testingGemini: boolean;
   handleTestGemini: () => void;
   googleClientId: string;
@@ -85,6 +86,11 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               {geminiStatus === 'valid' && <span className="px-2 py-0.5 rounded-sm bg-green-100 text-green-700 text-[10px] border border-green-200 flex items-center gap-1"><Check size={10} /> {t.actions.valid}</span>}
               {geminiStatus === 'invalid' && <span className="px-2 py-0.5 rounded-sm bg-red-100 text-red-700 text-[10px] border border-red-200 flex items-center gap-1"><X size={10} /> {t.actions.invalid}</span>}
               {geminiStatus === 'quota' && <span className="px-2 py-0.5 rounded-sm bg-amber-100 text-amber-700 text-[10px] border border-amber-200 flex items-center gap-1"><AlertTriangle size={10} /> {t.actions.quota}</span>}
+              {/* Deliberately NOT red, and deliberately not next to the word
+                  "invalid": the key is fine and the app's model list is stale, so
+                  a red badge here would send the user to rotate a credential that
+                  was never the problem. TD-039. */}
+              {geminiStatus === 'no-model' && <span className="px-2 py-0.5 rounded-sm bg-blue-100 text-blue-700 text-[10px] border border-blue-200 flex items-center gap-1"><AlertTriangle size={10} /> {t.actions.noModel}</span>}
             </div>
             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-primary-600 hover:underline text-[10px]">{t.actions.getGemini}</a>
           </label>
@@ -93,8 +99,17 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             onChange={(e) => { setGeminiKey(e.target.value); setGeminiStatus('idle'); }} 
             placeholder="Paste Gemini keys here (one per line for rotation)" 
             rows={3} 
-            className={`w-full p-3 border rounded-sm font-mono text-xs focus:ring-1 outline-none mb-2 transition-colors resize-none text-slate-900 placeholder-slate-400 ${geminiStatus === 'valid' ? 'border-green-400 bg-green-50 focus:ring-green-200' : geminiStatus === 'invalid' ? 'border-red-400 bg-red-50 focus:ring-red-200' : geminiStatus === 'quota' ? 'border-amber-400 bg-amber-50 focus:ring-amber-200' : 'border-slate-300 bg-slate-50 focus:ring-primary-500'}`} 
+            className={`w-full p-3 border rounded-sm font-mono text-xs focus:ring-1 outline-none mb-2 transition-colors resize-none text-slate-900 placeholder-slate-400 ${geminiStatus === 'valid' ? 'border-green-400 bg-green-50 focus:ring-green-200' : geminiStatus === 'invalid' ? 'border-red-400 bg-red-50 focus:ring-red-200' : geminiStatus === 'quota' ? 'border-amber-400 bg-amber-50 focus:ring-amber-200' : geminiStatus === 'no-model' ? 'border-blue-400 bg-blue-50 focus:ring-blue-200' : 'border-slate-300 bg-slate-50 focus:ring-primary-500'}`}
           />
+          {/* The badge alone cannot carry this. "No model" next to a key the user
+              just pasted reads as "your key is wrong" unless something says
+              otherwise, and the action needed is in the code, not in the key —
+              so it names the file and the command that finds the right ids. */}
+          {geminiStatus === 'no-model' && (
+            <div className="mb-2 bg-blue-50 border border-blue-200 p-2 rounded-sm text-[10px] text-blue-800 leading-snug">
+              {t.actions.noModelHelp}
+            </div>
+          )}
           <div className="flex justify-between items-start">
             <div className="bg-blue-50 border border-blue-100 p-2 rounded-sm flex items-start space-x-2 flex-1 me-2">
               <ShieldPlus size={14} className="text-primary-600 mt-0.5 shrink-0" />

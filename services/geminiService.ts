@@ -1,6 +1,10 @@
 
 import { GoogleGenAI, Schema, Type } from "@google/genai";
-import { AiTier, IAiService } from "../types/ai.types";
+// `ModelNotice` is imported, not redeclared here: it is part of the provider
+// contract in `IAiService`, and a second local copy would let this file and the
+// interface drift — which is the same mistake as the three separate copies of
+// `translateBatch`'s options shape.
+import { AiTier, ApiKeyStatus, IAiService, ModelNotice } from "../types/ai.types";
 
 /**
  * Model ids per tier, in preference order.
@@ -186,7 +190,9 @@ const getAiClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-export const verifyGeminiKey = async (keysString: string): Promise<'valid' | 'invalid' | 'quota'> => {
+export const verifyGeminiKey = async (
+    keysString: string,
+): Promise<Exclude<ApiKeyStatus, 'idle'>> => {
     const keys = keysString.split('\n').map(k => k.trim()).filter(k => k);
     if (keys.length === 0) return 'invalid';
     
@@ -223,10 +229,15 @@ export const verifyGeminiKey = async (keysString: string): Promise<'valid' | 'in
         }
     }
 
-    // Every candidate rejected: a broken app, not a broken key. 'invalid' is all
-    // this signature can express — the error thrown by the real calls carries the
-    // full explanation and points at the model-listing script.
-    return 'invalid';
+    // Every candidate rejected on a key that answered: a broken app, not a broken
+    // key. This used to return 'invalid', which is the worst answer a diagnostic
+    // can give — it sends the user to rotate a credential that was never the
+    // problem, while the actual fault is a stale `MODEL_CANDIDATES` in this file.
+    //
+    // Not hypothetical: on 2026-08-13 five of the six 'quality' ids turned out
+    // not to exist, so this branch was one retirement away from telling a user
+    // with a perfectly good key that it was invalid.
+    return 'no-model';
 };
 
 export const verifyGroqKey = async (key: string): Promise<boolean> => {
@@ -273,6 +284,36 @@ export const modelUnavailableError = (tier: AiTier): Error =>
     `excel-helper folder to see which models your key can use, then update ` +
     `MODEL_CANDIDATES in services/geminiService.ts.`,
   );
+
+/**
+ * Strike the current model off, announce the move, and return the next one.
+ *
+ * Exists for two reasons. The block it replaces was copy-pasted at five call
+ * sites, which the local review flagged — and the copies had already drifted:
+ * one said "trying OCR on", one said "is retired", `translateBatch`'s said
+ * "is unavailable" and carried the consequence, and only the OCR one told the
+ * caller at all.
+ *
+ * That drift is the real cost. `translateBatch` grew an `onNotice` callback so a
+ * quality-tier run that lands on Flash says so in the log and in the exported
+ * workbook, and nothing carried it to the other four — so the same event was
+ * user-visible in Translate and invisible in OCR, Compare and Web Scraper
+ * (TD-041). Centralising means the next feature to use a tier gets the notice
+ * without anyone remembering to add it.
+ *
+ * Throws `modelUnavailableError` when the tier is exhausted, which is what every
+ * copy did, so callers keep using it as `model = advancePastRetiredModel(...)`.
+ */
+const advancePastRetiredModel = (tier: AiTier, model: string, onNotice?: ModelNotice): string => {
+  const next = retireModel(tier, model);
+  if (!next) throw modelUnavailableError(tier);
+  // "Output", not "Translation": one message for five callers, and only one of
+  // them translates. Still matches the `/quality may differ/i` the tests pin.
+  const notice = `Model "${model}" is unavailable; continuing on "${next}". Output quality may differ.`;
+  console.warn(notice);
+  onNotice?.(notice);
+  return next;
+};
 
 // Error handling helpers
 export const isKeyIssue = (error: any) => {
@@ -389,15 +430,8 @@ export const translateBatch = async (
             // and move to the next candidate. Does NOT count against `attempts`
             // — walking the list is not a retry of the same failing thing.
             if (isModelUnavailable(error)) {
-                const next = retireModel(tier, model);
-                if (next) {
-                    const notice = `Model "${model}" is unavailable; continuing on "${next}". Translation quality may differ.`;
-                    console.warn(notice);
-                    options.onNotice?.(notice);
-                    model = next;
-                    continue;
-                }
-                throw modelUnavailableError(tier);
+                model = advancePastRetiredModel(tier, model, options.onNotice);
+                continue;
             }
 
             const isKeyProblem = isKeyIssue(error);
@@ -441,6 +475,7 @@ export const extractStructuredData = async (
     text: string,
     prompt: string,
     tier: AiTier = 'fast',
+    onNotice?: ModelNotice,
 ): Promise<any[]> => {
     // Resolved from the candidate list, and re-resolved if one is retired mid-run.
     let model = resolveModel(tier);
@@ -476,13 +511,8 @@ export const extractStructuredData = async (
             // and move to the next candidate. Does NOT count against `attempts`
             // — walking the list is not a retry of the same failing thing.
             if (isModelUnavailable(error)) {
-                const next = retireModel(tier, model);
-                if (next) {
-                    console.warn(`Model "${model}" is retired; trying "${next}".`);
-                    model = next;
-                    continue;
-                }
-                throw modelUnavailableError(tier);
+                model = advancePastRetiredModel(tier, model, onNotice);
+                continue;
             }
 
             const isKeyProblem = isKeyIssue(error);
@@ -518,7 +548,8 @@ export const extractStructuredData = async (
 // --- GENERAL FILE PROCESSING (NEW) ---
 export const processGeneralFile = async (
   input: { data?: string, mimeType?: string, text?: string },
-  instruction: string
+  instruction: string,
+  onNotice?: ModelNotice,
 ): Promise<string> => {
   const client = getAiClient();
 
@@ -548,10 +579,7 @@ export const processGeneralFile = async (
     } catch (error: any) {
       if (!isModelUnavailable(error)) throw error;
 
-      const next = retireModel(tier, model);
-      if (!next) throw modelUnavailableError(tier);
-      console.warn(`Model "${model}" is retired; trying "${next}".`);
-      model = next;
+      model = advancePastRetiredModel(tier, model, onNotice);
     }
   }
 };
@@ -568,6 +596,7 @@ export const processGeneralFile = async (
 export const generateText = async (
   prompt: string,
   tier: AiTier = 'fast',
+  onNotice?: ModelNotice,
 ): Promise<string> => {
   const client = getAiClient();
   let model = resolveModel(tier);
@@ -582,10 +611,7 @@ export const generateText = async (
     } catch (error: any) {
       if (!isModelUnavailable(error)) throw error;
 
-      const next = retireModel(tier, model);
-      if (!next) throw modelUnavailableError(tier);
-      console.warn(`Model "${model}" is retired; trying "${next}".`);
-      model = next;
+      model = advancePastRetiredModel(tier, model, onNotice);
     }
   }
 };
@@ -595,7 +621,8 @@ export const generateText = async (
 export const extractFromMedia = async (
   mediaData: { data: string, mimeType: string },
   instruction: string,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
+  onNotice?: ModelNotice,
 ): Promise<any[]> => {
   // Pro for high-quality OCR reasoning. `let`, because a retired id falls back
   // to the other model once rather than taking OCR down — see the catch below.
@@ -737,11 +764,15 @@ export const extractFromMedia = async (
       // off and walk to the next candidate so OCR keeps working, degraded,
       // instead of failing outright. Does NOT count against `attempts`.
       if (isModelUnavailable(error)) {
-        const next = retireModel(tier, model);
-        if (!next) throw modelUnavailableError(tier);
-        console.warn(`Model "${model}" is retired; trying OCR on "${next}".`);
-        onProgress?.(`Model ${model} unavailable — trying ${next}`);
-        model = next;
+        // `onNotice` ONLY, not `onProgress` as well.
+        //
+        // This used to go out on `onProgress`, which was the only reason OCR
+        // showed a fallback at all — but OcrTab logs progress as 'success', so a
+        // quality downgrade arrived as a green line. Sending it down both
+        // channels now would log it twice, once green and once as a warning.
+        // `onNotice` is the channel that means "the output changed"; progress
+        // means "how far along we are". They are different facts.
+        model = advancePastRetiredModel(tier, model, onNotice);
         continue;
       }
 
@@ -782,26 +813,37 @@ export class GeminiService implements IAiService {
       return translateBatch(items, options);
   }
 
-  async extractStructuredData(text: string, prompt: string, tier?: AiTier): Promise<any[]> {
-      return extractStructuredData(text, prompt, tier);
+  // Every one of these forwards its trailing `onNotice` — the callback that tells
+  // a caller its request moved to a weaker model. Forgetting it here would
+  // compile and silently drop the notice, which is exactly how `translateBatch`
+  // ended up the only feature that reported a fallback.
+  async extractStructuredData(
+      text: string,
+      prompt: string,
+      tier?: AiTier,
+      onNotice?: ModelNotice,
+  ): Promise<any[]> {
+      return extractStructuredData(text, prompt, tier, onNotice);
   }
 
   async processGeneralFile(
       input: { data?: string; mimeType?: string; text?: string },
-      instruction: string
+      instruction: string,
+      onNotice?: ModelNotice,
   ): Promise<string> {
-      return processGeneralFile(input, instruction);
+      return processGeneralFile(input, instruction, onNotice);
   }
 
   async extractFromMedia(
       mediaData: { data: string; mimeType: string },
       instruction: string,
-      onProgress?: (msg: string) => void
+      onProgress?: (msg: string) => void,
+      onNotice?: ModelNotice,
   ): Promise<any[]> {
-      return extractFromMedia(mediaData, instruction, onProgress);
+      return extractFromMedia(mediaData, instruction, onProgress, onNotice);
   }
 
-  async generateText(prompt: string, tier?: AiTier): Promise<string> {
-      return generateText(prompt, tier);
+  async generateText(prompt: string, tier?: AiTier, onNotice?: ModelNotice): Promise<string> {
+      return generateText(prompt, tier, onNotice);
   }
 }

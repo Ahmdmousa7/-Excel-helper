@@ -156,7 +156,14 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
           // IAiService or on GeminiService — the button threw
           // "aiService.generateContent is not a function" on every click.
           // processGeneralFile is the provider-agnostic text-in/text-out entry point.
-          const response = await aiService.processGeneralFile({ text: comparisonData }, instruction);
+          // Third argument is the fallback notice: two Compare analyses run on
+          // different models are not comparable, and without this there was
+          // nothing on screen to say which one had degraded.
+          const response = await aiService.processGeneralFile(
+            { text: comparisonData },
+            instruction,
+            (msg) => addLog(msg, 'warning'),
+          );
           setAiAnalysis(response);
           addLog("AI Analysis generated.", "success");
       } catch (err: any) {

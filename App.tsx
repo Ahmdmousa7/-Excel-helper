@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { FileData, LogEntry } from './types';
+import { ApiKeyStatus } from './types/ai.types';
 // excelService is imported dynamically in the handlers below (TD-004): it pulls
 // xlsx + xlsx-js-style (~515 KB gzipped), and nothing needs them until the user
 // actually opens a file.
@@ -168,7 +169,7 @@ const App: React.FC = () => {
 
   // Test State
   const [testingGemini, setTestingGemini] = useState(false);
-  const [geminiStatus, setGeminiStatus] = useState<'idle' | 'valid' | 'invalid' | 'quota'>('idle');
+  const [geminiStatus, setGeminiStatus] = useState<ApiKeyStatus>('idle');
   const [testingGroq, setTestingGroq] = useState(false);
   const [groqStatus, setGroqStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
 

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:817530462a2e160bc26722ebc0c7e83b062672befea0a60dbb6eab2bea78303a` |
+| Attestation id | `sha256:d19946bfaeaa9aab4b53adc61ad008e4010b763d0275c2ff977a2a30fd442c26` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `d57ec9ae54d1` |
+| Reviewed at commit | `b312bb0b0784` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 2 |
+| Files reviewed | 7 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
-| low | 1 |
+| medium | 1 |
+| low | 3 |
 | info | 0 |
 
-Documentation-only change: two single-line edits that record the maintainer's 2026-08-13 decision to defer TD-026 (the still-live Firebase project, its unverified deployed ruleset, and its API key readable in git history). The register entry's `Blocked by` column is corrected from a blocker that no longer exists ("Needs Firebase console access") to "deferred by decision, not blocked", the fix column gains the deferral rationale plus three concrete revisit triggers, and ADR-0005's TD-026 consequence bullet is kept in sync. The change is accurate against both documents' existing content, correctly keeps the status `open` rather than quietly closing a live exposure, and satisfies the register's own rule that debt be deliberate and recorded rather than silent. No code, no dependencies, no material technical decision — AgDR: N/A.
+Closes TD-042 by letting a finite JSON number count as a translation in `alignBatchResults` and splitting `received: number | null` so the discard log distinguishes "empty list" from "not a list", and partly addresses TD-040 by replacing five `waitForTimeout` sleeps in `responsive.spec.ts` with `expect.poll` on the drawer's resting position, dropping an unexplained 5 s override in `modal.spec.ts`, and pinning local Playwright `workers` to 4. The work is well-evidenced — the flake was reproduced deterministically by overriding only the transition duration, the two unproven hypotheses are labelled as such in both the config comment and the register, and the new unit tests cover the real traps (`typeof NaN === 'number'`, falsy `0` counted after normalisation). No blocking-handbook violations and no high-severity defects. One substantive concern: accepting *any* finite number unconditionally can silently write a wrong-but-plausible numeric code into a product column, which is the same failure shape the repo already documented at length in TD-038.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ Documentation-only change: two single-line edits that record the maintainer's 20
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
-| Vitest | pass | 246/246 passed, lines 96.09% |
+| Vitest | pass | 250/250 passed, lines 96.15% |
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 91 source files, 27303 lines
+- 91 source files, 27648 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
@@ -64,13 +64,13 @@ reports zero failures for a tool that never executed.
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/CompositeTab.tsx` | 1370 |
 | `components/FileValidationTab.tsx` | 1058 |
-| `components/TranslateTab.tsx` | 947 |
+| `components/TranslateTab.tsx` | 953 |
 | `components/SupportChat.tsx` | 909 |
 | `utils/translations.ts` | 893 |
-| `components/OcrTab.tsx` | 867 |
+| `components/OcrTab.tsx` | 881 |
+| `services/geminiService.ts` | 843 |
 | `components/ZidTab.tsx` | 841 |
 | `components/ProjectSummaryTab.tsx` | 840 |
-| `components/DuplicatesTab.tsx` | 821 |
 
 </details>
 

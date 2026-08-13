@@ -316,7 +316,14 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       if (inputType === 'text') {
           // TEXT MODE
           try {
-              const result: any = await aiService.extractStructuredData(textInput, fullPrompt);
+              // `undefined` tier keeps the default 'fast' for already-transcribed
+              // text; the fourth argument is the fallback notice.
+              const result: any = await aiService.extractStructuredData(
+                  textInput,
+                  fullPrompt,
+                  undefined,
+                  (msg) => addLog(msg, 'warning'),
+              );
               const resultArray = Array.isArray(result) ? result : [result];
               
               if (resultArray.length > 0) {
@@ -359,9 +366,16 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
               const file = files[i];
               addLog(`Processing file ${i + 1} of ${files.length}: ${file.file.name}...`, 'info');
               try {
-                  const result: any = await aiService.extractFromMedia({ data: file.base64Data, mimeType: file.mimeType }, fullPrompt, (msg: string) => {
-                      addLog(msg, 'success');
-                  });
+                  const result: any = await aiService.extractFromMedia(
+                      { data: file.base64Data, mimeType: file.mimeType },
+                      fullPrompt,
+                      (msg: string) => addLog(msg, 'success'),
+                      // A model fallback is not progress, so it is not 'success'.
+                      // It used to arrive on `onProgress` and therefore as a
+                      // green line — the one thing on this screen a user should
+                      // NOT read as everything going fine.
+                      (msg) => addLog(msg, 'warning'),
+                  );
                   
                   if (Array.isArray(result) && result.length > 0) {
                       allResults.push(...result);

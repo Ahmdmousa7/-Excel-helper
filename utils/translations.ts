@@ -172,6 +172,15 @@ export const TRANSLATIONS = {
       valid: 'Valid',
       invalid: 'Invalid',
       quota: 'Quota',
+      // "Key OK", not "No model": the first two words a user reads decide whether
+      // they go looking at their key or at the app. The fault here is the app's.
+      noModel: 'Key OK — app needs updating',
+      noModelHelp:
+        'Your key works. The app has no usable model id for it, which means its ' +
+        'built-in list is out of date — not that anything is wrong with your key, ' +
+        'so do not rotate it. To fix: set GEMINI_API_KEY and run ' +
+        '"node scripts/list-gemini-models.mjs" in the excel-helper folder, then ' +
+        'update MODEL_CANDIDATES in services/geminiService.ts.',
     },
     system: {
       logs: 'System Logs',
@@ -586,6 +595,12 @@ export const TRANSLATIONS = {
       valid: 'صالح',
       invalid: 'غير صالح',
       quota: 'الحد الأقصى',
+      noModel: 'المفتاح سليم — التطبيق يحتاج تحديثًا',
+      noModelHelp:
+        'مفتاحك يعمل. لا يوجد في التطبيق معرف موديل صالح له، أي أن قائمته الداخلية ' +
+        'قديمة — والمشكلة ليست في مفتاحك، فلا تقم بتغييره. للإصلاح: عيّن ' +
+        'GEMINI_API_KEY ثم شغّل "node scripts/list-gemini-models.mjs" داخل مجلد ' +
+        'excel-helper، وبعدها حدّث MODEL_CANDIDATES في services/geminiService.ts.',
     },
     system: {
       logs: 'سجلات النظام',

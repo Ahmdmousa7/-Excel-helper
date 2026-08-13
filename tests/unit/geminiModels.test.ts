@@ -21,8 +21,24 @@ vi.mock('@google/genai', () => ({
       generateContent: async ({ model }: { model: string }) => {
         mockState.tried.push(model);
         if (mockState.working === '__quota__') throw new Error('429 quota exceeded');
+        // A key the API rejects outright, which must stay distinguishable from
+        // "the key is fine but no model in the list exists".
+        if (mockState.working === '__auth__') throw new Error('API key not valid');
         if (model !== mockState.working) throw mockState.retired;
         return { text: 'ok' };
+      },
+      // `extractFromMedia` — OCR on images — streams rather than awaiting one
+      // response, so it needs its own mock. Returns an async iterable of chunks,
+      // and yields text the caller's progress regex can match so the
+      // progress-versus-notice separation is actually exercised.
+      generateContentStream: async ({ model }: { model: string }) => {
+        mockState.tried.push(model);
+        if (mockState.working === '__quota__') throw new Error('429 quota exceeded');
+        if (model !== mockState.working) throw mockState.retired;
+        return (async function* () {
+          yield { text: '[{"Name":"Blue Shirt"' };
+          yield { text: ',"SKU":"A-1"}]' };
+        })();
       },
     };
   },
@@ -39,6 +55,10 @@ import {
   modelUnavailableError,
   verifyGeminiKey,
   translateBatch,
+  extractStructuredData,
+  processGeneralFile,
+  generateText,
+  extractFromMedia,
 } from '../../services/geminiService';
 
 /**
@@ -128,10 +148,27 @@ describe('verifyGeminiKey walks past retired models', () => {
     expect(mockState.tried).toHaveLength(1);
   });
 
-  it('reports invalid only after every candidate is gone', async () => {
+  it('reports NO-MODEL, not invalid, when every candidate is gone', async () => {
+    /**
+     * TD-039. The key answered every time — it is not the problem, the app's
+     * hardcoded list is. Reporting `'invalid'` here was the worst answer a
+     * diagnostic can give: it sends the user to rotate a working credential.
+     *
+     * Not hypothetical. On 2026-08-13 five of the six 'quality' ids turned out
+     * never to have existed, so this branch was one retirement away from calling
+     * a perfectly good key invalid.
+     */
     mockState.working = 'a-model-not-in-the-list';
-    expect(await verifyGeminiKey('AIzaKEY')).toBe('invalid');
+    expect(await verifyGeminiKey('AIzaKEY')).toBe('no-model');
     expect(mockState.tried).toEqual([...MODEL_CANDIDATES.fast]);
+  });
+
+  it('still reports invalid for a key the API actually rejects', () => {
+    // The distinction only means something if the other branch still works: a
+    // rejected key must NOT come back as "the app needs updating".
+    // Driven through the mock's auth path rather than the retirement path.
+    mockState.working = '__auth__';
+    return expect(verifyGeminiKey('AIzaBADKEY')).resolves.toBe('invalid');
   });
 
   it('does not strike ids off the shared registry', async () => {
@@ -229,6 +266,120 @@ describe('translateBatch reports a model fallback to its caller', () => {
     await expect(
       translateBatch([{ text: 'Blue Shirt' }], opts(undefined)),
     ).resolves.toBeDefined();
+  });
+});
+
+describe('every entry point reports a model fallback, not just Translate', () => {
+  /**
+   * TD-041. `translateBatch` grew `onNotice` and the other four did not, so the
+   * same event was visible in Translate and invisible in OCR, Compare and Web
+   * Scraper — and the retire-and-advance block had been copy-pasted five times,
+   * with the copies already worded differently. This drives each entry point for
+   * real and fails if any of them stops passing the callback through.
+   *
+   * The parameter POSITION differs per function, which is exactly the kind of
+   * thing that gets wired wrong silently — an optional callback dropped in the
+   * class wrapper compiles fine and simply never fires.
+   */
+  const originalLocalStorage = (globalThis as any).localStorage;
+
+  beforeEach(() => {
+    mockState.tried.length = 0;
+    resetRetiredModels();
+    (globalThis as any).localStorage = {
+      getItem: (k: string) => (k === 'gemini_api_key' ? 'AIzaKEY' : ''),
+      setItem: () => {},
+    };
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    (globalThis as any).localStorage = originalLocalStorage;
+    vi.restoreAllMocks();
+  });
+
+  /** Only the second candidate of the tier answers, forcing exactly one hop. */
+  const forceOneFallback = (tier: 'fast' | 'quality') => {
+    mockState.working = MODEL_CANDIDATES[tier][1];
+    return MODEL_CANDIDATES[tier];
+  };
+
+  it('extractStructuredData tells its caller — Web Scraper and OCR text', async () => {
+    const list = forceOneFallback('quality');
+    const notices: string[] = [];
+    await extractStructuredData('some text', 'a prompt', 'quality', (m) => notices.push(m));
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toContain(list[0]);
+    expect(notices[0]).toContain(list[1]);
+  });
+
+  it('processGeneralFile tells its caller — Compare AI Analysis', async () => {
+    const list = forceOneFallback('quality');
+    const notices: string[] = [];
+    await processGeneralFile({ text: 'a and b' }, 'compare them', (m) => notices.push(m));
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toContain(list[1]);
+  });
+
+  it('generateText tells its caller — Support Chat', async () => {
+    const list = forceOneFallback('fast');
+    const notices: string[] = [];
+    await generateText('a prompt', 'fast', (m) => notices.push(m));
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toContain(list[1]);
+  });
+
+  it('extractFromMedia tells its caller — OCR on images', async () => {
+    const list = forceOneFallback('quality');
+    const notices: string[] = [];
+    await extractFromMedia(
+      { data: 'AAAA', mimeType: 'image/png' },
+      'read it',
+      undefined,
+      (m) => notices.push(m),
+    );
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toContain(list[1]);
+  });
+
+  it('does NOT send the fallback down extractFromMedia\'s progress channel', async () => {
+    // It used to, and that was the only reason OCR showed anything — but OcrTab
+    // logs progress as 'success', so a quality downgrade arrived as a green line.
+    // Sending it to both would now log it twice, in two different colours.
+    forceOneFallback('quality');
+    const progress: string[] = [];
+    const notices: string[] = [];
+    await extractFromMedia(
+      { data: 'AAAA', mimeType: 'image/png' },
+      'read it',
+      (m) => progress.push(m),
+      (m) => notices.push(m),
+    );
+    expect(notices).toHaveLength(1);
+    expect(progress.filter((m) => /unavailable|quality may differ/i.test(m))).toEqual([]);
+  });
+
+  it('says the same thing everywhere, and names the consequence', async () => {
+    // Five copies of this message had already drifted — "is retired; trying",
+    // "trying OCR on", "is unavailable" — and only one mentioned quality.
+    const collected: string[] = [];
+    for (const run of [
+      () => extractStructuredData('t', 'p', 'quality', (m) => collected.push(m)),
+      () => processGeneralFile({ text: 't' }, 'p', (m) => collected.push(m)),
+      () => generateText('p', 'quality', (m) => collected.push(m)),
+    ]) {
+      resetRetiredModels();
+      forceOneFallback('quality');
+      await run();
+    }
+    expect(collected).toHaveLength(3);
+    expect(new Set(collected).size, 'the wording has drifted again').toBe(1);
+    expect(collected[0]).toMatch(/quality may differ/i);
+  });
+
+  it('is optional — a caller that passes nothing still gets its answer', async () => {
+    forceOneFallback('quality');
+    await expect(extractStructuredData('t', 'p', 'quality')).resolves.toBeDefined();
   });
 });
 

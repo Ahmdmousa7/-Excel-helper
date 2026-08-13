@@ -186,7 +186,16 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
       //
       // A tier, not a model id: this component talks to `aiService`, which is
       // meant to be swappable for another provider in one line.
-      const result = await aiService.extractStructuredData(finalCleanText, queryInstruction, 'quality');
+      // The fourth argument is the fallback notice. Without it, a scrape that ran
+      // on a weaker model because the Pro id was retired looked identical to one
+      // that did not — and the user is about to export this as if it were the
+      // best the app can do.
+      const result = await aiService.extractStructuredData(
+        finalCleanText,
+        queryInstruction,
+        'quality',
+        (msg) => addLog(msg, 'warning'),
+      );
 
       if (!result || result.length === 0) {
         throw new Error("AI analyzed the page but found no data matching your description. This usually happens if the website is a dynamic Single Page Application (SPA) that hides its data, or if it blocks automated scrapers. Tip: Try taking screenshots of the menu and using the 'OCR / Image Extraction' tab instead!");

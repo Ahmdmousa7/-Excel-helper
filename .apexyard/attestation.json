@@ -1,25 +1,45 @@
 {
-  "attestation_id": "sha256:817530462a2e160bc26722ebc0c7e83b062672befea0a60dbb6eab2bea78303a",
+  "attestation_id": "sha256:d19946bfaeaa9aab4b53adc61ad008e4010b763d0275c2ff977a2a30fd442c26",
   "files": [
     {
-      "oid": "9e060ee789e25079fc2e2b12fae66533b8cd6602",
-      "path": "docs/adr/ADR-0005-no-accounts-no-backend.md"
+      "oid": "f8ff585cba10eccf0e1847755c9d380a7e44b7b1",
+      "path": "components/TranslateTab.tsx"
     },
     {
-      "oid": "22119a5c4ed414078fd0700e0dbd5f79e6e6f5c8",
+      "oid": "6c8cc8405585035498043ae9f5611bd58e4bfcb9",
       "path": "docs/quality/tech-debt-register.md"
+    },
+    {
+      "oid": "f60896760d0a988b0779ded977eefe6353751d44",
+      "path": "e2e/modal.spec.ts"
+    },
+    {
+      "oid": "d7bf25384258e89b5e012a99510a61b7c0e37929",
+      "path": "e2e/responsive.spec.ts"
+    },
+    {
+      "oid": "5efe143ba700ba7ee6b4a843cd29563b6e589323",
+      "path": "playwright.config.ts"
+    },
+    {
+      "oid": "487b0c7141aa616bc5b5955acb6badf08884f742",
+      "path": "tests/unit/translationBatch.test.ts"
+    },
+    {
+      "oid": "d9bf5bb68d492f6acd2dfecf52b39d08eb1f444c",
+      "path": "utils/translationBatch.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 1,
-    "medium": 0
+    "low": 3,
+    "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "d57ec9ae54d1841afb8da4644c762e8a5ec60a5b",
+  "reviewed_at_commit": "b312bb0b078472d1717d46bb9f4d6797f2275e5a",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:817530462a2e160bc26722ebc0c7e83b062672befea0a60dbb6eab2bea78303a",
+  "attestation_id": "sha256:d19946bfaeaa9aab4b53adc61ad008e4010b763d0275c2ff977a2a30fd442c26",
   "available": true,
   "by_directory": {
     "(root)": {
       "files": 8,
-      "loc": 883
+      "loc": 900
     },
     "components": {
       "files": 39,
-      "loc": 19200
+      "loc": 19236
     },
     "e2e": {
       "files": 19,
-      "loc": 2211
+      "loc": 2249
     },
     "hooks": {
       "files": 2,
@@ -20,19 +20,19 @@
     },
     "services": {
       "files": 5,
-      "loc": 1128
+      "loc": 1163
     },
     "tests": {
       "files": 10,
-      "loc": 2178
+      "loc": 2346
     },
     "types": {
       "files": 1,
-      "loc": 65
+      "loc": 87
     },
     "utils": {
       "files": 7,
-      "loc": 1468
+      "loc": 1497
     }
   },
   "layering": {
@@ -58,7 +58,7 @@
       },
       {
         "file": "components/TranslateTab.tsx",
-        "loc": 947
+        "loc": 953
       },
       {
         "file": "components/SupportChat.tsx",
@@ -70,7 +70,11 @@
       },
       {
         "file": "components/OcrTab.tsx",
-        "loc": 867
+        "loc": 881
+      },
+      {
+        "file": "services/geminiService.ts",
+        "loc": 843
       },
       {
         "file": "components/ZidTab.tsx",
@@ -83,10 +87,6 @@
       {
         "file": "components/DuplicatesTab.tsx",
         "loc": 821
-      },
-      {
-        "file": "services/geminiService.ts",
-        "loc": 808
       }
     ],
     "threshold_loc": 800
@@ -101,5 +101,5 @@
   ],
   "schema": "apexyard.evidence.architecture/1",
   "source_files": 91,
-  "total_loc": 27303
+  "total_loc": 27648
 }
