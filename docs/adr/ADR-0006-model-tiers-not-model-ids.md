@@ -27,8 +27,7 @@
 
 `'quality'` leads with Pro; `'fast'` leads with Flash. Both end in the other's ids, so a tier degrades rather than dies.
 
-`quality` = `gemini-3.1-pro-preview` → `gemini-pro-latest` → `gemini-2.5-pro` → `gemini-3.6-flash` → `gemini-flash-latest`.
-`fast` = `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-flash-latest` → `gemini-3-flash-preview` → `gemini-pro-latest`.
+The lists themselves live in `MODEL_CANDIDATES` in `services/geminiService.ts` and are deliberately **not** copied here — a second copy of an id list is a second thing to forget to update, and this document has already been wrong about them once.
 
 | Feature | Tier | Why |
 |---|---|---|
