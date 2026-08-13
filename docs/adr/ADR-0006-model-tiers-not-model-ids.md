@@ -27,6 +27,9 @@
 
 `'quality'` leads with Pro; `'fast'` leads with Flash. Both end in the other's ids, so a tier degrades rather than dies.
 
+`quality` = `gemini-3.1-pro-preview` → `gemini-pro-latest` → `gemini-2.5-pro` → `gemini-3.6-flash` → `gemini-flash-latest`.
+`fast` = `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-flash-latest` → `gemini-3-flash-preview` → `gemini-pro-latest`.
+
 | Feature | Tier | Why |
 |---|---|---|
 | Translate | `quality` | Translation looks mechanical and is not — idiom, domain terms, the glossary carve-out |
@@ -38,11 +41,13 @@
 
 **Support Chat's tier is a deliberate downgrade and deserves the note.** It previously used Pro with the comment "Switched to PRO for better reasoning on data analysis tasks", and its prompt does ask the model to reason over a spreadsheet and emit a runnable Pandas script — the workload with the strongest case for Pro in the app. The maintainer asked for Gemini 3.1 Flash for this feature specifically, after asking which model each module used. It is recorded here because the local review flagged the change as an unexplained quality regression, correctly: "'fast' by request" is a claim a reviewer cannot verify from a diff. **To revert, change one argument** at `components/SupportChat.tsx` to `'quality'`.
 
+There is no `gemini-3.1-flash` text model on the key, so the literal request was unsatisfiable — the only 3.1 Flash available is the weaker `-lite` variant. Offered the choice on 2026-08-13, the maintainer picked **`gemini-3.6-flash`**: newest stable Flash, not a preview, stronger than lite. So the tier honours the intent ("a current Flash model") rather than the string.
+
 ## Consequences
 
 - **A fallback is no longer silent.** `translateBatch` takes an `onNotice` callback; `TranslateTab` puts the message in the log and at the top of the exported workbook's Translation Summary sheet. A `console.warn` was the only record before, which is to say none — the file looked identical to one produced entirely on Pro. Verified in a browser against an endpoint that retires `gemini-3.1-pro`.
 - **The other tier consumers still only warn to the console.** OCR, Compare and Web Scraper produce output the user reads immediately rather than a file that outlives the session, so the case is weaker — but it is a gap, not a decision, and a gap needs an id or it is just a sentence in a document nobody re-reads: **TD-041**.
-- **The candidate lists are unverified against a real key.** They are ordered on judgement, and an id that does not exist is skipped at a cost of one request. `GEMINI_API_KEY=… node scripts/list-gemini-models.mjs` prints what a key can actually use; running it is the way to trim dead entries. Until then the lists are a guess that fails safe.
+- **The candidate lists were verified on 2026-08-13, and the guess had been wrong almost everywhere.** This bullet previously said the lists were "a guess that fails safe" and that running `scripts/list-gemini-models.mjs` would "trim dead entries". Running it showed five of the six `quality` ids did not exist on the key — `gemini-3.1-pro`, `gemini-3-pro`, `gemini-3-pro-preview`, `gemini-3.1-flash`, `gemini-3-flash` are all fiction — so **both tiers resolved to the same `gemini-3-flash-preview`**. The quality tier had been running on Flash while this document said Pro, and every session paid five 404s to get there. It did fail safe, in that output was still produced; it did not fail *visibly*, because a tier that degrades on its first call looks identical to one that never had a better option. The lists now contain only verified ids, pinned by a test, and each tier ends on a `*-latest` alias that cannot be retired.
 - **Retirements are not persisted.** A page reload re-checks. A retirement is permanent but a transient 404 is not, and a bad `localStorage` entry would outlive the problem with no way for a user to clear it.
 - **Exhausting a tier reports "invalid key" in the API-key modal** — the wrong cause. TD-039.
 

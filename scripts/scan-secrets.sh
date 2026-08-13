@@ -64,7 +64,8 @@ fi
 # names constantly, and a scanner people learn to ignore protects nothing.
 patterns=(
   'sk-ant-[A-Za-z0-9_-]{20,}'          # Anthropic
-  'AIza[0-9A-Za-z_-]{35}'              # Google API (Gemini). No exemptions — see the note below.
+  'AIza[0-9A-Za-z_-]{35}'              # Google API (Gemini), classic. No exemptions — see the note below.
+  'AQ\.[A-Za-z0-9_-]{40,}'             # Google AI Studio key, current format — see the note below.
   'AKIA[0-9A-Z]{16}'                   # AWS access key
   'ghp_[A-Za-z0-9]{36}'                # GitHub PAT
   'github_pat_[A-Za-z0-9_]{40,}'       # GitHub fine-grained PAT
@@ -73,6 +74,17 @@ patterns=(
   '-----BEGIN [A-Z ]*PRIVATE KEY-----' # private keys
 )
 
+# `AQ.…` was added on 2026-08-13, and its absence was a real hole.
+#
+# Google AI Studio now issues keys in that format, not `AIza…`. The maintainer's
+# working key is one, so the single credential this project actually uses was the
+# one shape the scanner could not see — it would have waved through a paste into
+# a source file, a fixture or a committed note. Found by running the key against
+# ListModels and noticing the prefix, not by the scanner.
+#
+# Length floor of 40 after the dot: the observed key is ~50 characters, and `AQ.`
+# alone is two letters and a dot, which would match ordinary prose.
+#
 # `AIza…` is treated as a secret with NO exemptions.
 #
 # There used to be one. It mattered because `AIza…` covers two very different

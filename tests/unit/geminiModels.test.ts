@@ -341,7 +341,52 @@ describe('walking the candidate list', () => {
   });
 
   it('leads the quality tier with Gemini 3.1 Pro, as requested', () => {
-    expect(MODEL_CANDIDATES.quality[0]).toBe('gemini-3.1-pro');
+    // `-preview` is not a slip. There is no non-preview `gemini-3.1-pro` on the
+    // key this was verified against; the previous value of this assertion was an
+    // id that does not exist, so the test passed while the app 404'd.
+    expect(MODEL_CANDIDATES.quality[0]).toBe('gemini-3.1-pro-preview');
+  });
+
+  it('leads the fast tier with the newest stable Flash, as chosen', () => {
+    expect(MODEL_CANDIDATES.fast[0]).toBe('gemini-3.6-flash');
+  });
+
+  it('contains only ids verified to exist on a real key', () => {
+    /**
+     * The whole list was rewritten on 2026-08-13 because five of its six quality
+     * entries were invented. This pins the ones that were checked against
+     * ListModels, so re-adding a plausible-looking id without running
+     * `scripts/list-gemini-models.mjs` fails here rather than in production.
+     *
+     * A NEW id being added is supposed to fail this test. Verify it, then add it
+     * to this set in the same commit — that is the point.
+     */
+    const VERIFIED = new Set([
+      'gemini-3.1-pro-preview',
+      'gemini-pro-latest',
+      'gemini-2.5-pro',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-flash-latest',
+      'gemini-3-flash-preview',
+    ]);
+    for (const tier of ['quality', 'fast'] as const) {
+      for (const m of MODEL_CANDIDATES[tier]) {
+        expect(VERIFIED.has(m), `${m} (${tier}) was never verified against a key`).toBe(true);
+      }
+    }
+  });
+
+  it('gives every tier an alias that cannot be retired', () => {
+    // `*-latest` is a moving alias Google maintains, so it cannot 404 the way a
+    // dated preview id does. Without one, a bad week of retirements empties a
+    // tier — which is what the rewritten list is guarding against.
+    for (const tier of ['quality', 'fast'] as const) {
+      expect(
+        MODEL_CANDIDATES[tier].some((m) => m.endsWith('-latest')),
+        `${tier} has no -latest backstop`,
+      ).toBe(true);
+    }
   });
 
   it('advances past a retired id', () => {
@@ -377,7 +422,10 @@ describe('walking the candidate list', () => {
 
   it('keeps tiers independent enough to degrade rather than die', () => {
     // Retiring every Pro id must still leave the quality tier a Flash id to use.
-    for (const m of ['gemini-3.1-pro', 'gemini-3-pro', 'gemini-3-pro-preview']) {
+    // Derived from the list rather than hardcoded: the hardcoded version named
+    // three ids that do not exist, so it retired nothing and asserted against a
+    // tier that had never been touched.
+    for (const m of MODEL_CANDIDATES.quality.filter((x) => !x.includes('flash'))) {
       retireModel('quality', m);
     }
     expect(resolveModel('quality')).toMatch(/flash/);

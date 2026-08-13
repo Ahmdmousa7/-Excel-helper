@@ -19,34 +19,50 @@ import { AiTier, IAiService } from "../types/ai.types";
  * Ordering is the only judgement here:
  *   quality — newest Pro first, older Pro ids behind it, Flash last so the tier
  *             degrades in quality rather than failing outright.
- *   fast    — Flash ids only until the end, where a Pro id is better than nothing.
+ *   fast    — Flash ids first, ending on a Pro id because it beats nothing.
  *
- * `gemini-3.1-pro` leads the quality list by request. If it is not a valid id on
- * your key it is skipped automatically — which is the entire point of a list.
- * `GEMINI_API_KEY=… node scripts/list-gemini-models.mjs` prints what your key can
- * actually use, and is the way to confirm rather than infer. Via the env var, not
- * as an argument — the script explains why.
+ * EVERY ID BELOW IS VERIFIED AGAINST A REAL KEY, on 2026-08-13, with
+ * `GEMINI_API_KEY=… node scripts/list-gemini-models.mjs`. That is the only way to
+ * know; run it again rather than inferring, and via the env var rather than as an
+ * argument — the script explains why.
  *
- * This is now the ONLY place model ids live. `components/SupportChat.tsx` used to
+ * The previous list was written from judgement and was almost entirely wrong.
+ * `gemini-3.1-pro`, `gemini-3-pro`, `gemini-3-pro-preview`, `gemini-3.1-flash`
+ * and `gemini-3-flash` do not exist on this key; only `gemini-3-flash-preview`
+ * did. So BOTH tiers resolved to the same Flash-preview id, and the 'quality'
+ * tier — Translate, Web Scraper, Compare, OCR-on-images — had been running on
+ * Flash while claiming Pro, at a cost of five wasted 404s per session per tier
+ * to discover it. The fallback machinery worked exactly as designed; what it was
+ * falling back FROM was fiction.
+ *
+ * Two notes on the ids that are here:
+ *   - `gemini-3.1-pro-preview` is what "Gemini 3.1 Pro" actually is on this key.
+ *     There is no non-preview `gemini-3.1-pro`.
+ *   - `gemini-pro-latest` / `gemini-flash-latest` are moving aliases Google
+ *     maintains, so they cannot be retired out from under us. They sit last in
+ *     their own family as a permanent backstop — the thing this file lacked.
+ *
+ * This is the ONLY place model ids live. `components/SupportChat.tsx` used to
  * hold its own literal and call the SDK directly, which is why it was the single
  * feature with no fallback when an id was retired; it goes through
  * `generateText()` now. `grep -rn "gemini-" components/` should stay empty.
  */
 export const MODEL_CANDIDATES: Record<AiTier, readonly string[]> = {
   quality: [
-    'gemini-3.1-pro',
-    'gemini-3-pro',
-    'gemini-3-pro-preview',
-    'gemini-3.1-flash',
-    'gemini-3-flash',
-    'gemini-3-flash-preview',
+    'gemini-3.1-pro-preview',
+    'gemini-pro-latest',
+    'gemini-2.5-pro',
+    // Degrade to Flash rather than fail: a weaker translation of the remaining
+    // rows beats losing a 500-row run.
+    'gemini-3.6-flash',
+    'gemini-flash-latest',
   ],
   fast: [
-    'gemini-3.1-flash',
-    'gemini-3-flash',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-flash-latest',
     'gemini-3-flash-preview',
-    'gemini-3.1-pro',
-    'gemini-3-pro',
+    'gemini-pro-latest',
   ],
 };
 
