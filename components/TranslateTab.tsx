@@ -6,6 +6,7 @@ import { getSheetData, saveWorkbook } from '../services/excelService';
 import { aiService } from '../services/aiServiceFactory';
 import { initGoogleAuth, updateSheetColumn } from '../services/googleSheetSync';
 import { TRANSLATIONS, Language } from '../utils/translations';
+import { alignBatchResults } from '../utils/translationBatch';
 import ProgressBar from './ProgressBar';
 import { Play, RotateCcw, Zap, WifiOff, Split, Merge, ArrowRight, Layout, AlertCircle, ArrowDown, BrainCircuit, Globe, Book, Copy, Check, CloudUpload, User, PenTool, Columns, Table, FileOutput, ChevronDown, ChevronUp, Settings2, Plus, Combine, Replace, MousePointer2 } from 'lucide-react';
 
@@ -295,36 +296,22 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
                   },
               });
 
-              // Positional mapping is only safe if the model returned exactly one
-              // result per input. It is not contractually obliged to: the reply
-              // is `JSON.parse(response.text)` with no shape or length check, so
-              // a model that drops or merges one item returns a SHORTER array —
-              // and every result after the gap would be filed against the wrong
-              // source row. That is silent corruption: plausible translations
-              // attached to the wrong products, invisible in the output.
-              //
-              // A length mismatch means the alignment is unknowable, so nothing
-              // from this batch is trusted.
+              // Whether the reply can be trusted at all is decided by
+              // `alignBatchResults`, in utils/ — see the note there. It lives
+              // outside this component because reverting it is invisible: the
+              // output still looks correct, just filed against the wrong rows.
               let batchTranslated = 0;
-              if (!Array.isArray(translations) || translations.length !== currentBatchItems.length) {
+              const aligned = alignBatchResults(translations, currentBatchItems.length);
+              if (!aligned.ok) {
                   addLog(
-                    `Batch returned ${Array.isArray(translations) ? translations.length : 0} results ` +
+                    `Batch returned ${aligned.received} results ` +
                     `for ${currentBatchItems.length} items — cannot tell which is which, so the whole ` +
                     `batch was discarded rather than risk mismatched translations.`,
                     'error',
                   );
               } else {
-                  // Only record results that actually contain something.
-                  //
-                  // `translateBatch` does NOT always throw on failure: an
-                  // unparseable model reply makes it return `items.map(() => "")`,
-                  // and an empty reply parses to `[]`. Writing those blanks into
-                  // the map made them indistinguishable from real translations —
-                  // rows showed "Translated" beside an empty cell, and the batch
-                  // was credited in full.
-                  translations.forEach((result, idx) => {
-                      const text = typeof result === 'string' ? result.trim() : '';
-                      if (!text) return;
+                  aligned.translations.forEach((result, idx) => {
+                      if (!result) return;
                       translationMap.set(currentBatchKeys[idx], result);
                       batchTranslated++;
                       addLog(`Translated: "${currentBatchItems[idx]}" -> "${result}"`, 'success');
@@ -552,7 +539,13 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       if (isPartial) {
         addLog(
           `PARTIAL: translated ${processedUniqueCount} of ${totalUnique} items. ${partialReason} ` +
-          `The file was still exported — untranslated rows keep their original text. ` +
+          // Mode-accurate, for the same reason the workbook banner branches: in
+          // `separate` mode the translation column is written blank, so telling
+          // that user their text was kept sends them hunting for it. This is the
+          // message they read first, while they can still act on it.
+          (mode === 'separate'
+            ? `The file was still exported — untranslated rows have an empty translation column, and the source column is untouched. `
+            : `The file was still exported — untranslated rows keep their original text. `) +
           `Re-run to continue, or add more API keys (one per line) so rate limits rotate instead of stopping.`,
           'error',
         );

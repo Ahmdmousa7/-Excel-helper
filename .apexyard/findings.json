@@ -1,49 +1,49 @@
 {
-  "attestation_id": "sha256:f91163f0fcefa010fe6135d771a61539725bc39516bb8bd5d72624ae043f2010",
+  "attestation_id": "sha256:1dc78c632744ce6a5d4ab1985a0fe052ea00d5ed52ee5f63a3eaf3dc9c4af44a",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 0,
+    "low": 3,
     "medium": 1
   },
   "findings": [
     {
-      "category": "testing",
-      "detail": "`IAiService.translateBatch` (types/ai.types.ts:16) and the standalone `translateBatch` (services/geminiService.ts:235) both gained `onNotice`, but the class wrapper did not — it still declares `options: { sourceLang; targetLang; domain; glossary }`. `GeminiService` is the ONLY implementation of `IAiService`, and it is what `aiServiceFactory.getService()` hands to `TranslateTab.tsx:286`, so this is the signature on the real call path. It compiles (TypeScript keeps method-syntax parameter bivariance even under `strict: true`) and it works at runtime only incidentally, because line 671 forwards `options` by reference rather than rebuilding it. Meanwhile all four new fallback tests (tests/unit/geminiModels.test.ts:198-230) import the standalone function directly, so nothing covers the wrapper. The concrete failure: someone later normalises the wrapper to `return translateBatch(items, { sourceLang, targetLang, domain, glossary })` — a change that looks like tidying and that the declared type actively invites — and every fallback notice is silently dropped. All four tests stay green, the workbook goes back to looking identical to one produced entirely on Pro, and ADR-0006's headline consequence (\"A fallback is no longer silent\") quietly becomes false again. Today there is no user impact; that is why this is medium and not high.",
+      "category": "architecture",
+      "detail": "`retiredModels` is a module-level Set and `retireModel()` strikes an id off for the whole session across every tier and every key. The PR's own reasoning in `verifyGeminiKey` (services/geminiService.ts:128-131) states the opposite premise for that function — \"model availability is per key and per project\" — and deliberately refuses to record there for exactly this reason. The real call paths do record. The app explicitly supports multiple keys (`rotateKey()` reorders them, `getStoredApiKey()` returns `geminiKeys[0]`, and TranslateTab's own partial message tells users to \"add more API keys (one per line)\"), and Gemini returns a NOT_FOUND/404 for a model the *project behind that key* cannot use — which `isModelUnavailable()` cannot distinguish from a genuine retirement. Concrete failure: a user has two keys, key B's project lacks `gemini-3.1-pro`. A 429 on key A rotates to key B, key B's next call 404s on `gemini-3.1-pro`, and the id is struck off for the rest of the session — so every later Translate/OCR/Compare/Web-Scraper call runs on a weaker model even after rotation puts key A back in front. It self-corrects on reload and the fallback still produces output, which is why this is medium rather than high; it would be high if the retirement were persisted (it deliberately is not, per the comment at services/geminiService.ts:53-60).",
       "file": "services/geminiService.ts",
-      "line": 669,
+      "line": 72,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "GeminiService wrapper never got `onNotice`; new tests bypass the path the app uses"
+      "summary": "Session-global model retirement is keyed on the model only, not the key that failed"
     },
     {
       "category": "code-smell",
-      "detail": "The length-mismatch branch (line 309) logs that the whole batch was discarded and leaves `batchTranslated` at 0. The `if (batchTranslated < currentBatchItems.length)` check at line 334 is outside that if/else, so it fires immediately afterwards and logs \"N item(s) in this batch came back empty — left untranslated.\" for a batch that did not come back empty — it came back misaligned and was deliberately thrown away. The user reading the log sees two error lines giving two different causes for one event, and the second one contradicts the first and points at the model rather than at the safety check that just did the right thing. This matters more than usual here because the log is the primary diagnostic for a PARTIAL run.",
+      "detail": "The workbook banner twelve lines above (components/TranslateTab.tsx:534-539) branches on `mode === 'separate'` precisely so a separate-mode user is not sent hunting for text that was never written — the comment at :529-533 says so explicitly. The in-app log message added in the same block does not branch: it states unconditionally \"untranslated rows keep their original text\". In `separate` mode without `mergeSource`, an untranslated row's target column is written as `tText` = `\"\"` (components/TranslateTab.tsx:446), so the log contradicts both the workbook and the code. The log is the message the user actually reads first, in the session where they can still act on it.",
       "file": "components/TranslateTab.tsx",
-      "line": 334,
+      "line": 555,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "A discarded batch also logs a contradictory \"came back empty\" error"
+      "summary": "Partial-run log claims original text is kept, which is false in `separate` mode"
     },
     {
-      "category": "technical-debt",
-      "detail": "The comment states: `grep -rn \"gemini-\" components/` should stay empty. I ran it — it is not empty. `components/SupportChat.tsx:433` matches, on the historical comment \"`ai.models.generateContent` with a hardcoded \\\"gemini-3-pro-preview\\\"\". The substantive claim behind it is correct (no model id is *used* in `components/` any more), but the check as written fails on its first run. This PR's own commit history shows the cost of stale comments — two commits here exist partly to fix earlier comments that later commits falsified — so a self-checking invariant that does not actually pass is worth correcting now rather than becoming the third instance.",
+      "category": "code-smell",
+      "detail": "The comment that used to sit above `const model = GEMINI_PRO;` survived the deletion of that line and now makes two claims the code no longer supports. It opens \"Pro, by request\" while `model` is `resolveModel('quality')`, which can legitimately be a Flash id once a Pro id is struck off — the degradation this PR exists to enable. It closes with \"roughly three minutes before TranslateTab logs the error and stops\", but TranslateTab no longer stops: it `break`s, exports a PARTIAL_-prefixed workbook, and sets ERROR (components/TranslateTab.tsx:352-371, 550). This codebase leans on comments as its primary documentation — every other comment in this diff was updated with care — so a stale one here is the kind that gets trusted and mis-plans the next change.",
       "file": "services/geminiService.ts",
-      "line": 32,
+      "line": 261,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Docblock asserts an invariant that is false the moment it was written"
+      "summary": "translateBatch's comment block now describes behaviour the PR changed"
     },
     {
-      "category": "typescript",
-      "detail": "Observation, not a request — line 295 predates this PR and is not in the diff. `return JSON.parse(response.text || \"[]\")` inside a function declared `Promise<string[]>` is an unvalidated assertion over model output, which is exactly why `TranslateTab.tsx:309` now has to defend with `!Array.isArray(translations) || translations.length !== currentBatchItems.length` against a value TypeScript insists is already `string[]`. The guard is correct and well-reasoned where it is, and TranslateTab is the right place for the *policy* decision (discard vs. partial-credit). Worth knowing: `extractStructuredData`, `extractFromMedia` and `processGeneralFile` parse model output the same way and have no equivalent guard, so the class of bug this PR fixed for Translate is still open for OCR, Compare and Web Scraper — and those callers map results positionally too. Raising this to a finding would require confirming those call sites actually index by position, which is outside this diff.",
-      "file": "services/geminiService.ts",
-      "line": 295,
-      "severity": "info",
+      "category": "testing",
+      "detail": "The model registry got 26 tests; the guard that this PR describes as preventing \"silent corruption: plausible translations attached to the wrong products, invisible in the output\" got none. It is the highest-consequence branch added here (a short array from the model would otherwise mis-file every result after the gap) and it is the one whose regression is invisible — reverting `translations.length !== currentBatchItems.length` to a bare `forEach` leaves every existing test green and produces output that looks correct. The same applies to the empty-result filter at :325-331 and the `processedUniqueCount` / `isPartial` derivation at :493-494, which the PR's own comments flag as previously miscounting.",
+      "file": "components/TranslateTab.tsx",
+      "line": 309,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "Shape validation landed in the caller; the other three parse sites still lack it"
+      "summary": "The batch length-mismatch guard — the silent-corruption fix — has no test"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

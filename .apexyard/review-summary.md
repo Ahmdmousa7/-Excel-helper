@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:f91163f0fcefa010fe6135d771a61539725bc39516bb8bd5d72624ae043f2010` |
+| Attestation id | `sha256:1dc78c632744ce6a5d4ab1985a0fe052ea00d5ed52ee5f63a3eaf3dc9c4af44a` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `4b7ac1463b62` |
+| Reviewed at commit | `45af942c3782` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 1 |
-| low | 2 |
-| info | 1 |
+| low | 3 |
+| info | 0 |
 
-This PR completes the model-tier refactor: it makes a mid-run model fallback visible to the user (log + a banner in the exported workbook) instead of only `console.warn`, hardens TranslateTab against a batch whose result count or contents don't match its input (silent positional-misalignment corruption, and blank results being credited as successes), stops `verifyGeminiKey` from reporting a good key as "invalid" when it meets a retired model id, and records the whole contract in ADR-0006 plus TD-039. The reasoning is unusually well documented — commit bodies, the ADR, and the inline comments all state the failure mode and the verification performed, and I confirmed the two 'my earlier comment was wrong' fixes are genuine (`GOOGLE_KEY_PATTERN` really is gone from the repo). AgDR/ADR check: N/A-satisfied — ADR-0006 is in this diff and covers the tier decision, including the Support Chat downgrade. No blocking-handbook violations and nothing above medium; findings below are one real drift/test-gap plus three low/info cleanups. Note: I could not execute the test suite in this environment (command approval denied), so test results are read-verified, not run-verified.
+This PR replaces hardcoded Gemini preview model ids with per-tier ordered candidate lists that the service walks past retired ids, routes Support Chat through `aiService.generateText` instead of the SDK directly (on the 'fast' tier, deliberately, per ADR-0006), surfaces model fallbacks to TranslateTab's log and exported workbook, and hardens TranslateTab's batch handling against length-mismatched and empty model replies by exporting an explicitly-marked PARTIAL file instead of discarding completed batches. The change is well-tested (26 new unit tests, all passing locally against a mocked SDK), the decision is recorded in ADR-0006, and the two residual gaps are already registered as TD-039/TD-040. No blocking-handbook violations: SupportChat now has zero SDK/model literals, model output is not rendered as HTML anywhere the diff touches, and no secrets or privileged keys are introduced. Findings are advisory: one medium correctness concern about session-global retirement interacting with per-key model availability, plus three low-severity accuracy/coverage items.
 
 ## Quality gates
 
@@ -42,7 +42,7 @@ This PR completes the model-tier refactor: it makes a mid-run model fallback vis
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
 | Vitest | pass | 227/227 passed, lines 95.98% |
-| Playwright | **FAIL** | 100/101 passed |
+| Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |

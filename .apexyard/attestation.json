@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:f91163f0fcefa010fe6135d771a61539725bc39516bb8bd5d72624ae043f2010",
+  "attestation_id": "sha256:1dc78c632744ce6a5d4ab1985a0fe052ea00d5ed52ee5f63a3eaf3dc9c4af44a",
   "files": [
     {
       "oid": "cc60e5012b50a168ec8a4275d1db9d7ea24be95e",
@@ -14,7 +14,7 @@
       "path": "docs/adr/ADR-0006-model-tiers-not-model-ids.md"
     },
     {
-      "oid": "28938c7cfb329a5d163045e8fcb36609690738df",
+      "oid": "d6addddd67346fe2592328b93549e7df75c5cbe6",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
@@ -41,13 +41,13 @@
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 0,
+    "low": 3,
     "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "4b7ac1463b62e3b2a2f2c3317b978d76aab80f31",
+  "reviewed_at_commit": "45af942c37823f39de2e21b18c517f90f84d154b",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

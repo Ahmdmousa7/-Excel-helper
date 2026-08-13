@@ -232,6 +232,67 @@ describe('translateBatch reports a model fallback to its caller', () => {
   });
 });
 
+describe('a retirement is remembered per key, not globally', () => {
+  /**
+   * The API answers NOT_FOUND both for a genuinely retired id and for one the
+   * project behind that key cannot use, and `isModelUnavailable` cannot tell
+   * them apart. With one shared registry the second case poisoned the first:
+   * key B's project lacks Pro, a 429 on key A rotates to B, B 404s, and Pro is
+   * struck off for the whole session — so every later call runs on a weaker
+   * model even once rotation puts key A back in front.
+   */
+  const originalLocalStorage = (globalThis as any).localStorage;
+  let currentKey = '';
+
+  beforeEach(() => {
+    resetRetiredModels();
+    currentKey = 'AIzaKEY-A';
+    (globalThis as any).localStorage = {
+      getItem: (k: string) => (k === 'gemini_api_key' ? currentKey : ''),
+      setItem: () => {},
+    };
+  });
+
+  afterEach(() => {
+    (globalThis as any).localStorage = originalLocalStorage;
+  });
+
+  it('does not degrade a second key because the first could not use a model', () => {
+    const preferred = resolveModel('quality');
+    retireModel('quality', preferred);
+    expect(resolveModel('quality')).not.toBe(preferred);
+
+    currentKey = 'AIzaKEY-B';
+    expect(resolveModel('quality')).toBe(preferred);
+  });
+
+  it('still remembers within one key, so the wasted request is paid once', () => {
+    // The whole point of a registry: on a 500-row translation this is the
+    // difference between one wasted request and one per batch.
+    const preferred = resolveModel('quality');
+    retireModel('quality', preferred);
+    currentKey = 'AIzaKEY-B';
+    resolveModel('quality');
+    currentKey = 'AIzaKEY-A';
+    expect(resolveModel('quality')).not.toBe(preferred);
+  });
+
+  it('keeps buckets separate for keys that share a prefix', () => {
+    const preferred = resolveModel('fast');
+    retireModel('fast', preferred);
+    currentKey = 'AIzaKEY-A2';
+    expect(resolveModel('fast')).toBe(preferred);
+  });
+
+  it('does not throw when no key is readable', () => {
+    // The service is imported by the unit suite under `environment: 'node'`,
+    // where `localStorage` does not exist at all.
+    delete (globalThis as any).localStorage;
+    expect(() => resolveModel('quality')).not.toThrow();
+    expect(typeof resolveModel('quality')).toBe('string');
+  });
+});
+
 describe('the two detectors stay disjoint', () => {
   it('never classifies the real 404 as a key issue', () => {
     // If both matched, the catch order would decide behaviour by accident.

@@ -50,32 +50,82 @@ export const MODEL_CANDIDATES: Record<AiTier, readonly string[]> = {
 };
 
 /**
- * Ids proven gone this session. Module-level, so one 404 teaches every later
- * call instead of each one rediscovering it — the difference between one wasted
- * request and one per batch on a 500-row translation.
+ * Ids proven gone this session, **per key**.
+ *
+ * Module-level, so one 404 teaches every later call instead of each one
+ * rediscovering it — the difference between one wasted request and one per batch
+ * on a 500-row translation.
+ *
+ * Keyed by key, though, because "this model is gone" is not a global fact. The
+ * API answers NOT_FOUND both for a genuinely retired id and for one the *project
+ * behind that key* cannot use, and `isModelUnavailable()` cannot tell those
+ * apart. The app supports several keys (`rotateKey()` reorders them, and
+ * TranslateTab tells users to add more so rate limits rotate rather than stop),
+ * so a single shared Set produced this: key B's project lacks `gemini-3.1-pro`,
+ * a 429 on key A rotates to B, B's next call 404s — and Pro is struck off for
+ * the rest of the session, downgrading every later Translate/OCR/Compare call
+ * even once rotation puts key A back in front.
+ *
+ * This is the same premise `verifyGeminiKey` already acted on when it refused to
+ * record on behalf of the key being tested. That function was right and these
+ * paths were wrong; both now agree that availability is per key and per project.
  *
  * Not persisted: a retirement is permanent but a transient 404 is not, and a bad
  * entry in localStorage would outlive the problem with no way for a user to
  * clear it. A page reload re-checks.
  */
-const retiredModels = new Set<string>();
+const retiredModels = new Map<string, Set<string>>();
 
-/** The first id for this tier that has not been struck off. */
+/**
+ * A stable, non-reversible label for the key in use, so the registry can be
+ * partitioned without holding raw keys in a structure that might get logged.
+ * djb2 — this identifies, it does not protect anything.
+ *
+ * Falls back to a shared bucket when no key is readable (no `localStorage` under
+ * the unit suite's `node` environment), which keeps the tier-walking logic
+ * testable without a storage stub.
+ */
+const keyBucket = (): string => {
+  let key = '';
+  try {
+    key = getStoredApiKey();
+  } catch {
+    key = '';
+  }
+  let h = 5381;
+  for (let i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) | 0;
+  return `k${(h >>> 0).toString(36)}`;
+};
+
+const retiredFor = (bucket: string): Set<string> => {
+  const existing = retiredModels.get(bucket);
+  if (existing) return existing;
+  const fresh = new Set<string>();
+  retiredModels.set(bucket, fresh);
+  return fresh;
+};
+
+/** The first id for this tier that has not been struck off for the current key. */
 export const resolveModel = (tier: AiTier): string => {
-  const alive = MODEL_CANDIDATES[tier].filter((m) => !retiredModels.has(m));
+  const retired = retiredFor(keyBucket());
+  const alive = MODEL_CANDIDATES[tier].filter((m) => !retired.has(m));
   // Every candidate retired: hand back the first anyway so the caller produces a
   // real API error naming a real id, rather than crashing on `undefined`.
   return alive[0] ?? MODEL_CANDIDATES[tier][0];
 };
 
-/** Strike an id off for this session. Returns the next one to try, or null. */
+/**
+ * Strike an id off for the current key, for this session. Returns the next one
+ * to try, or null.
+ */
 export const retireModel = (tier: AiTier, model: string): string | null => {
-  retiredModels.add(model);
-  const next = MODEL_CANDIDATES[tier].find((m) => !retiredModels.has(m));
+  const retired = retiredFor(keyBucket());
+  retired.add(model);
+  const next = MODEL_CANDIDATES[tier].find((m) => !retired.has(m));
   return next ?? null;
 };
 
-/** Test seam: forget everything struck off. */
+/** Test seam: forget everything struck off, for every key. */
 export const resetRetiredModels = (): void => retiredModels.clear();
 
 // Key Management
@@ -258,16 +308,22 @@ export const translateBatch = async (
     while (attempts < maxRetries) {
         try {
             const client = getAiClient();
-            // Pro, by request. Translation looks mechanical but is not — idiom,
-            // domain terms and the glossary carve-out are judgement calls.
+            // The 'quality' tier, by request: translation looks mechanical but
+            // is not — idiom, domain terms and the glossary carve-out are
+            // judgement calls. It LEADS with Pro rather than guaranteeing it; the
+            // list ends in Flash ids so a retirement degrades the run instead of
+            // ending it, and `onNotice` above exists so that is not silent.
             //
             // The cost, stated honestly: Pro has tighter free-tier limits than
-            // Flash and this runs in batches, so 429s are likelier than before.
-            // With SEVERAL keys the handler below rotates and carries on. With
-            // ONE key — the default — `rotateKey()` returns false, so each 429
-            // costs a 60s sleep and `getMaxRetries()` allows 4 attempts: roughly
-            // three minutes before TranslateTab logs the error and stops. Slow to
-            // fail, but it does fail loudly rather than silently.
+            // Flash and this runs in batches, so 429s are likelier than on the
+            // fast tier. With SEVERAL keys the handler below rotates and carries
+            // on. With ONE key — the default — `rotateKey()` returns false, so
+            // each 429 costs a 60s sleep and `getMaxRetries()` allows 4 attempts:
+            // roughly three minutes before the error reaches TranslateTab. It
+            // does NOT stop there — TranslateTab breaks out of its batch loop,
+            // keeps everything already translated, and exports a `PARTIAL_`
+            // workbook. Slow to fail, but it fails loudly and with the work
+            // already done in hand.
 
             let translationInstruction = `Translate the following items from ${options.sourceLang} to ${options.targetLang}.`;
             if (options.sourceLang === 'auto' && options.targetLang === 'auto') {
