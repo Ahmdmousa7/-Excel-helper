@@ -21,18 +21,18 @@
         "raw_bytes": 499864
       },
       {
-        "file": "ProjectSummaryTab-BEvD5g6s.js",
-        "gzip_bytes": 144773,
+        "file": "ProjectSummaryTab-Co8PjRsR.js",
+        "gzip_bytes": 144781,
         "raw_bytes": 444342
       },
       {
-        "file": "geminiService-dWqyPNwL.js",
-        "gzip_bytes": 57654,
-        "raw_bytes": 280853
+        "file": "geminiService-BqA4ybzw.js",
+        "gzip_bytes": 57790,
+        "raw_bytes": 281117
       },
       {
-        "file": "index.es-1tief4lQ.js",
-        "gzip_bytes": 51628,
+        "file": "index.es-Cqejw6nL.js",
+        "gzip_bytes": 51634,
         "raw_bytes": 151120
       },
       {
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-CgO7kJ-q.js",
-        "gzip_bytes": 43357,
+        "file": "HomeTab-TPVgoKj1.js",
+        "gzip_bytes": 43360,
         "raw_bytes": 135983
       },
       {
-        "file": "index-tTCEmRof.js",
-        "gzip_bytes": 31153,
+        "file": "index-CwLkOhBW.js",
+        "gzip_bytes": 31162,
         "raw_bytes": 103016
       },
       {
@@ -61,8 +61,8 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-DFKAXgg2.js",
-        "gzip_bytes": 13677,
+        "file": "QrCodeTab-DYq2Rjf0.js",
+        "gzip_bytes": 13678,
         "raw_bytes": 37385
       }
     ],
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1309.9,
+        "gzip_kb": 1310.3,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 90
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1324.3,
+        "gzip_kb": 1324.7,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -158,11 +158,13 @@
   },
   "playwright": {
     "available": true,
-    "failed_count": 0,
-    "failures": [],
+    "failed_count": 1,
+    "failures": [
+      "responsive.spec.ts > responsive layout > mobile navigation drawer > the trigger opens it and the backdrop closes it"
+    ],
     "flaky_count": 0,
-    "passed": true,
-    "passed_count": 101,
+    "passed": false,
+    "passed_count": 100,
     "skipped_count": 0,
     "total": 101
   },
@@ -176,18 +178,18 @@
   "vitest": {
     "available": true,
     "coverage": {
-      "branches_pct": 91.26,
-      "functions_pct": 93.33,
-      "lines_pct": 95.98,
-      "statements_pct": 95.98
+      "branches_pct": 92.02,
+      "functions_pct": 93.75,
+      "lines_pct": 96.09,
+      "statements_pct": 96.09
     },
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 227,
+      "passed": 242,
       "skipped": 0,
-      "suites": 48,
-      "total": 227
+      "suites": 53,
+      "total": 242
     }
   }
 }

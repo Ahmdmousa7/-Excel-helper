@@ -41,8 +41,8 @@ This PR replaces hardcoded Gemini preview model ids with per-tier ordered candid
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
-| Vitest | pass | 227/227 passed, lines 95.98% |
-| Playwright | pass | 101/101 passed |
+| Vitest | pass | 242/242 passed, lines 96.09% |
+| Playwright | **FAIL** | 100/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 89 source files, 26926 lines
+- 91 source files, 27176 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -64,7 +64,7 @@ reports zero failures for a tool that never executed.
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/CompositeTab.tsx` | 1370 |
 | `components/FileValidationTab.tsx` | 1058 |
-| `components/TranslateTab.tsx` | 945 |
+| `components/TranslateTab.tsx` | 938 |
 | `components/SupportChat.tsx` | 909 |
 | `utils/translations.ts` | 893 |
 | `components/OcrTab.tsx` | 867 |

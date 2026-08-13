@@ -377,6 +377,14 @@ export const translateBatch = async (
             if (isKeyProblem) {
                 const rotated = rotateKey();
                 if (rotated) {
+                    // Re-resolve: `keyBucket()` now answers for a DIFFERENT key, and
+                    // retirements are per key. Carrying the old key's choice over
+                    // would keep the run on a Flash id that only the previous key
+                    // needed — the exact downgrade the per-key registry exists to
+                    // prevent. Re-resolving costs at most one request if the new key
+                    // cannot use the preferred id either, and that gets recorded in
+                    // the new key's own bucket.
+                    model = resolveModel(tier);
                     await new Promise(r => setTimeout(r, 1000));
                     continue; 
                 }
@@ -454,6 +462,14 @@ export const extractStructuredData = async (
             if (isKeyProblem) {
                 const rotated = rotateKey();
                 if (rotated) {
+                    // Re-resolve: `keyBucket()` now answers for a DIFFERENT key, and
+                    // retirements are per key. Carrying the old key's choice over
+                    // would keep the run on a Flash id that only the previous key
+                    // needed — the exact downgrade the per-key registry exists to
+                    // prevent. Re-resolving costs at most one request if the new key
+                    // cannot use the preferred id either, and that gets recorded in
+                    // the new key's own bucket.
+                    model = resolveModel(tier);
                     await new Promise(r => setTimeout(r, 1000));
                     continue; 
                 }
@@ -706,8 +722,11 @@ export const extractFromMedia = async (
       if (isKeyProblem) {
         const rotated = rotateKey();
         if (rotated) {
+          // Re-resolve for the same reason as the other rotate sites: retirements
+          // are per key, and `keyBucket()` now answers for a different one.
+          model = resolveModel(tier);
           await new Promise(r => setTimeout(r, 1000));
-          continue; 
+          continue;
         }
         const waitSeconds = parseWaitTime(error);
         console.warn(`API limit/error reached. Waiting ${waitSeconds} seconds...`);

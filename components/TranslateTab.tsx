@@ -318,7 +318,11 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
                   });
               }
 
-              if (batchTranslated < currentBatchItems.length) {
+              // Only for a batch that was ACCEPTED. A discarded one already said
+              // why, in the branch above; following it with "came back empty"
+              // describes a different failure and contradicts the first message —
+              // the items did come back, they just could not be trusted.
+              if (aligned.ok && batchTranslated < currentBatchItems.length) {
                   // Silent, so it has to be said out loud.
                   addLog(
                     `${currentBatchItems.length - batchTranslated} item(s) in this batch came back empty — ` +

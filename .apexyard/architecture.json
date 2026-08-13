@@ -8,7 +8,7 @@
     },
     "components": {
       "files": 39,
-      "loc": 19198
+      "loc": 19191
     },
     "e2e": {
       "files": 19,
@@ -20,19 +20,19 @@
     },
     "services": {
       "files": 5,
-      "loc": 1017
+      "loc": 1073
     },
     "tests": {
-      "files": 9,
-      "loc": 1962
+      "files": 10,
+      "loc": 2115
     },
     "types": {
       "files": 1,
       "loc": 65
     },
     "utils": {
-      "files": 6,
-      "loc": 1420
+      "files": 7,
+      "loc": 1468
     }
   },
   "layering": {
@@ -58,7 +58,7 @@
       },
       {
         "file": "components/TranslateTab.tsx",
-        "loc": 945
+        "loc": 938
       },
       {
         "file": "components/SupportChat.tsx",
@@ -96,6 +96,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 89,
-  "total_loc": 26926
+  "source_files": 91,
+  "total_loc": 27176
 }

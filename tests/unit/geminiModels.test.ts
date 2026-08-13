@@ -284,6 +284,21 @@ describe('a retirement is remembered per key, not globally', () => {
     expect(resolveModel('fast')).toBe(preferred);
   });
 
+  it('gives a rotated-to key the preferred model again, not the old key\'s fallback', () => {
+    // What a rotation has to produce. Key A cannot use Pro and is walked down to
+    // a Flash id; a 429 rotates to key B, whose project is fine with Pro. If the
+    // run carried A's choice over, B would spend the whole job on Flash for a
+    // limitation that was never B's — which is the downgrade the per-key
+    // registry exists to prevent, reintroduced one level up. The call sites
+    // re-resolve after `rotateKey()` returns true; this pins what that must give.
+    const preferred = resolveModel('quality');
+    const fallback = retireModel('quality', preferred);
+    expect(resolveModel('quality')).toBe(fallback);
+
+    currentKey = 'AIzaKEY-B';
+    expect(resolveModel('quality')).toBe(preferred);
+  });
+
   it('does not throw when no key is readable', () => {
     // The service is imported by the unit suite under `environment: 'node'`,
     // where `localStorage` does not exist at all.
