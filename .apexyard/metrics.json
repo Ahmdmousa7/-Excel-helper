@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:d19946bfaeaa9aab4b53adc61ad008e4010b763d0275c2ff977a2a30fd442c26",
+  "attestation_id": "sha256:407d23dddc45b48406d362a717cfc7789294c800ec6aedafad22122ed29e9540",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,18 +21,18 @@
         "raw_bytes": 499864
       },
       {
-        "file": "ProjectSummaryTab-B403W0YX.js",
-        "gzip_bytes": 144776,
+        "file": "ProjectSummaryTab-DOdm8Bh_.js",
+        "gzip_bytes": 144777,
         "raw_bytes": 444342
       },
       {
-        "file": "geminiService-DJdfa03g.js",
-        "gzip_bytes": 57722,
-        "raw_bytes": 280777
+        "file": "geminiService-C0NfYSBk.js",
+        "gzip_bytes": 57734,
+        "raw_bytes": 280794
       },
       {
-        "file": "index.es-BZ5bnTFt.js",
-        "gzip_bytes": 51628,
+        "file": "index.es-C36igW-c.js",
+        "gzip_bytes": 51631,
         "raw_bytes": 151120
       },
       {
@@ -46,14 +46,14 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-x3mFwx1T.js",
-        "gzip_bytes": 43360,
+        "file": "HomeTab-zHTOFyOq.js",
+        "gzip_bytes": 43362,
         "raw_bytes": 135983
       },
       {
-        "file": "index-D_Qp89GC.js",
-        "gzip_bytes": 31161,
-        "raw_bytes": 103016
+        "file": "index-DFARg3CX.js",
+        "gzip_bytes": 31678,
+        "raw_bytes": 104347
       },
       {
         "file": "jszip.min-CiouRDUD.js",
@@ -61,18 +61,18 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-BFE4HqKi.js",
-        "gzip_bytes": 13677,
+        "file": "QrCodeTab-DGqBlEAW.js",
+        "gzip_bytes": 13679,
         "raw_bytes": 37385
       }
     ],
     "metrics": [
       {
         "budget_kb": 110,
-        "gzip_kb": 85.9,
+        "gzip_kb": 86.4,
         "metric": "Initial load (entry + preloads + CSS)",
         "over": false,
-        "used_pct": 78
+        "used_pct": 79
       },
       {
         "budget_kb": 560,
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1310.3,
+        "gzip_kb": 1310.9,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 90
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1324.7,
+        "gzip_kb": 1325.3,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -158,11 +158,13 @@
   },
   "playwright": {
     "available": true,
-    "failed_count": 0,
-    "failures": [],
+    "failed_count": 1,
+    "failures": [
+      "modal.spec.ts > API key modal > Tab is trapped inside the dialog"
+    ],
     "flaky_count": 0,
-    "passed": true,
-    "passed_count": 101,
+    "passed": false,
+    "passed_count": 100,
     "skipped_count": 0,
     "total": 101
   },
@@ -184,10 +186,10 @@
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 250,
+      "passed": 258,
       "skipped": 0,
-      "suites": 53,
-      "total": 250
+      "suites": 54,
+      "total": 258
     }
   }
 }

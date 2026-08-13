@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:d19946bfaeaa9aab4b53adc61ad008e4010b763d0275c2ff977a2a30fd442c26",
+  "attestation_id": "sha256:407d23dddc45b48406d362a717cfc7789294c800ec6aedafad22122ed29e9540",
   "available": true,
   "by_severity": {
     "critical": 0,
@@ -10,40 +10,40 @@
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "`String(r)` on an arbitrary finite number is not a lossless round-trip of what the model meant. A model that replies with a 17-digit code as a JSON number — `12345678901234567` — is parsed to the nearest double and `String()` yields `12345678901234568`: a wrong code that still looks like a code. Above 1e21, `String(1e21)` yields `\"1e+21\"`, which lands in the cell as exponent text. This is precisely the failure class TD-038 in `docs/quality/tech-debt-register.md` describes (\"1234570000000: a wrong barcode that still looks like a barcode\"), and the new branch reopens a narrow path to it. The direction of error also reverses for these cases: before this change the row came back blank and the export was marked `PARTIAL_` — loudly incomplete; now it is silently wrong, which is strictly harder for a user to notice. 13-digit EAN barcodes are exact as doubles, so the common case is safe, which is why this is medium and not high. What would raise it: `translateBatch`'s prompt or schema permitting a numeric reply for a long code, or any evidence of the model returning a number for a non-numeric source item (nothing in `alignBatchResults` can tell the two apart — it never sees `items`).",
-      "file": "utils/translationBatch.ts",
-      "line": 74,
+      "category": "technical-debt",
+      "detail": "All three newly-closed rows have byte-identical `Fixed by` cells describing the `alignBatchResults` numeric-translation fix — which is TD-042's fix only. TD-039 was actually fixed by adding the `'no-model'` state to `ApiKeyStatus`, `verifyGeminiKey` and the modal badge; TD-041 by `advancePastRetiredModel` plus the `onNotice` threading. Separately, TD-039's Description cell now ends mid-sentence at ``returns `'valid' \\`` — the `\\|` escapes from the original open-table row were not preserved when the row moved, so the first unescaped `|` terminated the cell and swallowed the rest of the description. The register is a living document whose entire value is being an accurate record; as it stands, anyone who reads why TD-039 or TD-041 was closed is told about a different change entirely, and the two commits in this PR are no longer recoverable from it. Docs-only, no runtime impact, which is why this is not higher.",
+      "file": "docs/quality/tech-debt-register.md",
+      "line": 50,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "Accepting any finite number can silently corrupt a long numeric code"
+      "summary": "Closed rows for TD-039 and TD-041 carry TD-042's fix text; TD-039's description is truncated"
     },
     {
-      "category": "code-smell",
-      "detail": "Lines 26–30 still say \"the cap is no longer needed — left to the CPU count locally, held at 4 on CI\", immediately above the new paragraph explaining why it *is* capped at 4 locally. A reader of `workers: 4` now finds two adjacent, contradictory rationales and no way to tell which is current. That matters more than usual here because this comment is the entire record of an unproven change — the register defers to it — and a contradiction is exactly what erodes trust in a comment block doing load-bearing documentation work.",
-      "file": "playwright.config.ts",
-      "line": 26,
+      "category": "accessibility",
+      "detail": "The `no-model` badge (line 93) and the help panel (lines 108-112) are rendered conditionally after the async `handleTestGemini` resolves, with no `role=\"status\"`, `role=\"alert\"` or `aria-live` on either. A screen-reader user who presses Test hears nothing when the result arrives, and this is the one status whose whole purpose is to redirect the user away from the wrong conclusion (\"my key is bad\") — the badge text alone does that work, and it is never announced. The existing `valid`/`invalid`/`quota` badges have the same gap, so this is not a regression and the diff only adds one more instance, which is why it is `low` rather than `medium`.",
+      "file": "components/ApiKeyModal.tsx",
+      "line": 108,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Stale comment left above the new one now states the opposite"
-    },
-    {
-      "category": "testing",
-      "detail": "The unit tests pin `received === null` at the `alignBatchResults` boundary, but the ternary that turns it into user-facing text — the actual deliverable of the second half of TD-042, since the point was the log wording, not the field — is untested. `TranslateTab.tsx` has no unit coverage, so a future edit that collapses the ternary back to a single interpolation would print `Batch returned null results for 20 items` and no test would notice. The register's closing note for TD-042 credits \"five new tests in tests/unit/translationBatch.test.ts\" without mentioning that the component change is uncovered, which per the technical-debt handbook rule 6 is the coverage gap worth stating explicitly.",
-      "file": "components/TranslateTab.tsx",
-      "line": 311,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "The new log-wording branch is the one part of TD-042 with no test"
+      "summary": "New 'no-model' badge and help panel appear with no live region"
     },
     {
       "category": "testing",
-      "detail": "`expect.poll` defaults its timeout to `testConfig.expect.timeout`, which `playwright.config.ts:51` already sets to `10_000`. The three new `timeout: 10_000` options are therefore redundant, and they are the same shape as the thing the `modal.spec.ts` change in this PR just removed on principle (\"no per-assertion override... 5 s was an arbitrary number\"). If the project default is ever raised to absorb CI contention, these three call sites silently stay at 10 s and become the new unexplained tightening.",
-      "file": "e2e/responsive.spec.ts",
-      "line": 31,
+      "detail": "The test drives `generateText` directly with a callback, so it proves the service-layer plumbing works — but the only `generateText` call site in the app is `components/SupportChat.tsx:448`, `aiService.generateText(prompt, 'fast')`, with no third argument. Support Chat is therefore still the one feature where a model fallback is invisible, which is precisely the condition TD-041 describes and which this PR's commit message (\"report a fallback everywhere\") and the register's closure of TD-041 both claim is now gone. The test name asserts a caller relationship that does not exist, so the suite will stay green if the gap is never closed. Impact is genuinely small — Support Chat is conversational and its answers are read immediately — which is why this is `low`. It would be `medium` if Support Chat output were exported or persisted the way Translate's workbook is.",
+      "file": "tests/unit/geminiModels.test.ts",
+      "line": 324,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Poll helpers re-pin the 10 s timeout the config already provides"
+      "summary": "Test named \"generateText tells its caller — Support Chat\" but no caller passes onNotice"
+    },
+    {
+      "category": "typescript",
+      "detail": "The new file header states the reason `ModelNotice` is imported rather than redeclared: \"a second local copy would let this file and the interface drift — which is the same mistake as the three separate copies of `translateBatch`'s options shape.\" But `translateBatch`'s own `options.onNotice` is still spelled `(message: string) => void` inline, with its own 5-line doc comment duplicating the one now on `ModelNotice` in `types/ai.types.ts` — while the corresponding field in `IAiService` was converted to `ModelNotice`. The two are structurally identical so nothing breaks today; the cost is that the one function the PR is holding up as the cautionary example is the one place the new type was not applied, and the duplicated prose is a second thing to keep in sync.",
+      "file": "services/geminiService.ts",
+      "line": 370,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "translateBatch's options still declares an inline copy of ModelNotice"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

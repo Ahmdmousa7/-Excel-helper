@@ -1,12 +1,32 @@
 {
-  "attestation_id": "sha256:d19946bfaeaa9aab4b53adc61ad008e4010b763d0275c2ff977a2a30fd442c26",
+  "attestation_id": "sha256:407d23dddc45b48406d362a717cfc7789294c800ec6aedafad22122ed29e9540",
   "files": [
+    {
+      "oid": "6bcd0a4e412cf79fc0916449b8216fe561fdbe26",
+      "path": "App.tsx"
+    },
+    {
+      "oid": "d04d6ab74c562a88191523cae2acc408dfe72e42",
+      "path": "components/ApiKeyModal.tsx"
+    },
+    {
+      "oid": "2fae7f3f0bfcfe555b37d036d3722fcdff123418",
+      "path": "components/CompareTool.tsx"
+    },
+    {
+      "oid": "b68882e69c1e8c98a2462121fcc2919d54536a19",
+      "path": "components/OcrTab.tsx"
+    },
     {
       "oid": "f8ff585cba10eccf0e1847755c9d380a7e44b7b1",
       "path": "components/TranslateTab.tsx"
     },
     {
-      "oid": "6c8cc8405585035498043ae9f5611bd58e4bfcb9",
+      "oid": "2944403fb57b1da3e4188d53a3547a7d6ec65b00",
+      "path": "components/WebScraperTab.tsx"
+    },
+    {
+      "oid": "efb88cc80b1a44d0debeebfb7f94eecea1d69b3f",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
@@ -22,12 +42,28 @@
       "path": "playwright.config.ts"
     },
     {
+      "oid": "cd6ad41c282ead91536a568e39fe9453ba21bbd4",
+      "path": "services/geminiService.ts"
+    },
+    {
+      "oid": "c389524d07a2f212711f375b8c5b8ee65197d51e",
+      "path": "tests/unit/geminiModels.test.ts"
+    },
+    {
       "oid": "487b0c7141aa616bc5b5955acb6badf08884f742",
       "path": "tests/unit/translationBatch.test.ts"
     },
     {
+      "oid": "afc271cce2f40c317b8e59d5f226db50ea0ac317",
+      "path": "types/ai.types.ts"
+    },
+    {
       "oid": "d9bf5bb68d492f6acd2dfecf52b39d08eb1f444c",
       "path": "utils/translationBatch.ts"
+    },
+    {
+      "oid": "ff06f4bd18dd83bc1fa41418ca831fbeb0e7ff0c",
+      "path": "utils/translations.ts"
     }
   ],
   "findings_by_severity": {
@@ -39,8 +75,8 @@
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "b312bb0b078472d1717d46bb9f4d6797f2275e5a",
+  "reviewed_at_commit": "c72569fab5df8fed19741f271697af50d92285ab",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "APPROVED"
+  "verdict": "COMMENT"
 }

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:d19946bfaeaa9aab4b53adc61ad008e4010b763d0275c2ff977a2a30fd442c26` |
+| Attestation id | `sha256:407d23dddc45b48406d362a717cfc7789294c800ec6aedafad22122ed29e9540` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `b312bb0b0784` |
+| Reviewed at commit | `c72569fab5df` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **APPROVED** |
-| Files reviewed | 7 |
+| Verdict | **COMMENT** |
+| Files reviewed | 16 |
 
 ## What this is, and what it is not
 
@@ -33,7 +33,7 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | low | 3 |
 | info | 0 |
 
-Closes TD-042 by letting a finite JSON number count as a translation in `alignBatchResults` and splitting `received: number | null` so the discard log distinguishes "empty list" from "not a list", and partly addresses TD-040 by replacing five `waitForTimeout` sleeps in `responsive.spec.ts` with `expect.poll` on the drawer's resting position, dropping an unexplained 5 s override in `modal.spec.ts`, and pinning local Playwright `workers` to 4. The work is well-evidenced — the flake was reproduced deterministically by overriding only the transition duration, the two unproven hypotheses are labelled as such in both the config comment and the register, and the new unit tests cover the real traps (`typeof NaN === 'number'`, falsy `0` counted after normalisation). No blocking-handbook violations and no high-severity defects. One substantive concern: accepting *any* finite number unconditionally can silently write a wrong-but-plausible numeric code into a product column, which is the same failure shape the repo already documented at length in TD-038.
+This PR closes TD-039, TD-041 and TD-042: it centralises the retire-and-advance model-fallback block into a single `advancePastRetiredModel` helper, threads an optional `onNotice` callback through every AI entry point so a quality downgrade is user-visible outside Translate, adds a `'no-model'` API-key state so a stale `MODEL_CANDIDATES` no longer reads as a bad credential, accepts finite JSON numbers as translations, and replaces two `waitForTimeout` sleeps in the e2e drawer specs with polled assertions. The code changes are well-reasoned, the new unit tests genuinely pin the behaviour (including the `typeof NaN === 'number'` and falsy-`0` traps), and no blocking-handbook rule is violated. Four non-blocking findings: a copy-paste defect in the tech-debt register that records the wrong fix for two of the three closed entries, one AI entry point whose only real call site is still unwired, one leftover inline duplicate of the new `ModelNotice` type, and a missing live region on the new status message.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ Closes TD-042 by letting a finite JSON number count as a translation in `alignBa
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
-| Vitest | pass | 250/250 passed, lines 96.15% |
-| Playwright | pass | 101/101 passed |
+| Vitest | pass | 258/258 passed, lines 96.15% |
+| Playwright | **FAIL** | 100/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 91 source files, 27648 lines
+- 91 source files, 27724 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
@@ -66,9 +66,9 @@ reports zero failures for a tool that never executed.
 | `components/FileValidationTab.tsx` | 1058 |
 | `components/TranslateTab.tsx` | 953 |
 | `components/SupportChat.tsx` | 909 |
-| `utils/translations.ts` | 893 |
+| `utils/translations.ts` | 908 |
 | `components/OcrTab.tsx` | 881 |
-| `services/geminiService.ts` | 843 |
+| `services/geminiService.ts` | 850 |
 | `components/ZidTab.tsx` | 841 |
 | `components/ProjectSummaryTab.tsx` | 840 |
 

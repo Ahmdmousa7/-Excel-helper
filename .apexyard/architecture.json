@@ -1,14 +1,14 @@
 {
-  "attestation_id": "sha256:d19946bfaeaa9aab4b53adc61ad008e4010b763d0275c2ff977a2a30fd442c26",
+  "attestation_id": "sha256:407d23dddc45b48406d362a717cfc7789294c800ec6aedafad22122ed29e9540",
   "available": true,
   "by_directory": {
     "(root)": {
       "files": 8,
-      "loc": 900
+      "loc": 901
     },
     "components": {
       "files": 39,
-      "loc": 19236
+      "loc": 19251
     },
     "e2e": {
       "files": 19,
@@ -20,19 +20,19 @@
     },
     "services": {
       "files": 5,
-      "loc": 1163
+      "loc": 1170
     },
     "tests": {
       "files": 10,
-      "loc": 2346
+      "loc": 2366
     },
     "types": {
       "files": 1,
-      "loc": 87
+      "loc": 105
     },
     "utils": {
       "files": 7,
-      "loc": 1497
+      "loc": 1512
     }
   },
   "layering": {
@@ -66,7 +66,7 @@
       },
       {
         "file": "utils/translations.ts",
-        "loc": 893
+        "loc": 908
       },
       {
         "file": "components/OcrTab.tsx",
@@ -74,7 +74,7 @@
       },
       {
         "file": "services/geminiService.ts",
-        "loc": 843
+        "loc": 850
       },
       {
         "file": "components/ZidTab.tsx",
@@ -101,5 +101,5 @@
   ],
   "schema": "apexyard.evidence.architecture/1",
   "source_files": 91,
-  "total_loc": 27648
+  "total_loc": 27724
 }

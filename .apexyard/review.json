@@ -1,7 +1,7 @@
 {
-  "attestation_id": "sha256:d19946bfaeaa9aab4b53adc61ad008e4010b763d0275c2ff977a2a30fd442c26",
+  "attestation_id": "sha256:407d23dddc45b48406d362a717cfc7789294c800ec6aedafad22122ed29e9540",
   "available": true,
-  "files_reviewed": 7,
+  "files_reviewed": 16,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
@@ -13,6 +13,6 @@
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Closes TD-042 by letting a finite JSON number count as a translation in `alignBatchResults` and splitting `received: number | null` so the discard log distinguishes \"empty list\" from \"not a list\", and partly addresses TD-040 by replacing five `waitForTimeout` sleeps in `responsive.spec.ts` with `expect.poll` on the drawer's resting position, dropping an unexplained 5 s override in `modal.spec.ts`, and pinning local Playwright `workers` to 4. The work is well-evidenced — the flake was reproduced deterministically by overriding only the transition duration, the two unproven hypotheses are labelled as such in both the config comment and the register, and the new unit tests cover the real traps (`typeof NaN === 'number'`, falsy `0` counted after normalisation). No blocking-handbook violations and no high-severity defects. One substantive concern: accepting *any* finite number unconditionally can silently write a wrong-but-plausible numeric code into a product column, which is the same failure shape the repo already documented at length in TD-038.",
-  "verdict": "approved"
+  "summary": "This PR closes TD-039, TD-041 and TD-042: it centralises the retire-and-advance model-fallback block into a single `advancePastRetiredModel` helper, threads an optional `onNotice` callback through every AI entry point so a quality downgrade is user-visible outside Translate, adds a `'no-model'` API-key state so a stale `MODEL_CANDIDATES` no longer reads as a bad credential, accepts finite JSON numbers as translations, and replaces two `waitForTimeout` sleeps in the e2e drawer specs with polled assertions. The code changes are well-reasoned, the new unit tests genuinely pin the behaviour (including the `typeof NaN === 'number'` and falsy-`0` traps), and no blocking-handbook rule is violated. Four non-blocking findings: a copy-paste defect in the tech-debt register that records the wrong fix for two of the three closed entries, one AI entry point whose only real call site is still unwired, one leftover inline duplicate of the new `ModelNotice` type, and a missing live region on the new status message.",
+  "verdict": "comment"
 }
