@@ -23,8 +23,9 @@ import { AiTier, IAiService } from "../types/ai.types";
  *
  * `gemini-3.1-pro` leads the quality list by request. If it is not a valid id on
  * your key it is skipped automatically — which is the entire point of a list.
- * `node scripts/list-gemini-models.mjs YOUR_KEY` prints what your key can
- * actually use, and is the way to confirm rather than infer.
+ * `GEMINI_API_KEY=… node scripts/list-gemini-models.mjs` prints what your key can
+ * actually use, and is the way to confirm rather than infer. Via the env var, not
+ * as an argument — the script explains why.
  *
  * This is now the ONLY place model ids live. `components/SupportChat.tsx` used to
  * hold its own literal and call the SDK directly, which is why it was the single
@@ -238,9 +239,13 @@ export const modelUnavailableError = (tier: AiTier): Error =>
   new Error(
     `No usable Gemini model for the "${tier}" tier — every candidate was rejected ` +
     `as unavailable (${MODEL_CANDIDATES[tier].join(', ')}). ` +
-    `Run "node scripts/list-gemini-models.mjs YOUR_API_KEY" from the excel-helper ` +
-    `folder to see which models your key can use, then update MODEL_CANDIDATES in ` +
-    `services/geminiService.ts.`,
+    // The env-var form, not the argv form. The script itself warns that a key
+    // passed as an argument is recorded in shell history and visible in `ps`, so
+    // recommending it here would have the app teach the habit its own tooling
+    // tells you to avoid.
+    `Set GEMINI_API_KEY and run "node scripts/list-gemini-models.mjs" from the ` +
+    `excel-helper folder to see which models your key can use, then update ` +
+    `MODEL_CANDIDATES in services/geminiService.ts.`,
   );
 
 // Error handling helpers

@@ -1,49 +1,49 @@
 {
-  "attestation_id": "sha256:3c983c3328dd34c5a71e8bf9592066d7ec5ba80306f50579afe845f8380bdb5a",
+  "attestation_id": "sha256:bb7d0233d7e2a451636aa8ffcc6532d7715e3aa49ae6469a16d1576994d37a12",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
-    "medium": 1
+    "low": 3,
+    "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "`currentBatchItems` is `uniqueItems.slice(...)`, and `uniqueItems` holds `{ text, context }` objects (built at TranslateTab.tsx:242), not strings. So `addLog(`Translated: \"${currentBatchItems[idx]}\" -> \"${result}\"`)` renders as `Translated: \"[object Object]\" -> \"قميص أزرق\"` for every successfully translated item. The expression predates this PR, but the block containing it was rewritten twice within this diff (the blank-result filter, then the `alignBatchResults` refactor) and carried forward unchanged. It matters here specifically because this PR's whole thesis is that the log is the record a user actually reads — and this is the one log line that fires on the happy path, so it is the majority of what they read. The exported workbook is unaffected, which is why this is medium rather than high.",
-      "file": "components/TranslateTab.tsx",
-      "line": 317,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "Per-item success log prints \"[object Object]\" for the source text"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`alignBatchResults` returns `usable` (the count of non-blank results), and four tests assert on it — but TranslateTab does not read it. Instead it recomputes exactly the same number as `batchTranslated` by incrementing inside the `forEach` at TranslateTab.tsx:315. The two derivations agree today by construction (both count trimmed non-empty strings), so this is not a bug; it is a second source of truth for the number that drives `processedUniqueCount`, the PARTIAL banner, and the filename prefix. If either definition of \"counts as translated\" is ever changed, only one side moves, and the divergence surfaces as a workbook whose banner disagrees with its own Status column — the class of silent-wrongness this util was extracted to prevent.",
+      "detail": "A non-array reply (an object, a bare string, a number) and a genuinely empty array both return `received: 0`. `TranslateTab.tsx:307` renders that straight into the user's log as \"Batch returned 0 results for 20 items\", which describes the wrong failure: the model did return something, it just wasn't a list. This is the single message a user gets explaining why a batch was silently dropped from their export, and the PR's own reasoning for extracting this function is that the log is the only place the failure is visible. The tests at `tests/unit/translationBatch.test.ts:33-40` pin the ambiguity rather than resolve it.",
       "file": "utils/translationBatch.ts",
-      "line": 45,
+      "line": 38,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "`usable` is computed and tested but never read in production"
-    },
-    {
-      "category": "typescript",
-      "detail": "`IAiService.translateBatch` (types/ai.types.ts:18) and the free `translateBatch` (services/geminiService.ts:287) both gained `onNotice?`, but the class wrapper that implements the interface still declares `options: { sourceLang; targetLang; domain; glossary }`. Nothing breaks today: the wrapper forwards `options` wholesale, and TypeScript's method-parameter bivariance means the narrower type still satisfies `implements IAiService`, so `aiService.translateBatch(..., { onNotice })` in TranslateTab compiles and works. But the class is the seam `aiServiceFactory.ts` exists for (\"simply replace GeminiService with the new implementation\"), and it now advertises a contract that is one field short of the interface it implements. A caller holding the concrete `GeminiService` type and passing an object literal with `onNotice` would be rejected by the excess-property check for a property the function actually honours.",
-      "file": "services/geminiService.ts",
-      "line": 744,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "GeminiService.translateBatch's options type omits the new onNotice"
+      "summary": "`received: 0` conflates an empty array with a non-array reply"
     },
     {
       "category": "code-smell",
-      "detail": "The rewritten comment reads `# Google API (Gemini). No exemptions — see the note above.`, but the note explaining why `AIza…` carries no exemption starts at line 76, nine lines below. The text immediately above (lines 62-64) is about anchored provider prefixes, not exemptions — so a reader following the pointer lands on the wrong paragraph. Purely a navigation nit in a file that is otherwise scrupulous about explaining itself.",
-      "file": "scripts/scan-secrets.sh",
-      "line": 67,
+      "detail": "`typeof r === 'string' ? r.trim() : ''` correctly rejects `null` and objects — `String(null)` writing \"null\" into a product-name column is a real hazard. But it also drops finite numbers, and those are plausible here: the prompt at `services/geminiService.ts:339` sends `JSON.stringify(items)` with `responseMimeType: 'application/json'`, and a row whose source text is `\"12345\"` or a price can come back as `[12345]` rather than `[\"12345\"]`. That item is then counted unusable, its row is labelled NOT TRANSLATED, and because `isPartial` is now `missingCount > 0` (`TranslateTab.tsx:490`) a single numeric element renames the entire export to `PARTIAL_` and sets `ProcessingStatus.ERROR`. The blast radius is a whole file, from one cell. Note this is still strictly safer than the pre-PR code, which would have put a number into `Map<string,string>` and thrown on `translationResult.split(\"|||\")` — this is a refinement, not a regression.",
+      "file": "utils/translationBatch.ts",
+      "line": 44,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "A numeric element is discarded as blank, which can force a false PARTIAL export"
+    },
+    {
+      "category": "security",
+      "detail": "This PR hardens `scripts/list-gemini-models.mjs`: it reorders the usage text to lead with the env-var form and prints \"note: the key was passed as an argument, so your shell has recorded it\" (`scripts/list-gemini-models.mjs:53-58`). But `modelUnavailableError` — the message a user actually sees when a tier runs out, and the one ADR-0006 points them at — still says `Run \"node scripts/list-gemini-models.mjs YOUR_API_KEY\"`. The `MODEL_CANDIDATES` docblock at line 27 says the same. Users follow the instruction they are given, so in practice the hardening is bypassed and the key still lands in `.bash_history` / `ConsoleHost_history.txt`. Both lines predate this PR's base; the PR's script change is what made them stale, which is why I'm raising it here rather than treating it as untouched legacy. Low, not medium: local shell history on the developer's own machine, and the script does warn once invoked.",
+      "file": "services/geminiService.ts",
+      "line": 241,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "In-app error still recommends the argv form the PR just warned about"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "Observation, not a request. The ADR names this honestly — \"it is a gap, not a decision\" — and `services/geminiService.ts:450`, `:522`, `:711` still only `console.warn` on a fallback while `translateBatch` now reports through `onNotice`. That satisfies the technical-debt handbook's \"deliberate, recorded, and owned\" bar, so it is not a violation. The only thing missing is queryability: this PR added TD-039 and TD-040 to the register for two smaller items, and a prose bullet inside an ADR is the one form of record nobody greps. Raising it purely so the asymmetry is a choice rather than an oversight.",
+      "file": "docs/adr/ADR-0006-model-tiers-not-model-ids.md",
+      "line": 44,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Comment points \"above\" at a note that is below it"
+      "summary": "The console-only fallback gap is recorded in the ADR but has no TD id"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

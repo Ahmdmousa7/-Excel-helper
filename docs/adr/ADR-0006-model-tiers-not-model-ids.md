@@ -41,8 +41,8 @@
 ## Consequences
 
 - **A fallback is no longer silent.** `translateBatch` takes an `onNotice` callback; `TranslateTab` puts the message in the log and at the top of the exported workbook's Translation Summary sheet. A `console.warn` was the only record before, which is to say none — the file looked identical to one produced entirely on Pro. Verified in a browser against an endpoint that retires `gemini-3.1-pro`.
-- **The other tier consumers still only warn to the console.** OCR, Compare and Web Scraper produce output the user reads immediately rather than a file that outlives the session, so the case is weaker — but it is a gap, not a decision.
-- **The candidate lists are unverified against a real key.** They are ordered on judgement, and an id that does not exist is skipped at a cost of one request. `node scripts/list-gemini-models.mjs` prints what a key can actually use; running it is the way to trim dead entries. Until then the lists are a guess that fails safe.
+- **The other tier consumers still only warn to the console.** OCR, Compare and Web Scraper produce output the user reads immediately rather than a file that outlives the session, so the case is weaker — but it is a gap, not a decision, and a gap needs an id or it is just a sentence in a document nobody re-reads: **TD-041**.
+- **The candidate lists are unverified against a real key.** They are ordered on judgement, and an id that does not exist is skipped at a cost of one request. `GEMINI_API_KEY=… node scripts/list-gemini-models.mjs` prints what a key can actually use; running it is the way to trim dead entries. Until then the lists are a guess that fails safe.
 - **Retirements are not persisted.** A page reload re-checks. A retirement is permanent but a transient 404 is not, and a bad `localStorage` entry would outlive the problem with no way for a user to clear it.
 - **Exhausting a tier reports "invalid key" in the API-key modal** — the wrong cause. TD-039.
 

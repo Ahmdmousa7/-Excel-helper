@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:3c983c3328dd34c5a71e8bf9592066d7ec5ba80306f50579afe845f8380bdb5a` |
+| Attestation id | `sha256:bb7d0233d7e2a451636aa8ffcc6532d7715e3aa49ae6469a16d1576994d37a12` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `cca18b8055d5` |
+| Reviewed at commit | `fc7ce8a16d6d` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 1 |
-| low | 2 |
+| medium | 0 |
+| low | 3 |
 | info | 1 |
 
-This PR completes the model-tier refactor: it partitions the retired-model registry per API key (so one key's project-level NOT_FOUND no longer downgrades every other key for the session), re-resolves the model after `rotateKey()` at all three rotation sites, surfaces model fallbacks to the caller via a new `onNotice` callback that TranslateTab writes into both the log and the exported workbook, extracts the batch-alignment guard into `utils/translationBatch.ts` with direct unit tests, and records the tier contract in ADR-0006 plus TD-039/TD-040. The reasoning is sound and unusually well-evidenced — the reworked `geminiModels.test.ts` now drives the real `verifyGeminiKey` against a mocked SDK instead of re-implementing its loop, which fixes a suite that could not fail. No blocking-handbook violations and no correctness defects in the new logic; four low/informational nits below.
+This PR completes the move from hardcoded Gemini model ids to capability tiers: it partitions the session retirement registry per API key, re-resolves the model after every key rotation, stops `verifyGeminiKey` from striking ids off on behalf of a key it is only testing, surfaces model fallbacks to the caller via `onNotice` (log + exported workbook banner), and extracts the batch-alignment guard into `utils/translationBatch.ts` with 11 tests. I read the full diff and the surrounding code in `geminiService.ts` and `TranslateTab.tsx`, and ran the two unit files: 42/42 pass. The counting logic checks out — `totalUnique` excludes already-bilingual items, so `missingCount = totalUnique - processedUniqueCount` cannot produce a spurious PARTIAL, and every rotate site now re-resolves against a `let model`. No blocking-handbook violations and nothing above `low`; three small findings and one observation.
 
 ## Quality gates
 
@@ -45,14 +45,14 @@ This PR completes the model-tier refactor: it partitions the retired-model regis
 | Playwright | pass | 101/101 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | pass | 19 violation node(s) |
+| Accessibility | pass | 18 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 91 source files, 27214 lines
+- 91 source files, 27224 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -64,7 +64,7 @@ reports zero failures for a tool that never executed.
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/CompositeTab.tsx` | 1370 |
 | `components/FileValidationTab.tsx` | 1058 |
-| `components/TranslateTab.tsx` | 942 |
+| `components/TranslateTab.tsx` | 947 |
 | `components/SupportChat.tsx` | 909 |
 | `utils/translations.ts` | 893 |
 | `components/OcrTab.tsx` | 867 |
