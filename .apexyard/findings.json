@@ -1,24 +1,14 @@
 {
-  "attestation_id": "sha256:1f6946470480b3619e3090a740ed1373332ed75a0d5a898da318a6975ddc73c3",
+  "attestation_id": "sha256:f18d718d9b65948dfc1bd122d2175a5487adf88ac424c9f83b204119494dc32c",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 1,
+    "low": 0,
     "medium": 0
   },
-  "findings": [
-    {
-      "category": "code-smell",
-      "detail": "The comment `# Skipping the pattern-list lines themselves, now that the file is in scope.` describes behaviour that does not exist — the grep on the next line (`list_scan_targets | xargs -0 -r grep -IHnE \"$p\"`) has no exclusion for this file or for the `patterns=(...)` block. It directly contradicts the block this PR just rewrote (lines 115-128), which correctly argues the opposite: no skipping is needed because none of the patterns match their own literal text. This matters here specifically because the whole point of the diff is to make the self-scan reasoning survive a future pattern being added — leaving a comment 30 lines below that says the lines are skipped invites the next author to trust a guard that isn't there and skip the per-pattern self-match check the new block asks for. Flagged as low, not medium, because the scanner's behaviour is correct; only the comment is wrong. It would rise to medium if the false comment were load-bearing for a caller.",
-      "file": "scripts/scan-secrets.sh",
-      "line": 154,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Stale comment claims pattern-list lines are skipped; nothing skips them"
-    }
-  ],
+  "findings": [],
   "schema": "apexyard.evidence.findings/1",
-  "total": 1
+  "total": 0
 }

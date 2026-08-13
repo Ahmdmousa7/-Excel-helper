@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:1f6946470480b3619e3090a740ed1373332ed75a0d5a898da318a6975ddc73c3` |
+| Attestation id | `sha256:f18d718d9b65948dfc1bd122d2175a5487adf88ac424c9f83b204119494dc32c` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `1df34b7d5df3` |
+| Reviewed at commit | `9bba38e3acae` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 3 |
+| Files reviewed | 1 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
+| low | 0 |
 | info | 0 |
 
-This PR is comment- and documentation-only: it corrects three prose claims that had drifted from the code they describe. `services/geminiService.ts` replaces an ordering rule for the `*-latest` aliases that `MODEL_CANDIDATES` did not actually follow with an expected-recency explanation that does; `scripts/scan-secrets.sh` corrects the self-scan-safety argument, which had claimed a single mechanism (`[` after the prefix) when the newly added `AQ\.` pattern is safe by a different one (its own backslash); the ADR bullet records that the fallback test's mock model id was itself fiction. I verified every claim against the code: the quality and fast lists at `services/geminiService.ts:60-77` match the new ordering narrative exactly, and none of the nine patterns at `scripts/scan-secrets.sh:65-75` match their own literal text. No executable behaviour changes, no new dependencies, no technical decision requiring an ADR. One low-severity stale comment in the same file contradicts the block this PR corrects.
+This PR replaces a single inline comment in `scripts/scan-secrets.sh` that claimed the pattern loop skips the script's own pattern-list lines — a mechanism that does not exist — with an accurate note explaining why no skip is needed. The change is comment-only: no shell logic, no patterns, and no control flow are touched. I verified the replacement's central claim by checking each of the nine patterns against its own literal text in the file; none self-match, for exactly the reasons the comment gives. No findings.
 
 ## Quality gates
 
