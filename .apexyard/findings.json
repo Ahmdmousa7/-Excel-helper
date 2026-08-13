@@ -1,24 +1,14 @@
 {
-  "attestation_id": "sha256:6beb6909af11f384e03d449bd2f8d9f15af992e10ae4a452a54354176c4fd141",
+  "attestation_id": "sha256:3cbc0d6438a7c59f400b0877a304a1173fe529d7543d043703aaa59a7b744bb9",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 1,
+    "low": 0,
     "medium": 0
   },
-  "findings": [
-    {
-      "category": "code-smell",
-      "detail": "Lines 104-129 are ~26 lines of comment for the 12-line live region that follows. The middle block (108-116) is the rationale for the PREVIOUS shape — a hidden `sr-only` region holding a copy of the status text — and its \"Two corrections to the first attempt\" narration no longer matches the code below it, which the newly added block (117-129) then re-explains with a different pair of corrections. A reader has to diff two competing explanations against the JSX to work out which one is live. This is comment cruft accumulating a review changelog in-tree, where git history already holds it; it is not a behavioural defect, which is why it is low. It would rise to medium if a future change followed the stale block's advice (keep the region hidden, announce only the badge) and silently reintroduced the unannounced-remediation bug this PR fixes.",
-      "file": "components/ApiKeyModal.tsx",
-      "line": 108,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Three stacked comment blocks narrate superseded designs above one element"
-    }
-  ],
+  "findings": [],
   "schema": "apexyard.evidence.findings/1",
-  "total": 1
+  "total": 0
 }

@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:6beb6909af11f384e03d449bd2f8d9f15af992e10ae4a452a54354176c4fd141` |
+| Attestation id | `sha256:3cbc0d6438a7c59f400b0877a304a1173fe529d7543d043703aaa59a7b744bb9` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `f935aab5c860` |
+| Reviewed at commit | `af1e9c0f656e` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
+| low | 0 |
 | info | 0 |
 
-This PR restructures the Gemini key-test announcement in ApiKeyModal so the single permanent `role="status"` live region now CONTAINS the visible `no-model` help panel instead of holding a hidden duplicate of its text. The short statuses (valid/invalid/quota) stay in an `sr-only` span inside the same always-rendered wrapper. I verified the region is present in the DOM before content lands in it, that the `no-model` badge at line 93 sits outside the region (so it is not double-announced), that `t.actions.noModelHelp` is self-contained ("Your key works. …"), and that the empty wrapper adds no layout in the idle state. The accessibility change is correct; the only thing I'd tidy is the comment stack above it.
+This PR collapses three stacked, historically-accreted comment blocks above the Gemini test-result live region in `components/ApiKeyModal.tsx` into a single block that states the three constraints the surrounding markup encodes (always-rendered wrapper, visible panel nested inside the region rather than duplicated as an `sr-only` twin, and why the panel exists at all). The diff is comment-only — 11 insertions, 25 deletions, with no change to any expression, JSX element, prop, or handler. I verified against the file on disk that every claim the new comment makes is true of the code it documents: the `role="status" aria-live="polite"` wrapper at line 116 is unconditionally rendered, and the `no-model` panel at lines 122-126 is nested inside it rather than copied. Net reduction in comment volume with no loss of the load-bearing rationale; nothing to flag.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 93 source files, 28097 lines
+- 93 source files, 28083 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
