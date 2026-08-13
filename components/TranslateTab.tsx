@@ -250,6 +250,9 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       const glossaryList = glossary.split(',').map(s => s.trim()).filter(s => s.length > 0);
 
       let processedUniqueCount = 0;
+      // Set when a batch fails. Non-null means the run is PARTIAL and every
+      // marker below (summary column, header note, filename, logs) switches on.
+      let batchError: string | null = null;
 
       for (let i = 0; i < totalUnique; i += batchSize) {
           const batchEnd = Math.min(i + batchSize, totalUnique);
@@ -275,10 +278,25 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
               await delay(200); // Slight delay to be nice to API
 
           } catch (e: any) {
+              // Stop translating, but do NOT discard what already succeeded.
+              //
+              // This used to `return` here. `translationMap` is local to this
+              // handler and is only written to the rows in step 4 below, so
+              // bailing threw away every completed batch: fail on batch 7 of 10
+              // and the six that worked were lost. On one API key a rate limit
+              // costs ~3 minutes of waiting first (rotateKey is a no-op with a
+              // single key), so the user paid the wait AND got nothing.
+              //
+              // Breaking instead lets steps 4 and 5 run over the partial map.
+              // Untranslated rows keep their original text in the bilingual and
+              // consolidate modes, and come through blank in `separate` mode —
+              // which is the honest representation of "no translation for this
+              // row". Every marker below exists so a partial file cannot be
+              // mistaken for a finished one.
               console.error(e);
-              addLog(`Error processing batch: ${e.message}`, 'error');
-              setStatus(ProcessingStatus.ERROR);
-              return; // Bail out completely
+              batchError = e?.message || String(e);
+              addLog(`Batch failed, stopping here: ${batchError}`, 'error');
+              break;
           }
       }
 
@@ -369,7 +387,17 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
               outputData[i][outputColIdx] = res;
           }
 
-          summaryData.push([String(i + 1), originalParts.join(", "), translationResult, "Processed"]);
+          // Per-row truth, not a blanket "Processed". After a partial run this
+          // column is the only place that says which rows actually got a
+          // translation, so it has to distinguish them rather than assert
+          // success for every row the loop happened to visit.
+          const wasTranslated = key !== undefined && translationMap.has(key);
+          summaryData.push([
+            String(i + 1),
+            originalParts.join(", "),
+            translationResult,
+            wasTranslated ? "Translated" : "NOT TRANSLATED",
+          ]);
       }
 
       setResultData(outputData);
@@ -378,15 +406,42 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       const newWb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(data), "Original File");
       XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(outputData), "Translated File");
+
+      // A partial run gets a banner at the top of the Summary sheet, before the
+      // header row. Someone who opens the file months later has no logs and no
+      // UI — the workbook has to say so itself.
+      if (batchError) {
+        summaryData.unshift(
+          ["*** PARTIAL TRANSLATION — THIS FILE IS NOT COMPLETE ***", "", "", ""],
+          [`Translated ${translationMap.size} of ${totalUnique} unique items before stopping.`, "", "", ""],
+          [`Stopped because: ${batchError}`, "", "", ""],
+          ['Rows marked "NOT TRANSLATED" below keep their original text.', "", "", ""],
+          ["", "", "", ""],
+        );
+      }
       XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(summaryData), "Translation Summary");
-      
-      const outName = fileData.name.toLowerCase().endsWith('.csv') 
-        ? fileData.name.replace(/\.csv$/i, '.xlsx') 
+
+      const outName = fileData.name.toLowerCase().endsWith('.csv')
+        ? fileData.name.replace(/\.csv$/i, '.xlsx')
         : fileData.name;
-        
-      saveWorkbook(newWb, `Translated_${outName}`);
-      addLog(t.common.completed, 'success');
-      setStatus(ProcessingStatus.COMPLETED);
+
+      // The filename is the marker that survives being emailed on.
+      saveWorkbook(newWb, `${batchError ? 'PARTIAL_' : ''}Translated_${outName}`);
+
+      if (batchError) {
+        addLog(
+          `PARTIAL: translated ${translationMap.size} of ${totalUnique} items. ` +
+          `The file was still exported — untranslated rows keep their original text. ` +
+          `Re-run to continue, or add more API keys (one per line) so rate limits rotate instead of stopping.`,
+          'error',
+        );
+        // ERROR, not COMPLETED: a file exists, but the job did not finish, and
+        // the status is what the user glances at.
+        setStatus(ProcessingStatus.ERROR);
+      } else {
+        addLog(t.common.completed, 'success');
+        setStatus(ProcessingStatus.COMPLETED);
+      }
       setProgress(100);
 
     } catch (e: any) {

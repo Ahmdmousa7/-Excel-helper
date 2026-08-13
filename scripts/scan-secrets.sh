@@ -73,27 +73,28 @@ patterns=(
   '-----BEGIN [A-Z ]*PRIVATE KEY-----' # private keys
 )
 
-# `AIza…` covers two very different things, and conflating them is how a
-# scanner loses its audience:
+# `AIza…` is treated as a secret with NO exemptions.
 #
-#   - A Gemini/Google Cloud API key. Secret. Committing one is an incident.
-#   - A Firebase *Web* API key. NOT secret. Google ships it in the client
-#     bundle of every Firebase web app; it identifies the project, it does
-#     not authorise anything. Access is controlled by Security Rules and by
-#     API-key restrictions, never by hiding this string.
+# There used to be one. It mattered because `AIza…` covers two very different
+# things: a Gemini/Google Cloud API key, which is secret and whose commit is an
+# incident; and a Firebase *Web* API key, which is not — Google ships it in the
+# client bundle of every Firebase web app, it identifies the project rather than
+# authorising anything, and access is governed by Security Rules.
 #
-# So an AIza match is exempt only when the MATCHED LINE is itself the
-# `apiKey` field of a Firebase web config. An earlier version exempted the
-# whole file if it looked Firebase-shaped anywhere, which meant a Gemini key
-# pasted into the same JSON — plausible, they are both Google keys — would be
-# silently downgraded. The exemption is now per-line, and the file still has
-# to look like a Firebase web config for it to apply at all.
-is_firebase_web_config() {
-  grep -qE 'authDomain|firebaseapp\.com' "$1" 2>/dev/null
-}
-is_firebase_apikey_line() {
-  printf '%s' "$1" | grep -qE '"?apiKey"?[[:space:]]*[:=]'
-}
+# ADR-0005 deleted Firebase, so no Firebase-shaped config exists for that
+# exemption to apply to and it was dead code. Removed rather than kept "just in
+# case", and the effect if Firebase ever returns is deliberate: the scan will
+# FAIL on the new config's `apiKey` line. That is the outcome we want. TD-026 is
+# the reason — the project outlived the code once already, silently, and a
+# scanner that waves through a returning config would let it happen again
+# without anyone deciding to.
+#
+# If you do reintroduce Firebase and that failure is wrong for your case, the
+# exemption to restore is: exempt an AIza match only when the MATCHED LINE is
+# the `apiKey` field AND the file contains `authDomain` or `firebaseapp.com`.
+# Per line, not per file — exempting the whole file would silently downgrade a
+# Gemini key pasted into the same JSON, which is plausible since both are
+# Google keys.
 
 # Scan tracked files PLUS untracked-but-not-ignored ones. Tracked-only would
 # miss the case this check most needs to catch: a key pasted into a new file
@@ -113,37 +114,22 @@ list_scan_targets() {
   } | sort -zu
 }
 
-GOOGLE_KEY_PATTERN='AIza[0-9A-Za-z_-]{35}'
-
 hits=""
-notes=""
 for p in "${patterns[@]}"; do
-  is_google_key=0
-  [ "$p" = "$GOOGLE_KEY_PATTERN" ] && is_google_key=1
   # -H forces the filename prefix. Without it, xargs batching that happens to
-  # pass a single file makes grep omit the prefix, and `${line%%:*}` then
-  # parses the line NUMBER as the filename — so the Firebase check would stat
-  # a nonexistent path, return false, and fail the scan on a false positive.
+  # pass a single file makes grep omit the prefix, and the report would name a
+  # line number where a path belongs.
   while IFS= read -r line; do
     [ -n "$line" ] || continue
-    f="${line%%:*}"
-    text="${line#*:}"; text="${text#*:}"
     # Accumulate with a real newline, not a literal `\n`. The latter would
     # need `printf '%b'` to render, and %b also expands any backslash escape
     # that happens to appear inside the matched source line — mangling the
     # very evidence this report exists to show.
-    # Keyed on the Google-key flag set alongside the pattern, not on string
-    # equality with the pattern literal — editing the regex must not silently
-    # drop the exemption and start failing on the Firebase config.
-    if [ "$is_google_key" -eq 1 ] \
-       && is_firebase_web_config "$f" \
-       && is_firebase_apikey_line "$text"; then
-      notes="${notes}${line}
+    #
+    # Every match is a hit. The Firebase-web-key exemption that used to sit here
+    # went with Firebase itself — see the note above the patterns.
+    hits="${hits}${line}
 "
-    else
-      hits="${hits}${line}
-"
-    fi
   # -r on xargs: with an empty file list, xargs would otherwise run grep with
   # no file arguments, and grep would block reading stdin — hanging the scan.
   #
@@ -152,13 +138,6 @@ for p in "${patterns[@]}"; do
 $(list_scan_targets | xargs -0 -r grep -IHnE "$p" 2>/dev/null || true)
 EOF
 done
-
-if [ -n "$notes" ]; then
-  printf 'note  Firebase web API key(s) present — public by design, not a leak:\n'
-  printf '%s' "$notes" | sed 's/^/        /'
-  printf '      These are only safe while Firestore Security Rules and API-key\n'
-  printf '      restrictions are actually configured. Tracked as TD-026.\n'
-fi
 
 if [ -n "$hits" ]; then
   printf 'FAIL: provider credential pattern(s) found (tracked and untracked files):\n' >&2
