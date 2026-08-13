@@ -101,32 +101,18 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             rows={3} 
             className={`w-full p-3 border rounded-sm font-mono text-xs focus:ring-1 outline-none mb-2 transition-colors resize-none text-slate-900 placeholder-slate-400 ${geminiStatus === 'valid' ? 'border-green-400 bg-green-50 focus:ring-green-200' : geminiStatus === 'invalid' ? 'border-red-400 bg-red-50 focus:ring-red-200' : geminiStatus === 'quota' ? 'border-amber-400 bg-amber-50 focus:ring-amber-200' : geminiStatus === 'no-model' ? 'border-blue-400 bg-blue-50 focus:ring-blue-200' : 'border-slate-300 bg-slate-50 focus:ring-primary-500'}`}
           />
-          {/* The badge alone cannot carry this. "No model" next to a key the user
-              just pasted reads as "your key is wrong" unless something says
-              otherwise, and the action needed is in the code, not in the key —
-              so it names the file and the command that finds the right ids. */}
-          {/* One PERMANENT live region for every Test outcome.
+          {/* Test's result, for every outcome, announced once.
 
-              Two corrections to the first attempt, both from review. It only
-              covered `no-model`, so pressing Test and getting valid, invalid or
-              quota still announced nothing — the three ordinary results. And it
-              was created at the same moment as its content: a live region has to
-              exist in the DOM BEFORE the text lands in it, or assistive tech has
-              nothing to observe and the announcement is unreliable. This element
-              is always rendered and only its contents change. */}
-          {/* One permanent live region that CONTAINS the visible panel, rather
-              than a hidden copy of it.
-
-              Two earlier attempts pulled in opposite directions: announcing the
-              help text from a hidden region put it in the accessibility tree
-              twice, and removing it left the remediation unannounced — the one
-              thing this result exists to say. Nesting the visible panel inside
-              the region settles both: it appears exactly once, and it is
-              announced because it appears inside a region that was already in the
-              DOM. The wrapper is always rendered and only its contents change.
-
-              The help text opens "Your key works." so the announcement is
-              self-contained without repeating the badge. */}
+              Three constraints shape this, and each one is easy to break:
+              the wrapper is ALWAYS rendered, because a live region created at the
+              same moment as its text gives assistive tech nothing to observe; the
+              visible panel sits INSIDE it rather than being copied into an
+              `sr-only` twin, because `sr-only` still occupies the accessibility
+              tree and a copy is read twice; and the panel is needed at all
+              because a badge reading "no model" beside a key the user just pasted
+              reads as "your key is wrong", when the fix is in the code and the
+              panel is what says so. The help text opens "Your key works." so the
+              announcement stands alone. */}
           <div role="status" aria-live="polite">
             <span className="sr-only">
               {geminiStatus === 'valid' && t.actions.valid}
