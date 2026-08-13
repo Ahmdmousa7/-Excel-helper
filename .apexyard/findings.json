@@ -1,60 +1,24 @@
 {
-  "attestation_id": "sha256:5ee62bc13af6fa39b8e673d4376642e4bdf745424a09f30c41cf04b6e9725b1c",
+  "attestation_id": "sha256:d68686c1d5ebb4740b6bf2a2c191d0bfa81f431b1b9617fb8dbc6689430e84fa",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 3,
-    "medium": 1
+    "info": 0,
+    "low": 1,
+    "medium": 0
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "The PR introduces `isNotice` precisely because an app-generated assistant message gets relabelled \"Analyst:\" by `historyContext` and fed back to the model. The catch block pushes `{ role: 'assistant', content: \\`Error: ${e.message}\\` }` with no `isNotice`, so it is the one remaining message in this component that the app writes and the model then reads as its own words. After a quota or key failure mid-conversation the next prompt contains `Analyst: Error: API Key required for analysis`, and the model answers with that as context — the exact failure the commit message calls \"worse than no notice\". The line predates this diff, which is what keeps this out of high; what would raise it is that the error path is not rare (quota and key errors are the common failures here) and the fix is one property.",
-      "file": "components/SupportChat.tsx",
-      "line": 516,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "Error messages still leak into the next prompt as \"Analyst:\" text"
-    },
-    {
       "category": "accessibility",
-      "detail": "The permanent live region interpolates `${t.actions.noModel}. ${t.actions.noModelHelp}` and the visible panel two lines below renders `t.actions.noModelHelp` again. The comment at line 123-124 says \"the text is not announced twice\" — that is correct for the *announcement* (only the live region fires), but `sr-only` is a clip technique, not `display:none`, so both copies stay in the accessibility tree. A screen-reader user who Tests, hears the announcement, then browses the dialog to re-read it encounters the help text a second time. Genuinely minor, but it is avoidable by nesting rather than duplicating.",
+      "detail": "The de-duplication is real — `sr-only` does not remove the live region's text from the accessibility tree, so the help paragraph was reachable twice. But the fix drops the actionable half of the announcement rather than the duplicate. After pressing Test, a screen-reader user now hears only `t.actions.noModel` (\"No model\"), and `t.actions.noModelHelp` — the text that names `services/geminiService.ts` and the `scripts/list-gemini-models.mjs` command — lives solely in the visible panel at :130, which is not a live region and therefore is not announced on the status change. The user has to already suspect there is more detail and go browse for it. Both goals are achievable: keep the detail in the announcement and remove the duplicate from the other side. Raising this to medium would require the help text to be the only path to recovery, which it isn't (it is still browsable), which is why it is low.",
       "file": "components/ApiKeyModal.tsx",
-      "line": 121,
+      "line": 126,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "`noModelHelp` now appears twice in the accessibility tree"
-    },
-    {
-      "category": "accessibility",
-      "detail": "The other half of this PR fixes exactly this class in ApiKeyModal: a status change that arrives with no live region is invisible to a screen-reader user. \"Model changed: … Output quality may differ.\" is appended into the transcript container at line 672, which has no `role=\"log\"`, `aria-live`, or `role=\"status\"` anywhere — so the one channel this component has to tell the user the model degraded reaches only sighted users. Low rather than high because the container's silence pre-dates this diff (analyst answers already arrive unannounced), so the notice is not a regression; but this PR is the one that adds a *status* message, as distinct from conversational content, and the accessibility handbook § rule 6 covers exactly that.",
-      "file": "components/SupportChat.tsx",
-      "line": 476,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "The fallback notice is never announced — transcript has no live region"
-    },
-    {
-      "category": "testing",
-      "detail": "The `app` fixture calls `shell.goto()` during setup (e2e/fixtures.ts:86-89), which runs before the test body installs `page.route`. The body then calls `await app.goto()` a second time so the route applies. The spec therefore loads the whole app twice on every run, the first time with no interception, and calls `addInitScript` twice. It passes, but `e2e/fixtures.ts:66` documents `shell` as \"the app shell WITHOUT navigating — for tests that control their own load\", which is precisely this case; `e2e/responsive.spec.ts` uses it that way throughout.",
-      "file": "e2e/support-chat-fallback.spec.ts",
-      "line": 28,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Uses the `app` fixture then navigates again — one wasted unrouted load"
-    },
-    {
-      "category": "testing",
-      "detail": "The inlined poll carried `message: 'the sidebar never went off-canvas at 375px'`; the shared helper reports the generic 'the drawer never reached its resting position'. Reusing the helper is the right call and this is not a defect — but this suite is unusually disciplined about failure text (every neighbouring `expect` carries a bespoke message naming the viewport), and `drawerRightEdge` is now used at three call sites that fail for three different reasons. An observation, not a request.",
-      "file": "e2e/responsive.spec.ts",
-      "line": 142,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "De-duplicating the poll dropped its call-site-specific failure message"
+      "summary": "no-model remediation text is no longer announced, only the badge"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 5
+  "total": 1
 }

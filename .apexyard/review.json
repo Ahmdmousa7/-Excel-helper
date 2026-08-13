@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:5ee62bc13af6fa39b8e673d4376642e4bdf745424a09f30c41cf04b6e9725b1c",
+  "attestation_id": "sha256:d68686c1d5ebb4740b6bf2a2c191d0bfa81f431b1b9617fb8dbc6689430e84fa",
   "available": true,
-  "files_reviewed": 5,
+  "files_reviewed": 3,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 3,
-    "medium": 1
+    "info": 0,
+    "low": 1,
+    "medium": 0
   },
-  "findings_total": 5,
+  "findings_total": 1,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR closes four review findings from the TD-041 model-fallback work: it stops the Support Chat fallback notice from leaking back into the analyst's next prompt (new `isNotice` flag filtered out of `historyContext` before the six-message window), replaces ApiKeyModal's status-only-on-`no-model` live region with one permanently-mounted region covering all four Test outcomes, de-duplicates an inlined `drawerRightEdge` poll in the responsive spec, and corrects the TD-041 register row. A new e2e spec drives the real component and asserts both halves — notice visible, notice absent from the second prompt. I verified the mechanism end to end: `handleTestGemini` sets `'idle'` before testing (App.tsx:273) so the live region re-announces on a repeat Test, the retired-model cache means the second turn produces no fresh notice so the filter is genuinely what the test exercises, and the `app.goto()` seeds the API key the analyst path needs. No blocking-handbook violations and no high-severity defects; findings below are all low/medium polish, three of them one-liners.",
+  "summary": "Three small, focused changes: SupportChat's catch block now tags the user-facing `Error: …` transcript entry with `isNotice` so it is filtered out of the history string sent on the next turn; ApiKeyModal's sr-only live region drops the help paragraph and announces the short status only; and the Support Chat fallback spec switches from the `app` fixture to `shell` (so routes register before navigation) and gains a second test covering the error-leak path. I read the surrounding code and traced both e2e tests against `geminiService.generateText`, `advancePastRetiredModel`, `isModelUnavailable`, `MODEL_CANDIDATES.fast`, and the `shell`/`app` fixtures — the fixture swap is correct (`shell.goto()` still seeds `gemini_api_key`, and nothing calls the Gemini API on load, so the intercept counters are deterministic), and a 400 'API key not valid' correctly falls through `isModelUnavailable` into the catch rather than the fallback walk, which is what the new test relies on. One low-severity accessibility trade-off in the ApiKeyModal change; nothing blocking.",
   "verdict": "approved"
 }

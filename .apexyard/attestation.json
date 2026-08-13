@@ -1,37 +1,29 @@
 {
-  "attestation_id": "sha256:5ee62bc13af6fa39b8e673d4376642e4bdf745424a09f30c41cf04b6e9725b1c",
+  "attestation_id": "sha256:d68686c1d5ebb4740b6bf2a2c191d0bfa81f431b1b9617fb8dbc6689430e84fa",
   "files": [
     {
-      "oid": "bca5cd5678175d9b10a9085e714ac1396b14ae7d",
+      "oid": "c42614f9e9089c418f13449931a2c9dc2655deb2",
       "path": "components/ApiKeyModal.tsx"
     },
     {
-      "oid": "d266bd6d7cb872ed422fddc3d93f255f1cd93abd",
+      "oid": "c2e4e380716549e9e06809fd445e61874286f686",
       "path": "components/SupportChat.tsx"
     },
     {
-      "oid": "703d03c21d583660483425ddb5d4c3d3bb9474fd",
-      "path": "docs/quality/tech-debt-register.md"
-    },
-    {
-      "oid": "3d2b06643d270762cb130a0eb7f6ed25da416e39",
-      "path": "e2e/responsive.spec.ts"
-    },
-    {
-      "oid": "a9c0d25d59bb7b25a8f96734481939f71a55e815",
+      "oid": "d575688f29e872c98f429a689a0dd5f359207266",
       "path": "e2e/support-chat-fallback.spec.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 3,
-    "medium": 1
+    "info": 0,
+    "low": 1,
+    "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "20c027529ba707111d3c4eac39740d6942715276",
+  "reviewed_at_commit": "be2e76f363dba0976db27cab207de46fc593c83d",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

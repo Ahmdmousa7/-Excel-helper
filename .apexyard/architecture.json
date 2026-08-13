@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:5ee62bc13af6fa39b8e673d4376642e4bdf745424a09f30c41cf04b6e9725b1c",
+  "attestation_id": "sha256:d68686c1d5ebb4740b6bf2a2c191d0bfa81f431b1b9617fb8dbc6689430e84fa",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,11 +8,11 @@
     },
     "components": {
       "files": 39,
-      "loc": 19337
+      "loc": 19347
     },
     "e2e": {
       "files": 21,
-      "loc": 2458
+      "loc": 2514
     },
     "hooks": {
       "files": 2,
@@ -57,12 +57,12 @@
         "loc": 1058
       },
       {
-        "file": "components/TranslateTab.tsx",
-        "loc": 953
+        "file": "components/SupportChat.tsx",
+        "loc": 955
       },
       {
-        "file": "components/SupportChat.tsx",
-        "loc": 950
+        "file": "components/TranslateTab.tsx",
+        "loc": 953
       },
       {
         "file": "utils/translations.ts",
@@ -101,5 +101,5 @@
   ],
   "schema": "apexyard.evidence.architecture/1",
   "source_files": 93,
-  "total_loc": 28024
+  "total_loc": 28090
 }

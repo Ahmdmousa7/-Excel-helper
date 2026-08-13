@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:5ee62bc13af6fa39b8e673d4376642e4bdf745424a09f30c41cf04b6e9725b1c` |
+| Attestation id | `sha256:d68686c1d5ebb4740b6bf2a2c191d0bfa81f431b1b9617fb8dbc6689430e84fa` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `20c027529ba7` |
+| Reviewed at commit | `be2e76f363db` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 5 |
+| Files reviewed | 3 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 1 |
-| low | 3 |
-| info | 1 |
+| medium | 0 |
+| low | 1 |
+| info | 0 |
 
-This PR closes four review findings from the TD-041 model-fallback work: it stops the Support Chat fallback notice from leaking back into the analyst's next prompt (new `isNotice` flag filtered out of `historyContext` before the six-message window), replaces ApiKeyModal's status-only-on-`no-model` live region with one permanently-mounted region covering all four Test outcomes, de-duplicates an inlined `drawerRightEdge` poll in the responsive spec, and corrects the TD-041 register row. A new e2e spec drives the real component and asserts both halves — notice visible, notice absent from the second prompt. I verified the mechanism end to end: `handleTestGemini` sets `'idle'` before testing (App.tsx:273) so the live region re-announces on a repeat Test, the retired-model cache means the second turn produces no fresh notice so the filter is genuinely what the test exercises, and the `app.goto()` seeds the API key the analyst path needs. No blocking-handbook violations and no high-severity defects; findings below are all low/medium polish, three of them one-liners.
+Three small, focused changes: SupportChat's catch block now tags the user-facing `Error: …` transcript entry with `isNotice` so it is filtered out of the history string sent on the next turn; ApiKeyModal's sr-only live region drops the help paragraph and announces the short status only; and the Support Chat fallback spec switches from the `app` fixture to `shell` (so routes register before navigation) and gains a second test covering the error-leak path. I read the surrounding code and traced both e2e tests against `geminiService.generateText`, `advancePastRetiredModel`, `isModelUnavailable`, `MODEL_CANDIDATES.fast`, and the `shell`/`app` fixtures — the fixture swap is correct (`shell.goto()` still seeds `gemini_api_key`, and nothing calls the Gemini API on load, so the intercept counters are deterministic), and a 400 'API key not valid' correctly falls through `isModelUnavailable` into the catch rather than the fallback walk, which is what the new test relies on. One low-severity accessibility trade-off in the ApiKeyModal change; nothing blocking.
 
 ## Quality gates
 
@@ -42,7 +42,7 @@ This PR closes four review findings from the TD-041 model-fallback work: it stop
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
 | Vitest | pass | 258/258 passed, lines 96.15% |
-| Playwright | pass | 103/103 passed |
+| Playwright | pass | 104/104 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 93 source files, 28024 lines
+- 93 source files, 28090 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
@@ -64,8 +64,8 @@ reports zero failures for a tool that never executed.
 | `components/CompositeTab.tsx` | 1398 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1058 |
+| `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
-| `components/SupportChat.tsx` | 950 |
 | `utils/translations.ts` | 908 |
 | `components/OcrTab.tsx` | 881 |
 | `services/geminiService.ts` | 850 |
