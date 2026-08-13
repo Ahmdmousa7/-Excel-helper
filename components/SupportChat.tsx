@@ -445,7 +445,24 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
       // an unexplained quality regression, which it would be without this note.
       //
       // Reverting is this one argument: 'quality'. See ADR-0006.
-      const responseText = await aiService.generateText(prompt, 'fast');
+      // Third argument is the fallback notice (TD-041). This component has no
+      // log panel — its only channel to the user is the transcript — so a notice
+      // is posted as its own assistant message, before the answer it applies to.
+      // Without it the analyst silently changed model mid-conversation, which
+      // matters here more than elsewhere: the user is comparing answers across
+      // turns and would have no way to know one of them came from a different
+      // model.
+      const modelNotices: string[] = [];
+      const responseText = await aiService.generateText(prompt, 'fast', (msg) => {
+        if (!modelNotices.includes(msg)) modelNotices.push(msg);
+      });
+
+      if (modelNotices.length > 0) {
+        setAnalystMessages(prev => [
+          ...prev,
+          ...modelNotices.map((content): ChatMessage => ({ role: 'assistant', content })),
+        ]);
+      }
 
       let tableData: any[][] | undefined;
       if (responseText.includes('|---') || responseText.includes('| ---')) {

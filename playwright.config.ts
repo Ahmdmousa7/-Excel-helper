@@ -23,12 +23,12 @@ export default defineConfig({
 
   retries: process.env.CI ? 2 : 0,
 
-  // Was capped at 3 locally because each worker booted the full 3.8 MB bundle
-  // and concurrent boots pushed tests past their timeout. Code splitting
-  // (TD-004) cut the initial load to ~199 KB, so the cap is no longer needed —
-  // left to the CPU count locally, held at 4 on CI where the runner has 2 cores
-  // and oversubscribing costs more than it gains.
   // Capped at 4 locally to MATCH CI, not because 4 is a magic number.
+  //
+  // (The comment that used to sit here described a cap of 3 being REMOVED after
+  // code splitting, and said workers were "left to the CPU count locally" — which
+  // stopped being true the moment this value became 4. It was left in place when
+  // the cap came back, so the file gave two accounts of the same line.)
   //
   // `undefined` gives Playwright half the core count — 6 on the maintainer's
   // 12-core machine — and each worker boots a Chromium and pulls the whole

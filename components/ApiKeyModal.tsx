@@ -105,8 +105,19 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               just pasted reads as "your key is wrong" unless something says
               otherwise, and the action needed is in the code, not in the key —
               so it names the file and the command that finds the right ids. */}
+          {/* `role="status"` (aria-live polite): the Test button changes only a
+              small badge and this panel, so without an announcement a screen
+              reader user presses Test and hears nothing at all — and this is the
+              one result whose whole point is telling them NOT to go rotate their
+              key. The badge text is repeated inside the live region so the
+              announcement is self-contained rather than "…app needs updating"
+              with no subject. */}
           {geminiStatus === 'no-model' && (
-            <div className="mb-2 bg-blue-50 border border-blue-200 p-2 rounded-sm text-[10px] text-blue-800 leading-snug">
+            <div
+              role="status"
+              className="mb-2 bg-blue-50 border border-blue-200 p-2 rounded-sm text-[10px] text-blue-800 leading-snug"
+            >
+              <span className="sr-only">{t.actions.noModel}. </span>
               {t.actions.noModelHelp}
             </div>
           )}

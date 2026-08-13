@@ -131,14 +131,26 @@ test.describe('responsive layout', () => {
     expect(wide, 'the sidebar element is gone at 1280px').not.toBeNull();
 
     await page.setViewportSize({ width: 375, height: 812 });
-    // Polled, not slept: at 375px the sidebar becomes an off-canvas drawer, so
-    // this is the same transition the drawer tests wait on.
+
+    // Wait for the settled state that actually CHANGES — the sidebar becoming an
+    // off-canvas drawer — not for the width.
+    //
+    // Polling the width looked like a wait and was not: the sidebar is ~256px at
+    // both breakpoints, so `width <= wide.width` was already true on the first
+    // read, mid-transition or not, and the poll returned immediately. A poll whose
+    // predicate is true before the thing happens is a sleep of zero.
     await expect
-      .poll(async () => (await shell.sidebar.boundingBox())?.width ?? null, {
-        timeout: 10_000,
-        message: 'the sidebar never settled after the viewport narrowed',
-      })
-      .toBeLessThanOrEqual(wide!.width);
+      .poll(async () => {
+        const box = await shell.sidebar.boundingBox();
+        return box ? Math.round(box.x + box.width) : null;
+      }, { timeout: 10_000, message: 'the sidebar never went off-canvas at 375px' })
+      .toBeLessThanOrEqual(1);
+
+    // Now the width comparison means something, because it is measured after the
+    // layout settled rather than during it.
+    const narrow = await shell.sidebar.boundingBox();
+    expect(narrow, 'the sidebar element is gone at 375px').not.toBeNull();
+    expect(narrow!.width).toBeLessThanOrEqual(wide!.width);
   });
 
   test.describe('mobile navigation drawer', () => {

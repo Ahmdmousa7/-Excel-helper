@@ -321,7 +321,12 @@ describe('every entry point reports a model fallback, not just Translate', () =>
     expect(notices[0]).toContain(list[1]);
   });
 
-  it('generateText tells its caller — Support Chat', async () => {
+  // Named for the SERVICE, not the feature. An earlier version of this title
+  // claimed "Support Chat", which was a claim this test cannot make: it drives
+  // `generateText` directly, and at the time it was written SupportChat did not
+  // pass a callback at all — so the test was green while the feature showed the
+  // user nothing. The component wiring is a separate concern from this contract.
+  it('generateText tells its caller', async () => {
     const list = forceOneFallback('fast');
     const notices: string[] = [];
     await generateText('a prompt', 'fast', (m) => notices.push(m));
