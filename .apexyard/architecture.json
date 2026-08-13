@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:e9f4b9bb113e78983f02c6ef03db20895af4d8f87066530ee9e516d902cbd51b",
+  "attestation_id": "sha256:a7c97014cb40ba43de541e575e553af029c96054a4562a95a04301e78bb2cb3f",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,11 +8,11 @@
     },
     "components": {
       "files": 39,
-      "loc": 19279
+      "loc": 19307
     },
     "e2e": {
       "files": 20,
-      "loc": 2363
+      "loc": 2375
     },
     "hooks": {
       "files": 2,
@@ -24,7 +24,7 @@
     },
     "tests": {
       "files": 10,
-      "loc": 2366
+      "loc": 2371
     },
     "types": {
       "files": 1,
@@ -62,7 +62,7 @@
       },
       {
         "file": "components/SupportChat.tsx",
-        "loc": 909
+        "loc": 926
       },
       {
         "file": "utils/translations.ts",
@@ -101,5 +101,5 @@
   ],
   "schema": "apexyard.evidence.architecture/1",
   "source_files": 92,
-  "total_loc": 27866
+  "total_loc": 27911
 }

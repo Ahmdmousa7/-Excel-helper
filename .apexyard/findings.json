@@ -1,67 +1,67 @@
 {
-  "attestation_id": "sha256:e9f4b9bb113e78983f02c6ef03db20895af4d8f87066530ee9e516d902cbd51b",
+  "attestation_id": "sha256:a7c97014cb40ba43de541e575e553af029c96054a4562a95a04301e78bb2cb3f",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 5,
+    "info": 1,
+    "low": 4,
     "medium": 1
   },
   "findings": [
     {
-      "category": "technical-debt",
-      "detail": "All three newly-closed rows have the identical \"Fixed by\" cell describing TD-042's fix (`String(n)`, finite numbers, the `Number.isFinite`/falsy-`0` traps, `received: number | null`, five new tests in `translationBatch.test.ts`). That text is correct for TD-042 only. TD-039 was fixed by adding the `'no-model'` member to `ApiKeyStatus`, returning it from `verifyGeminiKey`, and rendering a blue badge plus `noModelHelp` in the modal. TD-041 was fixed by `advancePastRetiredModel` plus threading `onNotice` through `extractStructuredData` / `processGeneralFile` / `generateText` / `extractFromMedia` and their four call sites. The register is the mechanism this handbook exists to protect, and a row that confidently records the wrong fix is worse than a row with none — the next reader looking for how the `no-model` status came about is sent to `utils/translationBatch.ts`, which has nothing to do with it. Docs-only, no user impact; that is why this is medium rather than high.",
-      "file": "docs/quality/tech-debt-register.md",
-      "line": 50,
+      "category": "react",
+      "detail": "The notice is appended to `analystMessages` as `{ role: 'assistant', content }`. On the next turn, `handleAnalystSend` builds `historyContext` from `newHistory.slice(-6)` (line 402) and labels every assistant entry `Analyst:` — so the model is told its own previous answer was `Model \"gemini-3.1-flash\" is unavailable; continuing on \"...\". Output quality may differ.` That both consumes one of only six history slots and invites the model to respond to a maintenance message as if it were part of the analysis. The second consequence is visual: the notice renders through the same white assistant bubble at line 658, so a user cannot tell a system notice from an answer. Trigger is narrow (only after a real model retirement), which is why this is medium rather than high; it would be high if the window were larger or the notice were re-emitted per turn.",
+      "file": "components/SupportChat.tsx",
+      "line": 461,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "TD-039 and TD-041 closed rows carry TD-042's \"Fixed by\" text verbatim"
+      "summary": "Fallback notice is stored as an assistant turn, so it re-enters the prompt"
     },
     {
       "category": "accessibility",
-      "detail": "Both the new badge (line 93) and the `noModelHelp` block (line 108) render conditionally as the async result of clicking Test, inside a container with no `role=\"status\"`, `role=\"alert\"`, or `aria-live`. A screen-reader user presses Test, focus stays on the button, and nothing is announced — the spinner stops and the page is silent. That matters more for `no-model` than for the sibling states because the help block is the only place the actual remedy is stated (run `scripts/list-gemini-models.mjs`, update `MODEL_CANDIDATES`); a user who cannot perceive it is left with a key that tests as neither valid nor invalid and no next step. Low rather than medium because the trigger is narrow — every id in `MODEL_CANDIDATES.fast` must be retired at once — and because the same gap already applies to the pre-existing valid/invalid/quota badges, which this diff extends rather than introduces.",
+      "detail": "Two things weaken the announcement this change is trying to add. First, the `role=\"status\"` element only enters the DOM when `geminiStatus === 'no-model'`, so the region and its text appear in the same commit; the ARIA practice is that a live region must already be in the accessibility tree for an insertion to be reliably announced, and several screen-reader/browser pairs stay silent on a region mounted with content. Second, the comment's own premise — 'a screen reader user presses Test and hears nothing at all' — still holds for the other three outcomes: `valid`, `invalid` and `quota` (lines 86-93) are badge-only with no live region, so the most common results of pressing Test remain unannounced while the rarest one is announced.",
       "file": "components/ApiKeyModal.tsx",
-      "line": 108,
+      "line": 116,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "The no-model result and its help text are not announced to assistive tech"
+      "summary": "Live region is created at the same moment as its content, and covers 1 of 4 statuses"
     },
     {
       "category": "code-smell",
-      "detail": "The retained block says \"the cap is no longer needed — left to the CPU count locally, held at 4 on CI where the runner has 2 cores\", and the new block immediately below says \"Capped at 4 locally to MATCH CI\". They sit adjacent with no separator, and `workers: 4` is now unconditional, so neither \"left to the CPU count locally\" nor \"held at 4 on CI\" describes the code. Everything else in this diff is unusually careful about explaining *why* a value was chosen — this is the one place where a reader is handed two opposite explanations and has to work out which one is current.",
-      "file": "playwright.config.ts",
-      "line": 24,
+      "detail": "`advancePastRetiredModel` (services/geminiService.ts:312) builds the notice as a hardcoded English sentence, which was fine while its destinations were `console.warn` and a log panel. This diff promotes it to user-facing chat content in a component that takes `language` and sets `dir=\"rtl\"` for Arabic (line 509), and every other string in that transcript comes from `t`. An Arabic user gets one English LTR sentence mid-conversation, inside an RTL container.",
+      "file": "components/SupportChat.tsx",
+      "line": 456,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Stale comment directly contradicts the new one and the value below it"
+      "summary": "English-only notice posted into a transcript that supports Arabic"
+    },
+    {
+      "category": "code-smell",
+      "detail": "The new poll body — `box ? Math.round(box.x + box.width) : null` with `timeout: 10_000` — is character-for-character the helper `drawerRightEdge` at line 22, which three tests in the same file already use (lines 186, 198). The only reason not to call it is the custom failure message. Keeping a second copy is how the two drift: a future change to what 'off-canvas' means has to be made in two places, and the file currently teaches both patterns.",
+      "file": "e2e/responsive.spec.ts",
+      "line": 142,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Inline poll duplicates the drawerRightEdge helper defined in the same file"
+    },
+    {
+      "category": "testing",
+      "detail": "The comment is right that the old title overclaimed — but the fix removes the claim rather than the gap. `SupportChat` has no test anywhere (no file under `tests/` or `e2e/` references it), so the exact failure the comment describes — the service contract green while the component passes no callback — is still undetectable, only now for the opposite reason: nothing asserts the component forwards it or renders the result. The service-level tests in this block are the ones that catch a dropped callback; none of them can catch a dropped call site.",
+      "file": "tests/unit/geminiModels.test.ts",
+      "line": 329,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "The wiring this PR adds has no test; the rename records the gap without closing it"
     },
     {
       "category": "technical-debt",
-      "detail": "The closed row reads ``| **TD-039** | **…** `verifyGeminiKey` returns `'valid' \\ | 2026-08-13 | …``. When the entry moved from the open table to the closed one the `\\|` escapes were lost, so the cell terminates at `'valid' \\` and the remainder — `\\| 'invalid' \\| 'quota'`, plus the whole explanation of why falling off the end of `MODEL_CANDIDATES.fast` could only answer `'invalid'` — is gone from the file entirely, not just mis-rendered. TD-039 is the one entry whose description explains *why* the new blue badge exists, and it is now the only closed entry a reader cannot reconstruct.",
+      "detail": "Two small regressions in an otherwise correct repair of these rows. The description previously linked `[ADR-0006](../adr/ADR-0006-model-tiers-not-model-ids.md)` and now says plain `ADR-0006`, so the register no longer navigates to the decision it rests on (TD-037 in the same table still links its ADR, so this is now inconsistent within the file). And 'every caller logs it as a warning' is not true of the caller this PR adds — SupportChat has no log panel and posts the notice into the transcript, which is the whole point of the code comment at line 448.",
       "file": "docs/quality/tech-debt-register.md",
-      "line": 50,
-      "severity": "low",
+      "line": 51,
+      "severity": "info",
       "suggested_fix": null,
-      "summary": "TD-039's description cell is truncated mid-sentence by a broken pipe escape"
-    },
-    {
-      "category": "testing",
-      "detail": "`expect.poll(() => sidebar.boundingBox()?.width).toBeLessThanOrEqual(wide!.width)` compares the sidebar's width at 375px against its width at 1280px. `components/Sidebar.tsx:83-84` gives it `md:w-64` when expanded and `max-md:w-64` as a drawer — 256px in both cases. So the comparison is `256 <= 256`, which is satisfied on the very first poll iteration, before `setViewportSize` has triggered a single frame of transition. The rewrite is not wrong, but it does not do what its own failure message (`'the sidebar never settled after the viewport narrowed'`) claims, and unlike the two drawer helpers in the same file it cannot catch a regression: the assertion holds whether the drawer slides, sticks, or never re-lays-out at all. Low rather than medium because the pre-existing `waitForTimeout(400)` version was equally vacuous — this PR did not introduce the weakness, it re-stated it in language that now implies coverage that isn't there.",
-      "file": "e2e/responsive.spec.ts",
-      "line": 137,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "The viewport-narrowing poll passes on its first read and never waits"
-    },
-    {
-      "category": "testing",
-      "detail": "The test drives `generateText('a prompt', 'fast', cb)` directly and asserts the notice fires, and its name attributes that to Support Chat. But the only production caller, `components/SupportChat.tsx:448`, is `await aiService.generateText(prompt, 'fast')` — no fourth argument — and that file is not in this diff. So after this PR, Support Chat is the one remaining feature where a quality downgrade is still `console.warn`-only, which is exactly the condition TD-041 described and which the register now marks closed. The green test plus the closed register entry is what makes the gap invisible: nothing in the suite would go red if `generateText`'s `onNotice` were deleted from the production path tomorrow, because no production path uses it. The comment block above this describe even says \"an optional callback dropped in the class wrapper compiles fine and simply never fires\" — that is the situation at the call site.",
-      "file": "tests/unit/geminiModels.test.ts",
-      "line": 325,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "\"generateText tells its caller — Support Chat\" — Support Chat does not pass onNotice"
+      "summary": "TD-041 row loses the ADR-0006 link and overstates the caller behaviour"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

@@ -1,89 +1,41 @@
 {
-  "attestation_id": "sha256:e9f4b9bb113e78983f02c6ef03db20895af4d8f87066530ee9e516d902cbd51b",
+  "attestation_id": "sha256:a7c97014cb40ba43de541e575e553af029c96054a4562a95a04301e78bb2cb3f",
   "files": [
     {
-      "oid": "6bcd0a4e412cf79fc0916449b8216fe561fdbe26",
-      "path": "App.tsx"
-    },
-    {
-      "oid": "d04d6ab74c562a88191523cae2acc408dfe72e42",
+      "oid": "51bf5465b6efa17c4f71f9c122c4c64600979eea",
       "path": "components/ApiKeyModal.tsx"
     },
     {
-      "oid": "2fae7f3f0bfcfe555b37d036d3722fcdff123418",
-      "path": "components/CompareTool.tsx"
+      "oid": "7fc77ad6d08832cd1ea00ab1b5f64a60878e4304",
+      "path": "components/SupportChat.tsx"
     },
     {
-      "oid": "fdc3def219f303e16ca37224bb1a4efb8471a8f9",
-      "path": "components/CompositeTab.tsx"
-    },
-    {
-      "oid": "b68882e69c1e8c98a2462121fcc2919d54536a19",
-      "path": "components/OcrTab.tsx"
-    },
-    {
-      "oid": "f8ff585cba10eccf0e1847755c9d380a7e44b7b1",
-      "path": "components/TranslateTab.tsx"
-    },
-    {
-      "oid": "2944403fb57b1da3e4188d53a3547a7d6ec65b00",
-      "path": "components/WebScraperTab.tsx"
-    },
-    {
-      "oid": "0de06966bb6bf1aa3c932f25233255e9c2e8b78a",
+      "oid": "a7eedffe99455eb30f68a1926c854bdc9c0bf1d6",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "ba0fa44d5ce903e330c06149f869e319fb988288",
-      "path": "e2e/composite-zero-qty.spec.ts"
-    },
-    {
-      "oid": "f60896760d0a988b0779ded977eefe6353751d44",
-      "path": "e2e/modal.spec.ts"
-    },
-    {
-      "oid": "d7bf25384258e89b5e012a99510a61b7c0e37929",
+      "oid": "6dce5cb2d4e455a5b83bfbf956bba26166b6864f",
       "path": "e2e/responsive.spec.ts"
     },
     {
-      "oid": "5efe143ba700ba7ee6b4a843cd29563b6e589323",
+      "oid": "66e58c7c83a9d6863e813d807f30b8def237e482",
       "path": "playwright.config.ts"
     },
     {
-      "oid": "cd6ad41c282ead91536a568e39fe9453ba21bbd4",
-      "path": "services/geminiService.ts"
-    },
-    {
-      "oid": "c389524d07a2f212711f375b8c5b8ee65197d51e",
+      "oid": "909d2552ee9f052853bdb08154ce38bdf04c2014",
       "path": "tests/unit/geminiModels.test.ts"
-    },
-    {
-      "oid": "487b0c7141aa616bc5b5955acb6badf08884f742",
-      "path": "tests/unit/translationBatch.test.ts"
-    },
-    {
-      "oid": "afc271cce2f40c317b8e59d5f226db50ea0ac317",
-      "path": "types/ai.types.ts"
-    },
-    {
-      "oid": "d9bf5bb68d492f6acd2dfecf52b39d08eb1f444c",
-      "path": "utils/translationBatch.ts"
-    },
-    {
-      "oid": "ff06f4bd18dd83bc1fa41418ca831fbeb0e7ff0c",
-      "path": "utils/translations.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 5,
+    "info": 1,
+    "low": 4,
     "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "7f789d962cec1b29d34271ae92ad8802dc8f8b41",
+  "reviewed_at_commit": "128c9bd7af0dc964d551bf8a766ad356ecf6d6a2",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "COMMENT"

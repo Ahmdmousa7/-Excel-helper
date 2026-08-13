@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:e9f4b9bb113e78983f02c6ef03db20895af4d8f87066530ee9e516d902cbd51b` |
+| Attestation id | `sha256:a7c97014cb40ba43de541e575e553af029c96054a4562a95a04301e78bb2cb3f` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `7f789d962cec` |
+| Reviewed at commit | `128c9bd7af0d` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **COMMENT** |
-| Files reviewed | 18 |
+| Files reviewed | 6 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 1 |
-| low | 5 |
-| info | 0 |
+| low | 4 |
+| info | 1 |
 
-This PR closes three tech-debt items and adds one new validation rule: a `no-model` API-key status so a stale `MODEL_CANDIDATES` list stops being reported as a bad key (TD-039), an `onNotice` model-fallback callback plumbed through every `IAiService` entry point via a new `advancePastRetiredModel` helper that de-duplicates five drifted copies (TD-041), numeric/non-array handling in `alignBatchResults` (TD-042), a Composite Check error for zero ingredient quantities, and Playwright fixes replacing fixed sleeps with `expect.poll`. The production code is sound — the helper extraction is correct, the new tests genuinely fail if the behaviour is removed, and the zero-qty guard is safe against whitespace and empty cells because `rowVals` normalises through `String(val || '').trim()`. No blocking-handbook violations and nothing high or critical. The findings are all documentation-integrity, test-strength, and one accessibility gap.
+This PR closes out three loose ends from the TD-039/TD-041 work: it adds an aria-live announcement to the ApiKeyModal 'no-model' panel, wires SupportChat's Support Chat analyst to the new onNotice fallback callback, repairs two tech-debt-register rows whose 'Fixed by' cells had been copy-pasted from TD-042, replaces a no-op poll in the responsive e2e test with one that waits for the state that actually changes, and renames a unit test whose title claimed coverage it did not have. The e2e fix and the register repair are both correct and well-reasoned — the old poll's predicate really was already true on the first read. Nothing here is blocking: no secrets, no unsanitized HTML (chat content renders as text), no layering violation, no dependency change. One medium finding: representing the fallback notice as a `role: 'assistant'` ChatMessage feeds it back to the model as the analyst's own prior turn on the next request.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 92 source files, 27866 lines
+- 92 source files, 27911 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
@@ -65,7 +65,7 @@ reports zero failures for a tool that never executed.
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1058 |
 | `components/TranslateTab.tsx` | 953 |
-| `components/SupportChat.tsx` | 909 |
+| `components/SupportChat.tsx` | 926 |
 | `utils/translations.ts` | 908 |
 | `components/OcrTab.tsx` | 881 |
 | `services/geminiService.ts` | 850 |
