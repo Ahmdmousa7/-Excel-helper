@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  GEMINI_FLASH,
-  GEMINI_PRO,
+  MODEL_CANDIDATES,
+  resolveModel,
+  retireModel,
+  resetRetiredModels,
   isModelUnavailable,
   isKeyIssue,
   modelUnavailableError,
@@ -79,19 +81,71 @@ describe('the two detectors stay disjoint', () => {
 });
 
 describe('modelUnavailableError', () => {
-  it('names the model and points at the script that finds a replacement', () => {
-    const err = modelUnavailableError('gemini-3-pro-preview');
-    expect(err.message).toContain('gemini-3-pro-preview');
+  it('names what was tried and points at the script that finds a replacement', () => {
+    const err = modelUnavailableError('quality');
+    expect(err.message).toContain('quality');
     expect(err.message).toContain('list-gemini-models.mjs');
+    for (const m of MODEL_CANDIDATES.quality) expect(err.message).toContain(m);
     // The raw SDK blob is what users saw before; this must not be that.
-    expect(err.message).not.toContain('{');
+    expect(err.message).not.toContain('"error"');
   });
 });
 
-describe('the pinned model ids', () => {
-  it('are distinct, so the fallback actually changes model', () => {
-    // otherModel() swaps between exactly these two. If they were ever set to the
-    // same id the fallback would silently retry the dead model.
-    expect(GEMINI_FLASH).not.toBe(GEMINI_PRO);
+describe('walking the candidate list', () => {
+  beforeEach(resetRetiredModels);
+
+  it('starts at the caller-preferred model for each tier', () => {
+    expect(resolveModel('quality')).toBe(MODEL_CANDIDATES.quality[0]);
+    expect(resolveModel('fast')).toBe(MODEL_CANDIDATES.fast[0]);
+  });
+
+  it('leads the quality tier with Gemini 3.1 Pro, as requested', () => {
+    expect(MODEL_CANDIDATES.quality[0]).toBe('gemini-3.1-pro');
+  });
+
+  it('advances past a retired id', () => {
+    const first = resolveModel('quality');
+    const next = retireModel('quality', first);
+    expect(next).not.toBe(first);
+    expect(resolveModel('quality')).toBe(next);
+  });
+
+  it('remembers a retirement, so later calls do not re-try the dead id', () => {
+    // The point of module-level state: on a 500-row translation this is the
+    // difference between one wasted request and one per batch.
+    const dead = resolveModel('quality');
+    retireModel('quality', dead);
+    expect(resolveModel('quality')).not.toBe(dead);
+    expect(resolveModel('quality')).not.toBe(dead);
+  });
+
+  it('walks the whole list in order, then reports exhaustion', () => {
+    const order: string[] = [];
+    let m: string | null = resolveModel('quality');
+    while (m) { order.push(m); m = retireModel('quality', m); }
+    expect(order).toEqual([...MODEL_CANDIDATES.quality]);
+  });
+
+  it('never returns undefined once every candidate is retired', () => {
+    // Callers put the result straight into an API call; `undefined` there is a
+    // crash instead of a useful error.
+    for (const m of MODEL_CANDIDATES.fast) retireModel('fast', m);
+    expect(typeof resolveModel('fast')).toBe('string');
+    expect(resolveModel('fast').length).toBeGreaterThan(0);
+  });
+
+  it('keeps tiers independent enough to degrade rather than die', () => {
+    // Retiring every Pro id must still leave the quality tier a Flash id to use.
+    for (const m of ['gemini-3.1-pro', 'gemini-3-pro', 'gemini-3-pro-preview']) {
+      retireModel('quality', m);
+    }
+    expect(resolveModel('quality')).toMatch(/flash/);
+  });
+
+  it('has no duplicate ids in a tier, which would waste a request', () => {
+    for (const tier of ['fast', 'quality'] as const) {
+      const list = MODEL_CANDIDATES[tier];
+      expect(new Set(list).size, `${tier} has duplicates`).toBe(list.length);
+    }
   });
 });

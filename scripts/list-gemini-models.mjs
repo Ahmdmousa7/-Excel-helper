@@ -23,6 +23,8 @@
 //
 // Get the key from the app's API Key modal, or https://aistudio.google.com/app/apikey
 
+import { readFile } from 'node:fs/promises';
+
 const key = process.argv[2] || process.env.GEMINI_API_KEY;
 
 if (!key) {
@@ -59,23 +61,47 @@ try {
   process.stdout.write(`${usable.length} model(s) support generateContent on this key:\n\n`);
   for (const name of usable) process.stdout.write(`  ${name}\n`);
 
-  // What the app pins today, checked against that list.
-  const PINNED = ['gemini-3-flash-preview', 'gemini-3-pro-preview'];
-  process.stdout.write('\nModels this app currently requests:\n');
-  for (const p of PINNED) {
-    process.stdout.write(`  ${usable.includes(p) ? 'OK      ' : 'MISSING '}${p}\n`);
+  // The app's candidates, read from the service so this cannot drift from what
+  // the app actually asks for — a checker that validates a stale list is worse
+  // than none. Kept as a regex rather than an import so this stays a plain
+  // dependency-free script.
+  const source = await readFile(
+    new URL('../services/geminiService.ts', import.meta.url),
+    'utf8',
+  );
+  const block = /MODEL_CANDIDATES[^=]*=\s*\{([\s\S]*?)\n\};/.exec(source);
+  const candidates = {};
+  for (const [, tier, body] of (block?.[1] ?? '').matchAll(/(\w+)\s*:\s*\[([^\]]*)\]/g)) {
+    candidates[tier] = [...body.matchAll(/'([^']+)'/g)].map((m) => m[1]);
   }
 
-  const missing = PINNED.filter((p) => !usable.includes(p));
-  if (missing.length > 0) {
+  process.stdout.write('\nWhat this app will try, in order:\n');
+  let anyTierDead = false;
+  for (const [tier, list] of Object.entries(candidates)) {
+    const firstAlive = list.find((m) => usable.includes(m));
+    process.stdout.write(`\n  ${tier}:\n`);
+    for (const m of list) {
+      const mark = !usable.includes(m) ? 'RETIRED ' : m === firstAlive ? 'USED -> ' : 'spare   ';
+      process.stdout.write(`    ${mark}${m}\n`);
+    }
+    if (!firstAlive) {
+      anyTierDead = true;
+      process.stdout.write(`    !! no usable model for "${tier}" — this tier is broken\n`);
+    }
+  }
+
+  if (anyTierDead) {
     process.stdout.write(
-      `\n${missing.length} pinned model(s) are unavailable — every feature using them returns 404.\n` +
-      'Update GEMINI_FLASH / GEMINI_PRO in services/geminiService.ts to ids from the list above.\n',
+      '\nAt least one tier has no working model. Add an id from the list above to\n' +
+      'MODEL_CANDIDATES in services/geminiService.ts.\n',
     );
     process.exit(1);
   }
 
-  process.stdout.write('\nAll pinned models are available.\n');
+  process.stdout.write(
+    '\nEvery tier resolves. Retired entries are skipped automatically at runtime;\n' +
+    'removing them from MODEL_CANDIDATES just saves one wasted request per session.\n',
+  );
 } catch (err) {
   process.stderr.write(`Could not reach the Gemini API: ${safe(err?.message ?? err)}\n`);
   process.exit(1);

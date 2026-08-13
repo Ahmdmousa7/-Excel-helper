@@ -3,31 +3,77 @@ import { GoogleGenAI, Schema, Type } from "@google/genai";
 import { AiTier, IAiService } from "../types/ai.types";
 
 /**
- * Every model id this SERVICE uses, in one place.
+ * Model ids per tier, in preference order.
  *
- * Not every model id in the app: `components/SupportChat.tsx` bypasses this
- * service and calls the SDK directly with its own literal, so a model swap has
- * exactly two homes, not one. Stated because the value of these constants is
- * "change it here" and a reader who believes that too completely will miss
- * SupportChat. `grep -rn "gemini-3-" components/ services/` finds both.
+ * A LIST, not a constant, because pinning one id is what caused the outage this
+ * replaced: `gemini-3-pro-preview` was retired and every Pro feature returned
+ * 404 at the moment a user clicked a button. Google ships these as *preview*
+ * releases and retires them on its own schedule, so "the id is currently
+ * correct" is a fact with an expiry date.
  *
- * Flash is the cheap, fast one for high-volume mechanical work; Pro is for
- * reasoning and anything multimodal. Callers outside this file choose a TIER
- * (see `AiTier`) rather than an id, so the provider stays swappable.
+ * The service walks its tier's list and uses the first id that answers. An id
+ * that comes back "no longer available" is struck off for the session and the
+ * next one is tried, so a retirement costs one wasted request rather than a
+ * broken feature. `resolveModel()` and `retireModel()` below do the walking.
  *
- * Both are *preview* ids and Google retires those. If AI features start failing
- * with a model-not-found error, look here first — and note the key Test button
- * only exercises FLASH, so a green "valid" badge says nothing about whether PRO
- * still resolves for that key.
+ * Ordering is the only judgement here:
+ *   quality — newest Pro first, older Pro ids behind it, Flash last so the tier
+ *             degrades in quality rather than failing outright.
+ *   fast    — Flash ids only until the end, where a Pro id is better than nothing.
+ *
+ * `gemini-3.1-pro` leads the quality list by request. If it is not a valid id on
+ * your key it is skipped automatically — which is the entire point of a list.
+ * `node scripts/list-gemini-models.mjs YOUR_KEY` prints what your key can
+ * actually use, and is the way to confirm rather than infer.
+ *
+ * NOT every model id in the app: `components/SupportChat.tsx` bypasses this
+ * service and calls the SDK directly, so it resolves nothing and gets no
+ * fallback. `grep -rn "gemini" components/ services/` finds both homes.
  */
-export const GEMINI_FLASH = 'gemini-3-flash-preview';
-export const GEMINI_PRO = 'gemini-3-pro-preview';
-
-/** Gemini's answer to the provider-agnostic tiers in `AiTier`. */
-const MODEL_BY_TIER: Record<AiTier, string> = {
-  fast: GEMINI_FLASH,
-  quality: GEMINI_PRO,
+export const MODEL_CANDIDATES: Record<AiTier, readonly string[]> = {
+  quality: [
+    'gemini-3.1-pro',
+    'gemini-3-pro',
+    'gemini-3-pro-preview',
+    'gemini-3-flash',
+    'gemini-3-flash-preview',
+  ],
+  fast: [
+    'gemini-3-flash',
+    'gemini-3-flash-preview',
+    'gemini-3.1-pro',
+    'gemini-3-pro',
+  ],
 };
+
+/**
+ * Ids proven gone this session. Module-level, so one 404 teaches every later
+ * call instead of each one rediscovering it — the difference between one wasted
+ * request and one per batch on a 500-row translation.
+ *
+ * Not persisted: a retirement is permanent but a transient 404 is not, and a bad
+ * entry in localStorage would outlive the problem with no way for a user to
+ * clear it. A page reload re-checks.
+ */
+const retiredModels = new Set<string>();
+
+/** The first id for this tier that has not been struck off. */
+export const resolveModel = (tier: AiTier): string => {
+  const alive = MODEL_CANDIDATES[tier].filter((m) => !retiredModels.has(m));
+  // Every candidate retired: hand back the first anyway so the caller produces a
+  // real API error naming a real id, rather than crashing on `undefined`.
+  return alive[0] ?? MODEL_CANDIDATES[tier][0];
+};
+
+/** Strike an id off for this session. Returns the next one to try, or null. */
+export const retireModel = (tier: AiTier, model: string): string | null => {
+  retiredModels.add(model);
+  const next = MODEL_CANDIDATES[tier].find((m) => !retiredModels.has(m));
+  return next ?? null;
+};
+
+/** Test seam: forget everything struck off. */
+export const resetRetiredModels = (): void => retiredModels.clear();
 
 // Key Management
 const GEMINI_KEY_STORAGE = 'gemini_api_key';
@@ -68,7 +114,9 @@ export const verifyGeminiKey = async (keysString: string): Promise<'valid' | 'in
 
     try {
         const ai = new GoogleGenAI({ apiKey: keyToTest });
-        const model = GEMINI_FLASH; // Lightweight model for check
+        // The cheapest tier, resolved through the candidate list so a retired id
+        // does not make a perfectly good key report "invalid".
+        const model = resolveModel('fast');
         await ai.models.generateContent({
             model,
             contents: { parts: [{ text: "test" }] }
@@ -106,18 +154,17 @@ export const isModelUnavailable = (error: any): boolean => {
       || (msg.includes('404') && msg.includes('model'));
 };
 
-/** The other pinned model, for a one-shot fallback when one is retired. */
-const otherModel = (m: string): string => (m === GEMINI_PRO ? GEMINI_FLASH : GEMINI_PRO);
-
 /**
- * A readable error for a retired model, replacing the raw JSON the SDK throws.
- * Names the model and the script that finds a valid replacement.
+ * A readable error for when a tier has no working model left, replacing the raw
+ * JSON the SDK throws. Names what was tried and the command that finds the truth.
  */
-export const modelUnavailableError = (model: string): Error =>
+export const modelUnavailableError = (tier: AiTier): Error =>
   new Error(
-    `The model "${model}" is no longer available from Google, and the fallback did not work either. ` +
-    `Run "node scripts/list-gemini-models.mjs YOUR_API_KEY" to see which models your key can use, ` +
-    `then update GEMINI_FLASH / GEMINI_PRO in services/geminiService.ts.`,
+    `No usable Gemini model for the "${tier}" tier — every candidate was rejected ` +
+    `as unavailable (${MODEL_CANDIDATES[tier].join(', ')}). ` +
+    `Run "node scripts/list-gemini-models.mjs YOUR_API_KEY" from the excel-helper ` +
+    `folder to see which models your key can use, then update MODEL_CANDIDATES in ` +
+    `services/geminiService.ts.`,
   );
 
 // Error handling helpers
@@ -165,9 +212,11 @@ export const translateBatch = async (
 ): Promise<string[]> => {
     let attempts = 0;
     const maxRetries = getMaxRetries();
-    // `let`, so a retired model id can fall back once — see the catch below.
-    let model = GEMINI_PRO;
-    let modelSwapped = false;
+    // Named so the shared retire-and-advance logic in the catch reads the same
+    // here as in extractStructuredData, which takes its tier as a parameter.
+    const tier: AiTier = 'quality';
+    // Resolved from the candidate list, and re-resolved if one is retired mid-run.
+    let model = resolveModel(tier);
     while (attempts < maxRetries) {
         try {
             const client = getAiClient();
@@ -211,17 +260,17 @@ export const translateBatch = async (
             }
         } catch (error: any) {
             // A retired model id first: retrying is pointless and rotating keys
-            // cannot help, since the model is gone for every key. Fall back to
-            // the other pinned model once rather than failing outright.
+            // cannot help, since the model is gone for every key. Strike it off
+            // and move to the next candidate. Does NOT count against `attempts`
+            // — walking the list is not a retry of the same failing thing.
             if (isModelUnavailable(error)) {
-                if (!modelSwapped) {
-                    modelSwapped = true;
-                    const dead = model;
-                    model = otherModel(model);
-                    console.warn(`Model "${dead}" is retired; retrying on "${model}".`);
+                const next = retireModel(tier, model);
+                if (next) {
+                    console.warn(`Model "${model}" is retired; trying "${next}".`);
+                    model = next;
                     continue;
                 }
-                throw modelUnavailableError(model);
+                throw modelUnavailableError(tier);
             }
 
             const isKeyProblem = isKeyIssue(error);
@@ -258,9 +307,8 @@ export const extractStructuredData = async (
     prompt: string,
     tier: AiTier = 'fast',
 ): Promise<any[]> => {
-    // `let`, so a retired model id can fall back once — see the catch below.
-    let model = MODEL_BY_TIER[tier];
-    let modelSwapped = false;
+    // Resolved from the candidate list, and re-resolved if one is retired mid-run.
+    let model = resolveModel(tier);
     let attempts = 0;
     const maxRetries = getMaxRetries();
     while (attempts < maxRetries) {
@@ -289,17 +337,17 @@ export const extractStructuredData = async (
             }
         } catch (error: any) {
             // A retired model id first: retrying is pointless and rotating keys
-            // cannot help, since the model is gone for every key. Fall back to
-            // the other pinned model once rather than failing outright.
+            // cannot help, since the model is gone for every key. Strike it off
+            // and move to the next candidate. Does NOT count against `attempts`
+            // — walking the list is not a retry of the same failing thing.
             if (isModelUnavailable(error)) {
-                if (!modelSwapped) {
-                    modelSwapped = true;
-                    const dead = model;
-                    model = otherModel(model);
-                    console.warn(`Model "${dead}" is retired; retrying on "${model}".`);
+                const next = retireModel(tier, model);
+                if (next) {
+                    console.warn(`Model "${model}" is retired; trying "${next}".`);
+                    model = next;
                     continue;
                 }
-                throw modelUnavailableError(model);
+                throw modelUnavailableError(tier);
             }
 
             const isKeyProblem = isKeyIssue(error);
@@ -341,28 +389,26 @@ export const processGeneralFile = async (
 
   parts.push({ text: instruction });
 
-  // No retry loop here — this is a single call, so the model fallback is an
-  // explicit second attempt rather than a `continue`. Pro for general reasoning.
-  try {
-    const response = await client.models.generateContent({
-        model: GEMINI_PRO,
-        contents: { parts },
-    });
-    return response.text || "";
-  } catch (error: any) {
-    if (!isModelUnavailable(error)) throw error;
+  // No attempt/quota retry loop here — this is a single call. The loop below
+  // exists only to walk past retired ids, so it is bounded by the candidate list
+  // rather than by a retry count, and any other error propagates immediately.
+  const tier: AiTier = 'quality';
+  let model = resolveModel(tier);
 
-    const fallback = otherModel(GEMINI_PRO);
-    console.warn(`Model "${GEMINI_PRO}" is retired; retrying on "${fallback}".`);
+  for (;;) {
     try {
       const response = await client.models.generateContent({
-          model: fallback,
+          model,
           contents: { parts },
       });
       return response.text || "";
-    } catch (retryError: any) {
-      if (isModelUnavailable(retryError)) throw modelUnavailableError(fallback);
-      throw retryError;
+    } catch (error: any) {
+      if (!isModelUnavailable(error)) throw error;
+
+      const next = retireModel(tier, model);
+      if (!next) throw modelUnavailableError(tier);
+      console.warn(`Model "${model}" is retired; trying "${next}".`);
+      model = next;
     }
   }
 };
@@ -376,8 +422,8 @@ export const extractFromMedia = async (
 ): Promise<any[]> => {
   // Pro for high-quality OCR reasoning. `let`, because a retired id falls back
   // to the other model once rather than taking OCR down — see the catch below.
-  let model = GEMINI_PRO;
-  let modelSwapped = false;
+  const tier: AiTier = 'quality';
+  let model = resolveModel(tier);
 
   const prompt = `
     You are an expert AI specialized in Optical Character Recognition (OCR) and Document Understanding.
@@ -510,19 +556,16 @@ export const extractFromMedia = async (
 
     } catch (error: any) {
       // A retired model id, before anything else. Retrying it is pointless and
-      // rotating keys cannot help — the model is gone for every key. Fall back
-      // to the other pinned model once so OCR keeps working, degraded, instead
-      // of failing outright.
+      // rotating keys cannot help — the model is gone for every key. Strike it
+      // off and walk to the next candidate so OCR keeps working, degraded,
+      // instead of failing outright. Does NOT count against `attempts`.
       if (isModelUnavailable(error)) {
-        if (!modelSwapped) {
-          modelSwapped = true;
-          const dead = model;
-          model = otherModel(model);
-          console.warn(`Model "${dead}" is retired; retrying OCR on "${model}".`);
-          onProgress?.(`Model ${dead} unavailable — retrying on ${model}`);
-          continue;
-        }
-        throw modelUnavailableError(model);
+        const next = retireModel(tier, model);
+        if (!next) throw modelUnavailableError(tier);
+        console.warn(`Model "${model}" is retired; trying OCR on "${next}".`);
+        onProgress?.(`Model ${model} unavailable — trying ${next}`);
+        model = next;
+        continue;
       }
 
       const isKeyProblem = isKeyIssue(error);
