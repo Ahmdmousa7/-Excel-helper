@@ -261,6 +261,9 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       const glossaryList = glossary.split(',').map(s => s.trim()).filter(s => s.length > 0);
 
       let processedUniqueCount = 0;
+      // Attempted, for the progress bar. Distinct from `processedUniqueCount`,
+      // which counts only items that came back with a translation.
+      let attemptedUniqueCount = 0;
       // Set when a batch fails. Non-null means the run is PARTIAL and every
       // marker below (summary column, header note, filename, logs) switches on.
       let batchError: string | null = null;
@@ -278,23 +281,41 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
                   glossary: glossaryList
               });
 
-              // Only record results that actually contain something.
+              // Positional mapping is only safe if the model returned exactly one
+              // result per input. It is not contractually obliged to: the reply
+              // is `JSON.parse(response.text)` with no shape or length check, so
+              // a model that drops or merges one item returns a SHORTER array —
+              // and every result after the gap would be filed against the wrong
+              // source row. That is silent corruption: plausible translations
+              // attached to the wrong products, invisible in the output.
               //
-              // `translateBatch` does NOT always throw on failure: an
-              // unparseable model reply makes it return `items.map(() => "")`,
-              // and an empty reply parses to `[]`. Writing those blanks into the
-              // map made them indistinguishable from real translations — rows
-              // showed "Translated" beside an empty cell, and the batch was
-              // credited in full. Counting only what came back keeps every number
-              // and label downstream honest.
+              // A length mismatch means the alignment is unknowable, so nothing
+              // from this batch is trusted.
               let batchTranslated = 0;
-              translations.forEach((result, idx) => {
-                  const text = typeof result === 'string' ? result.trim() : '';
-                  if (!text) return;
-                  translationMap.set(currentBatchKeys[idx], result);
-                  batchTranslated++;
-                  addLog(`Translated: "${currentBatchItems[idx]}" -> "${result}"`, 'success');
-              });
+              if (!Array.isArray(translations) || translations.length !== currentBatchItems.length) {
+                  addLog(
+                    `Batch returned ${Array.isArray(translations) ? translations.length : 0} results ` +
+                    `for ${currentBatchItems.length} items — cannot tell which is which, so the whole ` +
+                    `batch was discarded rather than risk mismatched translations.`,
+                    'error',
+                  );
+              } else {
+                  // Only record results that actually contain something.
+                  //
+                  // `translateBatch` does NOT always throw on failure: an
+                  // unparseable model reply makes it return `items.map(() => "")`,
+                  // and an empty reply parses to `[]`. Writing those blanks into
+                  // the map made them indistinguishable from real translations —
+                  // rows showed "Translated" beside an empty cell, and the batch
+                  // was credited in full.
+                  translations.forEach((result, idx) => {
+                      const text = typeof result === 'string' ? result.trim() : '';
+                      if (!text) return;
+                      translationMap.set(currentBatchKeys[idx], result);
+                      batchTranslated++;
+                      addLog(`Translated: "${currentBatchItems[idx]}" -> "${result}"`, 'success');
+                  });
+              }
 
               if (batchTranslated < currentBatchItems.length) {
                   // Silent, so it has to be said out loud.
@@ -306,7 +327,12 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
               }
 
               processedUniqueCount += batchTranslated;
-              setProgress((processedUniqueCount / totalUnique) * 90); // 90% progress for translation phase
+              attemptedUniqueCount += currentBatchItems.length;
+              // Progress tracks ATTEMPTED, not translated. `processedUniqueCount`
+              // changed meaning when it stopped counting blanks, and driving the
+              // bar from it leaves it frozen while batches are still running —
+              // the one moment a user is watching it to decide whether to wait.
+              setProgress((attemptedUniqueCount / totalUnique) * 90); // 90% for the translation phase
               await delay(200); // Slight delay to be nice to API
 
           } catch (e: any) {
@@ -465,7 +491,17 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
           [`Translated ${processedUniqueCount} of ${totalUnique} items that needed translation.`, "", "", ""],
           [`${alreadyBilingualKeys.size} further item(s) were already bilingual and were never sent.`, "", "", ""],
           [`Stopped because: ${partialReason}`, "", "", ""],
-          ['Rows marked "NOT TRANSLATED" below keep their original text.', "", "", ""],
+          // Mode-accurate. In bilingual and template modes an untranslated row
+          // falls back to its original text; in `separate` mode the translation
+          // column is simply left blank. Claiming "keeps its original text" for
+          // all three would send a `separate`-mode user hunting for text that was
+          // never written.
+          [
+            mode === 'separate'
+              ? 'Rows marked "NOT TRANSLATED" have an empty translation column; the source column is untouched.'
+              : 'Rows marked "NOT TRANSLATED" below keep their original text.',
+            "", "", "",
+          ],
           ["", "", "", ""],
         );
       }

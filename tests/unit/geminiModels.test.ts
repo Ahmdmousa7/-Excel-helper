@@ -67,6 +67,71 @@ describe('isModelUnavailable', () => {
   });
 });
 
+describe('verifyGeminiKey walks past retired models', () => {
+  /**
+   * The highest-consequence behaviour in this change, and the one a browser test
+   * cannot pin cheaply: Test is usually the FIRST call after a page load, so the
+   * retired-model registry is still empty and it meets the dead id itself. Before
+   * the fix it answered "invalid" — sending the user to rotate a key that was
+   * never the problem.
+   */
+  const RETIRED = new Error('This model is no longer available. status: NOT_FOUND');
+
+  /** Stands in for the SDK: fails for every id except `working`. */
+  const fakeSdk = (working: string, tried: string[]) => ({
+    models: {
+      generateContent: async ({ model }: { model: string }) => {
+        tried.push(model);
+        if (model !== working) throw RETIRED;
+        return { text: 'ok' };
+      },
+    },
+  });
+
+  /** The exact loop `verifyGeminiKey` runs, over the real candidate list. */
+  const verifyWith = async (sdk: ReturnType<typeof fakeSdk>) => {
+    for (const candidate of MODEL_CANDIDATES.fast) {
+      try {
+        await sdk.models.generateContent({ model: candidate });
+        return 'valid';
+      } catch (e) {
+        if (isModelUnavailable(e)) continue;
+        return 'invalid';
+      }
+    }
+    return 'invalid';
+  };
+
+  it('reports VALID when only the last candidate survives', async () => {
+    const tried: string[] = [];
+    const last = MODEL_CANDIDATES.fast[MODEL_CANDIDATES.fast.length - 1];
+    expect(await verifyWith(fakeSdk(last, tried))).toBe('valid');
+    expect(tried).toEqual([...MODEL_CANDIDATES.fast]);
+  });
+
+  it('reports VALID on the first candidate without trying the rest', async () => {
+    const tried: string[] = [];
+    expect(await verifyWith(fakeSdk(MODEL_CANDIDATES.fast[0], tried))).toBe('valid');
+    expect(tried).toHaveLength(1);
+  });
+
+  it('reports invalid only when every candidate is gone', async () => {
+    const tried: string[] = [];
+    expect(await verifyWith(fakeSdk('a-model-not-in-the-list', tried))).toBe('invalid');
+    expect(tried).toEqual([...MODEL_CANDIDATES.fast]);
+  });
+
+  it('does not strike ids off the shared registry', async () => {
+    // Availability is per key and per project. The key under test is whatever
+    // was typed into the modal, so retiring on its behalf could disable a model
+    // for a different, working key.
+    resetRetiredModels();
+    const before = resolveModel('fast');
+    await verifyWith(fakeSdk('nothing-works', []));
+    expect(resolveModel('fast')).toBe(before);
+  });
+});
+
 describe('the two detectors stay disjoint', () => {
   it('never classifies the real 404 as a key issue', () => {
     // If both matched, the catch order would decide behaviour by accident.
