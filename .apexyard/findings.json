@@ -1,49 +1,49 @@
 {
-  "attestation_id": "sha256:2549f874cdb07eb7363f7acd2b7151d94455974776191812d4ed69840d408b54",
+  "attestation_id": "sha256:f91163f0fcefa010fe6135d771a61539725bc39516bb8bd5d72624ae043f2010",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
-    "low": 1,
+    "info": 1,
+    "low": 2,
     "medium": 1
   },
   "findings": [
     {
-      "category": "architecture",
-      "detail": "The removed line was `model: \"gemini-3-pro-preview\"` with the comment \"Switched to PRO for better reasoning on data analysis tasks\" — an explicit, documented model choice. The replacement passes `'fast'`, and `MODEL_CANDIDATES.fast` leads with `gemini-3.1-flash`, `gemini-3-flash`, `gemini-3-flash-preview` before it ever reaches a Pro id (services/geminiService.ts:43-49). So the *normal* path for this feature is now Flash, not Pro. That is a change in output quality for the one feature in the app that asks the model to reason over a spreadsheet and emit a runnable Python script — exactly the workload the earlier comment said needed Pro. The fallback fix (the actual point of this PR) is orthogonal to the tier and does not require it: `generateText(prompt, 'quality')` gets the same candidate walk with the intended model. The inline comment says \"'fast' by request\", which is a claim a reviewer cannot verify from the diff; if the downgrade was intentional, the reason belongs in the commit body next to the decision it reverses. Kept at medium rather than high because output is still produced and the revert is one argument.",
-      "file": "components/SupportChat.tsx",
-      "line": 439,
+      "category": "testing",
+      "detail": "`IAiService.translateBatch` (types/ai.types.ts:16) and the standalone `translateBatch` (services/geminiService.ts:235) both gained `onNotice`, but the class wrapper did not — it still declares `options: { sourceLang; targetLang; domain; glossary }`. `GeminiService` is the ONLY implementation of `IAiService`, and it is what `aiServiceFactory.getService()` hands to `TranslateTab.tsx:286`, so this is the signature on the real call path. It compiles (TypeScript keeps method-syntax parameter bivariance even under `strict: true`) and it works at runtime only incidentally, because line 671 forwards `options` by reference rather than rebuilding it. Meanwhile all four new fallback tests (tests/unit/geminiModels.test.ts:198-230) import the standalone function directly, so nothing covers the wrapper. The concrete failure: someone later normalises the wrapper to `return translateBatch(items, { sourceLang, targetLang, domain, glossary })` — a change that looks like tidying and that the declared type actively invites — and every fallback notice is silently dropped. All four tests stay green, the workbook goes back to looking identical to one produced entirely on Pro, and ADR-0006's headline consequence (\"A fallback is no longer silent\") quietly becomes false again. Today there is no user impact; that is why this is medium and not high.",
+      "file": "services/geminiService.ts",
+      "line": 669,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "Data-analyst call moved from Pro to the Flash-leading 'fast' tier"
-    },
-    {
-      "category": "testing",
-      "detail": "The SDK mock returns `{ text: 'ok' }` (line 25). `translateBatch` does `JSON.parse(response.text || \"[]\")` (services/geminiService.ts:295), and `'ok'` is not valid JSON, so every one of the four `translateBatch` tests lands in the `catch` at line 297 and receives `items.map(() => \"\")` — i.e. `['']`. The notice assertions still hold (the fallback happens before the parse), so three of the tests are fine by accident. The fourth is not: `it('still translates when the caller passes no handler')` at line 225 asserts only `.resolves.toBeDefined()` (line 231), and `['']` is defined. The test therefore passes on a run that translated nothing — which is precisely the silent-blank failure mode commits 4c9f7f5 and 0cb84be exist to eliminate, and the one the new TranslateTab guard at components/TranslateTab.tsx:319-330 is written to catch. A false-green here is the same shape the PR calls out in its own comments. No user impact, hence low.",
-      "file": "tests/unit/geminiModels.test.ts",
-      "line": 25,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "All four translateBatch tests run through the JSON-parse failure path"
+      "summary": "GeminiService wrapper never got `onNotice`; new tests bypass the path the app uses"
     },
     {
       "category": "code-smell",
-      "detail": "Below the code-smells handbook's duplication threshold (one new site, ~12 lines, not 15+ in 2+ places), so this is an observation rather than a finding. `generateText` (465-486) is a character-for-character copy of the `for (;;) { try … catch { retireModel } }` block in `processGeneralFile` (438-452) — the author's own doc comment says \"Same shape as `processGeneralFile`'s loop\". With `verifyGeminiKey` now carrying a third, deliberately different variant (it walks but must not record), the retire-and-advance policy lives in several places and a future change to it — say, logging the walk or capping it — has to be made in each.",
-      "file": "services/geminiService.ts",
-      "line": 465,
-      "severity": "info",
+      "detail": "The length-mismatch branch (line 309) logs that the whole batch was discarded and leaves `batchTranslated` at 0. The `if (batchTranslated < currentBatchItems.length)` check at line 334 is outside that if/else, so it fires immediately afterwards and logs \"N item(s) in this batch came back empty — left untranslated.\" for a batch that did not come back empty — it came back misaligned and was deliberately thrown away. The user reading the log sees two error lines giving two different causes for one event, and the second one contradicts the first and points at the model rather than at the safety check that just did the right thing. This matters more than usual here because the log is the primary diagnostic for a PARTIAL run.",
+      "file": "components/TranslateTab.tsx",
+      "line": 334,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "generateText duplicates processGeneralFile's retire-and-advance loop verbatim"
+      "summary": "A discarded batch also logs a contradictory \"came back empty\" error"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "The comment states: `grep -rn \"gemini-\" components/` should stay empty. I ran it — it is not empty. `components/SupportChat.tsx:433` matches, on the historical comment \"`ai.models.generateContent` with a hardcoded \\\"gemini-3-pro-preview\\\"\". The substantive claim behind it is correct (no model id is *used* in `components/` any more), but the check as written fails on its first run. This PR's own commit history shows the cost of stale comments — two commits here exist partly to fix earlier comments that later commits falsified — so a self-checking invariant that does not actually pass is worth correcting now rather than becoming the third instance.",
+      "file": "services/geminiService.ts",
+      "line": 32,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Docblock asserts an invariant that is false the moment it was written"
     },
     {
       "category": "typescript",
-      "detail": "Observation on a design choice this PR makes, not a request. `translateBatch`'s signature promises `Promise<string[]>`, while line 295 returns whatever `JSON.parse` produced — an object, a number, a nested array, or a short array are all possible from a model reply. This PR correctly defends against that, but it does so in the *caller* (components/TranslateTab.tsx:328-330 checks `Array.isArray` and length), so the type still lies at the boundary and any future caller inherits the hazard without the guard. `TranslateTab` is the only caller today, so nothing is broken. Noting it because the guard's own comment identifies the parse as the root cause, and the cheaper long-term home for that check is inside the function whose return type makes the promise.",
+      "detail": "Observation, not a request — line 295 predates this PR and is not in the diff. `return JSON.parse(response.text || \"[]\")` inside a function declared `Promise<string[]>` is an unvalidated assertion over model output, which is exactly why `TranslateTab.tsx:309` now has to defend with `!Array.isArray(translations) || translations.length !== currentBatchItems.length` against a value TypeScript insists is already `string[]`. The guard is correct and well-reasoned where it is, and TranslateTab is the right place for the *policy* decision (discard vs. partial-credit). Worth knowing: `extractStructuredData`, `extractFromMedia` and `processGeneralFile` parse model output the same way and have no equivalent guard, so the class of bug this PR fixed for Translate is still open for OCR, Compare and Web Scraper — and those callers map results positionally too. Raising this to a finding would require confirming those call sites actually index by position, which is outside this diff.",
       "file": "services/geminiService.ts",
       "line": 295,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "translateBatch is typed string[] but returns unvalidated JSON.parse output"
+      "summary": "Shape validation landed in the caller; the other three parse sites still lack it"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:2549f874cdb07eb7363f7acd2b7151d94455974776191812d4ed69840d408b54` |
+| Attestation id | `sha256:f91163f0fcefa010fe6135d771a61539725bc39516bb8bd5d72624ae043f2010` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `9ba5f969ec03` |
+| Reviewed at commit | `4b7ac1463b62` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **COMMENT** |
-| Files reviewed | 8 |
+| Verdict | **APPROVED** |
+| Files reviewed | 9 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 1 |
-| low | 1 |
-| info | 2 |
+| low | 2 |
+| info | 1 |
 
-This PR consolidates Gemini model-id resolution into `services/geminiService.ts`: `verifyGeminiKey` now walks the candidate list itself (without polluting the shared retired-model registry), `translateBatch` reports mid-run model fallbacks to its caller via a new `onNotice` hook, and a new `generateText` exposes a plain prompt→text call so `SupportChat` can drop its direct `GoogleGenAI` construction. `TranslateTab` gains genuine correctness fixes — batch length-mismatch rejection, blank-result accounting, a three-state row status, and mode-accurate partial banners — and `list-gemini-models.mjs` now refuses to report a false all-clear when it cannot parse `MODEL_CANDIDATES`. No blocking-handbook violations: the change actively removes a `frontend-boundaries` §2/§4 violation (SDK client inside a component) and introduces no new secret, injection, or authorization surface. Findings are advisory; the notable one is that routing Support Chat through the service also silently changed its model tier from Pro to Flash.
+This PR completes the model-tier refactor: it makes a mid-run model fallback visible to the user (log + a banner in the exported workbook) instead of only `console.warn`, hardens TranslateTab against a batch whose result count or contents don't match its input (silent positional-misalignment corruption, and blank results being credited as successes), stops `verifyGeminiKey` from reporting a good key as "invalid" when it meets a retired model id, and records the whole contract in ADR-0006 plus TD-039. The reasoning is unusually well documented — commit bodies, the ADR, and the inline comments all state the failure mode and the verification performed, and I confirmed the two 'my earlier comment was wrong' fixes are genuine (`GOOGLE_KEY_PATTERN` really is gone from the repo). AgDR/ADR check: N/A-satisfied — ADR-0006 is in this diff and covers the tier decision, including the Support Chat downgrade. No blocking-handbook violations and nothing above medium; findings below are one real drift/test-gap plus three low/info cleanups. Note: I could not execute the test suite in this environment (command approval denied), so test results are read-verified, not run-verified.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 89 source files, 26917 lines
+- 89 source files, 26926 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -65,7 +65,7 @@ reports zero failures for a tool that never executed.
 | `components/CompositeTab.tsx` | 1370 |
 | `components/FileValidationTab.tsx` | 1058 |
 | `components/TranslateTab.tsx` | 945 |
-| `components/SupportChat.tsx` | 900 |
+| `components/SupportChat.tsx` | 909 |
 | `utils/translations.ts` | 893 |
 | `components/OcrTab.tsx` | 867 |
 | `components/ZidTab.tsx` | 841 |

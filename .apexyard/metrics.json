@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:2549f874cdb07eb7363f7acd2b7151d94455974776191812d4ed69840d408b54",
+  "attestation_id": "sha256:f91163f0fcefa010fe6135d771a61539725bc39516bb8bd5d72624ae043f2010",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -160,7 +160,7 @@
     "available": true,
     "failed_count": 1,
     "failures": [
-      "smoke.spec.ts > smoke > the tool navigation renders its groups"
+      "responsive.spec.ts > responsive layout > mobile navigation drawer > the trigger opens it and the backdrop closes it"
     ],
     "flaky_count": 0,
     "passed": false,

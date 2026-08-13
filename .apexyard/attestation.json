@@ -1,13 +1,17 @@
 {
-  "attestation_id": "sha256:2549f874cdb07eb7363f7acd2b7151d94455974776191812d4ed69840d408b54",
+  "attestation_id": "sha256:f91163f0fcefa010fe6135d771a61539725bc39516bb8bd5d72624ae043f2010",
   "files": [
     {
-      "oid": "fa3ae0dc2020408d781054ff0fbed04470fd68e9",
+      "oid": "cc60e5012b50a168ec8a4275d1db9d7ea24be95e",
       "path": "components/SupportChat.tsx"
     },
     {
       "oid": "c51fefa8d9f2a159733c40ba1ab3eca41dd747b2",
       "path": "components/TranslateTab.tsx"
+    },
+    {
+      "oid": "b657ddfde5c93b70d5846edb1ce37bfd3c5e74bd",
+      "path": "docs/adr/ADR-0006-model-tiers-not-model-ids.md"
     },
     {
       "oid": "28938c7cfb329a5d163045e8fcb36609690738df",
@@ -37,14 +41,14 @@
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
-    "low": 1,
+    "info": 1,
+    "low": 2,
     "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "9ba5f969ec031297df0a8ed365511766f1c6fca0",
+  "reviewed_at_commit": "4b7ac1463b62e3b2a2f2c3317b978d76aab80f31",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "COMMENT"
+  "verdict": "APPROVED"
 }
