@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:13fb770a50c434a17e93c6f391f73dd835ff10d74cc7c7d00715b4a70acae7fe` |
+| Attestation id | `sha256:e9f4b9bb113e78983f02c6ef03db20895af4d8f87066530ee9e516d902cbd51b` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `e193c6597027` |
+| Reviewed at commit | `7f789d962cec` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **COMMENT** |
-| Files reviewed | 16 |
+| Files reviewed | 18 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 1 |
-| low | 3 |
+| low | 5 |
 | info | 0 |
 
-This PR closes TD-039, TD-041 and TD-042 and partly addresses TD-040. It centralises five copy-pasted retire-and-advance blocks into one `advancePastRetiredModel` helper, threads an optional `onNotice` callback through every `IAiService` entry point so a silent model downgrade is reported in OCR, Compare and Web Scraper (not just Translate), adds a `no-model` API-key state so a stale `MODEL_CANDIDATES` no longer blames a working key, accepts finite numbers as translations in `alignBatchResults`, and replaces two fixed `waitForTimeout` sleeps in the e2e drawer tests with `expect.poll`. The code is clean: I confirmed the helper preserves each call site's control flow, the notice/progress channel separation is real and pinned by a test, `extractStructuredData` still resolves for callers that pass nothing, and `verifyGeminiKey`'s `invalid` branch is still reachable and tested. No blocking-handbook violations, no security or dependency issues, and no AgDR-material decision (this implements ADR-0006's already-recorded position). The findings are all non-blocking: two are copy-paste defects in the tech-debt register's Closed table, one is a caller that was not wired up, one is an a11y nit on the new modal status block.
+This PR closes three tech-debt items and adds one new validation rule: a `no-model` API-key status so a stale `MODEL_CANDIDATES` list stops being reported as a bad key (TD-039), an `onNotice` model-fallback callback plumbed through every `IAiService` entry point via a new `advancePastRetiredModel` helper that de-duplicates five drifted copies (TD-041), numeric/non-array handling in `alignBatchResults` (TD-042), a Composite Check error for zero ingredient quantities, and Playwright fixes replacing fixed sleeps with `expect.poll`. The production code is sound — the helper extraction is correct, the new tests genuinely fail if the behaviour is removed, and the zero-qty guard is safe against whitespace and empty cells because `rowVals` normalises through `String(val || '').trim()`. No blocking-handbook violations and nothing high or critical. The findings are all documentation-integrity, test-strength, and one accessibility gap.
 
 ## Quality gates
 
@@ -42,17 +42,17 @@ This PR closes TD-039, TD-041 and TD-042 and partly addresses TD-040. It central
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
 | Vitest | pass | 258/258 passed, lines 96.15% |
-| Playwright | pass | 101/101 passed |
+| Playwright | pass | 102/102 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | not run | axe summary not captured; the accessibility e2e suite writes test-results/axe-summary.json when it runs |
+| Accessibility | pass | 19 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 91 source files, 27752 lines
+- 92 source files, 27866 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
