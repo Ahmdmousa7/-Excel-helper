@@ -28,7 +28,24 @@ export default defineConfig({
   // (TD-004) cut the initial load to ~199 KB, so the cap is no longer needed —
   // left to the CPU count locally, held at 4 on CI where the runner has 2 cores
   // and oversubscribing costs more than it gains.
-  workers: process.env.CI ? 4 : undefined,
+  // Capped at 4 locally to MATCH CI, not because 4 is a magic number.
+  //
+  // `undefined` gives Playwright half the core count — 6 on the maintainer's
+  // 12-core machine — and each worker boots a Chromium and pulls the whole
+  // bundle from one `vite preview`. Two of TD-040's three observed flakes were
+  // retrying assertions timing out (a sidebar not visible in 30 s, a dialog not
+  // hidden in 5 s), which is what contention looks like; the third was a real
+  // test bug, now fixed in responsive.spec.ts.
+  //
+  // Stated honestly: this is load reduction, NOT a proven fix. Those two were
+  // never reproduced on demand. Two things argue for it anyway. A local run at 6
+  // workers is not predictive of a CI run at 4, so a local pass told you less
+  // than it appeared to. And it is not a trade — measured on this machine, the
+  // full suite takes 1.9 min at 4 workers and 2.1 min at 6, because six
+  // Chromiums plus a vite preview on twelve cores is oversubscribed and thrashes.
+  // Fewer workers is both steadier and slightly faster, which is the same
+  // contention showing up as throughput instead of as a failure.
+  workers: 4,
 
   timeout: 60_000,
   expect: { timeout: 10_000 },

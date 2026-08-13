@@ -37,7 +37,13 @@ test.describe('API key modal', () => {
   test('Escape closes it', async ({ page }) => {
     const dialog = await openAsNewUser(page);
     await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden({ timeout: 5_000 });
+    // No per-assertion override: the project default is 10 s, and this line used
+    // to halve it to 5 s for no stated reason while the assertion two lines up
+    // allows 30 s. This is one of TD-040's three observed flakes, and an
+    // unexplained tightening is the wrong thing to be defending under load.
+    // Raising it is not the fix for a race — but there is no race here, only a
+    // dialog that has to finish hiding, and 5 s was an arbitrary number.
+    await expect(dialog).toBeHidden();
 
     // And the app underneath is usable, not left in a half-open state.
     await expect(page.locator('aside').first()).toBeVisible();

@@ -38,7 +38,17 @@ describe('alignBatchResults', () => {
       for (const bad of [null, undefined, 'text', 42, {}, { 0: 'a', length: 3 }]) {
         const r = alignBatchResults(bad, three.length);
         expect(r.ok, String(bad)).toBe(false);
-        expect(r.ok === false && r.received, String(bad)).toBe(0);
+      }
+    });
+
+    it('separates "not a list" from "an empty list"', () => {
+      // Both are unusable, but they are different failures and the log says so.
+      // Reporting a wrong-shaped reply as "returned 0 results" sends the reader
+      // looking for an empty response that never happened.
+      expect(alignBatchResults([], 3)).toEqual({ ok: false, received: 0 });
+      for (const notAList of [null, undefined, 'text', 42, {}]) {
+        const r = alignBatchResults(notAList, 3);
+        expect(r.ok === false && r.received, String(notAList)).toBe(null);
       }
     });
   });
@@ -70,11 +80,38 @@ describe('alignBatchResults', () => {
       expect(r.ok === true && r.translations[0]).toBe('قميص أزرق');
     });
 
-    it('treats a non-string element as blank rather than stringifying it', () => {
-      // `String(null)` would write the text "null" into a product name column.
-      const r = alignBatchResults([null, 42, { t: 'x' }], three.length);
+    it('treats a non-string, non-number element as blank rather than stringifying it', () => {
+      // `String(null)` would write the text "null" into a product name column,
+      // and `String({})` "[object Object]".
+      const r = alignBatchResults([null, { t: 'x' }, [1]], three.length);
       expect(r.ok === true && r.usable).toBe(0);
       expect(r.ok === true && r.translations).toEqual(['', '', '']);
+    });
+
+    it('accepts a finite NUMBER as a translation', () => {
+      // JSON has a number type and models use it: asked to translate "500", a
+      // reply of `500` rather than `"500"` is correct. Rejecting it marked the
+      // row untranslated and could force a PARTIAL_ export of a complete file —
+      // plausible for the numeric product codes this app is full of.
+      const r = alignBatchResults([500, 0, -12.5], three.length);
+      expect(r.ok === true && r.usable).toBe(3);
+      expect(r.ok === true && r.translations).toEqual(['500', '0', '-12.5']);
+    });
+
+    it('still rejects NaN and Infinity, which stringify to words', () => {
+      // `typeof NaN === 'number'`, so a bare typeof check would write the text
+      // "NaN" into a cell.
+      const r = alignBatchResults([NaN, Infinity, -Infinity], three.length);
+      expect(r.ok === true && r.usable).toBe(0);
+      expect(r.ok === true && r.translations).toEqual(['', '', '']);
+    });
+
+    it('counts a zero, which is falsy but is a real translation', () => {
+      // The trap in `usable`: `0` as a NUMBER is falsy, but "0" as text is not,
+      // so normalising before counting is what makes this come out right.
+      const r = alignBatchResults([0, '', ''], three.length);
+      expect(r.ok === true && r.usable).toBe(1);
+      expect(r.ok === true && r.translations[0]).toBe('0');
     });
 
     it('handles the whole batch coming back blank without claiming success', () => {

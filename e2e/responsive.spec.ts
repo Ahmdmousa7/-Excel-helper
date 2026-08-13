@@ -1,4 +1,37 @@
 import { test, expect } from './fixtures';
+import type { Locator } from '@playwright/test';
+
+/**
+ * Wait for the drawer to finish sliding, rather than sleeping and hoping.
+ *
+ * This replaces `await page.waitForTimeout(400)` followed by a bare
+ * `expect(await sidebar.boundingBox())`, which was TD-040's most reproducible
+ * flake: `expect()` on a number that has already been read does NOT retry, so a
+ * transition that had not finished within the fixed 400 ms failed permanently.
+ * With six Playwright workers competing for twelve cores, animation frames slip
+ * and 400 ms is occasionally not enough — reproduced as
+ * "the drawer did not slide in" once in 202 runs.
+ *
+ * `expect.poll` re-reads the box until it settles, so the assertion converges as
+ * soon as the transition ends and only fails if the drawer genuinely never
+ * arrives. That makes it independent of machine load instead of tuned to one
+ * machine's idle speed, and the fix is to wait for the right THING rather than to
+ * raise the sleep — a longer sleep would just move the threshold and slow every
+ * passing run.
+ */
+const drawerRightEdge = (sidebar: Locator) =>
+  expect
+    .poll(async () => {
+      const box = await sidebar.boundingBox();
+      return box ? Math.round(box.x + box.width) : null;
+    }, { timeout: 10_000, message: 'the drawer never reached its resting position' });
+
+const drawerLeftEdge = (sidebar: Locator) =>
+  expect
+    .poll(async () => {
+      const box = await sidebar.boundingBox();
+      return box ? Math.round(box.x) : null;
+    }, { timeout: 10_000, message: 'the drawer never reached its resting position' });
 
 const VIEWPORTS = [
   { name: 'mobile-portrait', width: 375, height: 812 },
@@ -95,13 +128,17 @@ test.describe('responsive layout', () => {
     await shell.goto();
     const wide = await shell.sidebar.boundingBox();
 
-    await page.setViewportSize({ width: 375, height: 812 });
-    await page.waitForTimeout(400); // let the CSS transition settle
-    const narrow = await shell.sidebar.boundingBox();
+    expect(wide, 'the sidebar element is gone at 1280px').not.toBeNull();
 
-    expect(wide).not.toBeNull();
-    expect(narrow).not.toBeNull();
-    expect(narrow!.width).toBeLessThanOrEqual(wide!.width);
+    await page.setViewportSize({ width: 375, height: 812 });
+    // Polled, not slept: at 375px the sidebar becomes an off-canvas drawer, so
+    // this is the same transition the drawer tests wait on.
+    await expect
+      .poll(async () => (await shell.sidebar.boundingBox())?.width ?? null, {
+        timeout: 10_000,
+        message: 'the sidebar never settled after the viewport narrowed',
+      })
+      .toBeLessThanOrEqual(wide!.width);
   });
 
   test.describe('mobile navigation drawer', () => {
@@ -124,8 +161,7 @@ test.describe('responsive layout', () => {
       await shell.goto();
 
       await page.getByRole('button', { name: /open navigation/i }).click();
-      await page.waitForTimeout(400); // the slide transition
-      expect((await shell.sidebar.boundingBox())!.x, 'the drawer did not slide in').toBeGreaterThanOrEqual(-1);
+      await drawerLeftEdge(shell.sidebar).toBeGreaterThanOrEqual(-1);
 
       // Tap to the RIGHT of the drawer, not on the backdrop's centre. The
       // backdrop is full-screen, so its centre point sits underneath the 256px
@@ -134,24 +170,20 @@ test.describe('responsive layout', () => {
       // the panel, not its middle.
       await expect(page.getByRole('button', { name: /close navigation/i })).toBeVisible();
       await page.mouse.click(340, 400);
-      await page.waitForTimeout(400);
 
-      const box = await shell.sidebar.boundingBox();
-      expect(box!.x + box!.width, 'tapping outside did not close the drawer').toBeLessThanOrEqual(1);
+      await drawerRightEdge(shell.sidebar).toBeLessThanOrEqual(1);
     });
 
     test('picking a tool closes the drawer', async ({ shell, page }) => {
       await shell.goto();
       await page.getByRole('button', { name: /open navigation/i }).click();
-      await page.waitForTimeout(400);
+      await drawerLeftEdge(shell.sidebar).toBeGreaterThanOrEqual(-1);
 
       // Leaving it open over the tool the user just chose would hide the thing
       // they came for.
       await shell.sidebar.getByRole('button', { name: 'Separator', exact: false }).first().click();
-      await page.waitForTimeout(600);
 
-      const box = await shell.sidebar.boundingBox();
-      expect(box!.x + box!.width, 'the drawer stayed open after choosing a tool').toBeLessThanOrEqual(1);
+      await drawerRightEdge(shell.sidebar).toBeLessThanOrEqual(1);
     });
 
     test('the header controls are reachable at 375px', async ({ shell, page }) => {

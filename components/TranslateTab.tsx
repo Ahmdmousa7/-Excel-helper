@@ -303,10 +303,16 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
               let batchTranslated = 0;
               const aligned = alignBatchResults(translations, currentBatchItems.length);
               if (!aligned.ok) {
+                  // Two different failures, said differently. `received: null`
+                  // means the reply was not a list at all; reporting that as
+                  // "returned 0 results" sent the reader looking for an empty
+                  // response that never happened.
                   addLog(
-                    `Batch returned ${aligned.received} results ` +
-                    `for ${currentBatchItems.length} items — cannot tell which is which, so the whole ` +
-                    `batch was discarded rather than risk mismatched translations.`,
+                    (aligned.received === null
+                      ? `Batch reply was not a list of translations at all — `
+                      : `Batch returned ${aligned.received} results for ${currentBatchItems.length} items — `) +
+                    `cannot tell which translation belongs to which item, so the whole batch was ` +
+                    `discarded rather than risk mismatched translations.`,
                     'error',
                   );
               } else {
