@@ -43,14 +43,15 @@ describe('classifyQuantity', () => {
       expect(classifyQuantity('  2  ')).toBe('ok');
     });
 
-    it('accepts the number forms the guard regex allows but nothing had exercised', () => {
-      // One assertion per alternation branch. Without these, simplifying the
-      // pattern could drop a branch and every other test would stay green while
-      // a legitimate cell started reporting as non-numeric.
-      expect(classifyQuantity('.5'), 'leading-dot decimal').toBe('ok');   // \.\d+
-      expect(classifyQuantity('5.'), 'trailing-dot integer').toBe('ok');  // \d+\.
-      expect(classifyQuantity('+3'), 'explicit plus sign').toBe('ok');    // [+-]?
-      expect(classifyQuantity('-.5'), 'signed leading-dot').toBe('negative');
+    it('accepts every positive form the guard regex allows', () => {
+      // One assertion per branch of the pattern. Without these, simplifying it
+      // could drop a branch and every other test would stay green while a
+      // legitimate cell started reporting as non-numeric.
+      expect(classifyQuantity('.5'), 'leading-dot decimal').toBe('ok');    // \.\d+
+      expect(classifyQuantity('5.'), 'trailing-dot integer').toBe('ok');   // \d+\.
+      expect(classifyQuantity('+3'), 'explicit plus sign').toBe('ok');     // [+-]?
+      expect(classifyQuantity('1e+3'), 'explicit exponent sign').toBe('ok'); // e[+-]?
+      expect(classifyQuantity('1E+3'), 'upper-case signed exponent').toBe('ok');
     });
   });
 
@@ -95,6 +96,12 @@ describe('classifyQuantity', () => {
 
     it('rejects negative scientific notation', () => {
       expect(classifyQuantity('-1e2')).toBe('negative');
+    });
+
+    it('rejects a signed leading-dot decimal', () => {
+      // The regex branch `[+-]?\.\d+` — lives here rather than beside the
+      // positive branch assertions, because its verdict is negative.
+      expect(classifyQuantity('-.5')).toBe('negative');
     });
   });
 
