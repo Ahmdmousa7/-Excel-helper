@@ -1,33 +1,14 @@
 {
-  "attestation_id": "sha256:b7ddc8b2deaadc8ea5d747e80e8d01958e824e099395bccbe7750f314e7193e9",
+  "attestation_id": "sha256:e4e40d6435fbd870a65d240738b014229189f8ca11fbf5afd9a58d8438206378",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 1,
+    "info": 0,
+    "low": 0,
     "medium": 0
   },
-  "findings": [
-    {
-      "category": "testing",
-      "detail": "The test's own comment states the contract as one assertion per alternation branch, but the `[+-]?` group inside the exponent (`([eE][+-]?\\d+)?` at utils/quantityRule.ts:56) is only ever exercised with a minus: '1e-3' (line 32), '2E2' (line 33, no sign) and '-1e2' (line 97, sign on the mantissa, not the exponent). No test anywhere in the file passes an explicit `+` exponent. That is precisely the gap this test was written to close — a future simplification of the pattern to `[eE]-?\\d+` would drop `1e+3` to 'non-numeric' and the whole suite would stay green. Excel's General format emits `1E+03` on its own, so this is a form that reaches validation in practice, not a theoretical branch.",
-      "file": "tests/unit/quantityRule.test.ts",
-      "line": 47,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "\"One assertion per alternation branch\" misses the exponent-sign branch"
-    },
-    {
-      "category": "testing",
-      "detail": "The `-.5` assertion is nested under `describe('positive values are the only valid ones')`. It is coherent against the test's own title (\"the number forms the guard regex allows\" — `-.5` is allowed by the regex and then classified by the sign checks), but a reader scanning describe blocks to find where negative handling is asserted will look at `describe('negative is invalid')` at line 78 and not find the signed-leading-dot case. Observation only — the assertion is correct and the grouping choice is defensible.",
-      "file": "tests/unit/quantityRule.test.ts",
-      "line": 53,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "A `.toBe('negative')` assertion sits inside the \"positive values\" describe block"
-    }
-  ],
+  "findings": [],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 0
 }

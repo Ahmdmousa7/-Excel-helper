@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:b7ddc8b2deaadc8ea5d747e80e8d01958e824e099395bccbe7750f314e7193e9` |
+| Attestation id | `sha256:e4e40d6435fbd870a65d240738b014229189f8ca11fbf5afd9a58d8438206378` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `8b1e0b339852` |
+| Reviewed at commit | `b857b678c1d1` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
-| info | 1 |
+| low | 0 |
+| info | 0 |
 
-This PR adds a single test case to tests/unit/quantityRule.test.ts that pins the four number forms the quantity guard regex accepts but which nothing had previously exercised: leading-dot decimals ('.5'), trailing-dot integers ('5.'), an explicit plus sign ('+3'), and a signed leading-dot ('-.5'). I verified every assertion against utils/quantityRule.ts:56 — the regex `^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$` accepts all four, and Number() then yields 0.5, 5, 3 and -0.5, so the expected verdicts ('ok', 'ok', 'ok', 'negative') are all correct. The addition is behavioural (input → verdict), carries a clear rationale for why the branches matter, and violates no blocking handbook. Two non-blocking observations follow.
+This PR refines the existing unit-test suite for `classifyQuantity`: it adds two assertions covering the signed-exponent branch of the guard regex (`1e+3`, `1E+3`) and relocates the `-.5` assertion out of the positive-values block into the negatives block, where its verdict belongs. I verified both new assertions against the regex and check ordering in `utils/quantityRule.ts:56-72` — `1e+3`/`1E+3` match `([eE][+-]?\d+)?` and coerce to 1000 ('ok'), and `-.5` matches `[+-]?\.\d+` and coerces to -0.5 ('negative'). No coverage was dropped in the move, no production code changed, and the diff introduces no new dependencies, suppressions, or debt markers. Clean.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ This PR adds a single test case to tests/unit/quantityRule.test.ts that pins the
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
-| Vitest | pass | 279/279 passed, lines 96.36% |
+| Vitest | pass | 280/280 passed, lines 96.36% |
 | Playwright | pass | 104/104 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 95 source files, 28351 lines
+- 95 source files, 28358 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
