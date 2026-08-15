@@ -1,20 +1,20 @@
 {
-  "attestation_id": "sha256:bdd14b6de25784fa510dbc5115f70d2a4eee5579aa2301161842e8d2769cbd2f",
+  "attestation_id": "sha256:dfbd7940024eba23761fa7d0960ea2b72b839854a529b3971a09f1db55fdd254",
   "files": [
     {
-      "oid": "32609bcd44ab78a45766a24bc881bb97d13247e9",
-      "path": "components/CompositeTab.tsx"
-    },
-    {
-      "oid": "65c50d464383886bf4e41696f9a5fdd7851d9dc0",
+      "oid": "b7edeaa4dcfdb6527f12662c0042ca2c6e0d8459",
       "path": "docs/modules/smart-lookup.md"
     },
     {
-      "oid": "a91812b6b853c249907a1ad912625a7515ee1739",
+      "oid": "32928b137f6cdca8807e463f8fe6de22dfbf9326",
+      "path": "docs/quality/tech-debt-register.md"
+    },
+    {
+      "oid": "d35c16b23021e4c1d0f7e75e882c2c19e7aae858",
       "path": "tests/unit/quantityRule.test.ts"
     },
     {
-      "oid": "64abcc6643e14c31cff2068b0afb67834d9db1e4",
+      "oid": "70edb1dcfe83243473eaf88e6e498d2289d5a336",
       "path": "utils/quantityRule.ts"
     }
   ],
@@ -22,12 +22,12 @@
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
+    "low": 2,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "b568a17eb941ef0db979e0608c5fe85afe13e6dd",
+  "reviewed_at_commit": "7562243f3f64c8dc464e5ebef0af8ff42cd4e803",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

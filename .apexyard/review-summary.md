@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:bdd14b6de25784fa510dbc5115f70d2a4eee5579aa2301161842e8d2769cbd2f` |
+| Attestation id | `sha256:dfbd7940024eba23761fa7d0960ea2b72b839854a529b3971a09f1db55fdd254` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `b568a17eb941` |
+| Reviewed at commit | `7562243f3f64` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
+| low | 2 |
 | info | 1 |
 
-This PR hardens the extracted Composite Check quantity rule so that only a plain decimal string is accepted (rejecting JS hex/octal/binary literals such as "0x10", which `Number()` had been silently accepting as 16), adds unit tests pinning that plus thousands-separator rejection, corrects a code comment that overstated where blank quantities are reported, and lands a 149-line verified audit of the Smart Lookup module. I confirmed the regex narrows the accept set without rejecting any value the previous `Number()` path legitimately accepted (scientific notation, leading `+`, `.5`, `5.` all still pass), verified the corrected comment against `strictEmptyCheck` at CompositeTab.tsx:506-532, and spot-verified the audit's headline claims against `components/SmartLookupTab.tsx` — the first-vs-last duplicate-key divergence (lines 165 vs 221) and the unguarded `ws[ref].s` (line 275) are both real as documented. No blocking handbook violations; the CompositeTab change is comment-only and the docs file adds no code. One low-severity regex-shape nit.
+This PR extracts the Composite Check ingredient-quantity rule into a pure `utils/quantityRule.ts#classifyQuantity`, backs it with an exhaustive unit spec, and adds two documentation artifacts (a Smart Lookup audit and four new tech-debt-register entries). The extraction is correct: the string path is gated behind an anchored, unambiguous decimal regex before `Number()`, which closes the `0x10`/`Infinity`/`[5]` holes the inline check had, and the `-0` ordering is deliberate and tested. I verified the ReDoS claim in the code comment — `^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$` backtracks linearly on a 100k-digit failing input, so the comment's reasoning and the guard test both hold. No blocking-handbook violations: the new util imports nothing, does no I/O, and touches no security surface. Three low/info findings, all documentation- or test-hygiene-shaped.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ This PR hardens the extracted Composite Check quantity rule so that only a plain
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
-| Vitest | pass | 277/277 passed, lines 96.36% |
+| Vitest | pass | 278/278 passed, lines 96.36% |
 | Playwright | pass | 104/104 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 95 source files, 28320 lines
+- 95 source files, 28336 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**

@@ -1,33 +1,42 @@
 {
-  "attestation_id": "sha256:bdd14b6de25784fa510dbc5115f70d2a4eee5579aa2301161842e8d2769cbd2f",
+  "attestation_id": "sha256:dfbd7940024eba23761fa7d0960ea2b72b839854a529b3971a09f1db55fdd254",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
+    "low": 2,
     "medium": 0
   },
   "findings": [
     {
-      "category": "performance",
-      "detail": "In `/^[+-]?(\\d+\\.?\\d*|\\.\\d+)(e[+-]?\\d+)?$/i`, the branch `\\d+\\.?\\d*` is ambiguous: because `\\.?` can match empty, a run of digits can be split between `\\d+` and `\\d*` in N different ways. On input that is a long digit run followed by a character that fails the anchor (e.g. a 30,000-character numeric-looking cell ending in a stray letter — Excel permits 32,767 chars per cell), the engine explores O(N^2) splits before returning `false`, on the main thread, once per quantity cell. This is not exponential and needs a pathological cell to be noticeable, so it is not a realistic user-facing freeze today; what would raise it to medium is any path that feeds this function untrimmed multi-KB text routinely. The fix is free and does not change which strings are accepted.",
+      "category": "code-smell",
+      "detail": "The function docstring states that an empty quantity \"is already reported as 'Missing Qty for Ingredient' earlier in the validation pass\". That block lives inside `if (strictEmptyCheck)` at components/CompositeTab.tsx:506, and the call site's truthiness guard at CompositeTab.tsx:554 means `classifyQuantity` never sees the blank either. With the toggle off, a blank quantity is reported by nothing. CompositeTab's own comment (lines 546-553) states this caveat explicitly and calls it a deliberate product decision; the util's docstring — which is what a second caller will read — presents the blank path as unconditionally covered. Nothing is broken today (a blank reaching the function still returns `non-numeric`), but the docstring is the artifact that would let the next caller omit its own blank handling on a false premise.",
       "file": "utils/quantityRule.ts",
-      "line": 49,
+      "line": 29,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Ambiguous `\\d+\\.?\\d*` alternative backtracks quadratically on a long non-matching cell"
+      "summary": "Docstring says blank is \"already reported\" — true only when Strict Empty Check is on"
     },
     {
       "category": "technical-debt",
-      "detail": "The audit is accurate and well-evidenced — I verified defect #1 (`runLookup` line 165 keeps the first row for a duplicate key, `handleDownload` line 221 keeps the last) and defect #3 (`if (!ws[ref].s)` dereferences `ws[ref]` before checking it exists, line 275) directly against the source. Defect #1 is a P0 that ships a file differing from the approved preview. The document is explicit that it is an audit record and that nothing is fixed yet, which is the right call for a no-code-change PR. The only gap is ownership: the P0 items carry a priority but no issue number or owner, so the \"recorded\" half of deliberate-recorded-owned is satisfied and the \"owned\" half is not. Purely advisory — this does not affect the verdict.",
+      "detail": "The § \"Confirmed defects\" section lists four defects: (1) preview vs export, (2) dates as serials, (3) header-styling crash, (4) error cells matching the wrong row. The sentence above them claims all four are registered as TD-043/TD-044/TD-045/TD-046 — but TD-044 is \"Smart Lookup has no tests\", which is not one of those four, and defect #4 (error cells, also parity-table row 7, P2) has no entry in docs/quality/tech-debt-register.md at all. I checked the register: TD-043 is preview/export, TD-045 is dates, TD-046 is the empty-header crash, and nothing covers error-cell keys. So a defect this PR documents as confirmed is simultaneously asserted to be tracked and is not — which is precisely the silent-debt case the technical-debt handbook exists to catch, made worse because the sentence tells a future reader not to look.",
       "file": "docs/modules/smart-lookup.md",
-      "line": 134,
+      "line": 28,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "\"All four are registered\" mismaps the defect list — the error-cell defect is untracked"
+    },
+    {
+      "category": "testing",
+      "detail": "`expect(performance.now() - started).toBeLessThan(1_000)` is a timing assertion, and the repo already carries TD-040 for intermittent, timing-shaped failures that block pushes. I am NOT calling this a defect: the regex is linear on this input, so the real runtime is single-digit milliseconds and the 1 s bound leaves roughly two orders of magnitude of headroom — the guard is well-calibrated and catches the quadratic form it exists to catch. Recording it only so the pattern is a deliberate choice: if this ever does fail on a loaded CI worker, the failure will look like a regex regression rather than scheduler noise, and the next reader will spend time on the wrong hypothesis.",
+      "file": "tests/unit/quantityRule.test.ts",
+      "line": 113,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Four confirmed defects recorded with priorities but no tracking references"
+      "summary": "Wall-clock assertion couples the ReDoS guard test to machine speed"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 3
 }
