@@ -103,14 +103,18 @@ describe('classifyQuantity', () => {
       }
     });
 
-    it('rejects a very long digit run promptly', () => {
-      // Guards the regex shape, not the verdict. An ambiguous pattern
+    it('rejects a very long digit run promptly', { timeout: 5_000 }, () => {
+      // Guards the regex SHAPE, not just the verdict. An ambiguous pattern
       // (`\d+\.?\d*`) backtracks quadratically here; 100k digits plus one letter
-      // is a hang rather than a wrong answer, and a spreadsheet cell is exactly
+      // takes minutes rather than microseconds, and a spreadsheet cell is exactly
       // where a string that long comes from.
-      const started = performance.now();
+      //
+      // The budget is the test's own timeout rather than a `performance.now()`
+      // comparison. A hand-rolled wall-clock assertion measures the machine as
+      // much as the code, and this suite runs alongside three other workers
+      // during the gate — TD-040 is what that costs. The gap being detected is
+      // six orders of magnitude, so a coarse bound loses nothing.
       expect(classifyQuantity('9'.repeat(100_000) + 'x')).toBe('non-numeric');
-      expect(performance.now() - started).toBeLessThan(1_000);
     });
 
     it('rejects thousands separators rather than guessing', () => {

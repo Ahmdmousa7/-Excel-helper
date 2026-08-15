@@ -25,7 +25,7 @@ That is the whole engine. There is no formula parser, no match-mode switch, no r
 
 ## Confirmed defects
 
-All four are registered: **TD-043** (preview vs export), **TD-044** (no tests), **TD-045** (dates), **TD-046** (empty-header crash) in [the tech-debt register](../quality/tech-debt-register.md).
+Registered in [the tech-debt register](../quality/tech-debt-register.md): **TD-043** (1, preview vs export) · **TD-045** (2, dates) · **TD-046** (3, empty-header crash) · **TD-047** (4, error cells). **TD-044** covers the absence of tests, which is not a defect in this list but is why every one of them survived.
 
 ### 1. 🐞 The preview and the downloaded file disagree on duplicate keys
 

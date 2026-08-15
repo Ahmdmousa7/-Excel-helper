@@ -24,12 +24,13 @@ export type QuantityVerdict =
 /**
  * Classify one quantity cell.
  *
- * BLANK is not handled here. An empty quantity is already reported as
- * "Missing Qty for Ingredient" earlier in the validation pass, where the SKU
- * beside it is in scope and the message can name it; classifying it again here
- * would produce two errors for one cell. Callers guard with a truthiness check,
- * and a blank reaching this function anyway is reported as `non-numeric` rather
- * than silently passing.
+ * BLANK is not handled here. An empty quantity is reported as "Missing Qty for
+ * Ingredient" earlier in the validation pass, where the SKU beside it is in scope
+ * and the message can name it — but only when Strict Empty Check is on, which is
+ * a user-facing toggle. With it off, nothing reports a blank quantity; that
+ * predates this rule and silencing blanks is what the toggle is for. Callers
+ * guard with a truthiness check either way, and a blank reaching this function
+ * anyway is reported as `non-numeric` rather than silently passing.
  */
 export function classifyQuantity(raw: unknown): QuantityVerdict {
   // Only a string or a number is a candidate. Coercing anything else with
