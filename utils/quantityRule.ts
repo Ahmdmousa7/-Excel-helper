@@ -46,7 +46,13 @@ export function classifyQuantity(raw: unknown): QuantityVerdict {
     // binary literals, so "0x10" arrived as the quantity 16 — a spreadsheet cell
     // reading 0x10 is text that someone needs to look at, not sixteen of
     // something. Excel agrees: it stores that as text, not as a number.
-    if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(text)) return 'non-numeric';
+    // Written so no two quantifiers can match the same character. The obvious
+    // form, `\d+\.?\d*`, lets the engine split a digit run between `\d+` and
+    // `\d*` in n ways, so a long all-digit cell ending in one letter backtracks
+    // quadratically — a 100k-character cell is a hang, and a spreadsheet is
+    // exactly where an absurdly long cell comes from. Here the fractional part is
+    // only reachable through a literal `.`, so a failure walks off in one pass.
+    if (!/^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/.test(text)) return 'non-numeric';
     n = Number(text);
   } else {
     return 'non-numeric';

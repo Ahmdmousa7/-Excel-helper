@@ -25,6 +25,8 @@ That is the whole engine. There is no formula parser, no match-mode switch, no r
 
 ## Confirmed defects
 
+All four are registered: **TD-043** (preview vs export), **TD-044** (no tests), **TD-045** (dates), **TD-046** (empty-header crash) in [the tech-debt register](../quality/tech-debt-register.md).
+
 ### 1. 🐞 The preview and the downloaded file disagree on duplicate keys
 
 `runLookup` keeps the **first** row for a duplicated key; `handleDownload` keeps the **last**.

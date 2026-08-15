@@ -103,6 +103,16 @@ describe('classifyQuantity', () => {
       }
     });
 
+    it('rejects a very long digit run promptly', () => {
+      // Guards the regex shape, not the verdict. An ambiguous pattern
+      // (`\d+\.?\d*`) backtracks quadratically here; 100k digits plus one letter
+      // is a hang rather than a wrong answer, and a spreadsheet cell is exactly
+      // where a string that long comes from.
+      const started = performance.now();
+      expect(classifyQuantity('9'.repeat(100_000) + 'x')).toBe('non-numeric');
+      expect(performance.now() - started).toBeLessThan(1_000);
+    });
+
     it('rejects thousands separators rather than guessing', () => {
       // `Number("1,000")` is NaN anyway; pinned so a future "be helpful" parse
       // does not silently turn "1,000" into 1.
