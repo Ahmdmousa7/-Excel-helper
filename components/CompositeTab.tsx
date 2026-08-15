@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { FileData, ProcessingStatus, LogEntry } from '../types';
+import { classifyQuantity } from '../utils/quantityRule';
 import { getSheetData, saveWorkbook, cloneWorkbook, readExcelFile } from '../services/excelService';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import ProgressBar from './ProgressBar';
@@ -104,6 +105,10 @@ const translateErrorToArabic = (errorMsg: string): string => {
     if (errorMsg.includes("Zero Qty")) {
         const match = errorMsg.match(/'([^']+)'/);
         return `مقدار الاستخدام من المادة يساوي صفر '${match ? match[1] : ''}'`;
+    }
+    if (errorMsg.includes("Negative Qty")) {
+        const match = errorMsg.match(/'([^']+)'/);
+        return `مقدار الاستخدام من المادة بالسالب '${match ? match[1] : ''}'`;
     }
     if (errorMsg.includes("Possible Typo:")) {
         const matches = errorMsg.match(/'([^']+)'/g);
@@ -531,29 +536,25 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                       const relativeIdx = item.col - fixedColCount;
                       const isQtyCol = relativeIdx % 2 !== 0;
 
-                      if (isQtyCol && item.val && isNaN(Number(item.val))) {
-                         rowErrors.push(`Non-numeric Qty '${item.val}'`);
-                         rowLocations.push(getCellRef(item.col));
-                      }
-
-                      // A quantity of ZERO, which used to pass silently.
+                      // A quantity must be strictly greater than zero. The three
+                      // ways it can fail get three messages, because they send you
+                      // to different places in the sheet: text where a number
+                      // should be, a line that says the composite uses none of an
+                      // ingredient it names, and a sign that is almost always a
+                      // formula or an export artefact.
                       //
-                      // It slipped through both existing checks: "0" is not empty,
-                      // so it is not a Missing Qty, and `Number("0")` is not NaN,
-                      // so it is not a Non-numeric Qty. The row therefore looked
-                      // completely valid while saying this composite uses none of
-                      // an ingredient it names — which is either a typo or a
-                      // deleted line someone forgot to remove, and on import it
-                      // produces a BOM entry that contributes nothing and a line
-                      // cost of zero.
-                      //
-                      // Checked separately from the NaN test rather than folded
-                      // into it, because the two need different messages: "this is
-                      // not a number" and "this is a number that cannot be right"
-                      // send you to different places in the sheet.
-                      if (isQtyCol && item.val && !isNaN(Number(item.val)) && Number(item.val) === 0) {
-                         rowErrors.push(`Zero Qty '${item.val}'`);
-                         rowLocations.push(getCellRef(item.col));
+                      // Blank is NOT handled here — it is already reported as
+                      // "Missing Qty for Ingredient" above, where the SKU beside it
+                      // is in scope and the message can name it.
+                      if (isQtyCol && item.val) {
+                         const verdict = classifyQuantity(item.val);
+                         if (verdict !== 'ok') {
+                            const label = verdict === 'non-numeric'
+                               ? 'Non-numeric Qty'
+                               : verdict === 'zero' ? 'Zero Qty' : 'Negative Qty';
+                            rowErrors.push(`${label} '${item.val}'`);
+                            rowLocations.push(getCellRef(item.col));
+                         }
                       }
                    }
                 });

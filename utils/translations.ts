@@ -72,7 +72,7 @@ export const TRANSLATIONS = {
       },
       composite: {
         desc: 'Validate composite items against raw materials and calculate costs.',
-        instr: 'Requires two sheets: "Composite" and "Raw". Checks if SKUs exist. Optionally calculates total cost based on ingredient prices.'
+        instr: 'Requires two sheets: "Composite" and "Raw". Checks if SKUs exist, and that every ingredient quantity is a number greater than zero — blank, zero and negative are all reported. Optionally calculates total cost based on ingredient prices.'
       },
       csv: {
         desc: 'Convert CSV files to Excel .xlsx format.',
@@ -529,7 +529,7 @@ export const TRANSLATIONS = {
       salla: { desc: 'تنسيق المنتجات لمنصة سلة.', instr: 'كشف تلقائي للمنتجات البسيطة والمتعددة وفصلها.' },
       zid: { desc: 'تنسيق المنتجات لمنصة زد.', instr: 'يعالج عمود "هل يوجد خيارات" ويفصل المنتجات.' },
       rewaa: { desc: 'تجهيز المنتجات لمنصة رواء.', instr: 'مطابقة الأعمدة وإنشاء ملف استيراد متوافق.' },
-      composite: { desc: 'التحقق من المنتجات المركبة وتكاليفها.', instr: 'مقارنة ورقة المركب بورقة المواد الخام.' },
+      composite: { desc: 'التحقق من المنتجات المركبة وتكاليفها.', instr: 'مقارنة ورقة المركب بورقة المواد الخام. يتم التحقق من وجود الرموز، ومن أن كل مقدار استخدام رقم أكبر من صفر — الفارغ والصفر والسالب كلها تُسجل كأخطاء.' },
       csv: { desc: 'تحويل ملفات CSV إلى Excel.', instr: 'دمج ملفات متعددة أو تحويلها دفعة واحدة.' },
       ocr: { desc: 'استخراج البيانات من الصور و PDF.', instr: 'تحويل الفواتير والقوائم إلى جداول إكسل.' },
       scraper: { desc: 'استخراج بيانات من المواقع.', instr: 'أدخل الرابط والوصف لاستخراج البيانات بذكاء.' },
