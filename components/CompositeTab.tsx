@@ -543,9 +543,14 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                       // ingredient it names, and a sign that is almost always a
                       // formula or an export artefact.
                       //
-                      // Blank is NOT handled here — it is already reported as
-                      // "Missing Qty for Ingredient" above, where the SKU beside it
-                      // is in scope and the message can name it.
+                      // Blank is NOT handled here. It is reported as "Missing Qty
+                      // for Ingredient" above, where the SKU beside it is in scope
+                      // and the message can name it — but ONLY when Strict Empty
+                      // Check is on, which is a user-facing toggle that defaults
+                      // to on. With it off, a blank quantity is reported by
+                      // nothing. That predates this rule and is left as-is
+                      // deliberately: silencing blanks is what the toggle is for,
+                      // and changing what it silences is a product decision.
                       if (isQtyCol && item.val) {
                          const verdict = classifyQuantity(item.val);
                          if (verdict !== 'ok') {

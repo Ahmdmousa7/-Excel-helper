@@ -95,6 +95,20 @@ describe('classifyQuantity', () => {
       }
     });
 
+    it('rejects hex, octal and binary literals', () => {
+      // `Number("0x10")` is 16, so a cell reading 0x10 was accepted as sixteen of
+      // something. Excel stores that as text, not as a number, and so should this.
+      for (const v of ['0x10', '0X1F', '0b101', '0o17']) {
+        expect(classifyQuantity(v), v).toBe('non-numeric');
+      }
+    });
+
+    it('rejects thousands separators rather than guessing', () => {
+      // `Number("1,000")` is NaN anyway; pinned so a future "be helpful" parse
+      // does not silently turn "1,000" into 1.
+      expect(classifyQuantity('1,000')).toBe('non-numeric');
+    });
+
     it('rejects NaN and Infinity', () => {
       // `typeof NaN === 'number'`, and `isNaN(Number("Infinity"))` is FALSE — so
       // the previous inline check let "Infinity" through as a valid positive

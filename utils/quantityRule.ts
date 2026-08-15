@@ -42,6 +42,11 @@ export function classifyQuantity(raw: unknown): QuantityVerdict {
   } else if (typeof raw === 'string') {
     const text = raw.trim();
     if (text === '') return 'non-numeric';
+    // A PLAIN DECIMAL only. `Number()` also accepts JavaScript's hex, octal and
+    // binary literals, so "0x10" arrived as the quantity 16 — a spreadsheet cell
+    // reading 0x10 is text that someone needs to look at, not sixteen of
+    // something. Excel agrees: it stores that as text, not as a number.
+    if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(text)) return 'non-numeric';
     n = Number(text);
   } else {
     return 'non-numeric';
