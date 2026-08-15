@@ -152,7 +152,34 @@ export const TRANSLATIONS = {
       projectSummary: 'Project Summary'
     },
     smartLookup: {
-        title: 'Smart Lookup (XLOOKUP+)'
+        // NOT "XLOOKUP+", which is what this said and could not back up: XLOOKUP
+        // has match modes, search modes and if_not_found, and none of them are
+        // implemented. It is an exact-match join that is more forgiving than
+        // VLOOKUP about type, case, spacing and leading zeros — which is worth
+        // saying plainly, because that leniency is the reason to use it.
+        title: 'Smart Lookup (forgiving exact match)',
+        notFound: 'Not Found',
+        matchSettings: 'Match Settings',
+        firstRowIsHeader: 'First row is a header',
+        firstRowIsHeaderHint: 'Off: every row is data, and nothing is skipped.',
+        notFoundLabel: 'When nothing matches',
+        notFoundHint: 'Leave empty to write a blank cell.',
+        run: 'Run Smart Lookup',
+        sourceTable: 'Source Table (Look Value)',
+        targetTable: 'Target Table (Search In)',
+        lookupColumn: 'Lookup Column (Value to Search)',
+        matchKey: 'Match Key (Column to Find)',
+        returnColumns: 'Return Columns (Result)',
+        currentFile: 'Current File',
+        externalFile: 'External File',
+        uploadReference: 'Upload Reference File',
+        resultPreview: 'Result Preview',
+        found: 'Found',
+        missing: 'Missing',
+        download: 'Download Result',
+        maxRowsPerFile: 'Max Rows/File',
+        smartMatch: 'Smart Match',
+        smartMatchHint: 'Ignores type (Text/Number) & leading zeros (001 = 1)',
     },
     actions: {
       uploadFile: 'Upload File',
@@ -575,7 +602,29 @@ export const TRANSLATIONS = {
       projectSummary: 'ملخص المشروع'
     },
     smartLookup: {
-        title: 'البحث الذكي (XLOOKUP+)'
+        title: 'البحث الذكي (مطابقة تامة مرنة)',
+        notFound: 'غير موجود',
+        matchSettings: 'إعدادات المطابقة',
+        firstRowIsHeader: 'الصف الأول عناوين',
+        firstRowIsHeaderHint: 'عند الإيقاف: كل الصفوف بيانات ولا يتم تخطي أي صف.',
+        notFoundLabel: 'عند عدم وجود تطابق',
+        notFoundHint: 'اتركه فارغاً لكتابة خلية فارغة.',
+        run: 'تشغيل البحث الذكي',
+        sourceTable: 'جدول المصدر (القيمة المطلوبة)',
+        targetTable: 'الجدول الهدف (مكان البحث)',
+        lookupColumn: 'عمود البحث (القيمة)',
+        matchKey: 'عمود المطابقة',
+        returnColumns: 'الأعمدة المرجعة (النتيجة)',
+        currentFile: 'الملف الحالي',
+        externalFile: 'ملف خارجي',
+        uploadReference: 'رفع ملف مرجعي',
+        resultPreview: 'معاينة النتيجة',
+        found: 'تم العثور',
+        missing: 'غير موجود',
+        download: 'تحميل النتيجة',
+        maxRowsPerFile: 'أقصى عدد صفوف/ملف',
+        smartMatch: 'المطابقة الذكية',
+        smartMatchHint: 'تتجاهل النوع (نص/رقم) والأصفار البادئة (001 = 1)',
     },
     actions: {
       uploadFile: 'رفع ملف',

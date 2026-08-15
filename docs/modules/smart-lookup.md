@@ -1,151 +1,108 @@
 # Smart Lookup — verified capability reference
 
-**Audited:** 2026-08-16 · **Against:** `components/SmartLookupTab.tsx` (509 lines, the entire module)
-**Method:** source read plus a live run of the real UI against a probe workbook. Behaviour claims below are observed, not inferred, except where marked *(by inspection)*.
+**Audited:** 2026-08-16 · **Remediated:** 2026-08-16 · **Against:** `components/SmartLookupTab.tsx` + `utils/lookupEngine.ts`
+**Method:** source read plus live runs of the real UI against a probe workbook. Behaviour claims are observed, not inferred, except where marked *(by inspection)*.
 
-> **Status of this document:** an audit record. Nothing here has been fixed yet — it exists so the fixes can be chosen deliberately. Two defects it records are user-visible today.
+> **Scope of the remediation:** correctness and architecture only. Approximate/range match, wildcards and full `XLOOKUP` semantics were deliberately **not** implemented — see *Deliberately not done*.
 
-## What the module actually is
+## What the module is
 
-One exact-match join, implemented once and then implemented again slightly differently for export.
+One exact-match join, in one place: `utils/lookupEngine.ts`.
 
 ```
-build Map<normalisedKey, refRow>  →  for each source row, Map.get(key)  →  append return columns
+readGrid(sheet) → buildLookup(source, ref, options) → rows → writeSheet()
+                                   ↓
+                        preview and export both read THESE rows
 ```
 
-That is the whole engine. There is no formula parser, no match-mode switch, no range logic. `normalizeValue()` (lines 24–37) is the only matching rule:
+It used to be two joins. `runLookup` kept the first row for a duplicated key and `handleDownload` kept the last, so the preview a user approved and the file they downloaded disagreed (TD-043). The export no longer performs a lookup at all — it writes the rows the preview was built from.
 
-| Input | Normalised to | Consequence |
+The engine works on **cells**, not values. That is load-bearing: a value alone cannot tell you `46037` is a date rather than a number (TD-045), or that a key is `#N/A` rather than the number 15 (TD-047). Both are cell facts — `z` and `t` — and both were discarded by the old flatten-to-values step.
+
+### The matching rule
+
+`normalizeKey()` is the only rule:
+
+| Input | Becomes | Note |
 |---|---|---|
-| any value | `String(val).trim().toLowerCase()` | matching is **always** case-insensitive and **always** whitespace-insensitive |
-| `"007"` with Smart Match on | `"7"` | leading zeros stripped when the string is **all digits** (`/^\d+$/`) |
-| `"Item-01"` with Smart Match on | `"item-01"` | the all-digits guard deliberately protects mixed keys |
+| any value | `String(v).trim().toLowerCase()` | matching is **always** case- and whitespace-insensitive |
+| `"007"`, Smart Match on | `"7"` | leading zeros stripped only when the string is all digits |
+| `"Item-01"`, Smart Match on | `"item-01"` | the all-digits guard protects mixed keys |
+| an error cell (`t === 'e'`) | `null` | cannot be a key, either side |
+| blank | `null` | cannot be a key, either side |
 
-**Smart Match is a superset of Excel, not a match mode.** It makes the tool find things `VLOOKUP` would not. That is the module's reason to exist, and it is also why results legitimately differ from a manual formula — see the parity table.
-
-## Confirmed defects
-
-Registered in [the tech-debt register](../quality/tech-debt-register.md): **TD-043** (1, preview vs export) · **TD-045** (2, dates) · **TD-046** (3, empty-header crash) · **TD-047** (4, error cells). **TD-044** covers the absence of tests, which is not a defect in this list but is why every one of them survived.
-
-### 1. 🐞 The preview and the downloaded file disagree on duplicate keys
-
-`runLookup` keeps the **first** row for a duplicated key; `handleDownload` keeps the **last**.
-
-```ts
-// line 165 — preview
-if (key && !refMap.has(key)) refMap.set(key, row);
-// line 221 — export   ← no guard
-if (key) refMap.set(key, refRows[i]);
-```
-
-Observed on a reference sheet with two `A-1` rows:
-
-| | Value column | Date column |
-|---|---|---|
-| On-screen preview | `FIRST` | `46037` |
-| Downloaded file | **`LAST`** | **`46038`** |
-
-The user validates one result and ships another. Excel's `VLOOKUP`/`XLOOKUP` default to the **first** match, so the preview is the correct half.
-
-The root cause is that the lookup runs **twice** from two hand-written copies. Export does not reuse the preview's result; it rebuilds the index and re-runs the join.
-
-### 2. 🐞 Dates come back as serial numbers
-
-`readExcelFile` parses with `{ raw: true }` and no `cellDates`, so a date cell is a serial number by the time Smart Lookup sees it. A returned date column exports as `46037`, not a date. Excel's `VLOOKUP` returns a value that still displays as a date.
-
-Observed: `WhenAdded` returned `46037`/`46038` in both preview and file.
-
-### 3. 🐞 Header styling can throw *(by inspection)*
-
-```ts
-if (!ws[ref].s) ws[ref].s = {};   // line 275
-```
-`ws[ref]` is undefined when a header cell is empty, which `aoa_to_sheet` produces for a blank/undefined header. The download then fails with `Download Error: Cannot read properties of undefined`. Reachable whenever a chosen return column has no header text.
-
-### 4. 🐞 Error cells can match the wrong row *(by inspection)*
-
-With `raw: true`, an error cell's value is SheetJS's numeric error code, so `#N/A` in a key column normalises to a digit string (e.g. `"15"`) and can collide with a genuine key of `15`. Excel propagates the error instead.
+**Smart Match is a superset of Excel, not a match mode.** It finds things `VLOOKUP` would not. That is the point of the tool, and also why results legitimately differ from a manual formula — trimming and case-folding are not `VLOOKUP` behaviour.
 
 ## Parity table
 
 Status: ✅ full parity · 🟡 partial · ❌ missing · 🐞 incorrect
 
-| # | Feature | Manual Excel capability | Smart Lookup support | Status | Evidence | Missing / Gap | Recommended fix | Priority |
-|---|---|---|---|---|---|---|---|---|
-| 1 | Exact match | `VLOOKUP(…,0)`, `XLOOKUP` default | Map keyed on normalised value | ✅ | Live run: `A-9` → `Not Found`; `A-1` → matched | — | — | — |
-| 2 | Return column left of key | Only `XLOOKUP` / `INDEX+MATCH`; `VLOOKUP` cannot | Any column by index, either side | ✅ | `returnCols` is independent of `matchCol` (line 189) | — | — | — |
-| 3 | Multi-column return | `XLOOKUP` spill, or several formulas | Checkbox list, appended in order | ✅ | Live run returned `Value` + `WhenAdded` | — | — | — |
-| 4 | Duplicate keys — which row wins | First match (both functions) | **Preview first, export last** | 🐞 | `FIRST` vs `LAST`, above | Two divergent index builds | Delete the export copy; reuse the preview result | **P0** |
-| 5 | Dates | Returned date stays a date | Serial number | 🐞 | `46037` in preview and file | No `cellDates`, no format carry | Parse with `cellDates`, or set `z` on returned date cells | **P0** |
-| 6 | Empty header on a return column | Not applicable | Download throws | 🐞 | `ws[ref].s` on undefined cell | Unguarded cell access | `if (ws[ref])` before styling | **P1** |
-| 7 | Error cells as keys | `#N/A` propagates | Error code can match a number | 🐞 | `raw:true` yields the code | No `t === 'e'` check | Treat error cells as no-key | P2 |
-| 8 | Approximate / range match | `VLOOKUP(…,TRUE)`, `XLOOKUP ±1` | None | ❌ | Only `Map.get` exists | Price tiers, tax bands, grade bands | Sorted array + binary search on numeric keys | **P1** |
-| 9 | Wildcards | `VLOOKUP("A*")`, `XLOOKUP` mode 2 | None | ❌ | No pattern path | Partial-code matching | Opt-in mode; scan instead of hash | P2 |
-| 10 | Search from last | `XLOOKUP` search mode −1 | None | ❌ | — | "Most recent price" | Expose as a first/last toggle — see #4 | P2 |
-| 11 | Case-SENSITIVE match | `EXACT()` + `INDEX/MATCH` | Always case-insensitive | ❌ | `.toLowerCase()` unconditional (line 27) | Case-distinct SKUs collide | Option; drop `toLowerCase` when off | P3 |
-| 12 | Whitespace significance | `VLOOKUP` treats `"A "` ≠ `"A"` | Always trimmed | 🟡 | `  A-2  ` matched `A-2` | More lenient than Excel — silently differs | Document; fold into a match-strictness option | P2 |
-| 13 | Type coercion (text/number) | `"1"` ≠ `1` in Excel | Both `"1"` under Smart Match | 🟡 | Deliberate; the module's purpose | Differs from formula | Already surfaced as a toggle | — |
-| 14 | Leading zeros | `"007"` ≠ `7` | Equal under Smart Match | 🟡 | `007` matched `7` live | Same as above | — | — |
-| 15 | `MATCH` (position only) | `MATCH()` returns an index | None | ❌ | No row-number output | Cannot get position | Return-column option "row number" | P3 |
-| 16 | `HLOOKUP` / row-wise | `HLOOKUP` | None | ❌ | Column-oriented only | Transposed sheets | Transpose-on-read option | P3 |
-| 17 | Not-found value | `XLOOKUP if_not_found`, `IFERROR` | Hard-coded `"Not Found"` | 🟡 | Line 194 | No blank / 0 / custom; **not translated**; a string in a numeric column | Text box + blank option; localise | **P1** |
-| 18 | Lookup across several sheets | `IFERROR(VLOOKUP(s1),VLOOKUP(s2))` | One ref sheet | ❌ | Single `refSheet` | Split reference data | Multi-sheet ref list, first hit wins | P2 |
-| 19 | Several workbooks | Cross-workbook refs | One external file | 🟡 | One `refFile` | Two sources max | Accept multiple ref files | P3 |
-| 20 | Named ranges | `VLOOKUP(x, MyRange, …)` | None | ❌ | Sheet + column index only | Named ranges ignored | Read `workbook.Workbook.Names` | P3 |
-| 21 | Tables / structured refs | `Table1[Col]` | None | ❌ | Same | — | Same | P3 |
-| 22 | Dynamic ranges | Spill refs, `OFFSET` | Whole sheet always | 🟡 | Reads every row | No range limit; header row assumed | Row-range inputs | P3 |
-| 23 | Data has no header row | Formulas need no headers | Row 1 always consumed as headers | 🟡 | Loops start at `i = 1` | First record silently lost | "My data has no headers" checkbox | **P1** |
-| 24 | Hidden sheets | Referenceable | Listed like any other | ✅ | `fileData.sheets` includes them | — | — | — |
-| 25 | Result data types | Preserved | Preserved for numbers/text | ✅ | Raw values copied (line 190) | Dates excepted — see #5 | — | — |
-| 26 | Number formatting | Follows source cell | Lost | 🟡 | `aoa_to_sheet` writes bare values | Currency/percent/date formats gone | Copy `z` from source cell | P2 |
-| 27 | Blank lookup key | `#N/A` | Row output, all `"Not Found"` | 🟡 | `key` falsy → no match | Not distinguished from a real miss | Separate marker | P3 |
-| 28 | Blank key in reference | Would be matched | Skipped (`if (key)`) | ✅ | Sensible | — | — | — |
-| 29 | Spill / dynamic array | `XLOOKUP` spills | Static grid | ✅ | Equivalent outcome | N/A to a file tool | — | — |
-| 30 | Large data — correctness | Formulas scale | Hash join, O(n+m) | ✅ | Right algorithm | — | — | — |
-| 31 | Large data — responsiveness | Excel stays usable | Synchronous loop blocks the tab | 🟡 | No `await` inside the loops | UI freezes; no cancel | Chunk with yields; cancel button | P2 |
-| 32 | Progress accuracy | N/A | Reported | 🟡 | `setProgress` inside a blocking loop cannot paint | Bar jumps | Same fix as #31 | P3 |
-| 33 | Batch export to ZIP | Manual | Supported | ✅ | Beyond Excel | — | — | — |
-| 34 | UI — match mode | Argument on the formula | Only Smart Match on/off | 🟡 | One checkbox | No exact/approx/wildcard | Depends on #8, #9 | **P1** |
-| 35 | UI — search mode | `XLOOKUP` argument | None | ❌ | — | See #10 | — | P2 |
-| 36 | UI — localisation | N/A | Panel is hard-coded English | 🟡 | `t` imported, mostly unused | Arabic users see English + `"Not Found"` | Move strings into `translations.ts` | P2 |
-| 37 | Test coverage | N/A | **None** | ❌ | No unit or e2e spec references this module | Every defect above could have shipped unnoticed | Unit-test the join; e2e the preview/export agreement | **P0** |
+| # | Feature | Manual Excel capability | Smart Lookup support | Status | Evidence | Remaining gap | Priority |
+|---|---|---|---|---|---|---|---|
+| 1 | Exact match | `VLOOKUP(…,0)`, `XLOOKUP` | Hash join on the normalised key | ✅ | e2e + 23 unit tests | — | — |
+| 2 | Return column left of key | `XLOOKUP` / `INDEX+MATCH` only | Any column, either side | ✅ | Unit test | — | — |
+| 3 | Multi-column return | `XLOOKUP` spill | Checkbox list, order preserved | ✅ | Unit + e2e | — | — |
+| 4 | Duplicate keys | First match | **First match**, preview and file | ✅ | **Fixed — TD-043.** e2e compares file to preview cell for cell | — | — |
+| 5 | Dates | Stays a date | `z` carried; preview formats too | ✅ | **Fixed — TD-045** | — | — |
+| 6 | Empty return-column header | N/A | Exports normally | ✅ | **Fixed — TD-046** | — | — |
+| 7 | Error cells as keys | `#N/A` propagates | Treated as no-key | ✅ | **Fixed — TD-047.** Unit tests both sides | — | — |
+| 8 | Approximate / range match | `VLOOKUP(…,TRUE)`, `XLOOKUP ±1` | None | ❌ | Deliberately deferred | Price tiers, tax bands | P1 (next) |
+| 9 | Wildcards | `XLOOKUP` mode 2 | None | ❌ | Deliberately deferred | Partial codes | P2 |
+| 10 | Search from last | `XLOOKUP` mode −1 | None | ❌ | Deliberately deferred | "Most recent" | P2 |
+| 11 | Case-SENSITIVE match | `EXACT()` + `INDEX/MATCH` | Always insensitive | ❌ | `toLowerCase` unconditional | Case-distinct SKUs | P3 |
+| 12 | Whitespace significance | `"A "` ≠ `"A"` | Always trimmed | 🟡 | Documented above | More lenient than Excel | P3 |
+| 13 | Type coercion | `"1"` ≠ `1` | Equal under Smart Match | 🟡 | The tool's purpose; a toggle | — | — |
+| 14 | Leading zeros | `"007"` ≠ `7` | Equal under Smart Match | 🟡 | Same | — | — |
+| 15 | `MATCH` (position) | Returns an index | None | ❌ | — | No row-number output | P3 |
+| 16 | `HLOOKUP` / row-wise | `HLOOKUP` | None | ❌ | — | Transposed sheets | P3 |
+| 17 | Not-found value | `XLOOKUP if_not_found` | Text box; empty = blank cell | ✅ | **Fixed.** Localised default | — | — |
+| 18 | Several ref sheets | `IFERROR(VLOOKUP…)` | One | ❌ | — | Split reference data | P2 |
+| 19 | Several workbooks | Cross-workbook | One external file | 🟡 | — | Two sources max | P3 |
+| 20 | Named ranges | `VLOOKUP(x, MyRange,…)` | None | ❌ | — | — | P3 |
+| 21 | Tables / structured refs | `Table1[Col]` | None | ❌ | — | — | P3 |
+| 22 | Dynamic ranges | Spill refs, `OFFSET` | Whole sheet | 🟡 | — | No row-range inputs | P3 |
+| 23 | No header row | Formulas need no headers | **"First row is a header" toggle** | ✅ | **Fixed.** Unit test | — | — |
+| 24 | Hidden sheets | Referenceable | Listed normally | ✅ | — | — | — |
+| 25 | Result data types | Preserved | Preserved | ✅ | Unit test (numbers, booleans) | — | — |
+| 26 | Number formatting | Follows source | `z` carried to output | ✅ | **Fixed with TD-045** — also currency, percent | — | — |
+| 27 | Blank lookup key | `#N/A` | Counted as a miss | 🟡 | Unit test | Not distinguished from a real miss | P3 |
+| 28 | Blank reference key | Would match | Never indexed | ✅ | Unit test | — | — |
+| 29 | Spill / dynamic array | Spills | Static grid | ✅ | Equivalent for a file tool | — | — |
+| 30 | Large data — correctness | Scales | O(n+m) hash join | ✅ | 10k-row unit test, first-match order held | — | — |
+| 31 | Large data — responsiveness | Excel stays usable | Synchronous; blocks the tab | 🟡 | No yields in the loops | UI freeze, no cancel | P2 |
+| 32 | Progress accuracy | N/A | Coarse (0 → 20 → 90 → 100) | 🟡 | Cannot paint mid-loop | Same fix as #31 | P3 |
+| 33 | Batch ZIP export | Manual | Supported, same sheet builder | ✅ | Now styled like single files | — | — |
+| 34 | UI — match mode | Formula argument | Smart Match on/off only | 🟡 | — | Depends on #8/#9 | P1 (with #8) |
+| 35 | UI — search mode | `XLOOKUP` argument | None | ❌ | — | See #10 | P2 |
+| 36 | UI — localisation | N/A | Fully localised, en + ar | ✅ | **Fixed** | — | — |
+| 37 | Test coverage | N/A | 23 unit + 3 e2e | ✅ | **Fixed — TD-044** | — | — |
+
+### Totals
+
+| | Before | After |
+|---|---:|---:|
+| ✅ Full parity | 9 | **18** |
+| 🟡 Partial | 12 | **8** |
+| ❌ Missing | 12 | **11** |
+| 🐞 Incorrect | 4 | **0** |
+| Audited | 37 | 37 |
+
+## Deliberately not done
+
+Approximate/range match (#8), wildcards (#9), search-from-last (#10) and full `XLOOKUP` semantics were held back on purpose: correctness and architecture first, feature expansion second. The engine now takes an options object, so a match mode is an added field rather than a rewrite — which is the point of doing it in this order.
 
 ## Documentation accuracy
 
-| Claim | Where | Verdict |
-|---|---|---|
-| "Smart Lookup (**XLOOKUP+**)" | `translations.ts` → `smartLookup.title` | ❌ **Overstated.** `XLOOKUP` has match modes, search modes and `if_not_found`; none are implemented. It is an exact-match join with lenient normalisation. |
-| "Advanced VLOOKUP that handles mixed types and leading zeros automatically" | `toolInfo.smartLookup.desc` | ✅ Accurate. |
-| "You can upload a separate reference file" | `toolInfo.smartLookup.instr` | ✅ Accurate. |
-| Left-of-key return | nowhere | Implemented but **undocumented** — the one genuine advantage over `VLOOKUP` and it is not mentioned. |
-| Batch ZIP export | nowhere | Implemented, undocumented. |
-| Always case-insensitive / always trimmed | nowhere | Real behaviour, undocumented, and the likeliest source of "why did this match?" |
+| Claim | Verdict |
+|---|---|
+| ~~"Smart Lookup (XLOOKUP+)"~~ → **"Smart Lookup (forgiving exact match)"** | **Corrected.** `XLOOKUP` has match modes, search modes and `if_not_found`; only the last of those exists here. The title claimed a parity the code did not have. |
+| "Advanced VLOOKUP that handles mixed types and leading zeros automatically" | ✅ Accurate. |
+| "You can upload a separate reference file" | ✅ Accurate. |
+| Left-of-key return | Was implemented and undocumented — recorded above (#2). |
+| Batch ZIP export | Was implemented and undocumented — recorded above (#33). |
+| Always case-insensitive / always trimmed | Was undocumented and is the likeliest source of "why did this match?" — recorded above. |
 
-## Totals
+## Where the tests are
 
-| | Count |
-|---|---:|
-| Capabilities audited | 37 |
-| ✅ Full parity | 9 |
-| 🟡 Partial | 12 |
-| ❌ Missing | 12 |
-| 🐞 Incorrect | 4 |
-
-## Highest-priority gaps
-
-1. **#4 — preview ≠ export on duplicate keys.** Silent, and it produces a file that differs from what was approved on screen.
-2. **#37 — no tests at all.** The only module of this size with none.
-3. **#5 — dates export as serials.** Any date column is corrupted on the way out.
-4. **#23 — header row always assumed.** Headerless data silently loses its first record.
-5. **#17 — not-found is a hard-coded, untranslated string** written into numeric columns.
-6. **#8 — no approximate match.** The largest genuine capability gap against Excel.
-
-## Recommended implementation order
-
-1. **Unify the two lookups** (#4). Export should reuse the preview's rows. Fixes the divergence and deletes a duplicate implementation — everything below gets cheaper.
-2. **Add the test suite** (#37) around the unified path, before changing behaviour further.
-3. **Dates and the styling crash** (#5, #6) — small, contained, user-visible.
-4. **Not-found behaviour and the header toggle** (#17, #23) — UI plus one option each.
-5. **Approximate match** (#8), then **wildcards** (#9) and **first/last** (#10) once the engine takes a mode.
-6. **Localisation** (#36) and **responsiveness** (#31).
-7. Correct the **"XLOOKUP+"** title, or implement enough of `XLOOKUP` to earn it.
+- `tests/unit/lookupEngine.test.ts` — 23 tests on the join and the matching rule.
+- `e2e/smart-lookup.spec.ts` — 3 specs. The first compares the downloaded file against the on-screen preview **cell for cell**, so a future divergence fails whatever the values are; it is the test TD-043 did not have.

@@ -10,7 +10,12 @@ export const readExcelFile = async (file: File): Promise<FileData> => {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array', raw: true });
+        // `cellNF` populates each cell's `z` (its number format). SheetJS leaves
+        // it undefined otherwise, and without it a date is indistinguishable from
+        // the number 46037 once the values are read — which is exactly how Smart
+        // Lookup exported dates as serials (TD-045). It adds a format string per
+        // formatted cell and changes no value.
+        const workbook = XLSX.read(data, { type: 'array', raw: true, cellNF: true });
         resolve({
           name: file.name,
           workbook: workbook,
@@ -61,7 +66,7 @@ export const fetchGoogleSheet = async (url: string): Promise<FileData> => {
              throw new Error("Access Denied. Sheet must be Public (Anyone with link).");
           }
 
-          const workbook = XLSX.read(arrayBuffer, { type: 'array', raw: true });
+          const workbook = XLSX.read(arrayBuffer, { type: 'array', raw: true, cellNF: true });
           
           if (workbook.SheetNames.length === 0) throw new Error("Empty file.");
 

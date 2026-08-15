@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import { FileData, ProcessingStatus, LogEntry } from '../types';
 import { getSheetData, saveWorkbook, readExcelFile } from '../services/excelService';
 import { TRANSLATIONS, Language } from '../utils/translations';
+import { readGrid, buildLookup, formatCell, writeSheet, type CellInfo } from '../utils/lookupEngine';
 import ProgressBar from './ProgressBar';
 import { 
   Search, ArrowRight, Database, UploadCloud, FileSpreadsheet, 
@@ -19,22 +20,10 @@ interface Props {
   language?: Language;
 }
 
-// Normalizer for "Smart Match"
-// Converts "00123" -> "123", 123 -> "123", "  ABC " -> "abc"
-const normalizeValue = (val: any, smartMode: boolean): string => {
-    if (val === null || val === undefined) return "";
-    const str = String(val).trim();
-    if (!smartMode) return str.toLowerCase();
-
-    // 1. Try parsing as number to strip leading zeros (e.g. "007" -> 7)
-    // We only do this if the string is purely numeric digits to avoid destroying "Item-01"
-    if (/^\d+$/.test(str)) {
-        return String(Number(str));
-    }
-    
-    // 2. Fallback: standard trim and lowercase
-    return str.toLowerCase();
-};
+// The matching rule and the join both live in `utils/lookupEngine.ts` now. They
+// used to be here AND again inside `handleDownload`, and the two copies differed
+// by one guard — the preview kept the first row for a duplicated key, the export
+// kept the last (TD-043).
 
 const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language = 'en' }) => {
   const t = TRANSLATIONS[language];
@@ -65,6 +54,25 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
   const [progress, setProgress] = useState<number>(0);
   const [resultPreview, setResultPreview] = useState<any[][]>([]);
   const [stats, setStats] = useState<{ found: number, missing: number } | null>(null);
+  /**
+   * THE result — every row, not just the previewed ones.
+   *
+   * Export reads this instead of re-running the join. That is the whole fix for
+   * TD-043: there is no second computation left to disagree with the first.
+   */
+  const [resultRows, setResultRows] = useState<CellInfo[][]>([]);
+  const [resultHeader, setResultHeader] = useState<string[] | null>(null);
+
+  // 3b. Behaviour options a manual formula user expects to control.
+  const [hasHeaders, setHasHeaders] = useState<boolean>(true);
+  /**
+   * `null` means "the user has not chosen", so the localised default is used and
+   * still follows a language switch. An EMPTY STRING is a real choice — write a
+   * blank cell — which is why this is not just `useState('')` with a fallback:
+   * that cannot tell "untouched" from "deliberately cleared".
+   */
+  const [notFoundValue, setNotFoundValue] = useState<string | null>(null);
+  const effectiveNotFound = notFoundValue ?? t.smartLookup.notFound;
 
   // --- EFFECTS ---
 
@@ -148,60 +156,34 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
 
       await new Promise(r => setTimeout(r, 100));
 
-      const sourceRows = getSheetData(fileData.workbook, sourceSheet, true); // Raw values
-      const refRows = getSheetData(refFile.workbook, refSheet, true);
+      // Cells, not values. `readGrid` keeps each cell's type and number format,
+      // which is what lets the engine refuse to key on an error (TD-047) and lets
+      // the export keep a date a date (TD-045).
+      const sourceGrid = readGrid(XLSX, fileData.workbook.Sheets[sourceSheet]);
+      const refGrid = readGrid(XLSX, refFile.workbook.Sheets[refSheet]);
+      setProgress(20);
 
-      // 1. Index the Reference Data
-      // Map<NormalizedKey, RowData>
-      const refMap = new Map<string, any[]>();
-      
-      const totalRef = refRows.length;
-      // Start from 1 to skip header
-      for(let i = 1; i < totalRef; i++) {
-          const row = refRows[i];
-          const rawKey = row[matchCol];
-          // Use smart normalization
-          const key = normalizeValue(rawKey, smartMode);
-          if (key && !refMap.has(key)) {
-              refMap.set(key, row);
-          }
-          if (i % 2000 === 0) setProgress(Math.round((i / totalRef) * 20)); // First 20%
-      }
+      const result = buildLookup(sourceGrid, refGrid, {
+          matchCol,
+          lookupCol,
+          returnCols,
+          smartMode,
+          hasHeaders,
+          notFoundValue: effectiveNotFound,
+      });
+      setProgress(90);
 
-      // 2. Perform Lookup
-      const outputHeader = [...sourceHeaders, ...returnCols.map(i => refHeaders[i])];
-      const outputData = [outputHeader];
-      
-      let foundCount = 0;
-      let missingCount = 0;
-      const totalSource = sourceRows.length;
+      // Held whole. The download exports THESE rows rather than repeating the
+      // join, which is what stops the file disagreeing with the screen (TD-043).
+      setResultRows(result.rows);
+      setResultHeader(result.header);
+      setStats({ found: result.found, missing: result.missing });
+      setResultPreview([
+          result.header ?? [],
+          ...result.rows.slice(0, 50).map(row => row.map(c => formatCell(XLSX, c))),
+      ]);
 
-      for (let i = 1; i < totalSource; i++) {
-          const row = sourceRows[i];
-          const rawKey = row[lookupCol];
-          const key = normalizeValue(rawKey, smartMode);
-          
-          const match = refMap.get(key);
-          const newRow = [...row];
-
-          if (match) {
-              foundCount++;
-              returnCols.forEach(colIdx => {
-                  newRow.push(match[colIdx]);
-              });
-          } else {
-              missingCount++;
-              returnCols.forEach(() => newRow.push("Not Found"));
-          }
-          outputData.push(newRow);
-
-          if (i % 1000 === 0) setProgress(20 + Math.round((i / totalSource) * 80));
-      }
-
-      setStats({ found: foundCount, missing: missingCount });
-      setResultPreview(outputData.slice(0, 50)); // Preview first 50
-      
-      addLog(`Lookup complete. Found: ${foundCount}, Missing: ${missingCount}.`, 'success');
+      addLog(`Lookup complete. Found: ${result.found}, Missing: ${result.missing}.`, 'success');
       setProgress(100);
       setStatus(ProcessingStatus.COMPLETED);
   };
@@ -213,29 +195,12 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
       setProgress(0);
       
       try {
-          const sourceRows = getSheetData(fileData!.workbook, sourceSheet, true);
-          const refRows = getSheetData(refFile!.workbook, refSheet, true);
-          const refMap = new Map<string, any[]>();
-          for(let i = 1; i < refRows.length; i++) {
-              const key = normalizeValue(refRows[i][matchCol], smartMode);
-              if (key) refMap.set(key, refRows[i]);
-          }
-
-          const headerRow = [...sourceHeaders, ...returnCols.map(i => refHeaders[i])];
-          const allDataRows: any[][] = [];
-          
-          for(let i = 1; i < sourceRows.length; i++) {
-              const row = sourceRows[i];
-              const key = normalizeValue(row[lookupCol], smartMode);
-              const match = refMap.get(key);
-              const newRow = [...row];
-              if(match) {
-                  returnCols.forEach(idx => newRow.push(match[idx]));
-              } else {
-                  returnCols.forEach(() => newRow.push("Not Found"));
-              }
-              allDataRows.push(newRow);
-          }
+          // NO lookup here. This used to rebuild the index and re-run the join,
+          // with one guard different from the preview's, so the file and the
+          // screen disagreed whenever a key was duplicated (TD-043). It exports
+          // the rows the preview was built from.
+          const headerRow = resultHeader;
+          const allDataRows = resultRows;
 
           // BATCH SPLIT LOGIC
           if (exportBatchSize > 0 && allDataRows.length > exportBatchSize) {
@@ -245,7 +210,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
 
               for (let i = 0; i < total; i += exportBatchSize) {
                   const chunk = allDataRows.slice(i, i + exportBatchSize);
-                  const ws = XLSX.utils.aoa_to_sheet([headerRow, ...chunk]);
+                  const ws = writeSheet(XLSX, headerRow, chunk);
                   const wb = XLSX.utils.book_new();
                   XLSX.utils.book_append_sheet(wb, ws, "Lookup Results");
                   
@@ -264,21 +229,10 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
               
               addLog(`Batch Download Complete (${part-1} files).`, 'success');
           } else {
-              // SINGLE FILE
+              // SINGLE FILE — same builder as the batch path above, so the two
+              // cannot drift apart the way the two lookups did.
               const wb = XLSX.utils.book_new();
-              const ws = XLSX.utils.aoa_to_sheet([headerRow, ...allDataRows]);
-              
-              // Highlight Header
-              const range = XLSX.utils.decode_range(ws['!ref'] || "A1");
-              for (let C = range.s.c; C <= range.e.c; ++C) {
-                  const ref = XLSX.utils.encode_cell({ r: 0, c: C });
-                  if (!ws[ref].s) ws[ref].s = {};
-                  ws[ref].s = { 
-                      font: { bold: true, color: { rgb: "FFFFFF" } },
-                      fill: { fgColor: { rgb: "4F46E5" } }
-                  };
-              }
-
+              const ws = writeSheet(XLSX, headerRow, allDataRows);
               XLSX.utils.book_append_sheet(wb, ws, "Lookup Results");
               saveWorkbook(wb, `SmartLookup_${fileData!.name}`);
               addLog("Download Complete.", 'success');
@@ -314,7 +268,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
              <div className="space-y-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
                  <div className="flex items-center gap-2 mb-2">
                      <span className="bg-blue-100 text-blue-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                     <h4 className="font-bold text-slate-700 text-sm uppercase">Source Table (Look Value)</h4>
+                     <h4 className="font-bold text-slate-700 text-sm uppercase">{t.smartLookup.sourceTable}</h4>
                  </div>
                  
                  <div>
@@ -332,7 +286,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
                  </div>
 
                  <div className="bg-white p-3 rounded border border-blue-200 shadow-sm">
-                     <label className="block text-xs font-bold text-blue-700 uppercase mb-2">Lookup Column (Value to Search)</label>
+                     <label className="block text-xs font-bold text-blue-700 uppercase mb-2">{t.smartLookup.lookupColumn}</label>
                      <select 
                         className="w-full p-2 border rounded text-sm bg-blue-50 focus:ring-2 focus:ring-blue-500 outline-none"
                         value={lookupCol}
@@ -349,7 +303,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
                  <div className="flex items-center justify-between mb-2">
                      <div className="flex items-center gap-2">
                         <span className="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                        <h4 className="font-bold text-slate-700 text-sm uppercase">Target Table (Search In)</h4>
+                        <h4 className="font-bold text-slate-700 text-sm uppercase">{t.smartLookup.targetTable}</h4>
                      </div>
                      
                      <div className="flex bg-white rounded p-0.5 border border-slate-200">
@@ -357,13 +311,13 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
                             onClick={() => setUseExternalRef(false)}
                             className={`px-2 py-1 text-[10px] font-bold rounded ${!useExternalRef ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500'}`}
                          >
-                             Current File
+                             {t.smartLookup.currentFile}
                          </button>
                          <button 
                             onClick={() => setUseExternalRef(true)}
                             className={`px-2 py-1 text-[10px] font-bold rounded ${useExternalRef ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500'}`}
                          >
-                             External File
+                             {t.smartLookup.externalFile}
                          </button>
                      </div>
                  </div>
@@ -372,7 +326,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
                      <div className="border-2 border-dashed border-slate-300 rounded p-3 text-center bg-white hover:bg-indigo-50 transition-colors cursor-pointer relative">
                          <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleRefUpload} accept=".xlsx,.csv" />
                          <UploadCloud size={20} className="mx-auto text-indigo-400 mb-1"/>
-                         <p className="text-xs font-bold text-slate-600">{refFile ? refFile.name : "Upload Reference File"}</p>
+                         <p className="text-xs font-bold text-slate-600">{refFile ? refFile.name : t.smartLookup.uploadReference}</p>
                      </div>
                  ) : (
                      <div>
@@ -389,7 +343,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
 
                  <div className="bg-white p-3 rounded border border-indigo-200 shadow-sm space-y-3">
                      <div>
-                        <label className="block text-xs font-bold text-indigo-700 uppercase mb-2">Match Key (Column to Find)</label>
+                        <label className="block text-xs font-bold text-indigo-700 uppercase mb-2">{t.smartLookup.matchKey}</label>
                         <select 
                             className="w-full p-2 border rounded text-sm bg-indigo-50 focus:ring-2 focus:ring-indigo-500 outline-none"
                             value={matchCol}
@@ -400,7 +354,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
                         </select>
                      </div>
                      <div>
-                        <label className="block text-xs font-bold text-green-700 uppercase mb-2">Return Columns (Result)</label>
+                        <label className="block text-xs font-bold text-green-700 uppercase mb-2">{t.smartLookup.returnColumns}</label>
                         <div className="max-h-32 overflow-y-auto border rounded bg-slate-50 p-2 custom-scrollbar">
                             {refHeaders.map((h, i) => (
                                 <label key={i} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs ${returnCols.includes(i) ? 'bg-green-100 text-green-800 font-bold' : 'hover:bg-slate-200 text-slate-600'} ${matchCol === i ? 'opacity-50' : ''}`}>
@@ -417,24 +371,51 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
           {/* Configuration & Action */}
           <div className="mt-6 flex flex-col md:flex-row gap-6 items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div className="flex-1">
-                  <h4 className="font-bold text-sm text-slate-700 mb-2 flex items-center gap-2"><Settings2 size={16}/> Match Settings</h4>
-                  <div className="flex gap-4">
+                  <h4 className="font-bold text-sm text-slate-700 mb-2 flex items-center gap-2"><Settings2 size={16}/> {t.smartLookup.matchSettings}</h4>
+                  <div className="flex flex-wrap gap-4 items-start">
                       <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-white transition-colors border border-transparent hover:border-slate-200">
                           <input type="checkbox" checked={smartMode} onChange={e => setSmartMode(e.target.checked)} className="rounded text-indigo-600 w-4 h-4"/>
                           <div>
-                              <span className="text-xs font-bold text-indigo-700 block flex items-center gap-1"><Wand2 size={12}/> Smart Match</span>
-                              <span className="text-[10px] text-slate-500">Ignores type (Text/Number) & leading zeros (001 = 1)</span>
+                              <span className="text-xs font-bold text-indigo-700 block flex items-center gap-1"><Wand2 size={12}/> {t.smartLookup.smartMatch}</span>
+                              <span className="text-[10px] text-slate-500">{t.smartLookup.smartMatchHint}</span>
                           </div>
                       </label>
+
+                      {/* The first row was ALWAYS consumed as a header, so headerless
+                          data silently lost its first record with nothing to say so. */}
+                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-white transition-colors border border-transparent hover:border-slate-200">
+                          <input type="checkbox" checked={hasHeaders} onChange={e => setHasHeaders(e.target.checked)} className="rounded text-indigo-600 w-4 h-4"/>
+                          <div>
+                              <span className="text-xs font-bold text-slate-700 block">{t.smartLookup.firstRowIsHeader}</span>
+                              <span className="text-[10px] text-slate-500">{t.smartLookup.firstRowIsHeaderHint}</span>
+                          </div>
+                      </label>
+
+                      {/* Was the hard-coded English string "Not Found", written into
+                          whatever column it landed in — including numeric ones. */}
+                      <div className="p-2">
+                          <label className="text-xs font-bold text-slate-700 block mb-1" htmlFor="notFoundValue">
+                              {t.smartLookup.notFoundLabel}
+                          </label>
+                          <input
+                             id="notFoundValue"
+                             type="text"
+                             value={effectiveNotFound}
+                             onChange={e => setNotFoundValue(e.target.value)}
+                             placeholder={t.smartLookup.notFound}
+                             className="w-40 p-1.5 border rounded text-xs bg-white"
+                          />
+                          <span className="text-[10px] text-slate-500 block mt-0.5">{t.smartLookup.notFoundHint}</span>
+                      </div>
                   </div>
               </div>
-              <button 
+              <button
                  onClick={runLookup}
                  disabled={status === ProcessingStatus.PROCESSING}
                  className="w-full md:w-auto px-8 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                  {status === ProcessingStatus.PROCESSING ? <RefreshCw className="animate-spin" size={20}/> : <ArrowLeftRight size={20}/>}
-                 Run Smart Lookup
+                 {t.smartLookup.run}
               </button>
           </div>
        </div>
@@ -446,10 +427,10 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4">
                <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                    <div className="flex items-center gap-4">
-                       <h4 className="font-bold text-slate-700 flex items-center gap-2"><Table size={16}/> Result Preview</h4>
+                       <h4 className="font-bold text-slate-700 flex items-center gap-2"><Table size={16}/> {t.smartLookup.resultPreview}</h4>
                        <div className="flex gap-2 text-xs">
-                           <span className="bg-green-100 text-green-700 px-2 py-1 rounded font-bold flex items-center gap-1"><CheckCircle2 size={12}/> {stats.found} Found</span>
-                           <span className="bg-red-100 text-red-700 px-2 py-1 rounded font-bold flex items-center gap-1"><AlertCircle size={12}/> {stats.missing} Missing</span>
+                           <span className="bg-green-100 text-green-700 px-2 py-1 rounded font-bold flex items-center gap-1"><CheckCircle2 size={12}/> {stats.found} {t.smartLookup.found}</span>
+                           <span className="bg-red-100 text-red-700 px-2 py-1 rounded font-bold flex items-center gap-1"><AlertCircle size={12}/> {stats.missing} {t.smartLookup.missing}</span>
                        </div>
                    </div>
                    <div className="flex items-center gap-2">
@@ -457,14 +438,14 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
                            <Package size={14} className="text-slate-400"/>
                            <input 
                               type="number" 
-                              placeholder="Max Rows/File" 
+                              placeholder={t.smartLookup.maxRowsPerFile} 
                               className="w-20 text-xs outline-none"
                               value={exportBatchSize || ''}
                               onChange={(e) => setExportBatchSize(Number(e.target.value))}
                            />
                        </div>
                        <button onClick={handleDownload} className="text-xs bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 flex items-center gap-1 shadow-sm transition-colors">
-                           <Download size={14}/> Download Result
+                           <Download size={14}/> {t.smartLookup.download}
                        </button>
                    </div>
                </div>
