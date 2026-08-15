@@ -42,6 +42,16 @@ describe('classifyQuantity', () => {
     it('ignores surrounding whitespace', () => {
       expect(classifyQuantity('  2  ')).toBe('ok');
     });
+
+    it('accepts the number forms the guard regex allows but nothing had exercised', () => {
+      // One assertion per alternation branch. Without these, simplifying the
+      // pattern could drop a branch and every other test would stay green while
+      // a legitimate cell started reporting as non-numeric.
+      expect(classifyQuantity('.5'), 'leading-dot decimal').toBe('ok');   // \.\d+
+      expect(classifyQuantity('5.'), 'trailing-dot integer').toBe('ok');  // \d+\.
+      expect(classifyQuantity('+3'), 'explicit plus sign').toBe('ok');    // [+-]?
+      expect(classifyQuantity('-.5'), 'signed leading-dot').toBe('negative');
+    });
   });
 
   describe('zero is invalid', () => {
