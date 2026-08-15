@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:dfbd7940024eba23761fa7d0960ea2b72b839854a529b3971a09f1db55fdd254",
+  "attestation_id": "sha256:eb2b229ea336b49bc3f12cbe0439a17b70516bda14b3d0b3de6f5eb2a938c220",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -24,7 +24,7 @@
     },
     "tests": {
       "files": 11,
-      "loc": 2527
+      "loc": 2531
     },
     "types": {
       "files": 1,
@@ -32,7 +32,7 @@
     },
     "utils": {
       "files": 8,
-      "loc": 1586
+      "loc": 1587
     }
   },
   "layering": {
@@ -101,5 +101,5 @@
   ],
   "schema": "apexyard.evidence.architecture/1",
   "source_files": 95,
-  "total_loc": 28336
+  "total_loc": 28341
 }

@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:dfbd7940024eba23761fa7d0960ea2b72b839854a529b3971a09f1db55fdd254` |
+| Attestation id | `sha256:eb2b229ea336b49bc3f12cbe0439a17b70516bda14b3d0b3de6f5eb2a938c220` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `7562243f3f64` |
+| Reviewed at commit | `ce41b8b28c57` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 2 |
-| info | 1 |
+| low | 1 |
+| info | 0 |
 
-This PR extracts the Composite Check ingredient-quantity rule into a pure `utils/quantityRule.ts#classifyQuantity`, backs it with an exhaustive unit spec, and adds two documentation artifacts (a Smart Lookup audit and four new tech-debt-register entries). The extraction is correct: the string path is gated behind an anchored, unambiguous decimal regex before `Number()`, which closes the `0x10`/`Infinity`/`[5]` holes the inline check had, and the `-0` ordering is deliberate and tested. I verified the ReDoS claim in the code comment — `^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$` backtracks linearly on a 100k-digit failing input, so the comment's reasoning and the guard test both hold. No blocking-handbook violations: the new util imports nothing, does no I/O, and touches no security surface. Three low/info findings, all documentation- or test-hygiene-shaped.
+This PR corrects the Smart Lookup audit's tech-debt cross-reference (registering the previously-untracked error-cell defect as TD-047 and mapping each numbered defect to its id), replaces a wall-clock `performance.now()` assertion in the quantity-rule ReDoS guard with the test's own timeout, and syncs the Strict-Empty-Check note into `quantityRule`'s docstring. I verified the regex `^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$` is genuinely unambiguous — a 100k-digit-plus-letter input backtracks linearly, so the guard's premise holds — and that the doc's TD-043/044/045/046/047 mapping matches the register row-for-row. The change is clean: `unknown` at the boundary, explicit return type, no `any`, no swallowed errors, no layering violation (`utils/` imports nothing), and no manifest change to pair with a lockfile.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 95 source files, 28336 lines
+- 95 source files, 28341 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**

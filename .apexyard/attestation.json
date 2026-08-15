@@ -1,33 +1,33 @@
 {
-  "attestation_id": "sha256:dfbd7940024eba23761fa7d0960ea2b72b839854a529b3971a09f1db55fdd254",
+  "attestation_id": "sha256:eb2b229ea336b49bc3f12cbe0439a17b70516bda14b3d0b3de6f5eb2a938c220",
   "files": [
     {
-      "oid": "b7edeaa4dcfdb6527f12662c0042ca2c6e0d8459",
+      "oid": "8a8c27fcc9dd9461784d2ca3fc47708b269aca92",
       "path": "docs/modules/smart-lookup.md"
     },
     {
-      "oid": "32928b137f6cdca8807e463f8fe6de22dfbf9326",
+      "oid": "5fad583cd9601546aba6eebcb16e9ffb3edd37af",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "d35c16b23021e4c1d0f7e75e882c2c19e7aae858",
+      "oid": "6b6b5f960db129efbb21cf78ebaf3bf07cb03b5e",
       "path": "tests/unit/quantityRule.test.ts"
     },
     {
-      "oid": "70edb1dcfe83243473eaf88e6e498d2289d5a336",
+      "oid": "769089fd3bb2bd9c96d2104065ee0038ef3f7ca8",
       "path": "utils/quantityRule.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 0,
+    "low": 1,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "7562243f3f64c8dc464e5ebef0af8ff42cd4e803",
+  "reviewed_at_commit": "ce41b8b28c57021285078aede0719f8b2abaa538",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"
