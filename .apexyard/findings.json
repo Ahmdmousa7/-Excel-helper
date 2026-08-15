@@ -1,14 +1,33 @@
 {
-  "attestation_id": "sha256:3cbc0d6438a7c59f400b0877a304a1173fe529d7543d043703aaa59a7b744bb9",
+  "attestation_id": "sha256:da914a966461eafedab280f6eefafee46145666b2e08099112e6aefbdcba02cd",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 0,
+    "low": 2,
     "medium": 0
   },
-  "findings": [],
+  "findings": [
+    {
+      "category": "code-smell",
+      "detail": "The new comment justifies the `item.val` truthiness guard by asserting that a blank quantity is \"already reported as 'Missing Qty for Ingredient' above\". That report lives inside `if (strictEmptyCheck)` at line 506, and `strictEmptyCheck` is a user-facing checkbox (state at line 154, control at line 952). With it unchecked, a row carrying an ingredient SKU and an empty quantity produces no error from either place — the exact silent-pass the PR set out to close, for the one input the helper deliberately delegates. The behaviour is pre-existing; only the claim that makes it look covered is new.",
+      "file": "components/CompositeTab.tsx",
+      "line": 546,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "\"Blank is already reported above\" only holds when strictEmptyCheck is on"
+    },
+    {
+      "category": "typescript",
+      "detail": "`Number(text)` is the one numeric edge the doc comment's enumeration misses: `Number('0x10')` is 16, `Number('0o17')` is 15, `Number('0b101')` is 5. A cell reading `0x10` is silently accepted as a quantity of sixteen rather than flagged as `non-numeric`. This is not a regression — the old inline `isNaN(Number(...))` check accepted the same strings — but the whole point of extracting this function was that `Number()`'s behaviour on spreadsheet text is where the bugs live, and the test file enumerates every other edge (`0.0`, `-0`, `1e-3`, `Infinity`, `[5]`) except this one. Impact is low because the input is implausible in a real quantity column.",
+      "file": "utils/quantityRule.ts",
+      "line": 45,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "`Number()` accepts hex/octal/binary literals, so '0x10' classifies as ok (qty 16)"
+    }
+  ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 0
+  "total": 2
 }

@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:3cbc0d6438a7c59f400b0877a304a1173fe529d7543d043703aaa59a7b744bb9",
+  "attestation_id": "sha256:da914a966461eafedab280f6eefafee46145666b2e08099112e6aefbdcba02cd",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,8 +21,8 @@
         "raw_bytes": 499864
       },
       {
-        "file": "ProjectSummaryTab-RBZaBXA5.js",
-        "gzip_bytes": 144782,
+        "file": "ProjectSummaryTab-Ca-ZNirs.js",
+        "gzip_bytes": 144771,
         "raw_bytes": 444342
       },
       {
@@ -31,8 +31,8 @@
         "raw_bytes": 280794
       },
       {
-        "file": "index.es-GHPdXpwi.js",
-        "gzip_bytes": 51634,
+        "file": "index.es-ButksYcM.js",
+        "gzip_bytes": 51626,
         "raw_bytes": 151120
       },
       {
@@ -46,14 +46,14 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-KFCJfBA1.js",
-        "gzip_bytes": 43362,
+        "file": "HomeTab-BRnsN30o.js",
+        "gzip_bytes": 43358,
         "raw_bytes": 135983
       },
       {
-        "file": "index-Cv6x3vSW.js",
-        "gzip_bytes": 31711,
-        "raw_bytes": 104548
+        "file": "index-D-tmshIN.js",
+        "gzip_bytes": 31828,
+        "raw_bytes": 104859
       },
       {
         "file": "jszip.min-CiouRDUD.js",
@@ -61,15 +61,15 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-DuSphwRg.js",
-        "gzip_bytes": 13678,
+        "file": "QrCodeTab-Dxtpnt9p.js",
+        "gzip_bytes": 13674,
         "raw_bytes": 37385
       }
     ],
     "metrics": [
       {
         "budget_kb": 110,
-        "gzip_kb": 86.5,
+        "gzip_kb": 86.6,
         "metric": "Initial load (entry + preloads + CSS)",
         "over": false,
         "used_pct": 79
@@ -97,7 +97,7 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1311,
+        "gzip_kb": 1311.1,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 90
@@ -176,18 +176,18 @@
   "vitest": {
     "available": true,
     "coverage": {
-      "branches_pct": 92.14,
-      "functions_pct": 94.11,
-      "lines_pct": 96.15,
-      "statements_pct": 96.15
+      "branches_pct": 92.85,
+      "functions_pct": 94.44,
+      "lines_pct": 96.35,
+      "statements_pct": 96.35
     },
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 258,
+      "passed": 275,
       "skipped": 0,
-      "suites": 54,
-      "total": 258
+      "suites": 60,
+      "total": 275
     }
   }
 }

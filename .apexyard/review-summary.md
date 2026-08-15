@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:3cbc0d6438a7c59f400b0877a304a1173fe529d7543d043703aaa59a7b744bb9` |
+| Attestation id | `sha256:da914a966461eafedab280f6eefafee46145666b2e08099112e6aefbdcba02cd` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `af1e9c0f656e` |
+| Reviewed at commit | `f49b11b1276e` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 1 |
+| Files reviewed | 6 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 0 |
+| low | 2 |
 | info | 0 |
 
-This PR collapses three stacked, historically-accreted comment blocks above the Gemini test-result live region in `components/ApiKeyModal.tsx` into a single block that states the three constraints the surrounding markup encodes (always-rendered wrapper, visible panel nested inside the region rather than duplicated as an `sr-only` twin, and why the panel exists at all). The diff is comment-only — 11 insertions, 25 deletions, with no change to any expression, JSX element, prop, or handler. I verified against the file on disk that every claim the new comment makes is true of the code it documents: the `role="status" aria-live="polite"` wrapper at line 116 is unconditionally rendered, and the `no-model` panel at lines 122-126 is nested inside it rather than copied. Net reduction in comment volume with no loss of the load-bearing rationale; nothing to flag.
+Extracts the Composite Check ingredient-quantity rule from CompositeTab into a new pure helper `utils/quantityRule.ts`, tightens it (Infinity now rejected, arrays/objects no longer coerced) and adds a third verdict for negative quantities with an Arabic message, backed by 17 new unit tests and a rewritten/renamed e2e spec. The layering is correct (component → utils, no reverse import), the helper takes `unknown` and returns an explicit union, and the e2e cell references (F3/H4/F5/F6) check out against `getCellRef` and the fixture rows. No blocking-handbook violations; two low, non-blocking observations about edges the new rule's own framing invites.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ This PR collapses three stacked, historically-accreted comment blocks above the 
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
-| Vitest | pass | 258/258 passed, lines 96.15% |
+| Vitest | pass | 275/275 passed, lines 96.35% |
 | Playwright | pass | 104/104 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 93 source files, 28083 lines
+- 95 source files, 28296 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
@@ -61,7 +61,7 @@ reports zero failures for a tool that never executed.
 
 | File | Lines |
 |---|---:|
-| `components/CompositeTab.tsx` | 1398 |
+| `components/CompositeTab.tsx` | 1399 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1058 |
 | `components/SupportChat.tsx` | 955 |
