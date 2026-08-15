@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:da914a966461eafedab280f6eefafee46145666b2e08099112e6aefbdcba02cd",
+  "attestation_id": "sha256:bdd14b6de25784fa510dbc5115f70d2a4eee5579aa2301161842e8d2769cbd2f",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,7 +8,7 @@
     },
     "components": {
       "files": 39,
-      "loc": 19341
+      "loc": 19346
     },
     "e2e": {
       "files": 21,
@@ -24,7 +24,7 @@
     },
     "tests": {
       "files": 11,
-      "loc": 2503
+      "loc": 2517
     },
     "types": {
       "files": 1,
@@ -32,7 +32,7 @@
     },
     "utils": {
       "files": 8,
-      "loc": 1575
+      "loc": 1580
     }
   },
   "layering": {
@@ -46,7 +46,7 @@
     "files": [
       {
         "file": "components/CompositeTab.tsx",
-        "loc": 1399
+        "loc": 1404
       },
       {
         "file": "components/VariableBalanceTab.tsx",
@@ -101,5 +101,5 @@
   ],
   "schema": "apexyard.evidence.architecture/1",
   "source_files": 95,
-  "total_loc": 28296
+  "total_loc": 28320
 }

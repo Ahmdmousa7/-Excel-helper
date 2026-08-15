@@ -1,41 +1,33 @@
 {
-  "attestation_id": "sha256:da914a966461eafedab280f6eefafee46145666b2e08099112e6aefbdcba02cd",
+  "attestation_id": "sha256:bdd14b6de25784fa510dbc5115f70d2a4eee5579aa2301161842e8d2769cbd2f",
   "files": [
     {
-      "oid": "06777b751fdaffb9a73dbfbac4215bc97dd58ca8",
+      "oid": "32609bcd44ab78a45766a24bc881bb97d13247e9",
       "path": "components/CompositeTab.tsx"
     },
     {
-      "oid": "d4aa732e4b571dff9a44dc6a20d1207e747f7135",
-      "path": "e2e/composite-quantity-rules.spec.ts"
+      "oid": "65c50d464383886bf4e41696f9a5fdd7851d9dc0",
+      "path": "docs/modules/smart-lookup.md"
     },
     {
-      "oid": "deleted",
-      "path": "e2e/composite-zero-qty.spec.ts"
-    },
-    {
-      "oid": "e3066bcc2af334ad473a05ece0d012555621ea92",
+      "oid": "a91812b6b853c249907a1ad912625a7515ee1739",
       "path": "tests/unit/quantityRule.test.ts"
     },
     {
-      "oid": "cedd961c1a2d4c1aa311e1c5b59d8b4161e15d85",
+      "oid": "64abcc6643e14c31cff2068b0afb67834d9db1e4",
       "path": "utils/quantityRule.ts"
-    },
-    {
-      "oid": "55e8c18f3b8891fac34d1e17360e49b1cf6fa99b",
-      "path": "utils/translations.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 2,
+    "info": 1,
+    "low": 1,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "f49b11b1276ef41085e62005aebfb5c1aa282021",
+  "reviewed_at_commit": "b568a17eb941ef0db979e0608c5fe85afe13e6dd",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:da914a966461eafedab280f6eefafee46145666b2e08099112e6aefbdcba02cd",
+  "attestation_id": "sha256:bdd14b6de25784fa510dbc5115f70d2a4eee5579aa2301161842e8d2769cbd2f",
   "available": true,
-  "files_reviewed": 5,
+  "files_reviewed": 4,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 2,
+    "info": 1,
+    "low": 1,
     "medium": 0
   },
   "findings_total": 2,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Extracts the Composite Check ingredient-quantity rule from CompositeTab into a new pure helper `utils/quantityRule.ts`, tightens it (Infinity now rejected, arrays/objects no longer coerced) and adds a third verdict for negative quantities with an Arabic message, backed by 17 new unit tests and a rewritten/renamed e2e spec. The layering is correct (component → utils, no reverse import), the helper takes `unknown` and returns an explicit union, and the e2e cell references (F3/H4/F5/F6) check out against `getCellRef` and the fixture rows. No blocking-handbook violations; two low, non-blocking observations about edges the new rule's own framing invites.",
+  "summary": "This PR hardens the extracted Composite Check quantity rule so that only a plain decimal string is accepted (rejecting JS hex/octal/binary literals such as \"0x10\", which `Number()` had been silently accepting as 16), adds unit tests pinning that plus thousands-separator rejection, corrects a code comment that overstated where blank quantities are reported, and lands a 149-line verified audit of the Smart Lookup module. I confirmed the regex narrows the accept set without rejecting any value the previous `Number()` path legitimately accepted (scientific notation, leading `+`, `.5`, `5.` all still pass), verified the corrected comment against `strictEmptyCheck` at CompositeTab.tsx:506-532, and spot-verified the audit's headline claims against `components/SmartLookupTab.tsx` — the first-vs-last duplicate-key divergence (lines 165 vs 221) and the unguarded `ws[ref].s` (line 275) are both real as documented. No blocking handbook violations; the CompositeTab change is comment-only and the docs file adds no code. One low-severity regex-shape nit.",
   "verdict": "approved"
 }

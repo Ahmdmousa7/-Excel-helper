@@ -1,31 +1,31 @@
 {
-  "attestation_id": "sha256:da914a966461eafedab280f6eefafee46145666b2e08099112e6aefbdcba02cd",
+  "attestation_id": "sha256:bdd14b6de25784fa510dbc5115f70d2a4eee5579aa2301161842e8d2769cbd2f",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 2,
+    "info": 1,
+    "low": 1,
     "medium": 0
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "The new comment justifies the `item.val` truthiness guard by asserting that a blank quantity is \"already reported as 'Missing Qty for Ingredient' above\". That report lives inside `if (strictEmptyCheck)` at line 506, and `strictEmptyCheck` is a user-facing checkbox (state at line 154, control at line 952). With it unchecked, a row carrying an ingredient SKU and an empty quantity produces no error from either place — the exact silent-pass the PR set out to close, for the one input the helper deliberately delegates. The behaviour is pre-existing; only the claim that makes it look covered is new.",
-      "file": "components/CompositeTab.tsx",
-      "line": 546,
+      "category": "performance",
+      "detail": "In `/^[+-]?(\\d+\\.?\\d*|\\.\\d+)(e[+-]?\\d+)?$/i`, the branch `\\d+\\.?\\d*` is ambiguous: because `\\.?` can match empty, a run of digits can be split between `\\d+` and `\\d*` in N different ways. On input that is a long digit run followed by a character that fails the anchor (e.g. a 30,000-character numeric-looking cell ending in a stray letter — Excel permits 32,767 chars per cell), the engine explores O(N^2) splits before returning `false`, on the main thread, once per quantity cell. This is not exponential and needs a pathological cell to be noticeable, so it is not a realistic user-facing freeze today; what would raise it to medium is any path that feeds this function untrimmed multi-KB text routinely. The fix is free and does not change which strings are accepted.",
+      "file": "utils/quantityRule.ts",
+      "line": 49,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "\"Blank is already reported above\" only holds when strictEmptyCheck is on"
+      "summary": "Ambiguous `\\d+\\.?\\d*` alternative backtracks quadratically on a long non-matching cell"
     },
     {
-      "category": "typescript",
-      "detail": "`Number(text)` is the one numeric edge the doc comment's enumeration misses: `Number('0x10')` is 16, `Number('0o17')` is 15, `Number('0b101')` is 5. A cell reading `0x10` is silently accepted as a quantity of sixteen rather than flagged as `non-numeric`. This is not a regression — the old inline `isNaN(Number(...))` check accepted the same strings — but the whole point of extracting this function was that `Number()`'s behaviour on spreadsheet text is where the bugs live, and the test file enumerates every other edge (`0.0`, `-0`, `1e-3`, `Infinity`, `[5]`) except this one. Impact is low because the input is implausible in a real quantity column.",
-      "file": "utils/quantityRule.ts",
-      "line": 45,
-      "severity": "low",
+      "category": "technical-debt",
+      "detail": "The audit is accurate and well-evidenced — I verified defect #1 (`runLookup` line 165 keeps the first row for a duplicate key, `handleDownload` line 221 keeps the last) and defect #3 (`if (!ws[ref].s)` dereferences `ws[ref]` before checking it exists, line 275) directly against the source. Defect #1 is a P0 that ships a file differing from the approved preview. The document is explicit that it is an audit record and that nothing is fixed yet, which is the right call for a no-code-change PR. The only gap is ownership: the P0 items carry a priority but no issue number or owner, so the \"recorded\" half of deliberate-recorded-owned is satisfied and the \"owned\" half is not. Purely advisory — this does not affect the verdict.",
+      "file": "docs/modules/smart-lookup.md",
+      "line": 134,
+      "severity": "info",
       "suggested_fix": null,
-      "summary": "`Number()` accepts hex/octal/binary literals, so '0x10' classifies as ok (qty 16)"
+      "summary": "Four confirmed defects recorded with priorities but no tracking references"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
