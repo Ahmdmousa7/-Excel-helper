@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:eb2b229ea336b49bc3f12cbe0439a17b70516bda14b3d0b3de6f5eb2a938c220` |
+| Attestation id | `sha256:b7ddc8b2deaadc8ea5d747e80e8d01958e824e099395bccbe7750f314e7193e9` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `ce41b8b28c57` |
+| Reviewed at commit | `8b1e0b339852` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 4 |
+| Files reviewed | 1 |
 
 ## What this is, and what it is not
 
@@ -31,9 +31,9 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | high | 0 |
 | medium | 0 |
 | low | 1 |
-| info | 0 |
+| info | 1 |
 
-This PR corrects the Smart Lookup audit's tech-debt cross-reference (registering the previously-untracked error-cell defect as TD-047 and mapping each numbered defect to its id), replaces a wall-clock `performance.now()` assertion in the quantity-rule ReDoS guard with the test's own timeout, and syncs the Strict-Empty-Check note into `quantityRule`'s docstring. I verified the regex `^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$` is genuinely unambiguous — a 100k-digit-plus-letter input backtracks linearly, so the guard's premise holds — and that the doc's TD-043/044/045/046/047 mapping matches the register row-for-row. The change is clean: `unknown` at the boundary, explicit return type, no `any`, no swallowed errors, no layering violation (`utils/` imports nothing), and no manifest change to pair with a lockfile.
+This PR adds a single test case to tests/unit/quantityRule.test.ts that pins the four number forms the quantity guard regex accepts but which nothing had previously exercised: leading-dot decimals ('.5'), trailing-dot integers ('5.'), an explicit plus sign ('+3'), and a signed leading-dot ('-.5'). I verified every assertion against utils/quantityRule.ts:56 — the regex `^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$` accepts all four, and Number() then yields 0.5, 5, 3 and -0.5, so the expected verdicts ('ok', 'ok', 'ok', 'negative') are all correct. The addition is behavioural (input → verdict), carries a clear rationale for why the branches matter, and violates no blocking handbook. Two non-blocking observations follow.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ This PR corrects the Smart Lookup audit's tech-debt cross-reference (registering
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 606 warning(s) |
-| Vitest | pass | 278/278 passed, lines 96.36% |
+| Vitest | pass | 279/279 passed, lines 96.36% |
 | Playwright | pass | 104/104 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 95 source files, 28341 lines
+- 95 source files, 28351 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
