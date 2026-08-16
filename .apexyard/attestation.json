@@ -1,26 +1,66 @@
 {
-  "attestation_id": "sha256:9330c783a525c9684d33c357dd1fcd09b183771456a100503c6391d9ebb2e4ee",
+  "attestation_id": "sha256:04c4e2bae59876682af909057af8df807311a4c33744a53b8e8b041367f7a88a",
   "files": [
     {
-      "oid": "adcc038640eff91a64b30ef2106456de3725ab27",
-      "path": "components/SmartLookupTab.tsx"
+      "oid": "1da27f2dfa630312c2c4b7749c2b0da3f32b2b90",
+      "path": "App.tsx"
     },
     {
-      "oid": "4e80564eaf32642efbda4eb3794bbab36c13a3d3",
+      "oid": "deleted",
+      "path": "components/CsvConverterTab.tsx"
+    },
+    {
+      "oid": "deleted",
+      "path": "components/DuplicatesTab.tsx"
+    },
+    {
+      "oid": "deleted",
+      "path": "components/MagicLinkTab.tsx"
+    },
+    {
+      "oid": "d2fd33dc733442d5b3356d85de00e008c357e82f",
+      "path": "docs/modules/removed-modules.md"
+    },
+    {
+      "oid": "494c8e21f59acf7b1f3abead31bd28e7ec177a99",
+      "path": "e2e/happy-path.spec.ts"
+    },
+    {
+      "oid": "28eddce80832c314bd4398e18e0a0e6b0daea40f",
+      "path": "e2e/offline.spec.ts"
+    },
+    {
+      "oid": "2125f8cca6bdea400ac44fbf31d274ed20d2c109",
+      "path": "e2e/pages/AppShell.ts"
+    },
+    {
+      "oid": "0a4a51d0bfdbd0212545bd7f22bcea770b58c6f8",
+      "path": "hooks/useVoiceControl.ts"
+    },
+    {
+      "oid": "1bc2b2a9d4adbd72cf6cfbcd195b615d8f7df434",
+      "path": "package-lock.json"
+    },
+    {
+      "oid": "6f9509f321ee117eeb64c5f2355152de9b7e6132",
+      "path": "package.json"
+    },
+    {
+      "oid": "8d25b2f8f10d58e371c0064446a09cc5b387008a",
       "path": "utils/translations.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 0,
-    "medium": 0
+    "info": 0,
+    "low": 3,
+    "medium": 2
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "03746c8c08d9d76304d040cf5d5c91e152d6a01d",
+  "reviewed_at_commit": "341966b6d22577dc29f475ef1c139eca60bfcf16",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "APPROVED"
+  "verdict": "COMMENT"
 }

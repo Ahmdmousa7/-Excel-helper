@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:9330c783a525c9684d33c357dd1fcd09b183771456a100503c6391d9ebb2e4ee",
+  "attestation_id": "sha256:04c4e2bae59876682af909057af8df807311a4c33744a53b8e8b041367f7a88a",
   "available": true,
-  "files_reviewed": 2,
+  "files_reviewed": 8,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 0,
-    "medium": 0
+    "info": 0,
+    "low": 3,
+    "medium": 2
   },
-  "findings_total": 1,
+  "findings_total": 5,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR fixes a status-reporting bug in Smart Lookup's download handler: `handleDownload`'s `finally` block stamped `COMPLETED` unconditionally, overwriting the `ERROR` state the `catch` had just set, so a failed download logged an error and simultaneously reported success. The fix replaces the `finally` with an explicit `setStatus(ERROR); return;` in the catch and a fall-through `setStatus(COMPLETED)` on the success path. It also reshapes the batch-complete message from a bare plural noun to a `label: count` form so the Arabic translation no longer needs dual/plural agreement for a count of 2. Both changes are correct, minimal, and well-commented; no blocking-handbook violations found.",
-  "verdict": "approved"
+  "summary": "This PR deletes three tools (Check Duplicates, CSV to Excel, Magic Links) along with their tab entries, lazy imports, translation blocks in both locales, one voice command, two orphaned lucide icons, and the papaparse/@types/papaparse dependency pair (lockfile moved with the manifest). The removal is clean where it matters: I grepped for every removed symbol and found no dangling references — no `papaparse` import, no `t.tabs.duplicates`/`t.csv` reader, no surviving import of the three deleted components — and the accompanying `docs/modules/removed-modules.md` plus commit body are unusually good records of what was spared and why. Findings are all non-blocking: one e2e constant that quietly breaks its own documented invariant, one overstated claim in the new doc about an orphaned admin token that the app *can* in fact clear locally, and three low-severity leftovers.",
+  "verdict": "comment"
 }

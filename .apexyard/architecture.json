@@ -1,14 +1,14 @@
 {
-  "attestation_id": "sha256:9330c783a525c9684d33c357dd1fcd09b183771456a100503c6391d9ebb2e4ee",
+  "attestation_id": "sha256:04c4e2bae59876682af909057af8df807311a4c33744a53b8e8b041367f7a88a",
   "available": true,
   "by_directory": {
     "(root)": {
       "files": 8,
-      "loc": 901
+      "loc": 894
     },
     "components": {
-      "files": 39,
-      "loc": 19425
+      "files": 36,
+      "loc": 17617
     },
     "e2e": {
       "files": 22,
@@ -16,7 +16,7 @@
     },
     "hooks": {
       "files": 2,
-      "loc": 170
+      "loc": 172
     },
     "services": {
       "files": 5,
@@ -32,7 +32,7 @@
     },
     "utils": {
       "files": 9,
-      "loc": 1890
+      "loc": 1814
     }
   },
   "layering": {
@@ -42,7 +42,7 @@
   },
   "method": "regex import scan over .ts/.tsx; misses dynamically built paths",
   "oversized": {
-    "count": 11,
+    "count": 10,
     "files": [
       {
         "file": "components/CompositeTab.tsx",
@@ -57,16 +57,16 @@
         "loc": 1058
       },
       {
-        "file": "utils/translations.ts",
-        "loc": 977
-      },
-      {
         "file": "components/SupportChat.tsx",
         "loc": 955
       },
       {
         "file": "components/TranslateTab.tsx",
         "loc": 953
+      },
+      {
+        "file": "utils/translations.ts",
+        "loc": 901
       },
       {
         "file": "components/OcrTab.tsx",
@@ -83,10 +83,6 @@
       {
         "file": "components/ProjectSummaryTab.tsx",
         "loc": 840
-      },
-      {
-        "file": "components/DuplicatesTab.tsx",
-        "loc": 821
       }
     ],
     "threshold_loc": 800
@@ -100,6 +96,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 98,
-  "total_loc": 29253
+  "source_files": 95,
+  "total_loc": 27364
 }

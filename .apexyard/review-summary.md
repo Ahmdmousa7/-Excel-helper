@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:9330c783a525c9684d33c357dd1fcd09b183771456a100503c6391d9ebb2e4ee` |
+| Attestation id | `sha256:04c4e2bae59876682af909057af8df807311a4c33744a53b8e8b041367f7a88a` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `03746c8c08d9` |
+| Reviewed at commit | `341966b6d225` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **APPROVED** |
-| Files reviewed | 2 |
+| Verdict | **COMMENT** |
+| Files reviewed | 12 |
 
 ## What this is, and what it is not
 
@@ -29,18 +29,18 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
-| low | 0 |
-| info | 1 |
+| medium | 2 |
+| low | 3 |
+| info | 0 |
 
-This PR fixes a status-reporting bug in Smart Lookup's download handler: `handleDownload`'s `finally` block stamped `COMPLETED` unconditionally, overwriting the `ERROR` state the `catch` had just set, so a failed download logged an error and simultaneously reported success. The fix replaces the `finally` with an explicit `setStatus(ERROR); return;` in the catch and a fall-through `setStatus(COMPLETED)` on the success path. It also reshapes the batch-complete message from a bare plural noun to a `label: count` form so the Arabic translation no longer needs dual/plural agreement for a count of 2. Both changes are correct, minimal, and well-commented; no blocking-handbook violations found.
+This PR deletes three tools (Check Duplicates, CSV to Excel, Magic Links) along with their tab entries, lazy imports, translation blocks in both locales, one voice command, two orphaned lucide icons, and the papaparse/@types/papaparse dependency pair (lockfile moved with the manifest). The removal is clean where it matters: I grepped for every removed symbol and found no dangling references — no `papaparse` import, no `t.tabs.duplicates`/`t.csv` reader, no surviving import of the three deleted components — and the accompanying `docs/modules/removed-modules.md` plus commit body are unusually good records of what was spared and why. Findings are all non-blocking: one e2e constant that quietly breaks its own documented invariant, one overstated claim in the new doc about an orphaned admin token that the app *can* in fact clear locally, and three low-severity leftovers.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 607 warning(s) |
+| ESLint | pass | 0 error(s), 562 warning(s) |
 | Vitest | pass | 313/313 passed, lines 97.25% |
 | Playwright | pass | 107/107 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
@@ -52,9 +52,9 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 98 source files, 29253 lines
+- 95 source files, 27364 lines
 - Layering violations: **0**
-- Files over 800 lines: **11**
+- Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
 
 <details><summary>Largest files</summary>
@@ -64,9 +64,9 @@ reports zero failures for a tool that never executed.
 | `components/CompositeTab.tsx` | 1404 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1058 |
-| `utils/translations.ts` | 977 |
 | `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
+| `utils/translations.ts` | 901 |
 | `components/OcrTab.tsx` | 881 |
 | `services/geminiService.ts` | 850 |
 | `components/ZidTab.tsx` | 841 |
@@ -76,8 +76,8 @@ reports zero failures for a tool that never executed.
 
 ## Dependencies
 
-- 13 production, 23 development
-- Licences: MIT (27), Apache-2.0 (6), (MIT OR GPL-3.0-or-later) (1), ISC (1), MPL-2.0 (1)
+- 12 production, 22 development
+- Licences: MIT (25), Apache-2.0 (6), (MIT OR GPL-3.0-or-later) (1), ISC (1), MPL-2.0 (1)
 
 ## Artifacts
 

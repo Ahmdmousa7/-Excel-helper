@@ -53,21 +53,33 @@ because there is nothing that could break.
 
 The one thing that outlives the code is noted below.
 
-### Follow-up: an orphaned token in users' browsers
+### The orphaned token, and what was done about it
 
 Magic Links stored an admin bearer token at `localStorage['rewaa_admin_token']`,
-written by the module and read only by it. Deleting the module does **not**
-delete that value from any browser that already has one — the key simply sits
-there with no UI left to view or clear it.
+written by the module and read only by it. Deleting the module does not delete
+that value from a browser that already has one.
 
-This is not a code defect and nothing in the repo can fix it, which is why it is
-recorded here rather than filed as a bug:
+**A one-line cleanup now runs at startup** — `localStorage.removeItem(...)` in
+`App.tsx`'s first effect. An earlier draft of this document claimed "nothing in
+the repo can fix it", which was wrong: the app cannot revoke the token server
+side, but it can certainly stop storing it, and leaving a bearer token in users'
+profiles when one line clears it is not a defensible trade.
 
-- The token belongs to `admin.platform.rewaatech.com`, not to this app.
-- Anyone who used the feature still has a copy in their profile until they clear
-  site data.
+It is a **one-shot cleanup, not a permanent invariant.** Delete it once enough
+time has passed that returning users have all loaded the app at least once.
+
+What the app still cannot do, and what may need a decision elsewhere:
+
+- The token authenticates against `admin.platform.rewaatech.com`, not this app,
+  so clearing the local copy does not revoke it.
 - If those tokens are long-lived, revoking them is an action on the admin
-  platform, not here.
+  platform. Whether that is worth doing depends on their lifetime, which this
+  repository does not know.
 
-Deciding whether that matters needs knowledge of the token's lifetime, which
-this repository does not contain.
+### A near neighbour that is NOT Magic Links
+
+`components/RewaaTab.tsx` builds a `platform.rewaatech.com/inventory/...?token=`
+import URL. Same company, similar shape, unrelated feature — it is part of the
+Rewaa Manager tab and was not touched. Noted because "the other place that puts
+a token in a rewaatech URL" is exactly what a future search for this cleanup
+will turn up.

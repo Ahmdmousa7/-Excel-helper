@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:9330c783a525c9684d33c357dd1fcd09b183771456a100503c6391d9ebb2e4ee",
+  "attestation_id": "sha256:04c4e2bae59876682af909057af8df807311a4c33744a53b8e8b041367f7a88a",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,9 +21,9 @@
         "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab-Awa5ibBQ.js",
-        "gzip_bytes": 144765,
-        "raw_bytes": 444327
+        "file": "ProjectSummaryTab-sHZhL14L.js",
+        "gzip_bytes": 144789,
+        "raw_bytes": 444388
       },
       {
         "file": "geminiService-C0NfYSBk.js",
@@ -31,9 +31,9 @@
         "raw_bytes": 280794
       },
       {
-        "file": "index.es-BnRWUagk.js",
-        "gzip_bytes": 51631,
-        "raw_bytes": 151120
+        "file": "index.es-Bn6fZKYV.js",
+        "gzip_bytes": 51644,
+        "raw_bytes": 151147
       },
       {
         "file": "html2canvas.esm-CBrSDip1.js",
@@ -46,14 +46,14 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-CEfYsZpl.js",
-        "gzip_bytes": 43360,
+        "file": "HomeTab-C6jNjw2g.js",
+        "gzip_bytes": 43362,
         "raw_bytes": 135983
       },
       {
-        "file": "index-B7Zx1YbT.js",
-        "gzip_bytes": 32783,
-        "raw_bytes": 107816
+        "file": "index-D_xQV9F9.js",
+        "gzip_bytes": 31270,
+        "raw_bytes": 102847
       },
       {
         "file": "jszip.min-CiouRDUD.js",
@@ -61,18 +61,18 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-CJbUH6s1.js",
-        "gzip_bytes": 13678,
-        "raw_bytes": 37385
+        "file": "QrCodeTab-Gvkc4BMn.js",
+        "gzip_bytes": 13691,
+        "raw_bytes": 37417
       }
     ],
     "metrics": [
       {
         "budget_kb": 110,
-        "gzip_kb": 87.5,
+        "gzip_kb": 85.8,
         "metric": "Initial load (entry + preloads + CSS)",
         "over": false,
-        "used_pct": 80
+        "used_pct": 78
       },
       {
         "budget_kb": 560,
@@ -83,10 +83,10 @@
       },
       {
         "budget_kb": 60,
-        "gzip_kb": 11.2,
+        "gzip_kb": 11,
         "metric": "Total CSS",
         "over": false,
-        "used_pct": 19
+        "used_pct": 18
       },
       {
         "budget_kb": 120,
@@ -97,17 +97,17 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1312.9,
+        "gzip_kb": 1289.4,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
-        "used_pct": 91
+        "used_pct": 89
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1327.3,
+        "gzip_kb": 1303.7,
         "metric": "Total shipped assets",
         "over": false,
-        "used_pct": 90
+        "used_pct": 89
       }
     ],
     "passed": true
@@ -115,28 +115,28 @@
   "eslint": {
     "available": true,
     "errors": 0,
-    "files_with_findings": 48,
+    "files_with_findings": 45,
     "passed": true,
     "top_rules": [
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-explicit-any",
-        "warnings": 292
+        "warnings": 278
       },
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-unused-vars",
-        "warnings": 207
+        "warnings": 181
       },
       {
         "errors": 0,
         "rule": "jsx-a11y/label-has-associated-control",
-        "warnings": 68
+        "warnings": 67
       },
       {
         "errors": 0,
         "rule": "react-hooks/exhaustive-deps",
-        "warnings": 27
+        "warnings": 24
       },
       {
         "errors": 0,
@@ -151,10 +151,10 @@
       {
         "errors": 0,
         "rule": "no-empty",
-        "warnings": 4
+        "warnings": 3
       }
     ],
-    "warnings": 607
+    "warnings": 562
   },
   "playwright": {
     "available": true,

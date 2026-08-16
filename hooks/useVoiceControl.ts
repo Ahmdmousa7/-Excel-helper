@@ -49,9 +49,6 @@ export const useVoiceControl = ({ onCommand }: UseVoiceControlProps) => {
           // Command Matching Logic
           if (text.includes('home') || text.includes('dashboard')) onCommandRef.current('home', text);
           else if (text.includes('translate') || text.includes('translator')) onCommandRef.current('translator', text);
-          // The 'duplicates' command went with the Check Duplicates tab. Note it
-          // also matched the bare word "check", so removing it makes that word
-          // available again rather than silently routing to a tab that is gone.
           else if (text.includes('salla')) onCommandRef.current('salla', text);
           else if (text.includes('zid')) onCommandRef.current('zid', text);
           else if (text.includes('reset') || text.includes('clear')) onCommandRef.current('reset', text);

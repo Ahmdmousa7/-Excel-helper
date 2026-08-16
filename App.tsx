@@ -177,6 +177,19 @@ const App: React.FC = () => {
 
   // --- INITIALIZATION ---
   useEffect(() => {
+    // 0. Clear the admin token the deleted Magic Links tab left behind.
+    //
+    // That module wrote a bearer token for admin.platform.rewaatech.com to
+    // localStorage, and deleting the module does not delete the value from a
+    // browser that already has one — it would sit there with no UI left to view
+    // or clear it. One line removes it on next load.
+    //
+    // Deliberately unconditional and silent: there is no key to migrate and
+    // nothing to tell the user. Remove this after enough time has passed that
+    // returning users have all loaded the app once — it is a one-shot cleanup,
+    // not a permanent invariant. See docs/modules/removed-modules.md.
+    localStorage.removeItem('rewaa_admin_token');
+
     // 1. Load Keys
     const stored = getStoredApiKeys();
     if (stored.gemini) {
@@ -397,10 +410,10 @@ const App: React.FC = () => {
   const menuGroups = [
     { title: 'Dashboard', items: [-1] },
     { title: 'New Solid Data Tools', items: [30, 31, 32, 33, 34] },
-    { title: t.menu.excelTools, items: [23, 16, 0, 1, 22, 2, 14, 5, 13, 4, 11] },
+    { title: t.menu.excelTools, items: [23, 16, 0, 22, 2, 14, 5, 13, 4] },
     { title: t.menu.aiTools, items: [12, 3] }, 
     { title: t.menu.mediaTools, items: [7, 8, 6, 9] },
-    { title: t.menu.utils, items: [26, 27, 10, 19] }
+    { title: t.menu.utils, items: [26, 10, 19] }
   ];
 
   const filteredMenuGroups = useMemo(() => {
@@ -418,7 +431,7 @@ const App: React.FC = () => {
   }, [searchQuery, language]); // Re-run when search or language changes
 
   const activeTabObj = tabs.find(t => t.id === activeTab);
-  const isExcelTool = [0, 1, 2, 4, 5, 11, 13, 14, 16, 22, 23, 30, 31, 32, 33, 34].includes(activeTab);
+  const isExcelTool = [0, 2, 4, 5, 13, 14, 16, 22, 23, 30, 31, 32, 33, 34].includes(activeTab);
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden" dir={language === 'ar' ? 'rtl' : 'ltr'}>

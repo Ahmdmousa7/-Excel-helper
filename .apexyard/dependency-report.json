@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:9330c783a525c9684d33c357dd1fcd09b183771456a100503c6391d9ebb2e4ee",
+  "attestation_id": "sha256:04c4e2bae59876682af909057af8df807311a4c33744a53b8e8b041367f7a88a",
   "audit": {
     "blocking_advisories": [],
     "critical": 0,
@@ -12,7 +12,7 @@
     "total": 1
   },
   "available": true,
-  "development_count": 23,
+  "development_count": 22,
   "direct": [
     {
       "kind": "development",
@@ -43,12 +43,6 @@
       "licence": "Apache-2.0",
       "name": "@playwright/test",
       "range": "^1.49.1"
-    },
-    {
-      "kind": "development",
-      "licence": "MIT",
-      "name": "@types/papaparse",
-      "range": "^5.5.2"
     },
     {
       "kind": "development",
@@ -149,12 +143,6 @@
     {
       "kind": "production",
       "licence": "MIT",
-      "name": "papaparse",
-      "range": "^5.4.1"
-    },
-    {
-      "kind": "production",
-      "licence": "MIT",
       "name": "pdf-lib",
       "range": "^1.17.1"
     },
@@ -235,9 +223,9 @@
     "(MIT OR GPL-3.0-or-later)": 1,
     "Apache-2.0": 6,
     "ISC": 1,
-    "MIT": 27,
+    "MIT": 25,
     "MPL-2.0": 1
   },
-  "production_count": 13,
+  "production_count": 12,
   "schema": "apexyard.evidence.dependencies/1"
 }
