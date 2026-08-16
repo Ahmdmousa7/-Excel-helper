@@ -1,51 +1,42 @@
 {
-  "attestation_id": "sha256:901e41f66f14567947167bf385c0cb2e6551c46026501816fc9df7cb19eaf481",
+  "attestation_id": "sha256:c344deae73929b67f84de72c11d52886fcf321223577cf1ab1f9e213858c5f12",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 2,
+    "low": 0,
     "medium": 1
   },
   "findings": [
     {
       "category": "react",
-      "detail": "The success path at line 222 refuses to write anything when `myRun !== runIdRef.current`, because a superseded run must not touch state. The new catch has no such guard, so a run that was invalidated mid-flight (the config effect at line 136 bumps `runIdRef` on any of `sourceSheet`, `refSheet`, `refFile`, `lookupCol`, `matchCol`, `returnCols`, `smartMode`, `hasHeaders`, `notFoundValue`, `language`) and then throws will still call `setStatus(ProcessingStatus.ERROR)` and log an error. Two concrete outcomes: (a) the user changes a setting, the abandoned run throws, and the tab shows a failure for a run whose settings are no longer on screen; (b) the user changes a setting and clicks Run again — the older run resumes from its 100 ms timer first, throws, and flips the newer in-flight run's status to ERROR plus a spurious error entry in the log. This is the same stale-write class the previous two commits were closing; the error path was the one branch left uncovered.",
+      "detail": "The success-path guard at line 223 correctly calls `setStatus(ProcessingStatus.IDLE)` before returning; the error-path guard at line 254 is a bare `return`. Status therefore stays PROCESSING, and nothing else ever clears it: the clear-on-config-change effect (line 136) only resets result state, not `status`, and the Run button is `disabled={status === ProcessingStatus.PROCESSING}` (line 489), so the user cannot start the follow-up run that would reset it. The result is the exact failure commit e0a2984 was written to fix — spinner at line 492 spinning forever, ProgressBar at line 498 frozen at 20, Run disabled, no message — only reachable through the error path instead of the happy one. Trigger is narrow: the config change must land inside the 100 ms `setTimeout` at line 201 (`buildLookup` is synchronous and blocks the main thread, so no interaction is possible during the compute), and the run must then throw. That narrowness is the only reason this is medium and not high; the consequence when it fires is unrecoverable short of the panel's Reset button.",
       "file": "components/SmartLookupTab.tsx",
-      "line": 247,
+      "line": 254,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "catch commits status without the myRun staleness guard the success path uses"
+      "summary": "Superseded-run guard in catch leaves the tab stuck in PROCESSING"
     },
     {
       "category": "code-smell",
-      "detail": "`try {` sits at the same 6-space indent as the 46 lines it now contains, and the closing `}` on line 247 lines up with nothing. It keeps this diff to a clean 11 lines, but the cost lands on every future reader and every future diff in `runLookup`: the error boundary is invisible when skimming, and the first person to touch a line inside the block either re-indents (producing a 46-line whitespace diff mixed with their change) or perpetuates it. `handleDownload` directly below at line 259 shows the indented shape the file otherwise uses.",
+      "detail": "Line 2 imports `{ useState, useEffect, useMemo }` and every other hook in the file is called unqualified; `runIdRef` is the only `React.*` call site. Functionally identical — purely a consistency observation, not a request.",
       "file": "components/SmartLookupTab.tsx",
-      "line": 200,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "try body left at the enclosing indentation level (lines 201-246)"
-    },
-    {
-      "category": "typescript",
-      "detail": "`tsconfig.json:24` sets `strict: true`, so the catch binding is `unknown` by default and `: any` is an explicit opt-out with no stated reason (type-safety handbook rule 1). The practical cost is the message: nothing guarantees the thrown value is an `Error`. A `throw 'bad sheet'` or a rejected non-Error from inside the XLSX read surfaces as `Lookup failed: undefined` — which defeats the whole point of this commit, since the log entry then says no more than the stuck spinner did. The existing `catch (err: any)` at line 166 has the same shape, so this is a consistency-preserving choice rather than a new pattern; that is why it is low and not medium.",
-      "file": "components/SmartLookupTab.tsx",
-      "line": 247,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "`catch (e: any)` then `e.message` — non-Error throw logs \"Lookup failed: undefined\""
-    },
-    {
-      "category": "code-smell",
-      "detail": "The commit message says both remaining strings are now localised, but the same function still logs English literals at line 180 (\"Please select Lookup Column, Match Column, and at least one Return Column.\"), line 186 (\"Starting Smart Lookup...\"), line 244 (\"Lookup complete. Found: X, Missing: Y.\") and line 165 (\"Reference file loaded.\"). An Arabic user running a lookup now sees a localised failure and a localised superseded warning bracketed by English start/complete lines. Recording this as info, not a request: those lines are outside this diff's hunks and the localisation of this panel is evidently being landed incrementally — the note is to correct the \"last two\" claim, so the next pass knows there are four left.",
-      "file": "components/SmartLookupTab.tsx",
-      "line": 244,
+      "line": 67,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "runLookup still has four hard-coded English log strings after this \"last two messages\" pass"
+      "summary": "`React.useRef` where the file imports hooks by name"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "Commit 0ac600d states \"the panel is fully localised rather than nearly.\" That is true of `runLookup`, but `handleDownload` in the same file still emits English literals (`Batch Download Complete (…)`, `Download Complete.`, `Download Error: …`), as does the `Reset` button label. Those lines are outside this diff and I am not asking for a change to them here — flagging only because the commit message will be the record a future reader trusts, and it currently overstates the coverage. The rest of the message is a model of the WHY-not-WHAT shape the commit-message handbook asks for.",
+      "file": "components/SmartLookupTab.tsx",
+      "line": 177,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "Commit message claims the panel is fully localised; three strings remain"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 4
+  "total": 3
 }

@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:901e41f66f14567947167bf385c0cb2e6551c46026501816fc9df7cb19eaf481` |
+| Attestation id | `sha256:c344deae73929b67f84de72c11d52886fcf321223577cf1ab1f9e213858c5f12` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `e0a2984968b9` |
+| Reviewed at commit | `0ac600d94d14` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **COMMENT** |
@@ -30,17 +30,17 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 1 |
-| low | 2 |
-| info | 1 |
+| low | 0 |
+| info | 2 |
 
-This PR wraps the body of `runLookup` in Smart Lookup with a try/catch so a throw (corrupt sheet, stale column index) reports an error and sets ERROR instead of leaving the tab stuck in PROCESSING, and it moves the two remaining new user-facing strings (`supersededRun`, `failed`) into `translations.ts` in both en and ar. The fix is correct in the common case and the translation keys are added symmetrically to both language blocks under the right `smartLookup` object. Three non-blocking findings: the new catch commits state without the `myRun` staleness guard the same function establishes 25 lines above, the catch is typed `any` and will print `undefined` for a non-Error throw, and the 46-line try body was left at the old indentation. Nothing blocking; no handbook violation with blocking enforcement.
+This PR hardens `runLookup` in the Smart Lookup tab: it adds a run-id counter so a lookup superseded by a mid-flight config change discards itself, wraps the body in try/catch so a throw no longer strands the tab in PROCESSING, extracts the error message from `unknown` instead of assuming `.message`, and moves four remaining hard-coded English strings into `translations.ts` (en + ar). The direction is right and the type handling on the catch is exactly what the type-safety handbook asks for. One defect: the staleness guard on the new error path returns without restoring status, which re-creates the permanently-stuck PROCESSING state the previous commit set out to fix — through a narrower door. No blocking-handbook violations.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 609 warning(s) |
+| ESLint | pass | 0 error(s), 608 warning(s) |
 | Vitest | pass | 313/313 passed, lines 97.25% |
 | Playwright | pass | 107/107 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 98 source files, 29209 lines
+- 98 source files, 29228 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
@@ -64,7 +64,7 @@ reports zero failures for a tool that never executed.
 | `components/CompositeTab.tsx` | 1404 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1058 |
-| `utils/translations.ts` | 961 |
+| `utils/translations.ts` | 969 |
 | `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
 | `components/OcrTab.tsx` | 881 |

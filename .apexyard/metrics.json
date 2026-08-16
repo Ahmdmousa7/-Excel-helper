@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:901e41f66f14567947167bf385c0cb2e6551c46026501816fc9df7cb19eaf481",
+  "attestation_id": "sha256:c344deae73929b67f84de72c11d52886fcf321223577cf1ab1f9e213858c5f12",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,8 +21,8 @@
         "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab-BU_UoDNf.js",
-        "gzip_bytes": 144764,
+        "file": "ProjectSummaryTab-DgNFPT_B.js",
+        "gzip_bytes": 144760,
         "raw_bytes": 444327
       },
       {
@@ -31,8 +31,8 @@
         "raw_bytes": 280794
       },
       {
-        "file": "index.es-fbJYcc0w.js",
-        "gzip_bytes": 51629,
+        "file": "index.es-Bl1KckM4.js",
+        "gzip_bytes": 51628,
         "raw_bytes": 151120
       },
       {
@@ -46,14 +46,14 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-BkSMyiVG.js",
-        "gzip_bytes": 43362,
+        "file": "HomeTab-Gn59m9um.js",
+        "gzip_bytes": 43361,
         "raw_bytes": 135983
       },
       {
-        "file": "index-DZAa0VDY.js",
-        "gzip_bytes": 32566,
-        "raw_bytes": 107021
+        "file": "index-BDtitNXL.js",
+        "gzip_bytes": 32703,
+        "raw_bytes": 107509
       },
       {
         "file": "jszip.min-CiouRDUD.js",
@@ -61,15 +61,15 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-D2qMM-gV.js",
-        "gzip_bytes": 13679,
+        "file": "QrCodeTab-6SykY8D3.js",
+        "gzip_bytes": 13676,
         "raw_bytes": 37385
       }
     ],
     "metrics": [
       {
         "budget_kb": 110,
-        "gzip_kb": 87.3,
+        "gzip_kb": 87.4,
         "metric": "Initial load (entry + preloads + CSS)",
         "over": false,
         "used_pct": 79
@@ -104,7 +104,7 @@
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1327.1,
+        "gzip_kb": 1327.2,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -121,7 +121,7 @@
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-explicit-any",
-        "warnings": 294
+        "warnings": 293
       },
       {
         "errors": 0,
@@ -154,7 +154,7 @@
         "warnings": 4
       }
     ],
-    "warnings": 609
+    "warnings": 608
   },
   "playwright": {
     "available": true,
