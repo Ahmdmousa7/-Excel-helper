@@ -7,12 +7,12 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:04c4e2bae59876682af909057af8df807311a4c33744a53b8e8b041367f7a88a` |
+| Attestation id | `sha256:fcc77ebd9c664bf3279a7adfb79e1ab26fc52361d7d1a667ffae08ee175b7505` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `341966b6d225` |
+| Reviewed at commit | `bbd760659295` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **COMMENT** |
+| Verdict | **APPROVED** |
 | Files reviewed | 12 |
 
 ## What this is, and what it is not
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 2 |
+| medium | 0 |
 | low | 3 |
 | info | 0 |
 
-This PR deletes three tools (Check Duplicates, CSV to Excel, Magic Links) along with their tab entries, lazy imports, translation blocks in both locales, one voice command, two orphaned lucide icons, and the papaparse/@types/papaparse dependency pair (lockfile moved with the manifest). The removal is clean where it matters: I grepped for every removed symbol and found no dangling references — no `papaparse` import, no `t.tabs.duplicates`/`t.csv` reader, no surviving import of the three deleted components — and the accompanying `docs/modules/removed-modules.md` plus commit body are unusually good records of what was spared and why. Findings are all non-blocking: one e2e constant that quietly breaks its own documented invariant, one overstated claim in the new doc about an orphaned admin token that the app *can* in fact clear locally, and three low-severity leftovers.
+This PR deletes three tools (Check Duplicates, CSV to Excel, Magic Links) and their supporting code: lazy imports, tab entries, menu-group ids, the `isExcelTool` id list, one voice command, both locales' translation blocks, two now-unused lucide icons, and the `papaparse` / `@types/papaparse` dependency pair (lockfile moved with the manifest). I grepped for every removed symbol and found no dangling references — no surviving import of the three components, no reader of `t.tabs.duplicates` / `t.csv` / `toolInfo.csv`, no `papaparse` import — and the near-miss neighbours (`DeduplicateTool`, `RewaaTab`'s magic-link field, `FileText` still used by tab id 26) were all correctly spared. The `localStorage.removeItem('rewaa_admin_token')` cleanup uses the exact key the deleted `MagicLinkTab.tsx:153` wrote, sits in a mount-only effect, and is the right call. Three low-severity findings, none blocking.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 95 source files, 27364 lines
+- 95 source files, 27373 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

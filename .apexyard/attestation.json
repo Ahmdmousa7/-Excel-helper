@@ -1,8 +1,8 @@
 {
-  "attestation_id": "sha256:04c4e2bae59876682af909057af8df807311a4c33744a53b8e8b041367f7a88a",
+  "attestation_id": "sha256:fcc77ebd9c664bf3279a7adfb79e1ab26fc52361d7d1a667ffae08ee175b7505",
   "files": [
     {
-      "oid": "1da27f2dfa630312c2c4b7749c2b0da3f32b2b90",
+      "oid": "a541442087c183add8da6a0e801c7aad00ee4393",
       "path": "App.tsx"
     },
     {
@@ -18,23 +18,23 @@
       "path": "components/MagicLinkTab.tsx"
     },
     {
-      "oid": "d2fd33dc733442d5b3356d85de00e008c357e82f",
+      "oid": "c913444b87c0f94a552e7af7ff7894fb77961611",
       "path": "docs/modules/removed-modules.md"
     },
     {
-      "oid": "494c8e21f59acf7b1f3abead31bd28e7ec177a99",
+      "oid": "5cc8eabbd474af20de073653fb68eef0119fa2ac",
       "path": "e2e/happy-path.spec.ts"
     },
     {
-      "oid": "28eddce80832c314bd4398e18e0a0e6b0daea40f",
+      "oid": "eed34874698d6617debc580483c14b4088c63910",
       "path": "e2e/offline.spec.ts"
     },
     {
-      "oid": "2125f8cca6bdea400ac44fbf31d274ed20d2c109",
+      "oid": "827a2e061de6c78b000b287dd6b7311449380312",
       "path": "e2e/pages/AppShell.ts"
     },
     {
-      "oid": "0a4a51d0bfdbd0212545bd7f22bcea770b58c6f8",
+      "oid": "ded03d31440f69f4b39a355b1e336a480df892a4",
       "path": "hooks/useVoiceControl.ts"
     },
     {
@@ -55,12 +55,12 @@
     "high": 0,
     "info": 0,
     "low": 3,
-    "medium": 2
+    "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "341966b6d22577dc29f475ef1c139eca60bfcf16",
+  "reviewed_at_commit": "bbd76065929510f120a561a8c1502920a6545f57",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "COMMENT"
+  "verdict": "APPROVED"
 }

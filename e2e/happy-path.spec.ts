@@ -1,4 +1,4 @@
-import { test, expect, TOOL } from './fixtures';
+import { test, expect, TOOL, GROUP } from './fixtures';
 
 test.describe('happy path', () => {
   test('generate a QR code end to end', async ({ qr, pageErrors }) => {
@@ -43,8 +43,20 @@ test.describe('happy path', () => {
       app.sidebar.getByRole('button', { name: TOOL.separator, exact: false }),
     ).toHaveCount(0);
 
+    // Filtering must reach ACROSS groups, not just within the matching one.
+    //
+    // This used to be covered incidentally: the hidden tool was Magic Links,
+    // which sat in a different group from Compare Files. Every tool in `TOOL`
+    // now lives in the same group — they are the five with hard-coded English
+    // names — so the cross-group property is asserted on the GROUP HEADINGS
+    // instead, which are also hard-coded and so equally locale-safe. A group
+    // with no matches is removed entirely (`filteredMenuGroups`).
+    await expect(app.sidebar.getByText(GROUP.newTools)).toBeVisible();
+    await expect(app.sidebar.getByText(GROUP.dashboard)).toHaveCount(0);
+
     await app.searchFor('');
     await expect(app.tool(TOOL.separator)).toBeVisible();
+    await expect(app.sidebar.getByText(GROUP.dashboard)).toBeVisible();
   });
 
   test('a search with no matches leaves the shell usable', async ({ app }) => {

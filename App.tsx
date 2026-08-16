@@ -187,7 +187,7 @@ const App: React.FC = () => {
     // Deliberately unconditional and silent: there is no key to migrate and
     // nothing to tell the user. Remove this after enough time has passed that
     // returning users have all loaded the app once — it is a one-shot cleanup,
-    // not a permanent invariant. See docs/modules/removed-modules.md.
+    // not a permanent invariant. TD-048; see docs/modules/removed-modules.md.
     localStorage.removeItem('rewaa_admin_token');
 
     // 1. Load Keys

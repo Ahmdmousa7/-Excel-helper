@@ -1,60 +1,42 @@
 {
-  "attestation_id": "sha256:04c4e2bae59876682af909057af8df807311a4c33744a53b8e8b041367f7a88a",
+  "attestation_id": "sha256:fcc77ebd9c664bf3279a7adfb79e1ab26fc52361d7d1a667ffae08ee175b7505",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
     "low": 3,
-    "medium": 2
+    "medium": 0
   },
   "findings": [
     {
-      "category": "security",
-      "detail": "The doc is right that this repo cannot *revoke* a token issued by `admin.platform.rewaatech.com`. It is not right that nothing here can be done. The value sits in this origin's `localStorage`, and this app already writes to that store on every boot — `App.tsx:218-221` sets `app_theme` and `app_lang` inside a mount effect. A single `localStorage.removeItem('rewaa_admin_token')` in that same effect would delete the local copy for every user who opens the app after this ships, which is the entire affected population (they used the feature *in this app*). That reduces the exposure from \"an admin bearer token sits in every past user's profile indefinitely, with the only UI that could clear it now deleted\" to \"it is gone on next visit.\" It does not make revocation unnecessary, but it is strictly better than nothing and costs one line. This is not a new exposure introduced by the diff — the token predates it — which is why it is medium and not blocking; what the diff does is remove the last surface that could have cleared it, and then record a reason not to. Grep confirms `rewaa_admin_token` has no remaining reader anywhere in the tree, so the removal is safe.",
-      "file": "docs/modules/removed-modules.md",
-      "line": 63,
-      "severity": "medium",
+      "category": "code-smell",
+      "detail": "The only semantic change to this file is removing `magicLinks: 'Magic Links',` from the TOOL map, but the commit rewrote all 141 lines because the blob's line endings changed from LF to CRLF. `git diff --numstat` reports 141 insertions / 142 deletions, and `git ls-files --eol` now reports `i/-text w/-text` for this path while every sibling under `e2e/` reports `i/lf w/crlf` (the normal `text=auto` shape). Two concrete costs: `git blame` on every line of the page object now points at this commit instead of the commit that wrote the selector, and the next PR that touches the file will produce the same whole-file churn in reverse, guaranteeing conflicts on any concurrent branch. This is diff hygiene, not a behaviour change — the tests still run.",
+      "file": "e2e/pages/AppShell.ts",
+      "line": 1,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "\"Nothing in the repo can fix it\" is overstated for the orphaned admin token"
+      "summary": "One-line deletion committed as a full-file CRLF rewrite (141 lines)"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "The comment states this is a one-shot cleanup to be deleted 'after enough time has passed that returning users have all loaded the app once', but names no ticket, no owner, and no date. `docs/modules/removed-modules.md` repeats the same open-ended instruction. The failure mode is the ordinary one for untracked debt: nothing surfaces this line again, so it stays in the init effect indefinitely and the next reader has to re-derive from git history whether the window has elapsed. The cleanup itself is correct — `MagicLinkTab.tsx:153` wrote exactly `rewaa_admin_token`, nothing else in the repo writes it, and a mount-only effect (`App.tsx:222`, `[]` deps) is the right place. This is bookkeeping, not a defect.",
+      "file": "App.tsx",
+      "line": 191,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "One-shot token cleanup has a removal trigger but no ticket or owner"
     },
     {
       "category": "testing",
-      "detail": "The doc comment directly above this map (AppShell.ts:13-17) states the invariant these entries rest on: \"Tool names hard-coded in English in App.tsx rather than routed through the translation layer. Stable regardless of which language the app boots in, which is why the suite anchors on these.\" The five names it replaced satisfied that — 'Magic Links' was a literal in App.tsx. 'QR Generator' is not: the QR tab's title is `t.tabs.qr` (App.tsx:387), which is 'QR Generator' in EN (utils/translations.ts:138) and 'منشئ QR' in AR (utils/translations.ts:563). The suite already has a dedicated locale-tolerant path for exactly this case — `openToolMatching(pattern)` (AppShell.ts:114), which `QrToolPage.open()` uses with `/QR/i` (QrToolPage.ts:43). So this PR routes the QR tool through both mechanisms at once, and the string one is the wrong one. It passes today only because `App.tsx:146` defaults `language` to 'en' and `AppShell.goto()` never seeds `app_lang`. The trigger is narrow but cheap to hit: an Arabic-locale test, an `app_lang` seed, or a change to the default boots three tests (happy-path.spec.ts:43, :47 and offline.spec.ts:97) into 15-second timeouts whose message points at the sidebar, not at the locale. Kept at medium rather than high because nothing fails on the current default.",
-      "file": "e2e/pages/AppShell.ts",
-      "line": 24,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "TOOL.qrGenerator breaks the TOOL map's documented locale-independence"
-    },
-    {
-      "category": "code-smell",
-      "detail": "A three-line comment describing a branch that no longer exists now sits between two `else if` clauses. It parses fine and the reasoning it captures is genuinely useful — that the removed branch also swallowed the bare word \"check\" — but the same fact is already recorded in `docs/modules/removed-modules.md` and in the commit body, which are the durable homes for it. Inside the chain it will outlive its usefulness quickly: the next person adding a command reads a comment about a tab that has not existed for months, mid-dispatch, and cannot tell whether it constrains what they are about to write. I also confirmed the claim is accurate — no later branch in the chain (lines 55-59) matches 'check', so the word is genuinely free.",
-      "file": "hooks/useVoiceControl.ts",
-      "line": 52,
+      "detail": "`TOOL.magicLinks` was tab id 27 in the `t.menu.utils` group, so asserting it disappeared while `TOOL.compareFiles` (id 31, 'New Solid Data Tools') stayed visible exercised `App.tsx:430`'s `.filter(group => group.items.length > 0)` — whole-group elimination. `TOOL.separator` is id 34, in the *same* group as `compareFiles`, so the test now only proves within-group item filtering. It still passes and still tests something real, but the group-drop branch is no longer covered by this suite. This is now structural rather than incidental: after the Magic Links removal, all five surviving `TOOL` constants (`removeBlanks`/30, `compareFiles`/31, `deduplicator`/32, `mergeDatasets`/33, `separator`/34) are the 'New Solid Data Tools' group, because that group is the only one with English titles hard-coded in `App.tsx` rather than routed through `t.tabs.*` — which is exactly the invariant the `TOOL` docblock at AppShell.ts:14-18 describes. There is no remaining TOOL constant that can express a cross-group assertion.",
+      "file": "e2e/happy-path.spec.ts",
+      "line": 43,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Tombstone comment for deleted code sits inside the else-if dispatch chain"
-    },
-    {
-      "category": "technical-debt",
-      "detail": "`menuGroups` keeps id `1` and `11` in the Excel-tools group (line 400) and id `27` in the utils group (line 403), and `isExcelTool` keeps `1` and `11` (line 421) — all three tab entries were deleted from the `tabs` array in this diff. I checked the render path and this does not crash: `components/Sidebar.tsx:133-134` does `tabs.find(t => t.id === itemId)` and returns `null` on a miss, and `filteredMenuGroups` has the same guard at App.tsx:413. So the user-visible behaviour is correct. What is left is a stale id list that reads as if those tools still exist, in the one place a reader goes to find out which tools exist — and it is a group-emptying hazard if the guard is ever refactored out.",
-      "file": "App.tsx",
-      "line": 400,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "menuGroups and isExcelTool still list the removed tab ids 1, 11 and 27"
-    },
-    {
-      "category": "technical-debt",
-      "detail": "The doc's own framing is that the not-deleted things are the part worth writing down. It covers `DeduplicateTool.tsx` (the name-collision trap) and the shared services/deps, but it does not mention that `components/RewaaTab.tsx` still has its own magic-link handling — `RewaaTab.tsx:33` (`// Magic Link State`), `:140` (\"Please enter a Magic Link or Token first.\") and `:316` (\"Paste Magic Link / Token\") — nor that `ProjectSummaryTab.tsx:19` declares a `magicLink` field. This is the same class of hazard the doc already guards against for Deduplicator, and it is the one a reader will actually hit: after reading \"Magic Links removed\", grepping the tree for \"Magic Link\" returns live code in two surviving components, and there is nothing in the record to say that is expected.",
-      "file": "docs/modules/removed-modules.md",
-      "line": 30,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "\"What was deliberately NOT removed\" omits the surviving Magic Link flow in RewaaTab"
+      "summary": "Search-filter test lost its cross-group assertion when magicLinks became separator"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 5
+  "total": 3
 }

@@ -20,7 +20,7 @@ export class AppShell {
     compareFiles: 'Compare Files',
     deduplicator: 'Deduplicator (Pro)',
     mergeDatasets: 'Merge Datasets',
-    separator: 'Separator',
+    separator: 'Separator',
   } as const;
 
   static readonly GROUP = {
