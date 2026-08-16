@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:4097f0f613986c2048edd5dbc4632b684f8a7e5295642f70510b833d84463446",
+  "attestation_id": "sha256:46dbb5d6beee79f0a315965314e3ab072db0b2db1da5010f621650d5cc1f2318",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,8 +21,8 @@
         "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab-CurTxmDZ.js",
-        "gzip_bytes": 144766,
+        "file": "ProjectSummaryTab-DOZZJnba.js",
+        "gzip_bytes": 144767,
         "raw_bytes": 444327
       },
       {
@@ -31,8 +31,8 @@
         "raw_bytes": 280794
       },
       {
-        "file": "index.es-Ch0zzf3_.js",
-        "gzip_bytes": 51632,
+        "file": "index.es-90lq6MVY.js",
+        "gzip_bytes": 51629,
         "raw_bytes": 151120
       },
       {
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-D0TGS-X2.js",
-        "gzip_bytes": 43360,
+        "file": "HomeTab-Bgwd4YC2.js",
+        "gzip_bytes": 43359,
         "raw_bytes": 135983
       },
       {
-        "file": "index-rs8GT6mz.js",
-        "gzip_bytes": 32466,
+        "file": "index-CAMH8nxh.js",
+        "gzip_bytes": 32477,
         "raw_bytes": 106802
       },
       {
@@ -61,7 +61,7 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-2X8a1kVh.js",
+        "file": "QrCodeTab-CJJsTT2X.js",
         "gzip_bytes": 13678,
         "raw_bytes": 37385
       }
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1312.3,
+        "gzip_kb": 1312.4,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 91
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1326.8,
+        "gzip_kb": 1326.9,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -115,18 +115,18 @@
   "eslint": {
     "available": true,
     "errors": 0,
-    "files_with_findings": 49,
+    "files_with_findings": 48,
     "passed": true,
     "top_rules": [
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-explicit-any",
-        "warnings": 292
+        "warnings": 293
       },
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-unused-vars",
-        "warnings": 208
+        "warnings": 207
       },
       {
         "errors": 0,
@@ -176,18 +176,18 @@
   "vitest": {
     "available": true,
     "coverage": {
-      "branches_pct": 93.36,
-      "functions_pct": 86.95,
-      "lines_pct": 87.46,
-      "statements_pct": 87.46
+      "branches_pct": 93.6,
+      "functions_pct": 95.65,
+      "lines_pct": 97.25,
+      "statements_pct": 97.25
     },
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 303,
+      "passed": 313,
       "skipped": 0,
-      "suites": 64,
-      "total": 303
+      "suites": 66,
+      "total": 313
     }
   }
 }

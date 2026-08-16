@@ -1,8 +1,8 @@
 {
-  "attestation_id": "sha256:4097f0f613986c2048edd5dbc4632b684f8a7e5295642f70510b833d84463446",
+  "attestation_id": "sha256:46dbb5d6beee79f0a315965314e3ab072db0b2db1da5010f621650d5cc1f2318",
   "files": [
     {
-      "oid": "03f8c53517558eefee515bdf855160dafb559db9",
+      "oid": "d94d35cffe8d686f0ab9e41e3033d337ec6223ba",
       "path": "components/SmartLookupTab.tsx"
     },
     {
@@ -18,15 +18,15 @@
       "path": "e2e/smart-lookup.spec.ts"
     },
     {
-      "oid": "eba4bef0ba58d9bb057c0bb761fcd296e7db2c51",
+      "oid": "93f60e05540410770008856be487ea44ccfe9467",
       "path": "services/excelService.ts"
     },
     {
-      "oid": "0773b37396c22db688cf50979f803dca16f886bf",
+      "oid": "0404b71d27869c602d3b6fd43f99b480bb42223a",
       "path": "tests/unit/lookupEngine.test.ts"
     },
     {
-      "oid": "3ff10ba732c8fa29371580fe20bda0d0c23e19a4",
+      "oid": "25fc3e56a71b8f0751d1bb091e58025b9f726bcc",
       "path": "utils/lookupEngine.ts"
     },
     {
@@ -37,14 +37,14 @@
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 6,
-    "medium": 1
+    "info": 1,
+    "low": 5,
+    "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "ea464c124d8a3036346868a75e5f5d03a077b82d",
+  "reviewed_at_commit": "da4d249d58796ae3cf43daf02b474105805caf3e",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "COMMENT"
+  "verdict": "APPROVED"
 }

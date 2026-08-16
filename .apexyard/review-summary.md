@@ -7,12 +7,12 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:4097f0f613986c2048edd5dbc4632b684f8a7e5295642f70510b833d84463446` |
+| Attestation id | `sha256:46dbb5d6beee79f0a315965314e3ab072db0b2db1da5010f621650d5cc1f2318` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `ea464c124d8a` |
+| Reviewed at commit | `da4d249d5879` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **COMMENT** |
+| Verdict | **APPROVED** |
 | Files reviewed | 8 |
 
 ## What this is, and what it is not
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 1 |
-| low | 6 |
-| info | 0 |
+| medium | 0 |
+| low | 5 |
+| info | 1 |
 
-Consolidates Smart Lookup's duplicated join into a new `utils/lookupEngine.ts` that works on cells rather than bare values, so the export writes the rows the preview was built from (TD-043) and carries number formats, error-cell keys, header-styling guards and a headers/not-found toggle (TD-044 through TD-047). The architecture is clean — the engine is dependency-free, the component gained no I/O, and the 23 unit tests plus the cell-for-cell preview-vs-file e2e are genuinely good regression cover for the headline defect. No blocking-handbook violations and nothing that fails the gate; the findings are one localisation regression the diff introduced, one claimed fix that does not actually reach the batch export, and four smaller cleanups.
+This PR collapses Smart Lookup's two divergent join implementations into a single cell-aware engine (`utils/lookupEngine.ts`), holds the result so the export writes exactly what the preview showed, and closes TD-043/044/045/046/047 with 33 unit tests and 3 e2e specs. I confirmed the substantive claims against the code: first-match indexing is correct and matches VLOOKUP, `normalizeKey` genuinely refuses error cells on both sides of the join, `writeSheet` guards the blank-header dereference that used to throw, and the batch-ZIP path now goes through the style-capable writer so it matches the single-file path. No blocking-handbook violations and nothing high or critical — the findings below are advisory: one narrow stale-result race the new clear-on-config-change effect doesn't cover, a missing language dependency in that same effect, the memory cost of retaining the full cell-level result, pre-existing unlabelled selects on lines the diff touched, and the cross-module blast radius of the `cellNF: true` parse change. No PR body was supplied to this run, so the description-quality and AgDR-link checks (§6, §7) could not be evaluated; on the code alone I see no material technical decision requiring an AgDR — a new dependency-free util module and a SheetJS read option are both reversible inside this PR.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ Consolidates Smart Lookup's duplicated join into a new `utils/lookupEngine.ts` t
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 608 warning(s) |
-| Vitest | pass | 303/303 passed, lines 87.46% |
+| Vitest | pass | 313/313 passed, lines 97.25% |
 | Playwright | pass | 107/107 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 98 source files, 29037 lines
+- 98 source files, 29170 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
