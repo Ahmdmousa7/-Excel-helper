@@ -63,6 +63,8 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
   const [resultRows, setResultRows] = useState<CellInfo[][]>([]);
   const [resultHeader, setResultHeader] = useState<string[] | null>(null);
   const [previewMissing, setPreviewMissing] = useState<boolean[]>([]);
+  /** Bumped whenever the configuration changes, so an in-flight run can tell it has been superseded. */
+  const runIdRef = React.useRef(0);
 
   // 3b. Behaviour options a manual formula user expects to control.
   const [hasHeaders, setHasHeaders] = useState<boolean>(true);
@@ -132,6 +134,10 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
    * re-run, so what can be downloaded is always what was last previewed.
    */
   useEffect(() => {
+      // Also invalidates any run currently in flight — see `runIdRef` in
+      // `runLookup`. Clearing state alone does not help there, because the run
+      // finishes afterwards and writes its result straight back over the clear.
+      runIdRef.current++;
       setStats(null);
       setResultRows([]);
       setResultHeader(null);
@@ -140,6 +146,10 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
   }, [
       sourceSheet, refSheet, refFile, lookupCol, matchCol, returnCols,
       smartMode, hasHeaders, notFoundValue,
+      // `language` too: the not-found marker defaults to the localised string, so
+      // switching language changes what a re-run would write. Leaving it out left
+      // a result whose marker came from the previous language.
+      language,
   ]);
 
   // --- HANDLERS ---
@@ -175,6 +185,14 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
       setProgress(0);
       addLog("Starting Smart Lookup...", 'info');
 
+      // Claim this run. The clear-on-config-change effect above cannot help once
+      // a run is already in flight: change a setting mid-run and the effect
+      // clears the state, then this function finishes and writes its result back
+      // — a result computed from settings that are no longer on screen. The
+      // counter is bumped by that same effect, so a superseded run discards
+      // itself instead of committing.
+      const myRun = ++runIdRef.current;
+
       await new Promise(r => setTimeout(r, 100));
 
       // Cells, not values. `readGrid` keeps each cell's type and number format,
@@ -193,6 +211,14 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
           notFoundValue: effectiveNotFound,
       });
       setProgress(90);
+
+      // Superseded while we were working: the settings on screen are no longer
+      // the ones this result came from, so it must not be shown or exported.
+      if (myRun !== runIdRef.current) {
+          addLog("Settings changed during the lookup — run it again.", 'warning');
+          setStatus(ProcessingStatus.IDLE);
+          return;
+      }
 
       // Held whole. The download exports THESE rows rather than repeating the
       // join, which is what stops the file disagreeing with the screen (TD-043).
