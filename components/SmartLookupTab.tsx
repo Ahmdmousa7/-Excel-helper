@@ -162,7 +162,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
           const data = await readExcelFile(file);
           setRefFile(data);
           setRefSheet(data.sheets[0]);
-          addLog("Reference file loaded.", 'success');
+          addLog(t.smartLookup.referenceLoaded, 'success');
       } catch (err: any) {
           addLog(err.message, 'error');
       }
@@ -177,13 +177,13 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
   const runLookup = async () => {
       if (!fileData || !refFile) return;
       if (lookupCol === -1 || matchCol === -1 || returnCols.length === 0) {
-          addLog("Please select Lookup Column, Match Column, and at least one Return Column.", 'warning');
+          addLog(t.smartLookup.selectColumnsFirst, 'warning');
           return;
       }
 
       setStatus(ProcessingStatus.PROCESSING);
       setProgress(0);
-      addLog("Starting Smart Lookup...", 'info');
+      addLog(t.smartLookup.starting, 'info');
 
       // Claim this run. The clear-on-config-change effect above cannot help once
       // a run is already in flight: change a setting mid-run and the effect
@@ -198,54 +198,65 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
       // spinner running, Run disabled, no error and nothing in the log to say
       // what happened.
       try {
-      await new Promise(r => setTimeout(r, 100));
+          await new Promise(r => setTimeout(r, 100));
 
-      // Cells, not values. `readGrid` keeps each cell's type and number format,
-      // which is what lets the engine refuse to key on an error (TD-047) and lets
-      // the export keep a date a date (TD-045).
-      const sourceGrid = readGrid(XLSX, fileData.workbook.Sheets[sourceSheet]);
-      const refGrid = readGrid(XLSX, refFile.workbook.Sheets[refSheet]);
-      setProgress(20);
+          // Cells, not values. `readGrid` keeps each cell's type and number
+          // format, which is what lets the engine refuse to key on an error
+          // (TD-047) and lets the export keep a date a date (TD-045).
+          const sourceGrid = readGrid(XLSX, fileData.workbook.Sheets[sourceSheet]);
+          const refGrid = readGrid(XLSX, refFile.workbook.Sheets[refSheet]);
+          setProgress(20);
 
-      const result = buildLookup(sourceGrid, refGrid, {
-          matchCol,
-          lookupCol,
-          returnCols,
-          smartMode,
-          hasHeaders,
-          notFoundValue: effectiveNotFound,
-      });
-      setProgress(90);
+          const result = buildLookup(sourceGrid, refGrid, {
+              matchCol,
+              lookupCol,
+              returnCols,
+              smartMode,
+              hasHeaders,
+              notFoundValue: effectiveNotFound,
+          });
+          setProgress(90);
 
-      // Superseded while we were working: the settings on screen are no longer
-      // the ones this result came from, so it must not be shown or exported.
-      if (myRun !== runIdRef.current) {
-          addLog(t.smartLookup.supersededRun, 'warning');
-          setStatus(ProcessingStatus.IDLE);
-          return;
-      }
+          // Superseded while we were working: the settings on screen are no
+          // longer the ones this result came from, so it must not be shown or
+          // exported.
+          if (myRun !== runIdRef.current) {
+              addLog(t.smartLookup.supersededRun, 'warning');
+              setStatus(ProcessingStatus.IDLE);
+              return;
+          }
 
-      // Held whole. The download exports THESE rows rather than repeating the
-      // join, which is what stops the file disagreeing with the screen (TD-043).
-      setResultRows(result.rows);
-      setPreviewMissing(result.missingFlags.slice(0, 50));
-      setResultHeader(result.header);
-      setStats({ found: result.found, missing: result.missing });
-      // With no header row, the preview labels columns by position rather than
-      // rendering a row of empty `<th>`s — an unlabelled header is worse than a
-      // generic one for anyone reading the table with a screen reader.
-      const previewHeader = result.header
-          ?? Array.from({ length: result.rows[0]?.length ?? 0 }, (_, i) => `${i + 1}`);
-      setResultPreview([
-          previewHeader,
-          ...result.rows.slice(0, 50).map(row => row.map(c => formatCell(XLSX, c))),
-      ]);
+          // Held whole. The download exports THESE rows rather than repeating
+          // the join, which is what stops the file disagreeing with the screen
+          // (TD-043).
+          setResultRows(result.rows);
+          setPreviewMissing(result.missingFlags.slice(0, 50));
+          setResultHeader(result.header);
+          setStats({ found: result.found, missing: result.missing });
+          // With no header row, the preview labels columns by position rather
+          // than rendering a row of empty `<th>`s — an unlabelled header is
+          // worse than a generic one for anyone reading with a screen reader.
+          const previewHeader = result.header
+              ?? Array.from({ length: result.rows[0]?.length ?? 0 }, (_, i) => `${i + 1}`);
+          setResultPreview([
+              previewHeader,
+              ...result.rows.slice(0, 50).map(row => row.map(c => formatCell(XLSX, c))),
+          ]);
 
-      addLog(`Lookup complete. Found: ${result.found}, Missing: ${result.missing}.`, 'success');
-      setProgress(100);
-      setStatus(ProcessingStatus.COMPLETED);
-      } catch (e: any) {
-          addLog(`${t.smartLookup.failed}: ${e.message}`, 'error');
+          addLog(`${t.smartLookup.complete} ${t.smartLookup.found}: ${result.found}, ${t.smartLookup.missing}: ${result.missing}.`, 'success');
+          setProgress(100);
+          setStatus(ProcessingStatus.COMPLETED);
+      } catch (e: unknown) {
+          // The SAME staleness guard as the success path. Without it a superseded
+          // run that happens to throw still stamps ERROR over a newer run's
+          // state — the failure this whole run-id exists to prevent, arriving
+          // through the error path instead of the happy one.
+          if (myRun !== runIdRef.current) return;
+          // `unknown`, and a message extracted rather than assumed: a non-Error
+          // throw has no `.message`, and "Lookup failed: undefined" tells nobody
+          // anything.
+          const message = e instanceof Error ? e.message : String(e);
+          addLog(`${t.smartLookup.failed}: ${message}`, 'error');
           setStatus(ProcessingStatus.ERROR);
       }
   };

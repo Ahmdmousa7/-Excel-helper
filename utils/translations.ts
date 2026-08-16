@@ -182,6 +182,10 @@ export const TRANSLATIONS = {
         smartMatchHint: 'Ignores type (Text/Number) & leading zeros (001 = 1)',
         supersededRun: 'Settings changed during the lookup — run it again.',
         failed: 'Lookup failed',
+        starting: 'Starting Smart Lookup...',
+        complete: 'Lookup complete.',
+        selectColumnsFirst: 'Please select Lookup Column, Match Column, and at least one Return Column.',
+        referenceLoaded: 'Reference file loaded.',
     },
     actions: {
       uploadFile: 'Upload File',
@@ -629,6 +633,10 @@ export const TRANSLATIONS = {
         smartMatchHint: 'تتجاهل النوع (نص/رقم) والأصفار البادئة (001 = 1)',
         supersededRun: 'تم تغيير الإعدادات أثناء البحث — أعد التشغيل.',
         failed: 'فشل البحث',
+        starting: 'جارٍ بدء البحث الذكي...',
+        complete: 'اكتمل البحث.',
+        selectColumnsFirst: 'اختر عمود البحث وعمود المطابقة وعموداً واحداً على الأقل للإرجاع.',
+        referenceLoaded: 'تم تحميل الملف المرجعي.',
     },
     actions: {
       uploadFile: 'رفع ملف',
