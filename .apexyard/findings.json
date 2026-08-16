@@ -1,33 +1,51 @@
 {
-  "attestation_id": "sha256:94b416c2b9ea82c036d7fc17e7eacfe7b0c96444da5a852be150b1e074759a60",
+  "attestation_id": "sha256:901e41f66f14567947167bf385c0cb2e6551c46026501816fc9df7cb19eaf481",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
-    "medium": 0
+    "low": 2,
+    "medium": 1
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "This PR introduces the first early-return path in `runLookup` and correctly restores `setStatus(ProcessingStatus.IDLE)` on it (line 219). That makes the surrounding gap more visible: `readGrid` (201-202) and `buildLookup` (205) are unguarded, and the function has no `try`/`finally`. If either throws on a malformed sheet, `status` stays `ProcessingStatus.PROCESSING` forever, so the Run button (line 469, `disabled={status === ProcessingStatus.PROCESSING}`) is permanently disabled and the tab is unusable until the user hits Reset — with no error surfaced. `handleDownload` (295-299) already has exactly this shape and gets it right. This is pre-existing code the diff does not add, which is why it is `low` rather than `medium`; what would raise it is a confirmed throwing input in `readGrid`/`buildLookup` for a realistic sheet.",
+      "category": "react",
+      "detail": "The success path at line 222 refuses to write anything when `myRun !== runIdRef.current`, because a superseded run must not touch state. The new catch has no such guard, so a run that was invalidated mid-flight (the config effect at line 136 bumps `runIdRef` on any of `sourceSheet`, `refSheet`, `refFile`, `lookupCol`, `matchCol`, `returnCols`, `smartMode`, `hasHeaders`, `notFoundValue`, `language`) and then throws will still call `setStatus(ProcessingStatus.ERROR)` and log an error. Two concrete outcomes: (a) the user changes a setting, the abandoned run throws, and the tab shows a failure for a run whose settings are no longer on screen; (b) the user changes a setting and clicks Run again — the older run resumes from its 100 ms timer first, throws, and flips the newer in-flight run's status to ERROR plus a spurious error entry in the log. This is the same stale-write class the previous two commits were closing; the error path was the one branch left uncovered.",
       "file": "components/SmartLookupTab.tsx",
-      "line": 201,
-      "severity": "low",
+      "line": 247,
+      "severity": "medium",
       "suggested_fix": null,
-      "summary": "runLookup has no try/catch — a throw leaves the tab stuck in PROCESSING"
+      "summary": "catch commits status without the myRun staleness guard the success path uses"
     },
     {
       "category": "code-smell",
-      "detail": "`addLog(\"Settings changed during the lookup — run it again.\", 'warning')` is the only user-visible output of the new supersede path, and it is a bare English literal while the rest of this component's UI strings come from `t.smartLookup.*` (`TRANSLATIONS[language]`). The app ships a full Arabic layer and sets `dir=\"rtl\"` (App.tsx:222), so an Arabic user who trips this path gets an untranslated string as the only explanation for why their results vanished. Noted as `info` rather than `low` because every other `addLog` call in this file (lines 186, 239, 293) is already English — this is consistent with its surroundings, not a regression.",
+      "detail": "`try {` sits at the same 6-space indent as the 46 lines it now contains, and the closing `}` on line 247 lines up with nothing. It keeps this diff to a clean 11 lines, but the cost lands on every future reader and every future diff in `runLookup`: the error boundary is invisible when skimming, and the first person to touch a line inside the block either re-indents (producing a 46-line whitespace diff mixed with their change) or perpetuates it. `handleDownload` directly below at line 259 shows the indented shape the file otherwise uses.",
       "file": "components/SmartLookupTab.tsx",
-      "line": 218,
+      "line": 200,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "try body left at the enclosing indentation level (lines 201-246)"
+    },
+    {
+      "category": "typescript",
+      "detail": "`tsconfig.json:24` sets `strict: true`, so the catch binding is `unknown` by default and `: any` is an explicit opt-out with no stated reason (type-safety handbook rule 1). The practical cost is the message: nothing guarantees the thrown value is an `Error`. A `throw 'bad sheet'` or a rejected non-Error from inside the XLSX read surfaces as `Lookup failed: undefined` — which defeats the whole point of this commit, since the log entry then says no more than the stuck spinner did. The existing `catch (err: any)` at line 166 has the same shape, so this is a consistency-preserving choice rather than a new pattern; that is why it is low and not medium.",
+      "file": "components/SmartLookupTab.tsx",
+      "line": 247,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "`catch (e: any)` then `e.message` — non-Error throw logs \"Lookup failed: undefined\""
+    },
+    {
+      "category": "code-smell",
+      "detail": "The commit message says both remaining strings are now localised, but the same function still logs English literals at line 180 (\"Please select Lookup Column, Match Column, and at least one Return Column.\"), line 186 (\"Starting Smart Lookup...\"), line 244 (\"Lookup complete. Found: X, Missing: Y.\") and line 165 (\"Reference file loaded.\"). An Arabic user running a lookup now sees a localised failure and a localised superseded warning bracketed by English start/complete lines. Recording this as info, not a request: those lines are outside this diff's hunks and the localisation of this panel is evidently being landed incrementally — the note is to correct the \"last two\" claim, so the next pass knows there are four left.",
+      "file": "components/SmartLookupTab.tsx",
+      "line": 244,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "New user-facing log message is hardcoded English in a bilingual app"
+      "summary": "runLookup still has four hard-coded English log strings after this \"last two messages\" pass"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 4
 }

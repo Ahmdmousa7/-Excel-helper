@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:94b416c2b9ea82c036d7fc17e7eacfe7b0c96444da5a852be150b1e074759a60",
+  "attestation_id": "sha256:901e41f66f14567947167bf385c0cb2e6551c46026501816fc9df7cb19eaf481",
   "available": true,
-  "files_reviewed": 1,
+  "files_reviewed": 2,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
-    "medium": 0
+    "low": 2,
+    "medium": 1
   },
-  "findings_total": 2,
+  "findings_total": 4,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR closes two stale-result paths in the Smart Lookup tab: it adds a `runIdRef` generation counter so a run whose configuration changed mid-flight discards itself instead of writing a result computed from settings no longer on screen, and it adds the missing `language` dependency to the clear-on-config-change effect (the not-found marker defaults to the localised string, so a language switch changes what a re-run would write). Both changes are correct: the counter is bumped by the same effect that clears the held rows, the claim is taken before the first `await`, and the check sits after `buildLookup` with no further suspension point before the commit, so the result set is written atomically. I traced the remaining dependency surface — a `fileData` swap is already covered transitively because the header-loading effect resets `lookupCol` to `-1`, which is itself a dependency of the clear effect — so the dependency array is effectively complete. No blocking issues; two advisory notes below.",
-  "verdict": "approved"
+  "summary": "This PR wraps the body of `runLookup` in Smart Lookup with a try/catch so a throw (corrupt sheet, stale column index) reports an error and sets ERROR instead of leaving the tab stuck in PROCESSING, and it moves the two remaining new user-facing strings (`supersededRun`, `failed`) into `translations.ts` in both en and ar. The fix is correct in the common case and the translation keys are added symmetrically to both language blocks under the right `smartLookup` object. Three non-blocking findings: the new catch commits state without the `myRun` staleness guard the same function establishes 25 lines above, the catch is typed `any` and will print `undefined` for a non-Error throw, and the 46-line try body was left at the old indentation. Nothing blocking; no handbook violation with blocking enforcement.",
+  "verdict": "comment"
 }

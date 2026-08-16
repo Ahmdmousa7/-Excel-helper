@@ -1,22 +1,26 @@
 {
-  "attestation_id": "sha256:94b416c2b9ea82c036d7fc17e7eacfe7b0c96444da5a852be150b1e074759a60",
+  "attestation_id": "sha256:901e41f66f14567947167bf385c0cb2e6551c46026501816fc9df7cb19eaf481",
   "files": [
     {
-      "oid": "1591da5f8453fb6ebccd68f37dfc4e881e51638a",
+      "oid": "640a1c7619af4589496ff4ecfb9c9c6d0511dd76",
       "path": "components/SmartLookupTab.tsx"
+    },
+    {
+      "oid": "b1b82e661c5c3a2841206eafeee49b4b83be785e",
+      "path": "utils/translations.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
-    "medium": 0
+    "low": 2,
+    "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "ae057b8c98fd5f2810a4c5726f50a6dd9a104648",
+  "reviewed_at_commit": "e0a2984968b932844bfdd8bbc0713618ffa940d7",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "APPROVED"
+  "verdict": "COMMENT"
 }
