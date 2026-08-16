@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:fcc77ebd9c664bf3279a7adfb79e1ab26fc52361d7d1a667ffae08ee175b7505` |
+| Attestation id | `sha256:36e487dff71b0ebc5b9622ad0ad9361bac33b52e2a2602d7c83425461e0e7815` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `bbd760659295` |
+| Reviewed at commit | `902998862045` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 12 |
+| Files reviewed | 13 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 3 |
+| low | 0 |
 | info | 0 |
 
-This PR deletes three tools (Check Duplicates, CSV to Excel, Magic Links) and their supporting code: lazy imports, tab entries, menu-group ids, the `isExcelTool` id list, one voice command, both locales' translation blocks, two now-unused lucide icons, and the `papaparse` / `@types/papaparse` dependency pair (lockfile moved with the manifest). I grepped for every removed symbol and found no dangling references — no surviving import of the three components, no reader of `t.tabs.duplicates` / `t.csv` / `toolInfo.csv`, no `papaparse` import — and the near-miss neighbours (`DeduplicateTool`, `RewaaTab`'s magic-link field, `FileText` still used by tab id 26) were all correctly spared. The `localStorage.removeItem('rewaa_admin_token')` cleanup uses the exact key the deleted `MagicLinkTab.tsx:153` wrote, sits in a mount-only effect, and is the right call. Three low-severity findings, none blocking.
+This PR deletes three tools (Check Duplicates, CSV to Excel, Magic Links) — components, tab entries, voice command, both-locale translation blocks, the `papaparse`/`@types/papaparse` dependencies and their e2e references — adds a one-shot `localStorage.removeItem('rewaa_admin_token')` cleanup for the bearer token the deleted Magic Links module left in users' browsers, and records the removal in `docs/modules/removed-modules.md` plus TD-048 in the tech-debt register. I verified the removal is complete and leaves nothing dangling: no source, test, or doc file still references the deleted components, translation keys, or `TOOL.magicLinks`; the `menuGroups` and `isExcelTool` id lists were both updated; every surviving hard-coded navigation target (`App.tsx` voice handler, `HomeTab`'s four quick-action tiles) points at a tab that still exists; `activeTab` is in-memory only and defaults to `-1`, so no returning user can land on a removed id. The token cleanup is safe — `rewaa_admin_token` has no other reader or writer in the tree, and `RewaaTab` (the near-neighbour the doc calls out) holds its token in component state, not localStorage. `package.json` and `package-lock.json` moved together. No findings.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 95 source files, 27373 lines
+- 95 source files, 27385 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

@@ -1,42 +1,14 @@
 {
-  "attestation_id": "sha256:fcc77ebd9c664bf3279a7adfb79e1ab26fc52361d7d1a667ffae08ee175b7505",
+  "attestation_id": "sha256:36e487dff71b0ebc5b9622ad0ad9361bac33b52e2a2602d7c83425461e0e7815",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 3,
+    "low": 0,
     "medium": 0
   },
-  "findings": [
-    {
-      "category": "code-smell",
-      "detail": "The only semantic change to this file is removing `magicLinks: 'Magic Links',` from the TOOL map, but the commit rewrote all 141 lines because the blob's line endings changed from LF to CRLF. `git diff --numstat` reports 141 insertions / 142 deletions, and `git ls-files --eol` now reports `i/-text w/-text` for this path while every sibling under `e2e/` reports `i/lf w/crlf` (the normal `text=auto` shape). Two concrete costs: `git blame` on every line of the page object now points at this commit instead of the commit that wrote the selector, and the next PR that touches the file will produce the same whole-file churn in reverse, guaranteeing conflicts on any concurrent branch. This is diff hygiene, not a behaviour change — the tests still run.",
-      "file": "e2e/pages/AppShell.ts",
-      "line": 1,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "One-line deletion committed as a full-file CRLF rewrite (141 lines)"
-    },
-    {
-      "category": "technical-debt",
-      "detail": "The comment states this is a one-shot cleanup to be deleted 'after enough time has passed that returning users have all loaded the app once', but names no ticket, no owner, and no date. `docs/modules/removed-modules.md` repeats the same open-ended instruction. The failure mode is the ordinary one for untracked debt: nothing surfaces this line again, so it stays in the init effect indefinitely and the next reader has to re-derive from git history whether the window has elapsed. The cleanup itself is correct — `MagicLinkTab.tsx:153` wrote exactly `rewaa_admin_token`, nothing else in the repo writes it, and a mount-only effect (`App.tsx:222`, `[]` deps) is the right place. This is bookkeeping, not a defect.",
-      "file": "App.tsx",
-      "line": 191,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "One-shot token cleanup has a removal trigger but no ticket or owner"
-    },
-    {
-      "category": "testing",
-      "detail": "`TOOL.magicLinks` was tab id 27 in the `t.menu.utils` group, so asserting it disappeared while `TOOL.compareFiles` (id 31, 'New Solid Data Tools') stayed visible exercised `App.tsx:430`'s `.filter(group => group.items.length > 0)` — whole-group elimination. `TOOL.separator` is id 34, in the *same* group as `compareFiles`, so the test now only proves within-group item filtering. It still passes and still tests something real, but the group-drop branch is no longer covered by this suite. This is now structural rather than incidental: after the Magic Links removal, all five surviving `TOOL` constants (`removeBlanks`/30, `compareFiles`/31, `deduplicator`/32, `mergeDatasets`/33, `separator`/34) are the 'New Solid Data Tools' group, because that group is the only one with English titles hard-coded in `App.tsx` rather than routed through `t.tabs.*` — which is exactly the invariant the `TOOL` docblock at AppShell.ts:14-18 describes. There is no remaining TOOL constant that can express a cross-group assertion.",
-      "file": "e2e/happy-path.spec.ts",
-      "line": 43,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Search-filter test lost its cross-group assertion when magicLinks became separator"
-    }
-  ],
+  "findings": [],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 0
 }
