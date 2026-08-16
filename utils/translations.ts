@@ -186,6 +186,9 @@ export const TRANSLATIONS = {
         complete: 'Lookup complete.',
         selectColumnsFirst: 'Please select Lookup Column, Match Column, and at least one Return Column.',
         referenceLoaded: 'Reference file loaded.',
+        batchComplete: 'Batch download complete',
+        downloadComplete: 'Download complete.',
+        downloadError: 'Download error',
     },
     actions: {
       uploadFile: 'Upload File',
@@ -637,6 +640,9 @@ export const TRANSLATIONS = {
         complete: 'اكتمل البحث.',
         selectColumnsFirst: 'اختر عمود البحث وعمود المطابقة وعموداً واحداً على الأقل للإرجاع.',
         referenceLoaded: 'تم تحميل الملف المرجعي.',
+        batchComplete: 'اكتمل التحميل المجمّع',
+        downloadComplete: 'اكتمل التحميل.',
+        downloadError: 'خطأ في التحميل',
     },
     actions: {
       uploadFile: 'رفع ملف',

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
 import { FileData, ProcessingStatus, LogEntry } from '../types';
@@ -64,7 +64,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
   const [resultHeader, setResultHeader] = useState<string[] | null>(null);
   const [previewMissing, setPreviewMissing] = useState<boolean[]>([]);
   /** Bumped whenever the configuration changes, so an in-flight run can tell it has been superseded. */
-  const runIdRef = React.useRef(0);
+  const runIdRef = useRef(0);
 
   // 3b. Behaviour options a manual formula user expects to control.
   const [hasHeaders, setHasHeaders] = useState<boolean>(true);
@@ -251,7 +251,10 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
           // run that happens to throw still stamps ERROR over a newer run's
           // state — the failure this whole run-id exists to prevent, arriving
           // through the error path instead of the happy one.
-          if (myRun !== runIdRef.current) return;
+          // IDLE before returning. Bailing out silently left the tab in
+          // PROCESSING — the very state this try/catch was added to prevent,
+          // reintroduced by the guard meant to make it safe.
+          if (myRun !== runIdRef.current) { setStatus(ProcessingStatus.IDLE); return; }
           // `unknown`, and a message extracted rather than assumed: a non-Error
           // throw has no `.message`, and "Lookup failed: undefined" tells nobody
           // anything.
@@ -302,7 +305,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
               link.download = `SmartLookup_Batch_${fileData!.name}.zip`;
               link.click();
               
-              addLog(`Batch Download Complete (${part-1} files).`, 'success');
+              addLog(`${t.smartLookup.batchComplete} (${part-1}).`, 'success');
           } else {
               // SINGLE FILE — same builder as the batch path above, so the two
               // cannot drift apart the way the two lookups did.
@@ -310,10 +313,10 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
               const ws = writeSheet(XLSX, headerRow, allDataRows);
               XLSX.utils.book_append_sheet(wb, ws, "Lookup Results");
               saveWorkbook(wb, `SmartLookup_${fileData!.name}`);
-              addLog("Download Complete.", 'success');
+              addLog(t.smartLookup.downloadComplete, 'success');
           }
       } catch (e: any) {
-          addLog(`Download Error: ${e.message}`, 'error');
+          addLog(`${t.smartLookup.downloadError}: ${e.message}`, 'error');
       } finally {
           setStatus(ProcessingStatus.COMPLETED);
       }
