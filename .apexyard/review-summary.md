@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:e4e40d6435fbd870a65d240738b014229189f8ca11fbf5afd9a58d8438206378` |
+| Attestation id | `sha256:4097f0f613986c2048edd5dbc4632b684f8a7e5295642f70510b833d84463446` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `b857b678c1d1` |
+| Reviewed at commit | `ea464c124d8a` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **APPROVED** |
-| Files reviewed | 1 |
+| Verdict | **COMMENT** |
+| Files reviewed | 8 |
 
 ## What this is, and what it is not
 
@@ -29,20 +29,20 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
-| low | 0 |
+| medium | 1 |
+| low | 6 |
 | info | 0 |
 
-This PR refines the existing unit-test suite for `classifyQuantity`: it adds two assertions covering the signed-exponent branch of the guard regex (`1e+3`, `1E+3`) and relocates the `-.5` assertion out of the positive-values block into the negatives block, where its verdict belongs. I verified both new assertions against the regex and check ordering in `utils/quantityRule.ts:56-72` — `1e+3`/`1E+3` match `([eE][+-]?\d+)?` and coerce to 1000 ('ok'), and `-.5` matches `[+-]?\.\d+` and coerces to -0.5 ('negative'). No coverage was dropped in the move, no production code changed, and the diff introduces no new dependencies, suppressions, or debt markers. Clean.
+Consolidates Smart Lookup's duplicated join into a new `utils/lookupEngine.ts` that works on cells rather than bare values, so the export writes the rows the preview was built from (TD-043) and carries number formats, error-cell keys, header-styling guards and a headers/not-found toggle (TD-044 through TD-047). The architecture is clean — the engine is dependency-free, the component gained no I/O, and the 23 unit tests plus the cell-for-cell preview-vs-file e2e are genuinely good regression cover for the headline defect. No blocking-handbook violations and nothing that fails the gate; the findings are one localisation regression the diff introduced, one claimed fix that does not actually reach the batch export, and four smaller cleanups.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 606 warning(s) |
-| Vitest | pass | 280/280 passed, lines 96.36% |
-| Playwright | pass | 104/104 passed |
+| ESLint | pass | 0 error(s), 608 warning(s) |
+| Vitest | pass | 303/303 passed, lines 87.46% |
+| Playwright | pass | 107/107 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 95 source files, 28358 lines
+- 98 source files, 29037 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
@@ -64,9 +64,9 @@ reports zero failures for a tool that never executed.
 | `components/CompositeTab.tsx` | 1404 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1058 |
+| `utils/translations.ts` | 957 |
 | `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
-| `utils/translations.ts` | 908 |
 | `components/OcrTab.tsx` | 881 |
 | `services/geminiService.ts` | 850 |
 | `components/ZidTab.tsx` | 841 |

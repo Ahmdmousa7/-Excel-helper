@@ -4,6 +4,8 @@ import {
   readGrid,
   normalizeKey,
   buildLookup,
+  writeSheet,
+  formatCell,
   type Grid,
   type CellInfo,
   type LookupOptions,
@@ -93,6 +95,16 @@ describe('buildLookup', () => {
     const source = grid([['SKU'], ['A-1']]);
     const r = buildLookup(source, dupRef, opts());
     expect(r.rows[0][1].v).toBe('FIRST');
+  });
+
+  it('flags which rows missed, so the preview need not guess from the text', () => {
+    // The preview used to decide this by comparing against the literal string
+    // "Not Found", which broke the moment the marker became configurable and
+    // localised — an Arabic user lost the red highlighting entirely.
+    const source = grid([['SKU'], ['A-1'], ['A-9'], ['A-2']]);
+    const r = buildLookup(source, REF, opts({ notFoundValue: 'anything at all' }));
+    expect(r.missingFlags).toEqual([false, true, false]);
+    expect(r.missingFlags).toHaveLength(r.rows.length);
   });
 
   it('reports a miss without inventing a row', () => {
@@ -222,6 +234,65 @@ describe('buildLookup', () => {
     expect(r.found).toBe(5000);
     expect(r.rows[0][1].v).toBe('v0');
     expect(r.rows[4999][1].v).toBe('v4999');
+  });
+});
+
+describe('writeSheet', () => {
+  const rows = (): CellInfo[][] => [
+    [{ v: 'A-1' }, { v: 46037, t: 'n', z: 'yyyy-mm-dd' }],
+  ];
+
+  it('reapplies each cell\'s number format', () => {
+    // TD-045. `aoa_to_sheet` writes values only, so without this a date is the
+    // number 46037 in the exported file.
+    const ws = writeSheet(XLSX, ['Key', 'When'], rows());
+    expect(ws['B2'].v).toBe(46037);
+    expect(ws['B2'].z).toBe('yyyy-mm-dd');
+  });
+
+  it('does NOT throw when a header title is empty', () => {
+    // TD-046. `aoa_to_sheet` creates no cell for a blank header, and the old code
+    // dereferenced it — the download failed with "Cannot read properties of
+    // undefined" and no way round it but renaming the column.
+    expect(() => writeSheet(XLSX, ['Key', ''], rows())).not.toThrow();
+    expect(() => writeSheet(XLSX, ['', ''], rows())).not.toThrow();
+  });
+
+  it('styles the header cells that exist', () => {
+    const ws = writeSheet(XLSX, ['Key', 'When'], rows());
+    expect(ws['A1'].s?.font?.bold).toBe(true);
+  });
+
+  it('writes data with no header row at all', () => {
+    const ws = writeSheet(XLSX, null, rows());
+    expect(ws['A1'].v).toBe('A-1');
+    expect(ws['B1'].z).toBe('yyyy-mm-dd');
+  });
+
+  it('survives a ragged row without inventing cells', () => {
+    const ragged: CellInfo[][] = [[{ v: 'only' }], [{ v: 'a' }, { v: 'b' }]];
+    expect(() => writeSheet(XLSX, null, ragged)).not.toThrow();
+  });
+});
+
+describe('formatCell', () => {
+  it('renders a formatted number through its format', () => {
+    expect(formatCell(XLSX, { v: 46037, t: 'n', z: 'yyyy-mm-dd' })).toBe('2026-01-15');
+  });
+
+  it('leaves an unformatted value alone', () => {
+    expect(formatCell(XLSX, { v: 46037, t: 'n' })).toBe('46037');
+    expect(formatCell(XLSX, { v: 'text' })).toBe('text');
+  });
+
+  it('falls back to the raw value on an unusable format string', () => {
+    // A preview is not worth failing over a format SheetJS cannot render.
+    expect(formatCell(XLSX, { v: 1, t: 'n', z: '[[[' })).toBe('1');
+  });
+
+  it('renders blanks as empty rather than "undefined"', () => {
+    expect(formatCell(XLSX, undefined)).toBe('');
+    expect(formatCell(XLSX, { v: null })).toBe('');
   });
 });
 

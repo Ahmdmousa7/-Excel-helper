@@ -50,6 +50,16 @@ export interface LookupResult {
   header: string[] | null;
   /** Every output row, source columns followed by the return columns. */
   rows: CellInfo[][];
+  /**
+   * `true` where that row found no match, aligned to `rows`.
+   *
+   * The preview used to decide this by comparing the cell text to the literal
+   * string "Not Found", which stopped being true the moment the marker became
+   * configurable and localised — a user with a custom marker, or reading Arabic,
+   * lost the red highlighting entirely. A fact from the join should not have to
+   * be re-derived from its own output.
+   */
+  missingFlags: boolean[];
   found: number;
   missing: number;
 }
@@ -121,6 +131,7 @@ export function buildLookup(source: Grid, ref: Grid, options: LookupOptions): Lo
     : null;
 
   const rows: CellInfo[][] = [];
+  const missingFlags: boolean[] = [];
   let found = 0;
   let missing = 0;
 
@@ -139,9 +150,10 @@ export function buildLookup(source: Grid, ref: Grid, options: LookupOptions): Lo
       for (const _ of returnCols) out.push({ v: notFoundValue, t: 's' });
     }
     rows.push(out);
+    missingFlags.push(!match);
   }
 
-  return { header, rows, found, missing };
+  return { header, rows, missingFlags, found, missing };
 }
 
 /**

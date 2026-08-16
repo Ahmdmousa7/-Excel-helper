@@ -1,22 +1,50 @@
 {
-  "attestation_id": "sha256:e4e40d6435fbd870a65d240738b014229189f8ca11fbf5afd9a58d8438206378",
+  "attestation_id": "sha256:4097f0f613986c2048edd5dbc4632b684f8a7e5295642f70510b833d84463446",
   "files": [
     {
-      "oid": "06c9b00977a65bc446fdfb1e51264d5215ee35a6",
-      "path": "tests/unit/quantityRule.test.ts"
+      "oid": "03f8c53517558eefee515bdf855160dafb559db9",
+      "path": "components/SmartLookupTab.tsx"
+    },
+    {
+      "oid": "d573f75548e4de6d0658b9467333d1cedcfe88f1",
+      "path": "docs/modules/smart-lookup.md"
+    },
+    {
+      "oid": "41876970df97d45e08281796a5ff5a75bfb5c574",
+      "path": "docs/quality/tech-debt-register.md"
+    },
+    {
+      "oid": "741ea224b1ae8f19198ccb0fc23c2b0eb3702e9d",
+      "path": "e2e/smart-lookup.spec.ts"
+    },
+    {
+      "oid": "eba4bef0ba58d9bb057c0bb761fcd296e7db2c51",
+      "path": "services/excelService.ts"
+    },
+    {
+      "oid": "0773b37396c22db688cf50979f803dca16f886bf",
+      "path": "tests/unit/lookupEngine.test.ts"
+    },
+    {
+      "oid": "3ff10ba732c8fa29371580fe20bda0d0c23e19a4",
+      "path": "utils/lookupEngine.ts"
+    },
+    {
+      "oid": "7766daded937c918aa57bc1030b63e3fa830dc9c",
+      "path": "utils/translations.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 0,
-    "medium": 0
+    "low": 6,
+    "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "b857b678c1d174a32d0e80426a733e15131270be",
+  "reviewed_at_commit": "ea464c124d8a3036346868a75e5f5d03a077b82d",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "APPROVED"
+  "verdict": "COMMENT"
 }

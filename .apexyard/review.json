@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:e4e40d6435fbd870a65d240738b014229189f8ca11fbf5afd9a58d8438206378",
+  "attestation_id": "sha256:4097f0f613986c2048edd5dbc4632b684f8a7e5295642f70510b833d84463446",
   "available": true,
-  "files_reviewed": 1,
+  "files_reviewed": 8,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 0,
-    "medium": 0
+    "low": 6,
+    "medium": 1
   },
-  "findings_total": 0,
+  "findings_total": 7,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR refines the existing unit-test suite for `classifyQuantity`: it adds two assertions covering the signed-exponent branch of the guard regex (`1e+3`, `1E+3`) and relocates the `-.5` assertion out of the positive-values block into the negatives block, where its verdict belongs. I verified both new assertions against the regex and check ordering in `utils/quantityRule.ts:56-72` — `1e+3`/`1E+3` match `([eE][+-]?\\d+)?` and coerce to 1000 ('ok'), and `-.5` matches `[+-]?\\.\\d+` and coerces to -0.5 ('negative'). No coverage was dropped in the move, no production code changed, and the diff introduces no new dependencies, suppressions, or debt markers. Clean.",
-  "verdict": "approved"
+  "summary": "Consolidates Smart Lookup's duplicated join into a new `utils/lookupEngine.ts` that works on cells rather than bare values, so the export writes the rows the preview was built from (TD-043) and carries number formats, error-cell keys, header-styling guards and a headers/not-found toggle (TD-044 through TD-047). The architecture is clean — the engine is dependency-free, the component gained no I/O, and the 23 unit tests plus the cell-for-cell preview-vs-file e2e are genuinely good regression cover for the headline defect. No blocking-handbook violations and nothing that fails the gate; the findings are one localisation regression the diff introduced, one claimed fix that does not actually reach the batch export, and four smaller cleanups.",
+  "verdict": "comment"
 }

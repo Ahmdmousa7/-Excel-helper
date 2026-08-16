@@ -1,14 +1,78 @@
 {
-  "attestation_id": "sha256:e4e40d6435fbd870a65d240738b014229189f8ca11fbf5afd9a58d8438206378",
+  "attestation_id": "sha256:4097f0f613986c2048edd5dbc4632b684f8a7e5295642f70510b833d84463446",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 0,
-    "medium": 0
+    "low": 6,
+    "medium": 1
   },
-  "findings": [],
+  "findings": [
+    {
+      "category": "code-smell",
+      "detail": "This PR made the not-found marker both localised (`t.smartLookup.notFound`, which is `'غير موجود'` in Arabic) and user-editable, but the preview's red-cell test at line 471 is still `String(c) === \"Not Found\"`. So for every Arabic user, and for anyone who types their own marker (`-`, `N/A`, or empty — all of which the new input invites), the misses render in the ordinary green \"matched\" style with nothing distinguishing them. The inverse also holds: a legitimately matched value whose text happens to be \"Not Found\" gets flagged red. The counts in the header stay correct, which is what keeps this out of high — but the per-cell signal, which is how a user finds *which* rows missed in a 50-row preview, silently stops working in one of the two shipped languages. What would raise this: if the same literal were used to drive anything beyond styling.",
+      "file": "components/SmartLookupTab.tsx",
+      "line": 471,
+      "severity": "medium",
+      "suggested_fix": null,
+      "summary": "Preview's not-found highlighting still compares against the literal English \"Not Found\""
+    },
+    {
+      "category": "accessibility",
+      "detail": "`setResultPreview` at line 181 pushes `result.header ?? []` as row 0, so when `hasHeaders` is false the `resultPreview[0]?.map(...)` at line 458 emits zero `<th>` elements and the `<thead>` holds a single \"#\" cell above N data columns. Nothing crashes and the rows still render, but the table has no column identification at all and no `<th>` for a screen reader to associate the data cells with — which is the case where headers are most useful, since the user has no header row in the source to remember either.",
+      "file": "components/SmartLookupTab.tsx",
+      "line": 458,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "With \"First row is a header\" off, the preview table renders a header row containing only \"#\""
+    },
+    {
+      "category": "performance",
+      "detail": "`readGrid` allocates a `{v,t,z}` object for every cell of both entire sheets — for the 40k-row workbooks this repo's e2e suite already exercises (see the note at `services/excelService.ts:123`) that is roughly an order of magnitude more heap than the arrays of primitives the old `getSheetData` path produced, and `resultRows` then holds the whole join in React state for the session. Complexity is still O(n) with a `Map` index, so this is not the freeze-class regression the handbook's rule 2 targets — the tab was already synchronous before. But the incremental `setProgress` calls the old loops made were removed in favour of a 20 → 90 jump, so a large run now shows a bar that sits still for the whole computation, which reads as a hang. What would raise this: an O(n²) shape, or a confirmed OOM on a realistic sheet.",
+      "file": "components/SmartLookupTab.tsx",
+      "line": 162,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Both sheets are materialised as one object per cell, synchronously, with no progress between 20% and 90%"
+    },
+    {
+      "category": "react",
+      "detail": "Now that `handleDownload` reads `resultRows`/`resultHeader` instead of recomputing (the correct fix for TD-043), the result is a snapshot — but nothing clears it when the inputs that produced it change. Toggling \"First row is a header\", editing \"When nothing matches\", flipping Smart Match, or picking different return columns all leave `stats` truthy, the stale preview on screen, and the Download button live. A user who edits the not-found marker to `-` and clicks Download gets a file full of \"Not Found\" with no warning. The preview and the file still agree with each other, which is why this is low rather than a re-run of TD-043 — the inconsistency is between the controls and the result, not between the two outputs. What would raise it: if the preview were paginated or collapsed so the user could not see the stale rows.",
+      "file": "components/SmartLookupTab.tsx",
+      "line": 203,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Config changes after a run don't invalidate the held result, so Download exports stale rows"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "`writeSheet` now sets `cell.s` on the header for both export paths, and the commit message and `docs/quality/tech-debt-register.md` (TD-046) both state \"Batch ZIP files now get the styled header they never had.\" They don't. The single-file path goes through `saveWorkbook` → `XLSX_STYLE.writeFile`, which reads `cell.s`; the batch path at line 217 writes with `XLSX.write`, and `xlsx` is aliased to the patched `@e965/xlsx` community build, which has no style writer and discards `s` silently. `eslint.config.js:58-75` documents exactly this split (\"use `xlsx-js-style` only to write\"), and `DuplicatesTab.tsx:460` / `FileValidationTab.tsx:646` both use `XLSX_STYLE.write` for their in-ZIP buffers. Cosmetic in effect, but it leaves a closed tech-debt entry recording a fix that did not land — which is the failure mode that register exists to prevent.",
+      "file": "components/SmartLookupTab.tsx",
+      "line": 217,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Batch ZIP export still drops the header styling the commit says it now gets"
+    },
+    {
+      "category": "testing",
+      "detail": "The spec covers `normalizeKey`, `buildLookup` and `readGrid` thoroughly, but two of the engine's five exports are never called. That matters most for TD-046: the whole fix is `if (!cell) continue` at `utils/lookupEngine.ts:210`, and nothing anywhere asserts it. The e2e fixture's headers are all non-blank, so removing that guard today reintroduces \"Cannot read properties of undefined\" on the download path with a fully green suite. `formatCell`'s `catch` fallback for an unrenderable format string is likewise unexercised. The commit's own standard — \"Reintroducing the one-guard defect fails 2 unit tests and that e2e\" — is met for TD-043 and not for TD-046.",
+      "file": "tests/unit/lookupEngine.test.ts",
+      "line": 252,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "`writeSheet` and `formatCell` have no unit coverage — including the TD-046 crash guard"
+    },
+    {
+      "category": "typescript",
+      "detail": "`readGrid(XLSX: any, worksheet: any)`, `formatCell(XLSX: any, …)` and `writeSheet(…): any` mean the compiler cannot catch a typo in `XLSX.utils.encode_cell` or a misuse of the returned worksheet at either call site. Injecting the module rather than importing it is a sound decision here — `App.tsx:6` notes the 515 KB xlsx bundle is deliberately kept out of the eager graph — but a *type-only* import is erased at compile time and costs nothing at runtime, so the injection pattern and full typing are not in tension. `CellInfo.t?: string` is also stringly-typed where SheetJS has a fixed set of codes, which is the discriminant `normalizeKey` and `formatCell` both branch on.",
+      "file": "utils/lookupEngine.ts",
+      "line": 58,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "New engine module takes `XLSX: any` and returns `any` from `writeSheet`"
+    }
+  ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 0
+  "total": 7
 }

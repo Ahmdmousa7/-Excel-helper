@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:e4e40d6435fbd870a65d240738b014229189f8ca11fbf5afd9a58d8438206378",
+  "attestation_id": "sha256:4097f0f613986c2048edd5dbc4632b684f8a7e5295642f70510b833d84463446",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,11 +8,11 @@
     },
     "components": {
       "files": 39,
-      "loc": 19346
+      "loc": 19327
     },
     "e2e": {
-      "files": 21,
-      "loc": 2531
+      "files": 22,
+      "loc": 2700
     },
     "hooks": {
       "files": 2,
@@ -20,19 +20,19 @@
     },
     "services": {
       "files": 5,
-      "loc": 1170
+      "loc": 1175
     },
     "tests": {
-      "files": 11,
-      "loc": 2548
+      "files": 12,
+      "loc": 2801
     },
     "types": {
       "files": 1,
       "loc": 105
     },
     "utils": {
-      "files": 8,
-      "loc": 1587
+      "files": 9,
+      "loc": 1858
     }
   },
   "layering": {
@@ -57,16 +57,16 @@
         "loc": 1058
       },
       {
+        "file": "utils/translations.ts",
+        "loc": 957
+      },
+      {
         "file": "components/SupportChat.tsx",
         "loc": 955
       },
       {
         "file": "components/TranslateTab.tsx",
         "loc": 953
-      },
-      {
-        "file": "utils/translations.ts",
-        "loc": 908
       },
       {
         "file": "components/OcrTab.tsx",
@@ -100,6 +100,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 95,
-  "total_loc": 28358
+  "source_files": 98,
+  "total_loc": 29037
 }

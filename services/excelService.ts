@@ -180,6 +180,21 @@ export const saveWorkbook = (workbook: any, filename: string) => {
   XLSX_STYLE.writeFile(workbook, filename);
 };
 
+/**
+ * A workbook as bytes, written by the STYLE-capable library.
+ *
+ * `XLSX.write` from the plain library silently drops every cell's `s`, so a
+ * workbook styled for a download and then written this way loses its formatting
+ * with no error — which is what happened to Smart Lookup's batch ZIP: each part
+ * file was built with a styled header that never reached the disk, while the
+ * single-file path went through `saveWorkbook` and kept it.
+ *
+ * Use this anywhere a styled workbook needs to become a buffer rather than a
+ * download.
+ */
+export const writeWorkbookBuffer = (workbook: any): ArrayBuffer =>
+  XLSX_STYLE.write(workbook, { bookType: 'xlsx', type: 'array' });
+
 export const cloneWorkbook = (workbook: any): any => {
   const wbOut = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
   return XLSX.read(wbOut, { type: 'array' });

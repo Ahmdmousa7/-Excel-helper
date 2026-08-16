@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
 import { FileData, ProcessingStatus, LogEntry } from '../types';
-import { getSheetData, saveWorkbook, readExcelFile } from '../services/excelService';
+import { getSheetData, saveWorkbook, readExcelFile, writeWorkbookBuffer } from '../services/excelService';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { readGrid, buildLookup, formatCell, writeSheet, type CellInfo } from '../utils/lookupEngine';
 import ProgressBar from './ProgressBar';
@@ -62,6 +62,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
    */
   const [resultRows, setResultRows] = useState<CellInfo[][]>([]);
   const [resultHeader, setResultHeader] = useState<string[] | null>(null);
+  const [previewMissing, setPreviewMissing] = useState<boolean[]>([]);
 
   // 3b. Behaviour options a manual formula user expects to control.
   const [hasHeaders, setHasHeaders] = useState<boolean>(true);
@@ -121,6 +122,26 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
       }
   }, [refFile, refSheet]);
 
+  /**
+   * Throw away a result the moment its configuration changes.
+   *
+   * Holding the rows is what stops the export re-running the join (TD-043), but
+   * it introduces the opposite risk: change the return columns after a run and
+   * Download would have written the OLD rows — the same "file disagrees with
+   * the screen" failure, arriving from the other direction. Clearing forces a
+   * re-run, so what can be downloaded is always what was last previewed.
+   */
+  useEffect(() => {
+      setStats(null);
+      setResultRows([]);
+      setResultHeader(null);
+      setResultPreview([]);
+      setPreviewMissing([]);
+  }, [
+      sourceSheet, refSheet, refFile, lookupCol, matchCol, returnCols,
+      smartMode, hasHeaders, notFoundValue,
+  ]);
+
   // --- HANDLERS ---
 
   const handleRefUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,10 +197,16 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
       // Held whole. The download exports THESE rows rather than repeating the
       // join, which is what stops the file disagreeing with the screen (TD-043).
       setResultRows(result.rows);
+      setPreviewMissing(result.missingFlags.slice(0, 50));
       setResultHeader(result.header);
       setStats({ found: result.found, missing: result.missing });
+      // With no header row, the preview labels columns by position rather than
+      // rendering a row of empty `<th>`s — an unlabelled header is worse than a
+      // generic one for anyone reading the table with a screen reader.
+      const previewHeader = result.header
+          ?? Array.from({ length: result.rows[0]?.length ?? 0 }, (_, i) => `${i + 1}`);
       setResultPreview([
-          result.header ?? [],
+          previewHeader,
           ...result.rows.slice(0, 50).map(row => row.map(c => formatCell(XLSX, c))),
       ]);
 
@@ -214,7 +241,9 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
                   const wb = XLSX.utils.book_new();
                   XLSX.utils.book_append_sheet(wb, ws, "Lookup Results");
                   
-                  const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                  // The style-capable writer: plain XLSX.write drops the header styling
+                  // this sheet was just given.
+                  const buffer = writeWorkbookBuffer(wb);
                   zip.file(`Lookup_Part_${part}.xlsx`, buffer);
                   part++;
                   setProgress(Math.round((i / total) * 100));
@@ -468,7 +497,13 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
                                    <td className="p-3 border-r text-center text-slate-400 font-mono">{i+1}</td>
                                    {row.map((c: any, j: number) => {
                                        const isResultCol = j >= sourceHeaders.length;
-                                       const isNotFound = String(c) === "Not Found";
+                                       // From the join, not from the text. Comparing
+                                       // against the literal "Not Found" stopped
+                                       // being true the moment the marker became
+                                       // configurable and localised — an Arabic
+                                       // user, or anyone with a custom marker, lost
+                                       // the red highlighting entirely.
+                                       const isNotFound = isResultCol && previewMissing[i];
                                        return (
                                            <td key={j} className={`p-3 border-r truncate max-w-[200px] ${isResultCol ? (isNotFound ? 'text-red-500 font-bold bg-red-50' : 'font-medium text-slate-800 bg-green-50/20') : 'text-slate-600'}`}>
                                                {String(c)}

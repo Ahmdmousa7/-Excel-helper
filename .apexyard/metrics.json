@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:e4e40d6435fbd870a65d240738b014229189f8ca11fbf5afd9a58d8438206378",
+  "attestation_id": "sha256:4097f0f613986c2048edd5dbc4632b684f8a7e5295642f70510b833d84463446",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -16,14 +16,14 @@
         "raw_bytes": 428977
       },
       {
-        "file": "xlsx-DOsuy8DS.js",
-        "gzip_bytes": 162855,
-        "raw_bytes": 499864
+        "file": "xlsx-BB8Ug7y4.js",
+        "gzip_bytes": 162844,
+        "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab-De_yNkwF.js",
-        "gzip_bytes": 144776,
-        "raw_bytes": 444342
+        "file": "ProjectSummaryTab-CurTxmDZ.js",
+        "gzip_bytes": 144766,
+        "raw_bytes": 444327
       },
       {
         "file": "geminiService-C0NfYSBk.js",
@@ -31,7 +31,7 @@
         "raw_bytes": 280794
       },
       {
-        "file": "index.es-MvqqPLMm.js",
+        "file": "index.es-Ch0zzf3_.js",
         "gzip_bytes": 51632,
         "raw_bytes": 151120
       },
@@ -46,14 +46,14 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-DVs0LGFY.js",
-        "gzip_bytes": 43358,
+        "file": "HomeTab-D0TGS-X2.js",
+        "gzip_bytes": 43360,
         "raw_bytes": 135983
       },
       {
-        "file": "index-mGbEcKDi.js",
-        "gzip_bytes": 31830,
-        "raw_bytes": 104859
+        "file": "index-rs8GT6mz.js",
+        "gzip_bytes": 32466,
+        "raw_bytes": 106802
       },
       {
         "file": "jszip.min-CiouRDUD.js",
@@ -61,15 +61,15 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-EVwAflO4.js",
-        "gzip_bytes": 13680,
+        "file": "QrCodeTab-2X8a1kVh.js",
+        "gzip_bytes": 13678,
         "raw_bytes": 37385
       }
     ],
     "metrics": [
       {
         "budget_kb": 110,
-        "gzip_kb": 86.6,
+        "gzip_kb": 87.2,
         "metric": "Initial load (entry + preloads + CSS)",
         "over": false,
         "used_pct": 79
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1311.3,
+        "gzip_kb": 1312.3,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
-        "used_pct": 90
+        "used_pct": 91
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1325.7,
+        "gzip_kb": 1326.8,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -115,23 +115,23 @@
   "eslint": {
     "available": true,
     "errors": 0,
-    "files_with_findings": 47,
+    "files_with_findings": 49,
     "passed": true,
     "top_rules": [
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-explicit-any",
-        "warnings": 289
+        "warnings": 292
       },
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-unused-vars",
-        "warnings": 207
+        "warnings": 208
       },
       {
         "errors": 0,
         "rule": "jsx-a11y/label-has-associated-control",
-        "warnings": 70
+        "warnings": 68
       },
       {
         "errors": 0,
@@ -154,7 +154,7 @@
         "warnings": 4
       }
     ],
-    "warnings": 606
+    "warnings": 608
   },
   "playwright": {
     "available": true,
@@ -162,9 +162,9 @@
     "failures": [],
     "flaky_count": 0,
     "passed": true,
-    "passed_count": 104,
+    "passed_count": 107,
     "skipped_count": 0,
-    "total": 104
+    "total": 107
   },
   "schema": "apexyard.evidence.metrics/1",
   "typescript": {
@@ -176,18 +176,18 @@
   "vitest": {
     "available": true,
     "coverage": {
-      "branches_pct": 92.94,
-      "functions_pct": 94.44,
-      "lines_pct": 96.36,
-      "statements_pct": 96.36
+      "branches_pct": 93.36,
+      "functions_pct": 86.95,
+      "lines_pct": 87.46,
+      "statements_pct": 87.46
     },
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 280,
+      "passed": 303,
       "skipped": 0,
-      "suites": 60,
-      "total": 280
+      "suites": 64,
+      "total": 303
     }
   }
 }
