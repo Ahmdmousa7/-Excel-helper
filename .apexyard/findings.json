@@ -1,42 +1,33 @@
 {
-  "attestation_id": "sha256:6f4af8de1b6f8e61f64eab3c4c770b1aa47b5d774784dbb764be927a4392b888",
+  "attestation_id": "sha256:ac49b0eab563abdfb96b67115f99abe8cab3ea17bc8d8e6ffe40a59edbeef489",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
+    "low": 1,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "The success-path guard at lines 223-227 does two things — `addLog(t.smartLookup.supersededRun, 'warning')` then `setStatus(IDLE)` — so the user gets told why their results vanished. The new error-path guard does only the second half. In the (narrow) window where a config change lands during the `setTimeout(r, 100)` at line 201 and the run then throws, the user sees the spinner stop, the preview cleared by the effect at line 136, and nothing in the log at all: no supersede notice and no record that an exception occurred. That is a diagnostically dark state for a tab whose whole error story is the log panel. Low rather than medium because the reachable window is ~100ms and the recovery action (re-run) is the same either way.",
+      "detail": "The commit's stated goal is \"same error handling in both handlers\", and the `catch` half now matches: both extract a message safely from an `unknown` throw. The status half still diverges. `runLookup` ends its catch with `setStatus(ProcessingStatus.ERROR)` (line 270); `handleDownload` has no `setStatus` in its catch and an unconditional `finally { setStatus(ProcessingStatus.COMPLETED) }` at 330-332, so a failed export — JSZip's `generateAsync` rejecting on a large blob, `writeWorkbookBuffer` throwing — leaves the tab reporting COMPLETED while a red error line sits in the log. The user gets contradictory signals from the two surfaces this tab uses to communicate outcome, and the status pill is the one they look at first. Low rather than medium because the error IS surfaced in the log, the recovery action (re-click Download) is unchanged, and the `finally` predates this PR — the diff only makes the asymmetry visible by fixing its sibling. It would be medium if the log panel were collapsible or the status were used to gate a subsequent action.",
       "file": "components/SmartLookupTab.tsx",
-      "line": 257,
+      "line": 330,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Stale-error path clears the spinner silently; success path logs a warning"
-    },
-    {
-      "category": "typescript",
-      "detail": "This PR rewrote the `runLookup` catch to `catch (e: unknown)` with `e instanceof Error ? e.message : String(e)` (line 261), explicitly because \"a non-Error throw has no `.message`, and 'Lookup failed: undefined' tells nobody anything\". The download handler 60 lines below keeps `catch (e: any)` and interpolates `e.message` directly — and this PR modifies that exact line to add the localised prefix. A non-Error throw from the batch path (JSZip's `generateAsync` rejecting, `writeWorkbookBuffer` throwing a string, an OOM on a large blob) now surfaces to the user as the localised equivalent of \"Download error: undefined\". Severity is low because the same fix was just applied to the sibling handler and the escape-hatch line is being touched anyway; it would be medium if the download path were the only error surface for the feature.",
-      "file": "components/SmartLookupTab.tsx",
-      "line": 319,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "handleDownload still reads `.message` off an `any` throw value"
+      "summary": "handleDownload's finally overwrites the error the new catch just logged"
     },
     {
       "category": "code-smell",
-      "detail": "The English string went from `Batch Download Complete (3 files).` to `Batch download complete (3).` — the parenthesised number is now unlabelled, so a reader has to infer whether 3 means files, rows, or parts. The Arabic string has the same shape, so this is not an RTL-specific problem. Observation only; the count is computed correctly (`part` starts at 1 and post-increments once per chunk, so `part-1` is the file count).",
-      "file": "components/SmartLookupTab.tsx",
-      "line": 308,
+      "detail": "Observation, not a request. `'ملفات'` is interpolated as `(${part-1} ملفات)` at SmartLookupTab.tsx:315. The batch branch only runs when `allDataRows.length > exportBatchSize`, so `part-1` is always >= 2, which rules out the singular case — but Arabic numeral agreement takes the dual (`ملفان` / `ملفين`) at exactly 2 and the sound plural only from 3 to 10. So the one count this can produce that reads wrong is `2 ملفات`. The English side is correct for every reachable count. Not worth a plural-forms library for a single log line; noting it in case the app's Arabic strings get a review pass later.",
+      "file": "utils/translations.ts",
+      "line": 645,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Localised batch message drops the \"files\" noun, leaving a bare count"
+      "summary": "Arabic `filesWord` is the sound plural; count 2 wants the dual"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 2
 }

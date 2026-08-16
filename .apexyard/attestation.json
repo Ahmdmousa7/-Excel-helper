@@ -1,12 +1,12 @@
 {
-  "attestation_id": "sha256:6f4af8de1b6f8e61f64eab3c4c770b1aa47b5d774784dbb764be927a4392b888",
+  "attestation_id": "sha256:ac49b0eab563abdfb96b67115f99abe8cab3ea17bc8d8e6ffe40a59edbeef489",
   "files": [
     {
-      "oid": "446ad35617a863acdfbb2c7ff2d2ff81a8073e58",
+      "oid": "d958e98bc2e428fea6d00c223a8e64d23ee6477f",
       "path": "components/SmartLookupTab.tsx"
     },
     {
-      "oid": "262ef31ca9ebd346c0f5b8a89d1d7392086c82d4",
+      "oid": "99ae2ace2d6362ff0e3169e3ad8e46b49de119a6",
       "path": "utils/translations.ts"
     }
   ],
@@ -14,12 +14,12 @@
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
+    "low": 1,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "62eb48bc29a93bb4d8a6d00c1d4e3fee364fd185",
+  "reviewed_at_commit": "68e1e228fe35127e3e668fb9c406eeddd8bf1f49",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

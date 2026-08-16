@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:6f4af8de1b6f8e61f64eab3c4c770b1aa47b5d774784dbb764be927a4392b888` |
+| Attestation id | `sha256:ac49b0eab563abdfb96b67115f99abe8cab3ea17bc8d8e6ffe40a59edbeef489` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `62eb48bc29a9` |
+| Reviewed at commit | `68e1e228fe35` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,17 +30,17 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 2 |
+| low | 1 |
 | info | 1 |
 
-This PR fixes the last hole in SmartLookupTab's superseded-run handling — a run that was invalidated mid-flight and then threw would bail out of the catch block without touching status, leaving the tab pinned at PROCESSING with the Run button permanently disabled (it is disabled on `status === PROCESSING` at line 492, and the invalidating effect at line 136 never sets status). Setting IDLE before returning is the correct fix and matches the pre-existing success-path guard at line 223. The rest is localisation: three new `smartLookup` keys added to both the `en` and `ar` blocks of `utils/translations.ts`, correctly paired, plus a cosmetic `React.useRef` → `useRef` cleanup now that the named import exists. No blocking findings; three low/info notes below.
+This PR closes out the three findings from the previous review pass on SmartLookupTab: the superseded-run guard on the error path now logs the same warning as the success path, the batch-complete message regained its "files" noun via a new localised key (en + ar), and `handleDownload`'s catch moved from `catch (e: any)` + `e.message` to `catch (e: unknown)` with an `instanceof Error` narrowing that matches `runLookup`. All three fixes are correct and the new `filesWord` key is present in both language blocks, so `TRANSLATIONS[language]` still type-checks under `strict`. No blocking handbook violations; one low-severity inconsistency remains in the very block this PR touches.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 608 warning(s) |
+| ESLint | pass | 0 error(s), 607 warning(s) |
 | Vitest | pass | 313/313 passed, lines 97.25% |
 | Playwright | pass | 107/107 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 98 source files, 29237 lines
+- 98 source files, 29249 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**
@@ -64,7 +64,7 @@ reports zero failures for a tool that never executed.
 | `components/CompositeTab.tsx` | 1404 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1058 |
-| `utils/translations.ts` | 975 |
+| `utils/translations.ts` | 977 |
 | `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
 | `components/OcrTab.tsx` | 881 |
