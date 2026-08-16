@@ -193,6 +193,11 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
       // itself instead of committing.
       const myRun = ++runIdRef.current;
 
+      // Wrapped, because it was not. A throw anywhere below — a corrupt sheet, a
+      // column index that no longer exists — left the tab in PROCESSING for good:
+      // spinner running, Run disabled, no error and nothing in the log to say
+      // what happened.
+      try {
       await new Promise(r => setTimeout(r, 100));
 
       // Cells, not values. `readGrid` keeps each cell's type and number format,
@@ -215,7 +220,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
       // Superseded while we were working: the settings on screen are no longer
       // the ones this result came from, so it must not be shown or exported.
       if (myRun !== runIdRef.current) {
-          addLog("Settings changed during the lookup — run it again.", 'warning');
+          addLog(t.smartLookup.supersededRun, 'warning');
           setStatus(ProcessingStatus.IDLE);
           return;
       }
@@ -239,6 +244,10 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
       addLog(`Lookup complete. Found: ${result.found}, Missing: ${result.missing}.`, 'success');
       setProgress(100);
       setStatus(ProcessingStatus.COMPLETED);
+      } catch (e: any) {
+          addLog(`${t.smartLookup.failed}: ${e.message}`, 'error');
+          setStatus(ProcessingStatus.ERROR);
+      }
   };
 
   const handleDownload = async () => {

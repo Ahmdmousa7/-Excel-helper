@@ -180,6 +180,8 @@ export const TRANSLATIONS = {
         maxRowsPerFile: 'Max Rows/File',
         smartMatch: 'Smart Match',
         smartMatchHint: 'Ignores type (Text/Number) & leading zeros (001 = 1)',
+        supersededRun: 'Settings changed during the lookup — run it again.',
+        failed: 'Lookup failed',
     },
     actions: {
       uploadFile: 'Upload File',
@@ -625,6 +627,8 @@ export const TRANSLATIONS = {
         maxRowsPerFile: 'أقصى عدد صفوف/ملف',
         smartMatch: 'المطابقة الذكية',
         smartMatchHint: 'تتجاهل النوع (نص/رقم) والأصفار البادئة (001 = 1)',
+        supersededRun: 'تم تغيير الإعدادات أثناء البحث — أعد التشغيل.',
+        failed: 'فشل البحث',
     },
     actions: {
       uploadFile: 'رفع ملف',
