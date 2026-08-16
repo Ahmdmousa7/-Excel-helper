@@ -312,7 +312,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
               link.download = `SmartLookup_Batch_${fileData!.name}.zip`;
               link.click();
               
-              addLog(`${t.smartLookup.batchComplete} (${part-1} ${t.smartLookup.filesWord}).`, 'success');
+              addLog(`${t.smartLookup.batchComplete} (${t.smartLookup.filesWord}: ${part-1}).`, 'success');
           } else {
               // SINGLE FILE — same builder as the batch path above, so the two
               // cannot drift apart the way the two lookups did.
@@ -327,9 +327,13 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
           // and "Download error: undefined" tells nobody anything.
           const message = e instanceof Error ? e.message : String(e);
           addLog(`${t.smartLookup.downloadError}: ${message}`, 'error');
-      } finally {
-          setStatus(ProcessingStatus.COMPLETED);
+          // NOT a `finally`. It was one, and it stamped COMPLETED over the error
+          // this line had just logged — the download failed and the tab said it
+          // had finished.
+          setStatus(ProcessingStatus.ERROR);
+          return;
       }
+      setStatus(ProcessingStatus.COMPLETED);
   };
 
   return (

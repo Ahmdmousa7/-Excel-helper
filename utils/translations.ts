@@ -187,7 +187,7 @@ export const TRANSLATIONS = {
         selectColumnsFirst: 'Please select Lookup Column, Match Column, and at least one Return Column.',
         referenceLoaded: 'Reference file loaded.',
         batchComplete: 'Batch download complete',
-        filesWord: 'files',
+        filesWord: 'files',  // Used as "files: 3" so no count agreement is needed.
         downloadComplete: 'Download complete.',
         downloadError: 'Download error',
     },
@@ -642,7 +642,7 @@ export const TRANSLATIONS = {
         selectColumnsFirst: 'اختر عمود البحث وعمود المطابقة وعموداً واحداً على الأقل للإرجاع.',
         referenceLoaded: 'تم تحميل الملف المرجعي.',
         batchComplete: 'اكتمل التحميل المجمّع',
-        filesWord: 'ملفات',
+        filesWord: 'عدد الملفات',
         downloadComplete: 'اكتمل التحميل.',
         downloadError: 'خطأ في التحميل',
     },
