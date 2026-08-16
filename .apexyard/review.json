@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:c344deae73929b67f84de72c11d52886fcf321223577cf1ab1f9e213858c5f12",
+  "attestation_id": "sha256:6f4af8de1b6f8e61f64eab3c4c770b1aa47b5d774784dbb764be927a4392b888",
   "available": true,
   "files_reviewed": 2,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
-    "low": 0,
-    "medium": 1
+    "info": 1,
+    "low": 2,
+    "medium": 0
   },
   "findings_total": 3,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR hardens `runLookup` in the Smart Lookup tab: it adds a run-id counter so a lookup superseded by a mid-flight config change discards itself, wraps the body in try/catch so a throw no longer strands the tab in PROCESSING, extracts the error message from `unknown` instead of assuming `.message`, and moves four remaining hard-coded English strings into `translations.ts` (en + ar). The direction is right and the type handling on the catch is exactly what the type-safety handbook asks for. One defect: the staleness guard on the new error path returns without restoring status, which re-creates the permanently-stuck PROCESSING state the previous commit set out to fix — through a narrower door. No blocking-handbook violations.",
-  "verdict": "comment"
+  "summary": "This PR fixes the last hole in SmartLookupTab's superseded-run handling — a run that was invalidated mid-flight and then threw would bail out of the catch block without touching status, leaving the tab pinned at PROCESSING with the Run button permanently disabled (it is disabled on `status === PROCESSING` at line 492, and the invalidating effect at line 136 never sets status). Setting IDLE before returning is the correct fix and matches the pre-existing success-path guard at line 223. The rest is localisation: three new `smartLookup` keys added to both the `en` and `ar` blocks of `utils/translations.ts`, correctly paired, plus a cosmetic `React.useRef` → `useRef` cleanup now that the named import exists. No blocking findings; three low/info notes below.",
+  "verdict": "approved"
 }

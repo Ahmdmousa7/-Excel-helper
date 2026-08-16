@@ -1,40 +1,40 @@
 {
-  "attestation_id": "sha256:c344deae73929b67f84de72c11d52886fcf321223577cf1ab1f9e213858c5f12",
+  "attestation_id": "sha256:6f4af8de1b6f8e61f64eab3c4c770b1aa47b5d774784dbb764be927a4392b888",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
-    "low": 0,
-    "medium": 1
+    "info": 1,
+    "low": 2,
+    "medium": 0
   },
   "findings": [
     {
-      "category": "react",
-      "detail": "The success-path guard at line 223 correctly calls `setStatus(ProcessingStatus.IDLE)` before returning; the error-path guard at line 254 is a bare `return`. Status therefore stays PROCESSING, and nothing else ever clears it: the clear-on-config-change effect (line 136) only resets result state, not `status`, and the Run button is `disabled={status === ProcessingStatus.PROCESSING}` (line 489), so the user cannot start the follow-up run that would reset it. The result is the exact failure commit e0a2984 was written to fix — spinner at line 492 spinning forever, ProgressBar at line 498 frozen at 20, Run disabled, no message — only reachable through the error path instead of the happy one. Trigger is narrow: the config change must land inside the 100 ms `setTimeout` at line 201 (`buildLookup` is synchronous and blocks the main thread, so no interaction is possible during the compute), and the run must then throw. That narrowness is the only reason this is medium and not high; the consequence when it fires is unrecoverable short of the panel's Reset button.",
+      "category": "code-smell",
+      "detail": "The success-path guard at lines 223-227 does two things — `addLog(t.smartLookup.supersededRun, 'warning')` then `setStatus(IDLE)` — so the user gets told why their results vanished. The new error-path guard does only the second half. In the (narrow) window where a config change lands during the `setTimeout(r, 100)` at line 201 and the run then throws, the user sees the spinner stop, the preview cleared by the effect at line 136, and nothing in the log at all: no supersede notice and no record that an exception occurred. That is a diagnostically dark state for a tab whose whole error story is the log panel. Low rather than medium because the reachable window is ~100ms and the recovery action (re-run) is the same either way.",
       "file": "components/SmartLookupTab.tsx",
-      "line": 254,
-      "severity": "medium",
+      "line": 257,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "Superseded-run guard in catch leaves the tab stuck in PROCESSING"
+      "summary": "Stale-error path clears the spinner silently; success path logs a warning"
+    },
+    {
+      "category": "typescript",
+      "detail": "This PR rewrote the `runLookup` catch to `catch (e: unknown)` with `e instanceof Error ? e.message : String(e)` (line 261), explicitly because \"a non-Error throw has no `.message`, and 'Lookup failed: undefined' tells nobody anything\". The download handler 60 lines below keeps `catch (e: any)` and interpolates `e.message` directly — and this PR modifies that exact line to add the localised prefix. A non-Error throw from the batch path (JSZip's `generateAsync` rejecting, `writeWorkbookBuffer` throwing a string, an OOM on a large blob) now surfaces to the user as the localised equivalent of \"Download error: undefined\". Severity is low because the same fix was just applied to the sibling handler and the escape-hatch line is being touched anyway; it would be medium if the download path were the only error surface for the feature.",
+      "file": "components/SmartLookupTab.tsx",
+      "line": 319,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "handleDownload still reads `.message` off an `any` throw value"
     },
     {
       "category": "code-smell",
-      "detail": "Line 2 imports `{ useState, useEffect, useMemo }` and every other hook in the file is called unqualified; `runIdRef` is the only `React.*` call site. Functionally identical — purely a consistency observation, not a request.",
+      "detail": "The English string went from `Batch Download Complete (3 files).` to `Batch download complete (3).` — the parenthesised number is now unlabelled, so a reader has to infer whether 3 means files, rows, or parts. The Arabic string has the same shape, so this is not an RTL-specific problem. Observation only; the count is computed correctly (`part` starts at 1 and post-increments once per chunk, so `part-1` is the file count).",
       "file": "components/SmartLookupTab.tsx",
-      "line": 67,
+      "line": 308,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "`React.useRef` where the file imports hooks by name"
-    },
-    {
-      "category": "technical-debt",
-      "detail": "Commit 0ac600d states \"the panel is fully localised rather than nearly.\" That is true of `runLookup`, but `handleDownload` in the same file still emits English literals (`Batch Download Complete (…)`, `Download Complete.`, `Download Error: …`), as does the `Reset` button label. Those lines are outside this diff and I am not asking for a change to them here — flagging only because the commit message will be the record a future reader trusts, and it currently overstates the coverage. The rest of the message is a model of the WHY-not-WHAT shape the commit-message handbook asks for.",
-      "file": "components/SmartLookupTab.tsx",
-      "line": 177,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "Commit message claims the panel is fully localised; three strings remain"
+      "summary": "Localised batch message drops the \"files\" noun, leaving a bare count"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
