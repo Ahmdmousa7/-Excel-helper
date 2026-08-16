@@ -1,33 +1,24 @@
 {
-  "attestation_id": "sha256:ac49b0eab563abdfb96b67115f99abe8cab3ea17bc8d8e6ffe40a59edbeef489",
+  "attestation_id": "sha256:9330c783a525c9684d33c357dd1fcd09b183771456a100503c6391d9ebb2e4ee",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
+    "low": 0,
     "medium": 0
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "The commit's stated goal is \"same error handling in both handlers\", and the `catch` half now matches: both extract a message safely from an `unknown` throw. The status half still diverges. `runLookup` ends its catch with `setStatus(ProcessingStatus.ERROR)` (line 270); `handleDownload` has no `setStatus` in its catch and an unconditional `finally { setStatus(ProcessingStatus.COMPLETED) }` at 330-332, so a failed export — JSZip's `generateAsync` rejecting on a large blob, `writeWorkbookBuffer` throwing — leaves the tab reporting COMPLETED while a red error line sits in the log. The user gets contradictory signals from the two surfaces this tab uses to communicate outcome, and the status pill is the one they look at first. Low rather than medium because the error IS surfaced in the log, the recovery action (re-click Download) is unchanged, and the `finally` predates this PR — the diff only makes the asymmetry visible by fixing its sibling. It would be medium if the log panel were collapsible or the status were used to gate a subsequent action.",
+      "category": "react",
+      "detail": "The fix correctly makes the internal state truthful, and the `return` before line 336 is load-bearing (without it control would fall through and re-introduce the bug). Worth noting for follow-up: within `SmartLookupTab` the `status` value is only read at lines 506, 509 and 515, all of which test for `PROCESSING`. `ERROR` and `COMPLETED` render identically here, so the only user-visible difference between a failed and a successful download is the `addLog` line at 329. That is consistent with the preceding commit's intent (\"say why the spinner stopped\"), so this is an observation, not a request. It would rise to `low`/`medium` only if a future change makes the download button's enabled state or the results panel depend on `status`, at which point the ERROR branch would need a visible affordance (e.g. a retry hint next to the download button) rather than a log entry alone.",
       "file": "components/SmartLookupTab.tsx",
-      "line": 330,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "handleDownload's finally overwrites the error the new catch just logged"
-    },
-    {
-      "category": "code-smell",
-      "detail": "Observation, not a request. `'ملفات'` is interpolated as `(${part-1} ملفات)` at SmartLookupTab.tsx:315. The batch branch only runs when `allDataRows.length > exportBatchSize`, so `part-1` is always >= 2, which rules out the singular case — but Arabic numeral agreement takes the dual (`ملفان` / `ملفين`) at exactly 2 and the sound plural only from 3 to 10. So the one count this can produce that reads wrong is `2 ملفات`. The English side is correct for every reachable count. Not worth a plural-forms library for a single log line; noting it in case the app's Arabic strings get a review pass later.",
-      "file": "utils/translations.ts",
-      "line": 645,
+      "line": 333,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Arabic `filesWord` is the sound plural; count 2 wants the dual"
+      "summary": "New ERROR status on the download path has no rendered representation in this tab"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 1
 }

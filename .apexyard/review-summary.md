@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:ac49b0eab563abdfb96b67115f99abe8cab3ea17bc8d8e6ffe40a59edbeef489` |
+| Attestation id | `sha256:9330c783a525c9684d33c357dd1fcd09b183771456a100503c6391d9ebb2e4ee` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `68e1e228fe35` |
+| Reviewed at commit | `03746c8c08d9` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
+| low | 0 |
 | info | 1 |
 
-This PR closes out the three findings from the previous review pass on SmartLookupTab: the superseded-run guard on the error path now logs the same warning as the success path, the batch-complete message regained its "files" noun via a new localised key (en + ar), and `handleDownload`'s catch moved from `catch (e: any)` + `e.message` to `catch (e: unknown)` with an `instanceof Error` narrowing that matches `runLookup`. All three fixes are correct and the new `filesWord` key is present in both language blocks, so `TRANSLATIONS[language]` still type-checks under `strict`. No blocking handbook violations; one low-severity inconsistency remains in the very block this PR touches.
+This PR fixes a status-reporting bug in Smart Lookup's download handler: `handleDownload`'s `finally` block stamped `COMPLETED` unconditionally, overwriting the `ERROR` state the `catch` had just set, so a failed download logged an error and simultaneously reported success. The fix replaces the `finally` with an explicit `setStatus(ERROR); return;` in the catch and a fall-through `setStatus(COMPLETED)` on the success path. It also reshapes the batch-complete message from a bare plural noun to a `label: count` form so the Arabic translation no longer needs dual/plural agreement for a count of 2. Both changes are correct, minimal, and well-commented; no blocking-handbook violations found.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 98 source files, 29249 lines
+- 98 source files, 29253 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**

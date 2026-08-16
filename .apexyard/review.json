@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:ac49b0eab563abdfb96b67115f99abe8cab3ea17bc8d8e6ffe40a59edbeef489",
+  "attestation_id": "sha256:9330c783a525c9684d33c357dd1fcd09b183771456a100503c6391d9ebb2e4ee",
   "available": true,
   "files_reviewed": 2,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
+    "low": 0,
     "medium": 0
   },
-  "findings_total": 2,
+  "findings_total": 1,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR closes out the three findings from the previous review pass on SmartLookupTab: the superseded-run guard on the error path now logs the same warning as the success path, the batch-complete message regained its \"files\" noun via a new localised key (en + ar), and `handleDownload`'s catch moved from `catch (e: any)` + `e.message` to `catch (e: unknown)` with an `instanceof Error` narrowing that matches `runLookup`. All three fixes are correct and the new `filesWord` key is present in both language blocks, so `TRANSLATIONS[language]` still type-checks under `strict`. No blocking handbook violations; one low-severity inconsistency remains in the very block this PR touches.",
+  "summary": "This PR fixes a status-reporting bug in Smart Lookup's download handler: `handleDownload`'s `finally` block stamped `COMPLETED` unconditionally, overwriting the `ERROR` state the `catch` had just set, so a failed download logged an error and simultaneously reported success. The fix replaces the `finally` with an explicit `setStatus(ERROR); return;` in the catch and a fall-through `setStatus(COMPLETED)` on the success path. It also reshapes the batch-complete message from a bare plural noun to a `label: count` form so the Arabic translation no longer needs dual/plural agreement for a count of 2. Both changes are correct, minimal, and well-commented; no blocking-handbook violations found.",
   "verdict": "approved"
 }
