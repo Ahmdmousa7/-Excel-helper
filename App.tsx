@@ -15,7 +15,6 @@ import { useVoiceControl } from './hooks/useVoiceControl';
 // ... tool imports ...
 const HomeTab = lazy(() => import('./components/HomeTab'));
 const TranslateTab = lazy(() => import('./components/TranslateTab'));
-const DuplicatesTab = lazy(() => import('./components/DuplicatesTab'));
 const CompositeTab = lazy(() => import('./components/CompositeTab'));
 const SallaTab = lazy(() => import('./components/SallaTab'));
 const ZidTab = lazy(() => import('./components/ZidTab'));
@@ -25,7 +24,6 @@ const PdfToolsTab = lazy(() => import('./components/PdfToolsTab'));
 const ImageToPdfTab = lazy(() => import('./components/ImageToPdfTab'));
 const ImageCompressorTab = lazy(() => import('./components/ImageCompressorTab'));
 const QrCodeTab = lazy(() => import('./components/QrCodeTab'));
-const CsvConverterTab = lazy(() => import('./components/CsvConverterTab'));
 const PacksTab = lazy(() => import('./components/PacksTab'));
 const WebScraperTab = lazy(() => import('./components/WebScraperTab'));
 const OcrTab = lazy(() => import('./components/OcrTab'));
@@ -42,7 +40,6 @@ const DeduplicateTool = lazy(() => import('./components/DeduplicateTool').then(m
 const MergeTool = lazy(() => import('./components/MergeTool').then(m => ({ default: m.MergeTool })));
 const SplitterTool = lazy(() => import('./components/SplitterTool').then(m => ({ default: m.SplitterTool })));
 
-const MagicLinkTab = lazy(() => import('./components/MagicLinkTab'));
 
 const SupportChat = lazy(() => import('./components/SupportChat'));
 import ApiKeyModal from './components/ApiKeyModal';
@@ -52,7 +49,7 @@ import FileUploaderBase from './components/FileUploaderBase';
 import ModuleOverview from './components/ModuleOverview';
 import LogsFooter from './components/LogsFooter';
 import { 
-  FileSpreadsheet, Layers, Copy, ShoppingCart, Key, X, Check, ShieldPlus, 
+  FileSpreadsheet, Layers, ShoppingCart, X, Check, ShieldPlus,
   Image as ImageIcon, Scissors, FileImage, Zap, QrCode, FileText, RefreshCw, AlertTriangle, 
   Package, Globe, ScanText, ChevronRight, Hexagon, Palette, ChevronLeft, Info, HelpCircle, RotateCcw,
   Languages, PanelBottomOpen, PanelBottomClose, Terminal, Store, Network, Link as LinkIcon, ArrowRight, UserPlus, Home, Mic, MicOff, ShieldCheck, ArrowDownRight, Search, Bot, Building2, Lightbulb,
@@ -230,7 +227,6 @@ const App: React.FC = () => {
      
      if (cmd === 'home') setActiveTab(-1);
      else if (cmd === 'translator') setActiveTab(0);
-     else if (cmd === 'duplicates') setActiveTab(1);
      else if (cmd === 'salla') setActiveTab(5);
      else if (cmd === 'zid') setActiveTab(13);
      else if (cmd === 'reset') handleReset();
@@ -376,14 +372,12 @@ const App: React.FC = () => {
     { id: 23, title: t.tabs.smartLookup, icon: <Search size={18} />, description: t.toolInfo.smartLookup.desc, instructions: t.toolInfo.smartLookup.instr, component: <SmartLookupTab fileData={fileData} addLog={addLog} onReset={handleReset} /> },
     { id: 0, title: t.tabs.translator, icon: <Layers size={18} />, description: t.toolInfo.translator.desc, instructions: t.toolInfo.translator.instr, component: <TranslateTab fileData={fileData} addLog={addLog} keyCount={keyCount} onReset={handleReset} googleClientId={googleClientId} /> },
     { id: 16, title: t.tabs.fileValidation, icon: <ShieldCheck size={18} />, description: t.toolInfo.fileValidation.desc, instructions: t.toolInfo.fileValidation.instr, component: <FileValidationTab fileData={fileData} addLog={addLog} onReset={handleReset} /> }, 
-    { id: 1, title: t.tabs.duplicates, icon: <Copy size={18} />, description: t.toolInfo.duplicates.desc, instructions: t.toolInfo.duplicates.instr, component: <DuplicatesTab fileData={fileData} addLog={addLog} onReset={handleReset} /> },
     { id: 2, title: t.tabs.packs, icon: <Package size={18} />, description: t.toolInfo.packs.desc, instructions: t.toolInfo.packs.instr, component: <PacksTab fileData={fileData} addLog={addLog} onReset={handleReset} /> },
     { id: 14, title: t.tabs.balance, icon: <Network size={18} />, description: t.toolInfo.balance.desc, instructions: t.toolInfo.balance.instr, component: <VariableBalanceTab fileData={fileData} addLog={addLog} onReset={handleReset} /> },
     { id: 22, title: t.tabs.unpivot, icon: <ArrowDownRight size={18} />, description: t.toolInfo.unpivot.desc, instructions: t.toolInfo.unpivot.instr, component: <UnpivotTab fileData={fileData} addLog={addLog} onReset={handleReset} /> },
     { id: 5, title: t.tabs.salla, icon: <ShoppingCart size={18} />, description: t.toolInfo.salla.desc, instructions: t.toolInfo.salla.instr, component: <SallaTab fileData={fileData} addLog={addLog} onReset={handleReset} /> },
     { id: 13, title: t.tabs.zid, icon: <Store size={18} />, description: t.toolInfo.zid.desc, instructions: t.toolInfo.zid.instr, component: <ZidTab fileData={fileData} addLog={addLog} onReset={handleReset} /> },
     { id: 4, title: t.tabs.composite, icon: <FileSpreadsheet size={18} />, description: t.toolInfo.composite.desc, instructions: t.toolInfo.composite.instr, component: <CompositeTab fileData={fileData} addLog={addLog} onReset={handleReset} /> },
-    { id: 11, title: t.tabs.csv, icon: <FileText size={18} />, description: t.toolInfo.csv.desc, instructions: t.toolInfo.csv.instr, component: <CsvConverterTab addLog={addLog} onReset={handleReset} /> },
     { id: 12, title: t.tabs.ocr, icon: <ScanText size={18} />, description: t.toolInfo.ocr.desc, instructions: t.toolInfo.ocr.instr, component: <OcrTab addLog={addLog} onReset={handleReset} /> },
     { id: 3, title: t.tabs.scraper, icon: <Globe size={18} />, description: t.toolInfo.scraper.desc, instructions: t.toolInfo.scraper.instr, component: <WebScraperTab addLog={addLog} onReset={handleReset} /> },
     { id: 7, title: t.tabs.pdfTools, icon: <Scissors size={18} />, description: t.toolInfo.pdfTools.desc, instructions: t.toolInfo.pdfTools.instr, component: <PdfToolsTab addLog={addLog} onReset={handleReset} /> },
@@ -398,7 +392,6 @@ const App: React.FC = () => {
     { id: 32, title: "Deduplicator (Pro)", icon: <Filter size={18} />, description: "Advanced duplicate removal", instructions: "Hash datasets to remove duplicates.", component: <DeduplicateTool fileData={fileData} addLog={addLog} /> },
     { id: 33, title: "Merge Datasets", icon: <Combine size={18} />, description: "Append or Join two sheets", instructions: "Select join algorithm.", component: <MergeTool fileData={fileData} addLog={addLog} /> },
     { id: 34, title: "Separator", icon: <SplitSquareHorizontal size={18} />, description: "Split rows or extract sheets", instructions: "Choose split mode and chunk size.", component: <SplitterTool fileData={fileData} addLog={addLog} /> },
-    { id: 27, title: "Magic Links", icon: <Key size={18} />, description: "Generate magic backlink admin URLs", instructions: "Enter emails to bulk generate nucleus magic links.", component: <MagicLinkTab addLog={addLog} /> },
   ];
 
   const menuGroups = [

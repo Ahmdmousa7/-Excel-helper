@@ -94,7 +94,7 @@ test.describe('offline', () => {
     // worth doing when the app gets a service worker.
     await context.setOffline(true);
     try {
-      const tool = app.tool(TOOL.magicLinks);
+      const tool = app.tool(TOOL.qrGenerator);
       await tool.click().catch(() => undefined);
       await app.page.waitForTimeout(3000);
 

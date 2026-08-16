@@ -42,10 +42,6 @@ export const TRANSLATIONS = {
         desc: 'Translate Excel columns in bulk maintaining structure.',
         instr: 'Upload an Excel file, select columns, choose language (AR/EN), and start processing. Use API keys for best performance.'
       },
-      duplicates: {
-        desc: 'Find and resolve duplicate entries intelligently.',
-        instr: 'Select columns to check for uniqueness. Use "Composite Key" to check combinations (e.g. Name + ID). You can highlight or auto-resolve duplicates.'
-      },
       packs: {
         desc: 'Group items into packs based on a Key ID.',
         instr: 'Use this to flatten multiple rows with the same ID into a single row with multiple columns (e.g. Size 1, Size 2).'
@@ -73,10 +69,6 @@ export const TRANSLATIONS = {
       composite: {
         desc: 'Validate composite items against raw materials and calculate costs.',
         instr: 'Requires two sheets: "Composite" and "Raw". Checks if SKUs exist, and that every ingredient quantity is a number greater than zero — blank, zero and negative are all reported. Optionally calculates total cost based on ingredient prices.'
-      },
-      csv: {
-        desc: 'Convert CSV files to Excel .xlsx format.',
-        instr: 'Upload multiple CSVs. You can merge them into one workbook (tabs) or convert them individually into a ZIP.'
       },
       ocr: {
         desc: 'Extract data from images/PDFs to Excel.',
@@ -130,7 +122,6 @@ export const TRANSLATIONS = {
     tabs: {
       home: 'Home',
       translator: 'AI Translator',
-      duplicates: 'Check Duplicates',
       packs: 'Packs Manager',
       balance: 'Product Variants',
       unpivot: 'Table Unpivot',
@@ -138,7 +129,6 @@ export const TRANSLATIONS = {
       zid: 'Zid Organizer',
       rewaa: 'Rewaa Manager',
       composite: 'Composite Check',
-      csv: 'CSV to Excel',
       ocr: 'OCR Extraction',
       scraper: 'Web Scraper',
       pdfTools: 'PDF Tools',
@@ -262,23 +252,6 @@ export const TRANSLATIONS = {
         technical: 'Technical / IT',
         legal: 'Legal / Official'
       }
-    },
-    duplicates: {
-      mode: 'Check Mode',
-      composite: 'Composite Key',
-      compositeDesc: 'Checks combination of selected columns.',
-      individual: 'Individual Columns',
-      individualDesc: 'Checks each column separately.',
-      fullRow: 'Check Full Row Duplicates',
-      fullRowDesc: 'Highlights entire duplicate rows in Yellow.',
-      autoResolve: 'Auto-Resolve Duplicates',
-      autoResolveDesc: 'Modifies duplicates (appends -1, -2) instead of highlighting.',
-      rawValues: 'Use Raw Values (Fix Scientific Notation)',
-      compareAcross: 'Compare Across Different Sheets',
-      sourceSheet: 'Source Sheet (To Check)',
-      targetSheet: 'Reference Sheet (To Look In)',
-      selectSourceCol: 'Select Source Column',
-      selectRefCol: 'Select Reference Column',
     },
     balance: {
       groupCol: 'Grouping Column (Product ID/SKU)',
@@ -410,20 +383,6 @@ export const TRANSLATIONS = {
       prompt: 'Extraction Prompt',
       smartMode: 'Smart Mode Active',
       preview: 'Data Preview',
-    },
-    csv: {
-      outputMode: 'Output Mode',
-      merge: 'Merge to One Workbook',
-      mergeDesc: 'Creates one .xlsx file with multiple tabs.',
-      zip: 'Batch Convert (ZIP)',
-      zipDesc: 'Converts each CSV to a separate .xlsx file.',
-      encoding: 'File Encoding',
-      delimiter: 'Delimiter',
-      forceText: 'Force Text Format (Phone Numbers)',
-      splitLarge: 'Split Large Files',
-      rowLimit: 'Max Rows per Sheet',
-      smartMerge: 'Smart Header Align (Merge)',
-      settings: 'Import Settings'
     },
     pdf: {
       split: 'Cut / Split PDF',
@@ -559,7 +518,6 @@ export const TRANSLATIONS = {
     },
     toolInfo: {
       translator: { desc: 'ترجمة أعمدة الإكسل دفعة واحدة مع الحفاظ على التنسيق.', instr: 'ارفع ملف إكسل، اختر الأعمدة، حدد اللغة، وابدأ.' },
-      duplicates: { desc: 'اكتشاف وحل التكرارات بذكاء.', instr: 'حدد أعمدة للتحقق من التفرّد. يمكنك تمييز التكرار أو حله تلقائياً.' },
       packs: { desc: 'تجميع العناصر في حزم بناءً على معرف.', instr: 'يستخدم لدمج صفوف متعددة لنفس المعرف في صف واحد.' },
       balance: { desc: 'ضمان وجود جميع متغيرات المنتج.', instr: 'يتحقق من وجود كل احتمالات (اللون/المقاس) للمنتج.' },
       unpivot: { desc: 'تحويل الجداول العريضة إلى قوائم طويلة.', instr: 'حدد الأعمدة الثابتة وأعمدة القيم لتدويرها.' },
@@ -567,7 +525,6 @@ export const TRANSLATIONS = {
       zid: { desc: 'تنسيق المنتجات لمنصة زد.', instr: 'يعالج عمود "هل يوجد خيارات" ويفصل المنتجات.' },
       rewaa: { desc: 'تجهيز المنتجات لمنصة رواء.', instr: 'مطابقة الأعمدة وإنشاء ملف استيراد متوافق.' },
       composite: { desc: 'التحقق من المنتجات المركبة وتكاليفها.', instr: 'مقارنة ورقة المركب بورقة المواد الخام. يتم التحقق من وجود الرموز، ومن أن كل مقدار استخدام رقم أكبر من صفر — الفارغ والصفر والسالب كلها تُسجل كأخطاء.' },
-      csv: { desc: 'تحويل ملفات CSV إلى Excel.', instr: 'دمج ملفات متعددة أو تحويلها دفعة واحدة.' },
       ocr: { desc: 'استخراج البيانات من الصور و PDF.', instr: 'تحويل الفواتير والقوائم إلى جداول إكسل.' },
       scraper: { desc: 'استخراج بيانات من المواقع.', instr: 'أدخل الرابط والوصف لاستخراج البيانات بذكاء.' },
       pdfTools: { desc: 'دمج وتقسيم ملفات PDF.', instr: 'أدوات بسيطة لإدارة ملفات PDF.' },
@@ -590,7 +547,6 @@ export const TRANSLATIONS = {
     tabs: {
       home: 'الرئيسية',
       translator: 'المترجم الذكي',
-      duplicates: 'كشف التكرار',
       packs: 'إدارة الحزم',
       balance: 'توازن المتغيرات',
       unpivot: 'تدوير الجداول',
@@ -598,7 +554,6 @@ export const TRANSLATIONS = {
       zid: 'منظم زد',
       rewaa: 'إدارة رواء',
       composite: 'فحص المركب',
-      csv: 'محول CSV',
       ocr: 'استخراج OCR',
       scraper: 'استخراج الويب',
       pdfTools: 'أدوات PDF',
@@ -714,23 +669,6 @@ export const TRANSLATIONS = {
         technical: 'تقني / تكنولوجيا المعلومات',
         legal: 'قانوني / رسمي'
       }
-    },
-    duplicates: {
-      mode: 'وضع الفحص',
-      composite: 'مفتاح مركب',
-      compositeDesc: 'يفحص مجموعة من الأعمدة المحددة.',
-      individual: 'أعمدة فردية',
-      individualDesc: 'يفحص كل عمود على حدة.',
-      fullRow: 'فحص تكرار الصف بالكامل',
-      fullRowDesc: 'يميز الصفوف المكررة بالكامل باللون الأصفر.',
-      autoResolve: 'حل التكرارات تلقائياً',
-      autoResolveDesc: 'يعدل التكرارات (يضيف -1، -2) بدلاً من التمييز.',
-      rawValues: 'استخدام القيم الخام (إصلاح التدوين العلمي)',
-      compareAcross: 'مقارنة عبر أوراق مختلفة',
-      sourceSheet: 'الورقة المصدر (للفحص)',
-      targetSheet: 'الورقة المرجعية (للبحث فيها)',
-      selectSourceCol: 'اختر العمود المصدر',
-      selectRefCol: 'اختر العمود المرجعي',
     },
     balance: {
       groupCol: 'عمود التجميع (معرف المنتج/SKU)',
@@ -862,20 +800,6 @@ export const TRANSLATIONS = {
       prompt: 'موجه الاستخراج',
       smartMode: 'الوضع الذكي نشط',
       preview: 'معاينة البيانات',
-    },
-    csv: {
-      outputMode: 'وضع الإخراج',
-      merge: 'دمج في مصنف واحد',
-      mergeDesc: 'ينشئ ملف .xlsx واحد بعلامات تبويب متعددة.',
-      zip: 'تحويل دفعة (ZIP)',
-      zipDesc: 'يحول كل CSV إلى ملف .xlsx منفصل.',
-      encoding: 'ترميز الملف',
-      delimiter: 'الفاصل',
-      forceText: 'فرض تنسيق النص (أرقام الهواتف)',
-      splitLarge: 'تقسيم الملفات الكبيرة',
-      rowLimit: 'الحد الأقصى للصفوف لكل ورقة',
-      smartMerge: 'محاذاة ذكية للرأس (دمج)',
-      settings: 'إعدادات الاستيراد'
     },
     pdf: {
       split: 'قص / تقسيم PDF',

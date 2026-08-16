@@ -40,11 +40,11 @@ test.describe('happy path', () => {
     await app.searchFor('Compare');
     await expect(app.tool(TOOL.compareFiles)).toBeVisible();
     await expect(
-      app.sidebar.getByRole('button', { name: TOOL.magicLinks, exact: false }),
+      app.sidebar.getByRole('button', { name: TOOL.qrGenerator, exact: false }),
     ).toHaveCount(0);
 
     await app.searchFor('');
-    await expect(app.tool(TOOL.magicLinks)).toBeVisible();
+    await expect(app.tool(TOOL.qrGenerator)).toBeVisible();
   });
 
   test('a search with no matches leaves the shell usable', async ({ app }) => {

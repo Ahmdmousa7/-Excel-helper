@@ -21,7 +21,7 @@ export class AppShell {
     deduplicator: 'Deduplicator (Pro)',
     mergeDatasets: 'Merge Datasets',
     separator: 'Separator',
-    magicLinks: 'Magic Links',
+    qrGenerator: 'QR Generator',
   } as const;
 
   static readonly GROUP = {
