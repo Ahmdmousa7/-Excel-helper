@@ -254,7 +254,14 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
           // IDLE before returning. Bailing out silently left the tab in
           // PROCESSING — the very state this try/catch was added to prevent,
           // reintroduced by the guard meant to make it safe.
-          if (myRun !== runIdRef.current) { setStatus(ProcessingStatus.IDLE); return; }
+          if (myRun !== runIdRef.current) {
+              // Says the same thing the success path says. Clearing the spinner
+              // with no message reads as "nothing happened", when what happened
+              // is that the run was thrown away.
+              addLog(t.smartLookup.supersededRun, 'warning');
+              setStatus(ProcessingStatus.IDLE);
+              return;
+          }
           // `unknown`, and a message extracted rather than assumed: a non-Error
           // throw has no `.message`, and "Lookup failed: undefined" tells nobody
           // anything.
@@ -305,7 +312,7 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
               link.download = `SmartLookup_Batch_${fileData!.name}.zip`;
               link.click();
               
-              addLog(`${t.smartLookup.batchComplete} (${part-1}).`, 'success');
+              addLog(`${t.smartLookup.batchComplete} (${part-1} ${t.smartLookup.filesWord}).`, 'success');
           } else {
               // SINGLE FILE — same builder as the batch path above, so the two
               // cannot drift apart the way the two lookups did.
@@ -315,8 +322,11 @@ const SmartLookupTab: React.FC<Props> = ({ fileData, addLog, onReset, language =
               saveWorkbook(wb, `SmartLookup_${fileData!.name}`);
               addLog(t.smartLookup.downloadComplete, 'success');
           }
-      } catch (e: any) {
-          addLog(`${t.smartLookup.downloadError}: ${e.message}`, 'error');
+      } catch (e: unknown) {
+          // Same treatment as `runLookup`: a non-Error throw has no `.message`,
+          // and "Download error: undefined" tells nobody anything.
+          const message = e instanceof Error ? e.message : String(e);
+          addLog(`${t.smartLookup.downloadError}: ${message}`, 'error');
       } finally {
           setStatus(ProcessingStatus.COMPLETED);
       }
