@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:46dbb5d6beee79f0a315965314e3ab072db0b2db1da5010f621650d5cc1f2318",
+  "attestation_id": "sha256:94b416c2b9ea82c036d7fc17e7eacfe7b0c96444da5a852be150b1e074759a60",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,8 +21,8 @@
         "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab-DOZZJnba.js",
-        "gzip_bytes": 144767,
+        "file": "ProjectSummaryTab-DWaLDQK3.js",
+        "gzip_bytes": 144764,
         "raw_bytes": 444327
       },
       {
@@ -31,8 +31,8 @@
         "raw_bytes": 280794
       },
       {
-        "file": "index.es-90lq6MVY.js",
-        "gzip_bytes": 51629,
+        "file": "index.es-BRGRU2Fm.js",
+        "gzip_bytes": 51628,
         "raw_bytes": 151120
       },
       {
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-Bgwd4YC2.js",
-        "gzip_bytes": 43359,
+        "file": "HomeTab-Dgdr8gBD.js",
+        "gzip_bytes": 43361,
         "raw_bytes": 135983
       },
       {
-        "file": "index-CAMH8nxh.js",
-        "gzip_bytes": 32477,
+        "file": "index-CsugXVyM.js",
+        "gzip_bytes": 32485,
         "raw_bytes": 106802
       },
       {
@@ -61,7 +61,7 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-CJJsTT2X.js",
+        "file": "QrCodeTab-DGzt9sjr.js",
         "gzip_bytes": 13678,
         "raw_bytes": 37385
       }
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1312.4,
+        "gzip_kb": 1312.6,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 91
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1326.9,
+        "gzip_kb": 1327,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90

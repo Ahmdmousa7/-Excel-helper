@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:46dbb5d6beee79f0a315965314e3ab072db0b2db1da5010f621650d5cc1f2318` |
+| Attestation id | `sha256:94b416c2b9ea82c036d7fc17e7eacfe7b0c96444da5a852be150b1e074759a60` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `da4d249d5879` |
+| Reviewed at commit | `ae057b8c98fd` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 8 |
+| Files reviewed | 1 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 5 |
+| low | 1 |
 | info | 1 |
 
-This PR collapses Smart Lookup's two divergent join implementations into a single cell-aware engine (`utils/lookupEngine.ts`), holds the result so the export writes exactly what the preview showed, and closes TD-043/044/045/046/047 with 33 unit tests and 3 e2e specs. I confirmed the substantive claims against the code: first-match indexing is correct and matches VLOOKUP, `normalizeKey` genuinely refuses error cells on both sides of the join, `writeSheet` guards the blank-header dereference that used to throw, and the batch-ZIP path now goes through the style-capable writer so it matches the single-file path. No blocking-handbook violations and nothing high or critical — the findings below are advisory: one narrow stale-result race the new clear-on-config-change effect doesn't cover, a missing language dependency in that same effect, the memory cost of retaining the full cell-level result, pre-existing unlabelled selects on lines the diff touched, and the cross-module blast radius of the `cellNF: true` parse change. No PR body was supplied to this run, so the description-quality and AgDR-link checks (§6, §7) could not be evaluated; on the code alone I see no material technical decision requiring an AgDR — a new dependency-free util module and a SheetJS read option are both reversible inside this PR.
+This PR closes two stale-result paths in the Smart Lookup tab: it adds a `runIdRef` generation counter so a run whose configuration changed mid-flight discards itself instead of writing a result computed from settings no longer on screen, and it adds the missing `language` dependency to the clear-on-config-change effect (the not-found marker defaults to the localised string, so a language switch changes what a re-run would write). Both changes are correct: the counter is bumped by the same effect that clears the held rows, the claim is taken before the first `await`, and the check sits after `buildLookup` with no further suspension point before the commit, so the result set is written atomically. I traced the remaining dependency surface — a `fileData` swap is already covered transitively because the header-loading effect resets `lookupCol` to `-1`, which is itself a dependency of the clear effect — so the dependency array is effectively complete. No blocking issues; two advisory notes below.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 98 source files, 29170 lines
+- 98 source files, 29196 lines
 - Layering violations: **0**
 - Files over 800 lines: **11**
 - Probable duplicate implementations: **1**

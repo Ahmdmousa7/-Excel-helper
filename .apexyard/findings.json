@@ -1,69 +1,33 @@
 {
-  "attestation_id": "sha256:46dbb5d6beee79f0a315965314e3ab072db0b2db1da5010f621650d5cc1f2318",
+  "attestation_id": "sha256:94b416c2b9ea82c036d7fc17e7eacfe7b0c96444da5a852be150b1e074759a60",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 5,
+    "low": 1,
     "medium": 0
   },
   "findings": [
     {
-      "category": "accessibility",
-      "detail": "The four `<select>`s in the config panel (lines 304/307, 318/319, 362/363, 375/376) each sit next to a `<label>` that neither wraps them nor carries `htmlFor`, so a screen reader announces them as unlabelled comboboxes; the `Max Rows/File` number input at line 468 has only a `placeholder`, which is not an accessible name. This is pre-existing structure, not something the PR introduced — I diffed against HEAD~2 to confirm — and I am reporting it at low rather than the handbook's High precisely because of that. It is in scope only because the diff rewrote each of those exact label lines to swap the hardcoded English for `t.smartLookup.*`, which makes the fix a two-token addition on lines already being touched. The new controls this PR adds are fine: the not-found input has a proper `id`/`htmlFor` pair (lines 426-431) and the header checkbox uses valid implicit association.",
+      "category": "code-smell",
+      "detail": "This PR introduces the first early-return path in `runLookup` and correctly restores `setStatus(ProcessingStatus.IDLE)` on it (line 219). That makes the surrounding gap more visible: `readGrid` (201-202) and `buildLookup` (205) are unguarded, and the function has no `try`/`finally`. If either throws on a malformed sheet, `status` stays `ProcessingStatus.PROCESSING` forever, so the Run button (line 469, `disabled={status === ProcessingStatus.PROCESSING}`) is permanently disabled and the tab is unusable until the user hits Reset — with no error surfaced. `handleDownload` (295-299) already has exactly this shape and gets it right. This is pre-existing code the diff does not add, which is why it is `low` rather than `medium`; what would raise it is a confirmed throwing input in `readGrid`/`buildLookup` for a realistic sheet.",
       "file": "components/SmartLookupTab.tsx",
-      "line": 304,
+      "line": 201,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Sheet and column selects have visual labels with no programmatic association"
+      "summary": "runLookup has no try/catch — a throw leaves the tab stuck in PROCESSING"
     },
     {
-      "category": "performance",
-      "detail": "`readGrid` materialises both sheets as one `{ v, t, z }` object per cell, and `setResultRows(result.rows)` then retains the entire output in component state for the lifetime of the result (that retention is the TD-043 fix, so it is deliberate). The old path built arrays of scalars and threw them away. On the 40k-row sheets this repo already exercises elsewhere (see the allocation note in `services/excelService.ts:120`), 40k × 20 cells is ~800k objects per grid, roughly 5× the old footprint before the result is even held. Nothing here is quadratic and I could not demonstrate a failure, so this is low. It would be medium if a row-count ceiling were reached in practice — worth measuring against the largest file the tool is expected to accept, since the failure mode for memory is a tab crash rather than slowness, and no batch-size cap applies to the preview run.",
-      "file": "utils/lookupEngine.ts",
-      "line": 68,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Cell-level grids plus a retained full result multiply peak memory on large sheets"
-    },
-    {
-      "category": "react",
-      "detail": "`effectiveNotFound` is `notFoundValue ?? t.smartLookup.notFound`, so when the user has not overridden the marker its value is a function of `language`. The effect that clears the held result lists `notFoundValue` but not `language`. Run a lookup in English (misses are written as `Not Found`), then switch to Arabic: the result and the download are retained and still say `Not Found`, while the settings input now displays `غير موجود`. The preview and the file still agree with each other — which is why this is low, not medium — but the control that claims to say what misses are written as no longer does, and the whole point of this effect is that the downloadable result always corresponds to the settings on screen.",
+      "category": "code-smell",
+      "detail": "`addLog(\"Settings changed during the lookup — run it again.\", 'warning')` is the only user-visible output of the new supersede path, and it is a bare English literal while the rest of this component's UI strings come from `t.smartLookup.*` (`TRANSLATIONS[language]`). The app ships a full Arabic layer and sets `dir=\"rtl\"` (App.tsx:222), so an Arabic user who trips this path gets an untranslated string as the only explanation for why their results vanished. Noted as `info` rather than `low` because every other `addLog` call in this file (lines 186, 239, 293) is already English — this is consistent with its surroundings, not a regression.",
       "file": "components/SmartLookupTab.tsx",
-      "line": 140,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Clear-on-config-change effect omits language, so the not-found marker can go stale"
-    },
-    {
-      "category": "react",
-      "detail": "`runLookup` awaits `setTimeout(r, 100)` before reading the grids, and only the Run button is disabled while `status === PROCESSING` — the sheet selects, column selects, return-column checkboxes, Smart Match, header toggle and not-found input all remain interactive. If any of them changes during that window, the clear-on-config-change effect at line 134 fires and clears `resultRows`, then the in-flight `runLookup` closure (holding the OLD `matchCol`/`returnCols`/`effectiveNotFound`) completes and writes its results back. The user is then looking at new settings with a downloadable result computed from the old ones — the same 'the file disagrees with the screen' failure TD-043 was about, arriving through the retention mechanism that fixed it. The window is only ~100 ms today because everything after the await is synchronous, which is why this is low rather than medium. It widens to the full run duration the moment the join is chunked or moved to a worker, which is the natural next change here given the file sizes this app targets.",
-      "file": "components/SmartLookupTab.tsx",
-      "line": 178,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Config controls stay live during the run, so a result can outlive its settings"
-    },
-    {
-      "category": "typescript",
-      "detail": "`CellInfo.v: any` (line 20), `XLSX: any` on `readGrid` (68), `formatCell` (167) and `writeSheet` (199), plus `writeSheet`'s `: any` return (203) and `any[][]` accumulator (204). The `XLSX: any` parameters are defensible — passing the library in is what keeps this module free of a `services/` import and unit-testable, and the rest of the repo types SheetJS the same way — but the handbook asks for a one-line reason so the next reader can tell a deliberate escape hatch from an unexamined one. `CellInfo.v` is the one with an actual typed shape available: everything downstream does `String(cell.v)` or hands it to `SSF.format`, and every producer writes a SheetJS scalar. This is advisory and does not affect the verdict.",
-      "file": "utils/lookupEngine.ts",
-      "line": 20,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "New any annotations in the engine carry no justification comment"
-    },
-    {
-      "category": "architecture",
-      "detail": "The option lands in `readExcelFile` and `fetchGoogleSheet`, which are the entry points for the whole app, not just this module. It adds no values and cannot corrupt one, so the risk is genuinely small — but it is not strictly inert either: `cloneWorkbook` round-trips through `XLSX.write`, and any path that saves a workbook derived from the original now carries number formats it previously dropped. That is very likely an improvement, and it may well be nothing at all if every other tab rebuilds sheets from `getSheetData` values via `aoa_to_sheet` (which produces fresh cells with no `z`). Flagging it only so the blast radius is a stated fact rather than an assumption — the PR's tests and both commit bodies discuss this change purely in Smart Lookup terms.",
-      "file": "services/excelService.ts",
-      "line": 18,
+      "line": 218,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "cellNF: true changes parsing for every tab, verified only for Smart Lookup"
+      "summary": "New user-facing log message is hardcoded English in a bilingual app"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 6
+  "total": 2
 }
