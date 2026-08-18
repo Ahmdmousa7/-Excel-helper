@@ -1,14 +1,51 @@
 {
-  "attestation_id": "sha256:36e487dff71b0ebc5b9622ad0ad9361bac33b52e2a2602d7c83425461e0e7815",
+  "attestation_id": "sha256:0d3e39bcf191bf4553bbf65e7460e70a664e93ec09ea100a9092d3a6ff821df0",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 0,
+    "info": 1,
+    "low": 3,
     "medium": 0
   },
-  "findings": [],
+  "findings": [
+    {
+      "category": "code-smell",
+      "detail": "getStoredApiKeys / setStoredApiKeys / getStoredApiKey exist twice: canonically in services/apiKeyStorage.ts (which App.tsx:8 imports) and again at services/geminiService.ts:165-181. This diff changed the same three signatures in both files — that lockstep edit is the cost, and the next time one side is changed alone the two will disagree about what localStorage holds. geminiService's setStoredApiKeys is additionally an unused export (nothing imports it from there; App.tsx:286 uses the apiKeyStorage one), which the code-smells handbook lists as dead code. Not recorded as debt anywhere — TD-004 is the closed bundle-size item that created the split without removing the original.",
+      "file": "services/geminiService.ts",
+      "line": 165,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Duplicate key-storage accessors; this PR had to edit both copies in lockstep"
+    },
+    {
+      "category": "testing",
+      "detail": "This PR adds e2e/exporter-date-format.spec.ts (17 spec files on disk, confirmed by `ls e2e/*.spec.ts`) and updates README.md:37 to \"110 tests, 17 specs — verified 2026-08-18\". docs/TESTING.md, changed in the same diff, still reads \"16 spec files, 107 tests (verified 2026-08-16)\" and its suite table — which the file presents as the complete inventory, one row per spec — has no row for the new suite. Two documents in one PR now give different counts, and the table is the place a new contributor looks to find out what the exporter reproduction pins.",
+      "file": "docs/TESTING.md",
+      "line": 20,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "E2E spec inventory says 16 specs; the tree now has 17 and README says 17"
+    },
+    {
+      "category": "testing",
+      "detail": "All three tests call exportThroughRemoveBlanks(), which uploads a workbook, clicks Scrub Clean, waits up to 30 s for the download button and up to 60 s for the download event — each with test.setTimeout(120_000). That is three complete browser round-trips of the same expensive flow for assertions over the same exported cell. Tests 1 and 3 are both currently-passing characterisations of one export and differ only in which property they read (`values` contains the serial; `w` and `z`); only the middle one needs its own test, because test.fail() marks the whole test. TD-040 in the debt register documents that this suite's runtime and flakiness are already the thing that gets pushes bypassed, so a third of this spec's wall-clock is avoidable cost on the gate.",
+      "file": "e2e/exporter-date-format.spec.ts",
+      "line": 76,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Three tests each re-run the full upload → process → download flow"
+    },
+    {
+      "category": "security",
+      "detail": "This diff correctly drops the groq_api_key seed from e2e/pages/AppShell.ts:71 and e2e/modal.spec.ts:17, but scripts/observe-origins.mjs:46 and scripts/measure-mobile-overflow.mjs:12 still call localStorage.setItem('groq_api_key', ''). Both are outside this diff, and both are missing from the \"The surface, complete\" table in docs/modules/open-decisions.md § D5, which lists the e2e files but not these two — so this is a genuine gap in the removal inventory rather than recorded debt. Harmless today (the value is empty and no code path reads the key), but it leaves a grep for `groq` returning live writes in a repo that has otherwise fully removed the feature, which is what makes the next reader think an integration still exists. Separately, and correctly NOT flagged here: the orphaned localStorage['groq_api_key'] in existing users' browsers is deliberate, recorded and owned in § D5, with the App.tsx:188 TD-048 removeItem named as the pattern to copy and the decision explicitly reserved to the maintainer.",
+      "file": "e2e/pages/AppShell.ts",
+      "line": 70,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "Two dev scripts still seed groq_api_key that nothing reads"
+    }
+  ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 0
+  "total": 4
 }

@@ -1,69 +1,149 @@
 {
-  "attestation_id": "sha256:36e487dff71b0ebc5b9622ad0ad9361bac33b52e2a2602d7c83425461e0e7815",
+  "attestation_id": "sha256:0d3e39bcf191bf4553bbf65e7460e70a664e93ec09ea100a9092d3a6ff821df0",
   "files": [
     {
-      "oid": "2ab17c52aab555a2bdb613bd864938924b3cd1dd",
+      "oid": "274ba28fb1b4a372c2b3d985a4660d965abb2963",
+      "path": ".claude/CLAUDE.md"
+    },
+    {
+      "oid": "293d21a90b306aa6c9b47e536eaaf2718ad08157",
+      "path": ".claude/settings.json"
+    },
+    {
+      "oid": "e4d803571b3aa966a1aba370942dbd07a05868c3",
+      "path": ".claude/skills/graphify/.graphify_version"
+    },
+    {
+      "oid": "3df00d55f11f58e857f935054f1e4f5730c488b4",
+      "path": ".claude/skills/graphify/SKILL.md"
+    },
+    {
+      "oid": "77844343e140553b7f1bf419e32640568c2014ff",
+      "path": ".claude/skills/graphify/references/add-watch.md"
+    },
+    {
+      "oid": "242ff868e015b158504dda3ea1992e4cd9686843",
+      "path": ".claude/skills/graphify/references/exports.md"
+    },
+    {
+      "oid": "2cc19197836df0bcc796c87f233daa950238b458",
+      "path": ".claude/skills/graphify/references/extraction-spec.md"
+    },
+    {
+      "oid": "a41ea06e17c1676483356a2a06504a1bfb0870e4",
+      "path": ".claude/skills/graphify/references/github-and-merge.md"
+    },
+    {
+      "oid": "438b8b16be18480a1e77759b3e74fc8a9e97eae7",
+      "path": ".claude/skills/graphify/references/hooks.md"
+    },
+    {
+      "oid": "3ed5f65a23663d20f69b154d3f20fde96919e671",
+      "path": ".claude/skills/graphify/references/query.md"
+    },
+    {
+      "oid": "b967f8379998b890945706b3c95fef23b2ec402f",
+      "path": ".claude/skills/graphify/references/transcribe.md"
+    },
+    {
+      "oid": "b00917c83a884e835e3b445675aa98cc62c7f76b",
+      "path": ".claude/skills/graphify/references/update.md"
+    },
+    {
+      "oid": "3899a51684a839c2da10536c3023b55b71bf9b2a",
+      "path": ".gitignore"
+    },
+    {
+      "oid": "16b9f7c93f1ce7d6879e0020b815307e275461cf",
       "path": "App.tsx"
     },
     {
-      "oid": "deleted",
-      "path": "components/CsvConverterTab.tsx"
+      "oid": "417efeb27e11ed96f1405246a6425988e1101cbc",
+      "path": "CLAUDE.md"
     },
     {
-      "oid": "deleted",
-      "path": "components/DuplicatesTab.tsx"
+      "oid": "257b1e62376916d6511908202d57b648bd60790a",
+      "path": "README.md"
     },
     {
-      "oid": "deleted",
-      "path": "components/MagicLinkTab.tsx"
+      "oid": "5be1a8b23a14829835a64c8f6890200ffbdf9177",
+      "path": "components/ApiKeyModal.tsx"
     },
     {
-      "oid": "c913444b87c0f94a552e7af7ff7894fb77961611",
-      "path": "docs/modules/removed-modules.md"
+      "oid": "f9bd305773db4c47b5789eca6fa075d73b789cbc",
+      "path": "components/Sidebar.tsx"
     },
     {
-      "oid": "8a35a8dba9e7a535af9281039bc171b5b2eccbdb",
+      "oid": "90cf1bb731c14894dbb6e8388caf6f40946687f6",
+      "path": "docs/TESTING.md"
+    },
+    {
+      "oid": "67feb40ce18fd8e0e74de07d0b4444b6f0d70113",
+      "path": "docs/adr/ADR-0007-graphify-is-agent-tooling-not-a-dependency.md"
+    },
+    {
+      "oid": "9706c5e568a25c5c6ef6f694781e7ef404d076d7",
+      "path": "docs/modules/MODULE_GUIDE.md"
+    },
+    {
+      "oid": "781b052225136428061e306bead6998748fde89b",
+      "path": "docs/modules/exporter-date-format-audit.md"
+    },
+    {
+      "oid": "91ecf20e2e294a73640333df04b0e468943a630a",
+      "path": "docs/modules/open-decisions.md"
+    },
+    {
+      "oid": "2e7559f26d40aa3a80be22e0b23cc7cb492dad57",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "cbb7068de0a3946f266d852585bc5024b5ec47d2",
-      "path": "e2e/happy-path.spec.ts"
+      "oid": "7b2f2b8936628c8a4ce52b7049692baf91a3cda8",
+      "path": "docs/tooling/graphify.md"
     },
     {
-      "oid": "eed34874698d6617debc580483c14b4088c63910",
-      "path": "e2e/offline.spec.ts"
+      "oid": "4d92b6a631aa61c41ce9b44030c9694a11924e01",
+      "path": "e2e/exporter-date-format.spec.ts"
     },
     {
-      "oid": "afcb017177a33fae8eabb327ba99ab4ead1e6823",
+      "oid": "a5a3520f6a8ee1e7b3232af8650563881db2324a",
+      "path": "e2e/modal.spec.ts"
+    },
+    {
+      "oid": "cc4d1d4e8c162a19391065fdddd3ac6bffd12192",
       "path": "e2e/pages/AppShell.ts"
     },
     {
-      "oid": "ded03d31440f69f4b39a355b1e336a480df892a4",
-      "path": "hooks/useVoiceControl.ts"
+      "oid": "0026f1bc30d614bf0f5ac746b59d59ac977dc6f1",
+      "path": "scripts/jwt-lifetime.mjs"
     },
     {
-      "oid": "1bc2b2a9d4adbd72cf6cfbcd195b615d8f7df434",
-      "path": "package-lock.json"
+      "oid": "7ca272908be24d5604d0500c155cb0fab64753d0",
+      "path": "services/apiKeyStorage.ts"
     },
     {
-      "oid": "6f9509f321ee117eeb64c5f2355152de9b7e6132",
-      "path": "package.json"
+      "oid": "e3e34a3534356a5ddf626455182031460d3e6f6f",
+      "path": "services/geminiService.ts"
     },
     {
-      "oid": "8d25b2f8f10d58e371c0064446a09cc5b387008a",
+      "oid": "9fade81722695dd147ac58077f361535f49dc115",
+      "path": "tests/unit/exporterDateFormat.test.ts"
+    },
+    {
+      "oid": "3d059f8b8e36e9cf32d7abe5c03a896b8ef42a8a",
       "path": "utils/translations.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 0,
+    "info": 1,
+    "low": 3,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "902998862045ea3b2ed62703d53f34d904697998",
+  "reviewed_at_commit": "8859037cf8781e693049524b0ce3933eb8a267d8",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

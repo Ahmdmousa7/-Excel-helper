@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:36e487dff71b0ebc5b9622ad0ad9361bac33b52e2a2602d7c83425461e0e7815` |
+| Attestation id | `sha256:0d3e39bcf191bf4553bbf65e7460e70a664e93ec09ea100a9092d3a6ff821df0` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `902998862045` |
+| Reviewed at commit | `8859037cf878` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 13 |
+| Files reviewed | 33 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 0 |
-| info | 0 |
+| low | 3 |
+| info | 1 |
 
-This PR deletes three tools (Check Duplicates, CSV to Excel, Magic Links) — components, tab entries, voice command, both-locale translation blocks, the `papaparse`/`@types/papaparse` dependencies and their e2e references — adds a one-shot `localStorage.removeItem('rewaa_admin_token')` cleanup for the bearer token the deleted Magic Links module left in users' browsers, and records the removal in `docs/modules/removed-modules.md` plus TD-048 in the tech-debt register. I verified the removal is complete and leaves nothing dangling: no source, test, or doc file still references the deleted components, translation keys, or `TOOL.magicLinks`; the `menuGroups` and `isExcelTool` id lists were both updated; every surviving hard-coded navigation target (`App.tsx` voice handler, `HomeTab`'s four quick-action tiles) points at a tab that still exists; `activeTab` is in-memory only and defaults to `-1`, so no returning user can land on a removed id. The token cleanup is safe — `rewaa_admin_token` has no other reader or writer in the tree, and `RewaaTab` (the near-neighbour the doc calls out) holds its token in component state, not localStorage. `package.json` and `package-lock.json` moved together. No findings.
+This PR completes the Groq removal (dead key field, stub verifier, state, storage accessor, translations, Sidebar indicator term), adds a reproduction suite for the exporter date-format defect (TD-049) as unit + e2e expected-failure tests, commits graphify as project-scoped agent tooling with ADR-0007 covering the decision, and adds a no-network JWT lifetime reporter for TD-048. The removal is coherent and correctly propagated across App.tsx, ApiKeyModal, Sidebar, both locales and both e2e helpers, with no dangling references to verifyGroqKey or t.actions.getGroq; the new tests are unusually well-evidenced and the timezone assumption that broke an earlier version is now asserted as a bound rather than a prediction. No blocking-handbook violations: no I/O added to components, no secrets, no unsanitized HTML, no new top-level TS directory, and the material decision (graphify as tooling, not a dependency) is documented in ADR-0007. Four low/info findings, all cleanup.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ This PR deletes three tools (Check Duplicates, CSV to Excel, Magic Links) — co
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 562 warning(s) |
-| Vitest | pass | 313/313 passed, lines 97.25% |
-| Playwright | pass | 107/107 passed |
+| Vitest | pass | 334/335 passed, lines 98.75% |
+| Playwright | pass | 110/110 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 95 source files, 27385 lines
+- 97 source files, 27701 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -66,9 +66,9 @@ reports zero failures for a tool that never executed.
 | `components/FileValidationTab.tsx` | 1058 |
 | `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
-| `utils/translations.ts` | 901 |
+| `utils/translations.ts` | 899 |
 | `components/OcrTab.tsx` | 881 |
-| `services/geminiService.ts` | 850 |
+| `services/geminiService.ts` | 842 |
 | `components/ZidTab.tsx` | 841 |
 | `components/ProjectSummaryTab.tsx` | 840 |
 
