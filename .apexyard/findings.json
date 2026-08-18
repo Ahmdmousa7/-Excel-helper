@@ -1,49 +1,49 @@
 {
-  "attestation_id": "sha256:0d3e39bcf191bf4553bbf65e7460e70a664e93ec09ea100a9092d3a6ff821df0",
+  "attestation_id": "sha256:c74e5a6fdbefc44f520a3ef33e613f42fd98d373ec0e6c90d609a61fcc1e1122",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 3,
-    "medium": 0
+    "info": 0,
+    "low": 2,
+    "medium": 2
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "getStoredApiKeys / setStoredApiKeys / getStoredApiKey exist twice: canonically in services/apiKeyStorage.ts (which App.tsx:8 imports) and again at services/geminiService.ts:165-181. This diff changed the same three signatures in both files — that lockstep edit is the cost, and the next time one side is changed alone the two will disagree about what localStorage holds. geminiService's setStoredApiKeys is additionally an unused export (nothing imports it from there; App.tsx:286 uses the apiKeyStorage one), which the code-smells handbook lists as dead code. Not recorded as debt anywhere — TD-004 is the closed bundle-size item that created the split without removing the original.",
+      "detail": "`services/geminiService.ts:161-174` carries its own `GEMINI_KEY_STORAGE` constant and its own exported `getStoredApiKeys` / `setStoredApiKeys`, duplicating `services/apiKeyStorage.ts` verbatim. This PR is the evidence of the cost: the same three-line Groq deletion had to be made in both files. Neither geminiService export is imported anywhere — App.tsx imports both from `apiKeyStorage` (App.tsx:8), and the only in-file consumer is `getStoredApiKey` at geminiService.ts:176. So `setStoredApiKeys` is a wholly unused export and `getStoredApiKeys` is a redundant one. The concrete failure this sets up: the storage key literal `'gemini_api_key'` now exists in two files, and a future rename applied to only one makes the modal save under one key while the AI service reads another — every AI feature silently stops working with a valid key on screen. Acknowledged in the body of commit 8859037 as 'the dead duplicate storage API', but a commit message is not somewhere a future reader queries; it has no TD id and no register row.",
       "file": "services/geminiService.ts",
       "line": 165,
-      "severity": "low",
+      "severity": "medium",
       "suggested_fix": null,
-      "summary": "Duplicate key-storage accessors; this PR had to edit both copies in lockstep"
+      "summary": "Groq removal had to be applied twice — geminiService still duplicates the key-storage API"
     },
     {
-      "category": "testing",
-      "detail": "This PR adds e2e/exporter-date-format.spec.ts (17 spec files on disk, confirmed by `ls e2e/*.spec.ts`) and updates README.md:37 to \"110 tests, 17 specs — verified 2026-08-18\". docs/TESTING.md, changed in the same diff, still reads \"16 spec files, 107 tests (verified 2026-08-16)\" and its suite table — which the file presents as the complete inventory, one row per spec — has no row for the new suite. Two documents in one PR now give different counts, and the table is the place a new contributor looks to find out what the exporter reproduction pins.",
-      "file": "docs/TESTING.md",
-      "line": 20,
-      "severity": "low",
+      "category": "dependency",
+      "detail": "The committed skill runs `\"$PYTHON\" -m pip install graphifyy -q || \"$PYTHON\" -m pip install graphifyy -q --break-system-packages` (SKILL.md:92-93) when graphify is not importable and `uv` is absent. Two distinct problems. First, `--break-system-packages` writes to a distro-managed Python on the machine of a teammate whose only action was typing `/graphify` — ADR-0007 § Consequences and `docs/tooling/graphify.md` both warn about this, but a prose prerequisite does not gate an executing shell command, and the reason given for not patching it (the next `graphify install` overwrites the file) argues for a guard outside the vendored file, not for no guard. Second, and not covered anywhere in the PR: the install is **unpinned**, while `.claude/skills/graphify/.graphify_version` pins 0.8.44 and ADR-0007 reviews the local-only egress guarantees of that specific version. A bootstrapping teammate therefore gets whatever is latest on PyPI, which is not the version whose network behaviour was verified in ADR-0007 § Why.",
+      "file": ".claude/skills/graphify/SKILL.md",
+      "line": 92,
+      "severity": "medium",
       "suggested_fix": null,
-      "summary": "E2E spec inventory says 16 specs; the tree now has 17 and README says 17"
+      "summary": "Vendored skill bootstrap pip-installs an unpinned package, overriding pip's system-Python guard"
     },
     {
-      "category": "testing",
-      "detail": "All three tests call exportThroughRemoveBlanks(), which uploads a workbook, clicks Scrub Clean, waits up to 30 s for the download button and up to 60 s for the download event — each with test.setTimeout(120_000). That is three complete browser round-trips of the same expensive flow for assertions over the same exported cell. Tests 1 and 3 are both currently-passing characterisations of one export and differ only in which property they read (`values` contains the serial; `w` and `z`); only the middle one needs its own test, because test.fail() marks the whole test. TD-040 in the debt register documents that this suite's runtime and flakiness are already the thing that gets pushes bypassed, so a third of this spec's wall-clock is avoidable cost on the gate.",
-      "file": "e2e/exporter-date-format.spec.ts",
-      "line": 76,
+      "category": "code-smell",
+      "detail": "`decodePayload` wraps `Buffer.from(padded, 'base64').toString('utf8')` in a try/catch that calls `die(REFUSALS.payload)`. Node's base64 decoder silently discards characters outside the alphabet rather than throwing, and `toString('utf8')` substitutes U+FFFD rather than throwing, so lines 91-93 can never execute. Behaviour is still correct — garbage falls through to the `JSON.parse` catch at line 98 and produces the same refusal — so there is no user-visible defect, only a dead branch that reads as a handled case. Worth noting because this script's whole value proposition is that it can be audited by reading it (lines 12-21 make that claim explicitly), and a reader tracing the failure paths will conclude one of them is live when it is not.",
+      "file": "scripts/jwt-lifetime.mjs",
+      "line": 89,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Three tests each re-run the full upload → process → download flow"
+      "summary": "Unreachable catch — Buffer.from(str, 'base64') does not throw on malformed input"
     },
     {
-      "category": "security",
-      "detail": "This diff correctly drops the groq_api_key seed from e2e/pages/AppShell.ts:71 and e2e/modal.spec.ts:17, but scripts/observe-origins.mjs:46 and scripts/measure-mobile-overflow.mjs:12 still call localStorage.setItem('groq_api_key', ''). Both are outside this diff, and both are missing from the \"The surface, complete\" table in docs/modules/open-decisions.md § D5, which lists the e2e files but not these two — so this is a genuine gap in the removal inventory rather than recorded debt. Harmless today (the value is empty and no code path reads the key), but it leaves a grep for `groq` returning live writes in a repo that has otherwise fully removed the feature, which is what makes the next reader think an integration still exists. Separately, and correctly NOT flagged here: the orphaned localStorage['groq_api_key'] in existing users' browsers is deliberate, recorded and owned in § D5, with the App.tsx:188 TD-048 removeItem named as the pattern to copy and the decision explicitly reserved to the maintainer.",
-      "file": "e2e/pages/AppShell.ts",
-      "line": 70,
-      "severity": "info",
+      "category": "technical-debt",
+      "detail": "The Groq removal is complete in code, but the user-entered Groq key survives in `localStorage` for anyone who ever typed one, and this PR deletes the last UI that could clear it. That is documented — `docs/modules/open-decisions.md` § D5 and `docs/modules/MODULE_GUIDE.md:536` both state it plainly, and the maintainer explicitly reserved the fix. Under `handbooks/general/technical-debt.md` that makes it deliberate and owned, so it is not a violation. The narrow problem is *where* it is recorded: D5 opens with '**RESOLVED 2026-08-17 — implemented as recommended**', which is exactly the point a reader stops reading, and the register that this PR did edit (adding TD-049) has no row for it. TD-048 tracks the structurally identical `rewaa_admin_token` orphan and gets a row; this one does not. Two dev scripts also still seed the key (`scripts/measure-mobile-overflow.mjs:12`, `scripts/observe-origins.mjs:46`) — outside this diff, but they are the same loose end.",
+      "file": "docs/quality/tech-debt-register.md",
+      "line": 13,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "Two dev scripts still seed groq_api_key that nothing reads"
+      "summary": "Orphaned localStorage['groq_api_key'] is recorded only under a heading marked RESOLVED"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

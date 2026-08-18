@@ -7,12 +7,12 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:0d3e39bcf191bf4553bbf65e7460e70a664e93ec09ea100a9092d3a6ff821df0` |
+| Attestation id | `sha256:c74e5a6fdbefc44f520a3ef33e613f42fd98d373ec0e6c90d609a61fcc1e1122` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `8859037cf878` |
+| Reviewed at commit | `580c3d159c8a` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **APPROVED** |
+| Verdict | **COMMENT** |
 | Files reviewed | 33 |
 
 ## What this is, and what it is not
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
-| low | 3 |
-| info | 1 |
+| medium | 2 |
+| low | 2 |
+| info | 0 |
 
-This PR completes the Groq removal (dead key field, stub verifier, state, storage accessor, translations, Sidebar indicator term), adds a reproduction suite for the exporter date-format defect (TD-049) as unit + e2e expected-failure tests, commits graphify as project-scoped agent tooling with ADR-0007 covering the decision, and adds a no-network JWT lifetime reporter for TD-048. The removal is coherent and correctly propagated across App.tsx, ApiKeyModal, Sidebar, both locales and both e2e helpers, with no dangling references to verifyGroqKey or t.actions.getGroq; the new tests are unusually well-evidenced and the timezone assumption that broke an earlier version is now asserted as a bound rather than a prediction. No blocking-handbook violations: no I/O added to components, no secrets, no unsanitized HTML, no new top-level TS directory, and the material decision (graphify as tooling, not a dependency) is documented in ADR-0007. Four low/info findings, all cleanup.
+Two independent changes land together: the completion of the Groq removal (dead key field, stub verifier, state, storage accessor, translations, and the misleading sidebar indicator term), and the adoption of Graphify as committed project-scoped agent tooling (skill, PreToolUse hooks, ADR-0007, docs) plus a TD-049 exporter date-format reproduction suite. The Groq removal is complete and correct on every path I traced — no dangling reference, no unused import, and the Sidebar indicator now keys on `keyCount` alone, which fixes the 'configured' lie D5 described. The reproduction tests are unusually good: measured rather than predicted, with two retracted claims documented in-place and a timezone assertion that was narrowed to an invariant instead of a guess. No blocking-handbook violation and nothing high or critical; the four findings below are hygiene items, and two of them are already owned in prose but not in the register that gets re-read.
 
 ## Quality gates
 
