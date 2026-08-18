@@ -33,6 +33,15 @@ const SERIAL = 46037; // 2026-01-15
 const ORIGINAL_FMT = 'yyyy-mm-dd';
 const SHEETJS_DEFAULT = 'm/d/yy';
 
+/**
+ * SheetJS converts between serials and `Date` objects through local time, so
+ * anything asserting an exact serial after a round trip is timezone-dependent.
+ * CI runs UTC; this file was written on a UTC+3 machine and two assertions
+ * passed only there. Branch on the offset rather than pretend it does not exist.
+ * `getTimezoneOffset()` is minutes *behind* UTC, so UTC is 0.
+ */
+const LOCAL_OFFSET_AT_SERIAL = new Date(Date.UTC(2026, 0, 15)).getTimezoneOffset();
+
 function datedFile(serial = SERIAL, fmt = ORIGINAL_FMT) {
   const ws = XLSX.utils.aoa_to_sheet([['SKU', 'WhenAdded'], ['A-1', serial]]);
   ws.B2.z = fmt;
@@ -127,13 +136,28 @@ describe('raw-mode exporters via exportToExcelSingleSheet (Remove Blanks, Separa
     expect(reExport().z).toBe(SHEETJS_DEFAULT);
   });
 
-  it('DEFECT unique to this writer: the value gains a fractional time component', () => {
-    // 46037 → 46037.000104…, roughly 9 seconds. The calendar day is unaffected
-    // (an integer plus 9s stays the same day), but the cell is no longer a clean
-    // date serial, so an exact comparison against a date will now miss.
+  it('the calendar day survives, in every timezone', () => {
+    // The one assertion here that is safe to make unconditionally.
+    expect(Math.floor(reExport().v as number)).toBe(SERIAL);
+  });
+
+  it('DEFECT unique to this writer: the exported serial depends on the machine timezone', () => {
+    // Originally written as an unconditional `toBeGreaterThan(SERIAL)`, which
+    // passed on the author's UTC+3 machine and failed under TZ=UTC — the
+    // timezone CI runs in. Caught by review, not by me.
+    //
+    // Measured: under UTC the round trip is exact. Under UTC+3 the value comes
+    // back 46037.000104…, roughly 9 seconds heavy. So the *drift* is not
+    // universal — but the real defect is worse than a fixed offset, because it
+    // means **the same input file exports a different number on two machines**.
+    // The calendar day is unaffected either way (an integer plus 9s is the same
+    // day); an exact comparison against a date serial is not.
     const v = reExport().v as number;
-    expect(Math.floor(v)).toBe(SERIAL);
-    expect(v).toBeGreaterThan(SERIAL);
+    if (LOCAL_OFFSET_AT_SERIAL === 0) {
+      expect(v).toBe(SERIAL);
+    } else {
+      expect(v).toBeGreaterThan(SERIAL);
+    }
   });
 
   it('DEFECT unique to this writer: the 1900 epoch boundary shifts by a day', () => {
@@ -143,8 +167,15 @@ describe('raw-mode exporters via exportToExcelSingleSheet (Remove Blanks, Separa
     expect(reExport(1).v).toBe(2);
   });
 
-  it.fails('DESIRED: the serial is untouched by a round trip', () => {
-    expect(reExport().v).toBe(SERIAL);
+  it('DESIRED, and already true under UTC: the serial is untouched by a round trip', () => {
+    // This was an `it.fails()`, which was itself the bug: under TZ=UTC the
+    // desired behaviour already holds, so Vitest raised "Expect test to fail".
+    // An inverted marker is only correct while the defect is unconditional.
+    if (LOCAL_OFFSET_AT_SERIAL === 0) {
+      expect(reExport().v).toBe(SERIAL);
+    } else {
+      expect(reExport().v).not.toBe(SERIAL);
+    }
   });
 });
 

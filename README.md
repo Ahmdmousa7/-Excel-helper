@@ -59,6 +59,8 @@ ESLint **errors** block; ESLint warnings are reported but do not. See [`eslint.c
 |---|---|
 | [`docs/APEXYARD.md`](docs/APEXYARD.md) | How the automated code review works, what it checks, how to change it |
 | [`docs/TESTING.md`](docs/TESTING.md) | Test layout, the e2e auth bypass, ratchets, debugging failures |
+| [`docs/modules/MODULE_GUIDE.md`](docs/modules/MODULE_GUIDE.md) | Bilingual guide to every module: inputs, outputs, errors, known gaps |
+| [`docs/tooling/graphify.md`](docs/tooling/graphify.md) | The agent code graph: rebuilding it, using it, privacy, staleness |
 | [`docs/reports/integration-review-2026-08-02.md`](docs/reports/integration-review-2026-08-02.md) | Baseline findings: 9 fixed, 8 open with suggested fixes |
 | [`BRANDING.md`](BRANDING.md) | Brand guidance |
 

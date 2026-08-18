@@ -36,3 +36,8 @@ test-results
 
 # The e2e build. Separate from dist/ on purpose — see playwright.config.ts.
 dist-e2e/
+
+# Graphify knowledge graph — regenerated locally with `graphify update .`.
+# Agent tooling only; never a runtime dependency. Not committed: it is a
+# derived artifact that goes stale on every commit and would churn diffs.
+graphify-out/

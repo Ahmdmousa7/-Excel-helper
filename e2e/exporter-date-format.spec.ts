@@ -73,6 +73,14 @@ test.describe('Exporter date format — reproduction', () => {
     const sheet = await exportThroughRemoveBlanks(app, page);
 
     // Find the exported date cell wherever the column landed.
+    //
+    // This asserts the serial EXACTLY, which is only safe because
+    // `playwright.config.ts` pins `timezoneId: 'UTC'`. SheetJS round-trips
+    // serials through local time, so in a non-UTC browser the value comes back
+    // fractionally heavy (46037.000104… at UTC+3) and this would fail. If the
+    // timezone pin is ever removed, compare with Math.floor instead.
+    // See tests/unit/exporterDateFormat.test.ts, where the same assumption
+    // shipped as a real bug.
     const cells = Object.keys(sheet).filter((k) => !k.startsWith('!'));
     const values = cells.map((k) => sheet[k].v);
     expect(values, 'the date serial is missing from the export entirely').toContain(DATE_SERIAL);
@@ -88,8 +96,10 @@ test.describe('Exporter date format — reproduction', () => {
       .find((c) => c.v === DATE_SERIAL);
 
     expect(dateCell, 'no cell holds the date serial').toBeTruthy();
-    // This is the assertion that does not hold today: `aoa_to_sheet` wrote the
-    // value and no format, so Excel shows 46037.
+    // The assertion that does not hold today: `aoa_to_sheet` writes the value
+    // with no format, so the original `yyyy-mm-dd` comes back as SheetJS's
+    // default `m/d/yy`. (An earlier version of this comment claimed Excel shows
+    // `46037` — that is the retracted prediction this very file disproved.)
     expect(dateCell.z, 'the number format was dropped on the way out').toBe(DATE_FMT);
   });
 

@@ -15,22 +15,25 @@
 |---|---|
 | `raw: true` modules export a date as the bare serial **`46037`** | ❌ **Wrong.** `sheet_to_json({ raw: true })` returns a JS **`Date` object** for a date-formatted cell, and `aoa_to_sheet` writes a `Date` back as a real date cell. **Nothing exports `46037`.** The date survives and the calendar day is correct for realistic dates |
 | 8 modules at 🔴 High risk of producing a wrong number | The real defect is narrower and universal: **the original number format is replaced by SheetJS's default `m/d/yy`** |
-| The two shared writers behave alike | ❌ **Wrong.** `exportToExcelSingleSheet` (xlsx-js-style) *additionally* adds a fractional time component (`46037` → `46037.000104…`) and shifts the 1900 epoch boundary (serial `1` → `2`). `appendSheet` plus the plain writer do neither |
+| The two shared writers behave alike | ❌ **Wrong.** `exportToExcelSingleSheet` (xlsx-js-style) *additionally* shifts the 1900 epoch boundary (serial `1` → `2`) and, **in a non-UTC timezone only**, adds a fractional time component (`46037` → `46037.000104…` at UTC+3 — see the correction below). `appendSheet` plus the plain writer do neither |
 | Text-mode modules export a date as a string | ✅ **Correct** — the cell comes out `t: 's'` |
 
 ### What the defect actually is
 
 **Format fidelity — and it matters more in this app's context than the raw severity suggests.** A sheet authored `dd/mm/yyyy` is exported as `m/d/yy`, so **25/12/2026 renders as 12/25/26**. The stored value is right; the reading convention flips. For an audience that writes dates day-first, that reads as either an invalid date or the wrong month, and there is nothing on screen to signal it.
 
-Secondary, on the `exportToExcelSingleSheet` path only (**Remove Blanks**, **Separator**): the serial gains about nine seconds of spurious time, so the cell is no longer a clean date serial and an exact comparison against a date will miss. The calendar day is unaffected for realistic dates.
+Secondary, on the `exportToExcelSingleSheet` path only (**Remove Blanks**, **Separator**, and Merge Datasets' separate-files mode): the serial gains about nine seconds of spurious time, so the cell is no longer a clean date serial and an exact comparison against a date will miss. The calendar day is unaffected for realistic dates.
+
+**Correction, 2026-08-18 — that drift is timezone-dependent, not universal.** SheetJS converts between serials and `Date` objects through **local time**. Under `TZ=UTC` the round trip is exact and there is no drift at all; the ~9s was measured on a UTC+3 machine. This was found because the review caught two unit tests that passed locally and failed under `TZ=UTC`, which is what CI runs. The honest statement of the defect is therefore **stronger** than "the value drifts": *the same input file exports a different number depending on the exporting machine's timezone*, so an export is not reproducible across machines. The epoch-boundary shift (serial `1` → `2`) was re-verified and holds in **both** timezones.
 
 ### Corrected severity
 
 | Path | Modules | What actually happens | Severity |
 |---|---|---|:---:|
 | `readGrid` + `writeSheet` | Smart Lookup | Original format and exact serial preserved | ✅ None |
-| raw → `appendSheet` | Compare Files, Deduplicator, Merge Datasets, Salla, Zid | Real date; **format replaced with `m/d/yy`** | 🟡 Medium |
-| raw → `exportToExcelSingleSheet` | Remove Blanks, Separator | Real date; format replaced; **+9s value drift**; epoch-boundary day shift | 🟡 Medium |
+| raw → `appendSheet` | Compare Files, Deduplicator, Salla, Zid | Real date; **format replaced with `m/d/yy`** | 🟡 Medium |
+| raw → `exportToExcelSingleSheet` | Remove Blanks, Separator | Real date; format replaced; **timezone-dependent value drift** (none under UTC, ~+9s at UTC+3); epoch-boundary day shift in both | 🟡 Medium |
+| raw → **both** writers, depending on output mode | Merge Datasets | `appendSheet` for merged/multi-sheet output; **`exportToExcelSingleSheet` for the "separate files" ZIP mode** (`components/MergeTool.tsx:170`), which carries the value-drift defect too | 🟡 Medium |
 | raw **and** text mixed | Packs Manager | Both of the above, depending on the path taken | 🟡 Medium |
 | text mode → any writer | Composite Check, Table Unpivot, Product Variants, Files Validation, AI Translator, Google Sheets Import | Date becomes a **text cell** — no sorting, no date arithmetic | 🟡 Medium |
 | output not copied from a dated sheet | OCR, Web Scraper, Project Summary, Support Chat | No date to lose | ⚪ Low |
@@ -39,9 +42,11 @@ Secondary, on the `exportToExcelSingleSheet` path only (**Remove Blanks**, **Sep
 
 ### Evidence
 
-- `tests/unit/exporterDateFormat.test.ts` — **21 tests** pinning every claim above, including the two writers' differing behaviour and the `dd/mm/yyyy` → `m/d/yy` flip.
+- `tests/unit/exporterDateFormat.test.ts` — **22 tests** pinning every claim above, run green under both `TZ=UTC` and a non-UTC zone, including the two writers' differing behaviour and the `dd/mm/yyyy` → `m/d/yy` flip.
 - `e2e/exporter-date-format.spec.ts` — end-to-end through **Remove Blanks**: upload a `yyyy-mm-dd` column, download, inspect the cell. The exported cell reads `1/15/26`, which is how the `46037` prediction was disproved.
-- `it.fails()` / `test.fail()` mark the assertions describing desired behaviour. They pass while the defect exists and **start failing the moment it is fixed**, which is the signal to remove the marker.
+- `it.fails()` / `test.fail()` mark the assertions describing desired behaviour. They pass while the defect exists and **start failing the moment it is fixed**, which is the signal to remove the marker. One such marker had to be removed already: the serial-preservation assertion it guarded *does* hold under UTC, so `it.fails()` raised "Expect test to fail" in CI. **An inverted marker is only valid while the defect is unconditional** — that is the lesson, and it cost a red gate to learn.
+
+**A third correction, found later:** §2 lists Merge Datasets under `appendSheet` alone. It uses **both** writers — `exportToExcelSingleSheet` per file in the "separate files" ZIP mode (`components/MergeTool.tsx:170`). §2 is left as-written per the note above; the table in this section is the corrected one. This was surfaced by `graphify explain "exportToExcelSingleSheet"`, which listed `MergeTool.tsx` as an importer where the static read had not — see `docs/tooling/graphify.md`.
 
 ---
 
