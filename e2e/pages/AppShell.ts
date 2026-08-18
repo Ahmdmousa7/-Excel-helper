@@ -70,7 +70,6 @@ export class AppShell {
   async goto(path = './'): Promise<void> {
     await this.page.addInitScript(() => {
       localStorage.setItem('gemini_api_key', 'e2e-placeholder-key');
-      localStorage.setItem('groq_api_key', '');
     });
     await this.page.goto(path, { waitUntil: 'domcontentloaded' });
     await this.waitUntilReady();

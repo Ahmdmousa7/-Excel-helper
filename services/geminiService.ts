@@ -161,18 +161,15 @@ export const resetRetiredModels = (): void => retiredModels.clear();
 
 // Key Management
 const GEMINI_KEY_STORAGE = 'gemini_api_key';
-const GROQ_KEY_STORAGE = 'groq_api_key';
 
 export const getStoredApiKeys = () => {
   return {
-    gemini: localStorage.getItem(GEMINI_KEY_STORAGE) || '',
-    groq: localStorage.getItem(GROQ_KEY_STORAGE) || ''
+    gemini: localStorage.getItem(GEMINI_KEY_STORAGE) || ''
   };
 };
 
-export const setStoredApiKeys = (gemini: string, groq: string) => {
+export const setStoredApiKeys = (gemini: string) => {
   localStorage.setItem(GEMINI_KEY_STORAGE, gemini);
-  localStorage.setItem(GROQ_KEY_STORAGE, groq);
 };
 
 export const getStoredApiKey = () => {
@@ -238,11 +235,6 @@ export const verifyGeminiKey = async (
     // not to exist, so this branch was one retirement away from telling a user
     // with a perfectly good key that it was invalid.
     return 'no-model';
-};
-
-export const verifyGroqKey = async (key: string): Promise<boolean> => {
-    // Placeholder as Groq implementation details are not the focus, assuming simple check
-    return key.length > 10;
 };
 
 /**

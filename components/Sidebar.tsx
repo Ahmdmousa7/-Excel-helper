@@ -20,7 +20,6 @@ interface SidebarProps {
   toggleLanguage: () => void;
   setShowKeyModal: (show: boolean) => void;
   keyCount: number;
-  groqKey: string;
   /** Below `md` the sidebar is an off-canvas drawer; this is its open state. */
   isMobileNavOpen: boolean;
   setMobileNavOpen: (open: boolean) => void;
@@ -44,7 +43,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   toggleLanguage,
   setShowKeyModal,
   keyCount,
-  groqKey,
   isMobileNavOpen,
   setMobileNavOpen
 }) => {
@@ -180,7 +178,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center gap-2"><Languages size={14} />{!isSidebarCollapsed && <span>{language === 'en' ? 'English' : 'العربية'}</span>}</div>
         </button>
         <button onClick={() => setShowKeyModal(true)} className={`flex w-full h-10 ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} items-center gap-1 rounded-sm bg-primary-600 hover:bg-primary-700 text-white text-base font-medium shadow-sm transition-colors`} title="Configure API Keys">
-          <Key size={16} />{!isSidebarCollapsed && <span>{t.actions.configureKey}</span>}{(keyCount > 0 || groqKey) && (<div className={`w-2 h-2 bg-green-400 rounded-full border border-primary-600 ${isSidebarCollapsed ? 'absolute top-1 end-1' : 'ms-1'}`}></div>)}
+          <Key size={16} />{!isSidebarCollapsed && <span>{t.actions.configureKey}</span>}{(keyCount > 0) && (<div className={`w-2 h-2 bg-green-400 rounded-full border border-primary-600 ${isSidebarCollapsed ? 'absolute top-1 end-1' : 'ms-1'}`}></div>)}
         </button>
       </div>
     </aside>

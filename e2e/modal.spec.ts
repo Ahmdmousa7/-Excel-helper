@@ -15,7 +15,6 @@ test.describe('API key modal', () => {
   async function openAsNewUser(page: import('@playwright/test').Page) {
     await page.addInitScript(() => {
       localStorage.removeItem('gemini_api_key');
-      localStorage.removeItem('groq_api_key');
     });
     await page.goto('./', { waitUntil: 'domcontentloaded' });
     const dialog = page.getByRole('dialog');

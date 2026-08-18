@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Check, AlertTriangle, ShieldPlus, RefreshCw, UserPlus, Zap, Key } from 'lucide-react';
+import { X, Check, AlertTriangle, ShieldPlus, RefreshCw, UserPlus, Key } from 'lucide-react';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { useModalA11y } from '../hooks/useModalA11y';
 import { ApiKeyStatus } from '../types/ai.types';
@@ -15,12 +15,6 @@ interface ApiKeyModalProps {
   handleTestGemini: () => void;
   googleClientId: string;
   setGoogleClientId: (id: string) => void;
-  groqKey: string;
-  setGroqKey: (key: string) => void;
-  groqStatus: 'idle' | 'valid' | 'invalid';
-  setGroqStatus: (status: 'idle' | 'valid' | 'invalid') => void;
-  testingGroq: boolean;
-  handleTestGroq: () => void;
   handleSaveKey: () => void;
   keySaved: boolean;
 }
@@ -36,12 +30,6 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   handleTestGemini,
   googleClientId,
   setGoogleClientId,
-  groqKey,
-  setGroqKey,
-  groqStatus,
-  setGroqStatus,
-  testingGroq,
-  handleTestGroq,
   handleSaveKey,
   keySaved
 }) => {
@@ -156,32 +144,6 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           </div>
         </div>
 
-        {/* GROQ SECTION */}
-        <div className="mb-6">
-          <label className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase mb-2">
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1"><Zap size={14} className="text-orange-500"/> Groq Key (Fallback)</span>
-              {groqStatus === 'valid' && <span className="px-2 py-0.5 rounded-sm bg-green-100 text-green-700 text-[10px] border border-green-200 flex items-center gap-1"><Check size={10} /> {t.actions.valid}</span>}
-            </div>
-            <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-orange-600 hover:underline text-[10px]">{t.actions.getGroq}</a>
-          </label>
-          <form onSubmit={(e) => { e.preventDefault(); handleTestGroq(); }} className="flex space-x-2">
-             <input type="password" value={groqKey} onChange={(e) => { setGroqKey(e.target.value); setGroqStatus('idle'); }} placeholder="gsk_..." className="flex-1 p-2.5 border border-slate-300 bg-slate-50 rounded-sm font-mono text-xs focus:ring-1 focus:ring-orange-500 outline-none transition-colors text-slate-900 placeholder-slate-400" />
-             {/* Icon-only, unlike its Gemini counterpart which carries a text
-                 label — so it needs an explicit name. aria-busy lets a screen
-                 reader announce the in-flight state the spinner conveys visually. */}
-             <button
-               type="button"
-               onClick={handleTestGroq}
-               disabled={!groqKey || testingGroq}
-               aria-label={t.actions.test}
-               aria-busy={testingGroq}
-               className="flex items-center justify-center space-x-1 px-3 rounded-sm text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors min-w-[60px]"
-             >
-               {testingGroq ? <RefreshCw size={14} className="animate-spin" aria-hidden="true" /> : <Check size={14} aria-hidden="true" />}
-             </button>
-          </form>
-        </div>
 
         <button onClick={handleSaveKey} className={`flex w-full h-10 px-4 justify-center items-center gap-1 rounded-sm text-white text-base font-medium shadow-sm transition-all transform active:scale-95 ${keySaved ? 'bg-green-600 hover:bg-green-700' : 'bg-primary-600 hover:bg-primary-700'}`}>
           {keySaved ? <Check size={18} /> : <Key size={18} />}<span>{keySaved ? t.actions.saved : t.actions.saveKeys}</span>

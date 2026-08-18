@@ -17,7 +17,7 @@ Components are not unit-tested. They do I/O directly and would each need a DOM p
 
 ## E2E tests
 
-`e2e/**`, nine suites matching the nine risk areas:
+`e2e/**` — **16 spec files, 107 tests** (verified 2026-08-16). The first nine below were the original risk areas; the rest were added as specific defects were fixed, and each one exists because something broke.
 
 | Suite | What it pins |
 |---|---|
@@ -30,6 +30,13 @@ Components are not unit-tested. They do I/O directly and would each need a DOM p
 | `download` | The QR download is a real PNG — asserted on the file's magic bytes. |
 | `error-handling` | Empty input, 8,000-char payload, no file loaded, total network failure, rapid tool switching. |
 | `regression` | Pages base path, no 404s, no duplicate routed tools, no leaked object URLs. |
+| `modal` | The API-key dialog: dialog semantics, Escape, focus trap and restore, axe scan. |
+| `invalid-files` | A non-spreadsheet with an .xlsx extension, a corrupt ZIP, awkward CSV punctuation. |
+| `large-files` | 40,000-row workbooks — correctness and that the shell survives. |
+| `offline` | Going offline mid-session, recovery, and an uncached lazy chunk failing visibly rather than blank. |
+| `smart-lookup` | **The exported file matches the on-screen preview cell for cell** (TD-043), first-match on duplicate keys, and that a returned date keeps its format (TD-045). |
+| `composite-quantity-rules` | Quantity must be > 0: zero and negative flagged in both languages, with the right cell reference. |
+| `support-chat-fallback` | A model fallback reaches the user, and neither notices nor errors leak into the next prompt. |
 
 ### There is no auth bypass any more
 
@@ -37,7 +44,7 @@ This section used to describe a double-gated `VITE_E2E_AUTH_BYPASS` flag in `com
 
 Playwright still serves the **built** bundle rather than the dev server, so the suite exercises the real production output — which is what catches base-path and bundling breakage before it reaches GitHub Pages.
 
-`build:e2e` and its separate `--outDir dist-e2e` are kept, and the separate directory is still load-bearing: `vite preview` serves a directory live from disk, so any build into the directory being served swaps the bundle mid-run. That once produced a 100-of-101 failure that looked exactly like an app regression.
+`build:e2e` and its separate `--outDir dist-e2e` are kept, and the separate directory is still load-bearing: `vite preview` serves a directory live from disk, so any build into the directory being served swaps the bundle mid-run. That once produced a near-total failure (100 of the 101 tests at the time) that looked exactly like an app regression.
 
 ### Ratchets, not audits
 

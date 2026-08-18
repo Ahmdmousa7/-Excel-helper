@@ -6,8 +6,8 @@ import { ApiKeyStatus } from './types/ai.types';
 // xlsx + xlsx-js-style (~515 KB gzipped), and nothing needs them until the user
 // actually opens a file.
 import { getStoredApiKeys, setStoredApiKeys } from './services/apiKeyStorage';
-// verifyGeminiKey / verifyGroqKey are imported dynamically where used (TD-004):
-// they live in geminiService, which pulls @google/genai (~52 KB gzipped).
+// verifyGeminiKey is imported dynamically where used (TD-004): it lives in
+// geminiService, which pulls @google/genai (~52 KB gzipped).
 import { TRANSLATIONS, Language } from './utils/translations';
 import LogViewer from './components/LogViewer';
 import { useVoiceControl } from './hooks/useVoiceControl';
@@ -148,7 +148,6 @@ const App: React.FC = () => {
   // API Key State
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [geminiKey, setGeminiKey] = useState('');
-  const [groqKey, setGroqKey] = useState('');
   const [googleClientId, setGoogleClientId] = useState(() => {
       if (typeof window !== 'undefined') {
           return localStorage.getItem('google_client_id') || DEFAULT_GOOGLE_CLIENT_ID;
@@ -167,8 +166,6 @@ const App: React.FC = () => {
   // Test State
   const [testingGemini, setTestingGemini] = useState(false);
   const [geminiStatus, setGeminiStatus] = useState<ApiKeyStatus>('idle');
-  const [testingGroq, setTestingGroq] = useState(false);
-  const [groqStatus, setGroqStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
 
   const [resetKey, setResetKey] = useState(0);
 
@@ -194,7 +191,6 @@ const App: React.FC = () => {
     const stored = getStoredApiKeys();
     if (stored.gemini) {
       setGeminiKey(stored.gemini);
-      setGroqKey(stored.groq);
     }
     
     if (!localStorage.getItem('google_client_id')) {
@@ -285,17 +281,9 @@ const App: React.FC = () => {
     setGeminiStatus(result);
   };
 
-  const handleTestGroq = async () => {
-    if (!groqKey) return;
-    setTestingGroq(true);
-    setGroqStatus('idle');
-    const isValid = await (await import('./services/geminiService')).verifyGroqKey(groqKey);
-    setTestingGroq(false);
-    setGroqStatus(isValid ? 'valid' : 'invalid');
-  };
 
   const handleSaveKey = () => {
-    setStoredApiKeys(geminiKey, groqKey);
+    setStoredApiKeys(geminiKey);
     localStorage.setItem('google_client_id', googleClientId);
     
     setKeySaved(true);
@@ -455,7 +443,6 @@ const App: React.FC = () => {
         toggleLanguage={toggleLanguage}
         setShowKeyModal={setShowKeyModal}
         keyCount={keyCount}
-        groqKey={groqKey}
         isMobileNavOpen={isMobileNavOpen}
         setMobileNavOpen={setMobileNavOpen}
       />
@@ -537,12 +524,6 @@ const App: React.FC = () => {
           handleTestGemini={handleTestGemini}
           googleClientId={googleClientId}
           setGoogleClientId={setGoogleClientId}
-          groqKey={groqKey}
-          setGroqKey={setGroqKey}
-          groqStatus={groqStatus}
-          setGroqStatus={setGroqStatus}
-          testingGroq={testingGroq}
-          handleTestGroq={handleTestGroq}
           handleSaveKey={handleSaveKey}
           keySaved={keySaved}
         />
