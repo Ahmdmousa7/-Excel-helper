@@ -40,5 +40,6 @@ The generated `graphify-out/` is likewise **not committed**: derived, regenerabl
 ## Consequences
 
 - A clone needs the CLI installed per machine (`~/.local/bin/graphify`), then `graphify update .`. The skill and hooks come with the repo.
+- **That CLI install is a prerequisite, not a convenience.** The committed `SKILL.md` carries an upstream bootstrap that, with no `graphify` importable and no `uv` present, falls back to `pip install graphifyy --break-system-packages` — overriding pip's protection of a distro-managed Python on a machine whose owner only typed `/graphify`. With the CLI installed the branch never executes. It is documented rather than patched out because the next `graphify install` overwrites that file and a local edit would disappear silently, leaving a protection that exists only in the changelog.
 - The hooks depend on `python3` and a POSIX shell. Where `python3` is absent the hook fails into `|| true` and **silently stops nudging** — no error, just no reminder. That is a portability caveat, not a breakage; both hooks were verified emitting correct JSON on the maintainer's Windows setup.
 - Revisit if: the CLI's local-only guarantee changes in a future version, a provider key gets set in the environment for another reason, or the graph proves stale often enough that a watcher becomes worth the coupling.

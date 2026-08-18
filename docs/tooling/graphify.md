@@ -27,10 +27,6 @@ Two layers, both already in place.
 | **Project-scoped skill** | `.claude/skills/graphify/` | ✅ yes | `SKILL.md` + `references/`. Makes `/graphify` available to anyone who clones this repo, without a personal install |
 | **Project agent instructions** | `CLAUDE.md` (root `## graphify` section) and `.claude/CLAUDE.md` | ✅ yes | Tells the agent to try `query`/`path`/`explain` before raw browsing |
 | **Project PreToolUse hooks** | `.claude/settings.json` | ✅ yes | Injects a reminder when the agent is about to grep or read source, **only if** `graphify-out/graph.json` exists |
-
-### The hooks need `python3`, and fail quietly without it
-
-Both hook commands shell out to `python3` to parse the tool input, and end in `|| true`. Verified working here — fed synthetic tool input, both emit the correct `additionalContext` JSON, and the Bash one fires in normal use. But on a machine where `python3` is not on `PATH` (common on Windows, where it may be `python` or a Store alias), the command fails, `|| true` swallows it, and **the nudge silently stops happening**. Nothing breaks; the reminders just disappear. If an agent seems to be ignoring the graph, check `command -v python3` before assuming the graph is at fault.
 | **Generated graph** | `graphify-out/` | ❌ **no** — gitignored | The graph itself; rebuilt locally |
 | **CLI binary** | `~/.local/bin/graphify` (per developer) | ❌ n/a | Installed per machine, outside the repo |
 
@@ -41,6 +37,23 @@ graphify install --project --platform claude
 ```
 
 The `--project` flag is what makes it repo-scoped rather than only a personal `~/.claude` install. The user-level install was left untouched (`~/.claude/CLAUDE.md` is byte-identical before and after — verified by checksum).
+
+### Install the CLI first — this is a prerequisite, not a nicety
+
+**Install `graphify` (or at least `uv`) before invoking `/graphify` on a fresh machine.** The committed skill has a bootstrap that runs when `import graphify` fails: it prefers `uv tool install`, but with no `uv` present it falls back to
+
+```
+python3 -m pip install graphifyy || python3 -m pip install graphifyy --break-system-packages
+```
+
+`--break-system-packages` overrides pip's protection of a distro-managed Python. That is upstream's code, in a file this repo now commits, so a teammate typing `/graphify` on a machine without the CLI could have their system Python written to without being asked. **With the CLI already installed the branch never runs**, which is the whole mitigation.
+
+Deliberately **not** patched out of the vendored `SKILL.md`: the next `graphify install` or version upgrade overwrites that file, so a local edit would vanish silently and leave a documented protection that no longer exists. A warning that stays true is worth more than a patch that quietly disappears. If this ever needs to be enforced rather than documented, enforce it outside the skill file.
+
+### The hooks need `python3`, and fail quietly without it
+
+Both hook commands shell out to `python3` to parse the tool input, and end in `|| true`. Verified working here — fed synthetic tool input, both emit the correct `additionalContext` JSON, and the Bash one fires in normal use. But on a machine where `python3` is not on `PATH` (common on Windows, where it may be `python` or a Store alias), the command fails, `|| true` swallows it, and **the nudge silently stops happening**. Nothing breaks; the reminders just disappear. If an agent seems to be ignoring the graph, check `command -v python3` before assuming the graph is at fault.
+
 
 ### A Windows install bug worth knowing
 
