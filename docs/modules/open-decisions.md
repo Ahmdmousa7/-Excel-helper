@@ -64,6 +64,21 @@ Reads the loaded workbook (`getSheetData(..., false)` ×2), maps columns to Rewa
 
 ## D5 — the Groq key field / حقل مفتاح Groq
 
+> **RESOLVED 2026-08-17 — implemented as recommended.** The field, `verifyGroqKey`, the
+> `groqKey`/`groqStatus`/`testingGroq` state, the misleading Sidebar term, the storage
+> accessor and the translation labels are all gone (commit `5c24fa2`).
+> `getStoredApiKeys()` is now `{ gemini: string }`.
+>
+> **One thing is still open, and it is deliberately the user's call:** the orphaned
+> `localStorage['groq_api_key']` value survives in the browsers of anyone who ever
+> typed a key there, and there is no longer any UI to clear it. Clearing it needs a
+> one-shot `removeItem` in `App.tsx` — the same pattern already used for the
+> Magic Links token in TD-048. Not done unilaterally, because it is application code
+> and the decision was reserved.
+>
+> The description below is written in the present tense and is preserved as the record
+> of *why* the removal happened. **Read it as history, not as current behaviour.**
+
 ### The finding
 
 The API-key modal presents a **Groq** field with a label, a Test button, and a link to `console.groq.com/keys`. It does nothing.

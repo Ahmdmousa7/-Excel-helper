@@ -37,10 +37,16 @@ const SHEETJS_DEFAULT = 'm/d/yy';
  * SheetJS converts between serials and `Date` objects through local time, so
  * anything asserting an exact serial after a round trip is timezone-dependent.
  * CI runs UTC; this file was written on a UTC+3 machine and two assertions
- * passed only there. Branch on the offset rather than pretend it does not exist.
- * `getTimezoneOffset()` is minutes *behind* UTC, so UTC is 0.
+ * passed only there.
+ *
+ * `IS_UTC` gates the one assertion that is only *meaningful* under UTC. It is
+ * deliberately NOT used to predict drift in other zones: a first attempt did
+ * that (`offset === 0 ? exact : drifts`) and the predicate does not hold —
+ * whether a zone drifts depends on the offset **at the 1900 epoch** versus at
+ * the target date, so a zone sitting at offset 0 today can still drift, and a
+ * non-zero zone need not. Assert invariants; skip what cannot be asserted.
  */
-const LOCAL_OFFSET_AT_SERIAL = new Date(Date.UTC(2026, 0, 15)).getTimezoneOffset();
+const IS_UTC = new Date(Date.UTC(2026, 0, 15)).getTimezoneOffset() === 0;
 
 function datedFile(serial = SERIAL, fmt = ORIGINAL_FMT) {
   const ws = XLSX.utils.aoa_to_sheet([['SKU', 'WhenAdded'], ['A-1', serial]]);
@@ -51,12 +57,13 @@ function datedFile(serial = SERIAL, fmt = ORIGINAL_FMT) {
 }
 
 /** Parse exactly as `readExcelFile` does. */
-const parseLikeTheApp = (buf: any) => XLSX.read(buf, { type: 'buffer', raw: true, cellNF: true });
+const parseLikeTheApp = (buf: Buffer): XLSX.WorkBook =>
+  XLSX.read(buf, { type: 'buffer', raw: true, cellNF: true });
 /** Read exactly as `getSheetData(wb, name, raw)` does. */
-const rowsLikeTheApp = (ws: any, raw: boolean) =>
-  XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw }) as any[][];
+const rowsLikeTheApp = (ws: XLSX.WorkSheet, raw: boolean): unknown[][] =>
+  XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw }) as unknown[][];
 /** `cellNF: true` is required to read `z` back at all. */
-const roundTrip = (wb: any) =>
+const roundTrip = (wb: XLSX.WorkBook): XLSX.WorkBook =>
   XLSX.read(XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' }), { type: 'buffer', cellNF: true });
 
 describe('what a module actually receives for a date cell', () => {
@@ -141,23 +148,21 @@ describe('raw-mode exporters via exportToExcelSingleSheet (Remove Blanks, Separa
     expect(Math.floor(reExport().v as number)).toBe(SERIAL);
   });
 
-  it('DEFECT unique to this writer: the exported serial depends on the machine timezone', () => {
-    // Originally written as an unconditional `toBeGreaterThan(SERIAL)`, which
-    // passed on the author's UTC+3 machine and failed under TZ=UTC — the
-    // timezone CI runs in. Caught by review, not by me.
+  it('DEFECT unique to this writer: any drift stays under a day, so the date is never wrong', () => {
+    // The bound is the assertion, because it is true in every timezone.
     //
-    // Measured: under UTC the round trip is exact. Under UTC+3 the value comes
-    // back 46037.000104…, roughly 9 seconds heavy. So the *drift* is not
-    // universal — but the real defect is worse than a fixed offset, because it
-    // means **the same input file exports a different number on two machines**.
-    // The calendar day is unaffected either way (an integer plus 9s is the same
-    // day); an exact comparison against a date serial is not.
-    const v = reExport().v as number;
-    if (LOCAL_OFFSET_AT_SERIAL === 0) {
-      expect(v).toBe(SERIAL);
-    } else {
-      expect(v).toBeGreaterThan(SERIAL);
-    }
+    // History, because it is the useful part: this started life as an
+    // unconditional `toBeGreaterThan(SERIAL)` — it passed on a UTC+3 machine and
+    // failed under TZ=UTC, which is what CI runs. The second attempt branched on
+    // `getTimezoneOffset() === 0`, which review correctly rejected: that
+    // predicate does not predict drift either (see IS_UTC above). Measured
+    // behaviour is UTC exact, UTC+3 about 9 seconds heavy.
+    //
+    // The user-facing risk this pins: a sub-day drift keeps the calendar day
+    // correct but stops the cell being a clean date serial, so an exact
+    // comparison against a date misses. A drift of a day or more would be a
+    // different and much worse bug, and this test is what would catch it.
+    expect(Math.abs((reExport().v as number) - SERIAL)).toBeLessThan(1);
   });
 
   it('DEFECT unique to this writer: the 1900 epoch boundary shifts by a day', () => {
@@ -167,15 +172,16 @@ describe('raw-mode exporters via exportToExcelSingleSheet (Remove Blanks, Separa
     expect(reExport(1).v).toBe(2);
   });
 
-  it('DESIRED, and already true under UTC: the serial is untouched by a round trip', () => {
-    // This was an `it.fails()`, which was itself the bug: under TZ=UTC the
-    // desired behaviour already holds, so Vitest raised "Expect test to fail".
-    // An inverted marker is only correct while the defect is unconditional.
-    if (LOCAL_OFFSET_AT_SERIAL === 0) {
-      expect(reExport().v).toBe(SERIAL);
-    } else {
-      expect(reExport().v).not.toBe(SERIAL);
-    }
+  it.skipIf(!IS_UTC)('under UTC — the timezone CI runs — the serial round-trips exactly', () => {
+    // Skipped rather than inverted off-UTC, because what happens in another
+    // zone is not predictable from the offset alone. Under UTC it is exact, and
+    // CI is where this assertion earns its keep.
+    //
+    // This was originally an `it.fails()` asserting the opposite, which is how
+    // the whole timezone problem surfaced: the "desired" behaviour already held
+    // under UTC, so Vitest raised "Expect test to fail". An inverted marker is
+    // only valid while the defect is unconditional.
+    expect(reExport().v).toBe(SERIAL);
   });
 });
 
