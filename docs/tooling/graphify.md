@@ -2,6 +2,8 @@
 
 **Installed:** 2026-08-18 · **Version:** `graphify 0.8.44` · **Purpose:** reduce the tokens a coding agent burns orienting itself in this repository.
 
+**The decision itself is recorded in [ADR-0007](../adr/ADR-0007-graphify-is-agent-tooling-not-a-dependency.md).** This page is the how-to.
+
 **Graphify is agent tooling, not an application dependency.** It is not in `package.json`, it is not imported by any application file, and it is not part of any build or deploy path. Nothing in `dist/` is affected by it. Removing it would not change the shipped app in any way.
 
 > **الخلاصة بالعربية:** Graphify أداة للوكيل الذكي فقط، ليست تبعية للتطبيق. تبني خريطة للكود محليًا (بدون إنترنت) حتى يجيب الوكيل عن أسئلة الكود دون قراءة ملفات كاملة. تُبنى بالأمر `graphify update .` ولا تُرفع مخرجاتها إلى Git.
@@ -25,6 +27,10 @@ Two layers, both already in place.
 | **Project-scoped skill** | `.claude/skills/graphify/` | ✅ yes | `SKILL.md` + `references/`. Makes `/graphify` available to anyone who clones this repo, without a personal install |
 | **Project agent instructions** | `CLAUDE.md` (root `## graphify` section) and `.claude/CLAUDE.md` | ✅ yes | Tells the agent to try `query`/`path`/`explain` before raw browsing |
 | **Project PreToolUse hooks** | `.claude/settings.json` | ✅ yes | Injects a reminder when the agent is about to grep or read source, **only if** `graphify-out/graph.json` exists |
+
+### The hooks need `python3`, and fail quietly without it
+
+Both hook commands shell out to `python3` to parse the tool input, and end in `|| true`. Verified working here — fed synthetic tool input, both emit the correct `additionalContext` JSON, and the Bash one fires in normal use. But on a machine where `python3` is not on `PATH` (common on Windows, where it may be `python` or a Store alias), the command fails, `|| true` swallows it, and **the nudge silently stops happening**. Nothing breaks; the reminders just disappear. If an agent seems to be ignoring the graph, check `command -v python3` before assuming the graph is at fault.
 | **Generated graph** | `graphify-out/` | ❌ **no** — gitignored | The graph itself; rebuilt locally |
 | **CLI binary** | `~/.local/bin/graphify` (per developer) | ❌ n/a | Installed per machine, outside the repo |
 

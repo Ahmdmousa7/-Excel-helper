@@ -11,6 +11,8 @@
  * `exportToExcelSingleSheet` verbatim, so nothing else can be blamed for the
  * result. See `docs/modules/exporter-date-format-audit.md`.
  *
+ * Tracked as **TD-049**.
+ *
  * `test.fail()` is deliberate. The assertion inside describes the behaviour we
  * WANT; it does not hold today. Playwright passes an expected-failure test while
  * it fails, so the suite stays green — and **fails the moment someone fixes the
@@ -20,7 +22,8 @@
  *
  * NO PRODUCTION BEHAVIOUR IS CHANGED BY THIS FILE.
  */
-import { test, expect, TOOL } from './fixtures';
+import { test, expect, TOOL, AppShell } from './fixtures';
+import type { Page } from '@playwright/test';
 import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
 
@@ -42,7 +45,7 @@ function makeDatedWorkbook() {
 }
 
 /** Upload the dated workbook to Remove Blanks and return the exported sheet. */
-async function exportThroughRemoveBlanks(app: any, page: any) {
+async function exportThroughRemoveBlanks(app: AppShell, page: Page) {
   await app.goto();
   await app.openTool(TOOL.removeBlanks);
 

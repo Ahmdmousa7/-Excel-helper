@@ -23,6 +23,8 @@ import { readGrid, writeSheet } from '../../utils/lookupEngine';
  *      the xlsx-js-style writer adds a fractional time component and shifts the
  *      1900 epoch boundary; the plain writer does neither.
  *
+ * Tracked as **TD-049**.
+ *
  * `it.fails(...)` marks an assertion describing behaviour we WANT that does not
  * hold today. Vitest passes it while the assertion fails, so the suite stays
  * green over a known, accepted, unscheduled defect — and **fails the moment
@@ -144,8 +146,13 @@ describe('raw-mode exporters via exportToExcelSingleSheet (Remove Blanks, Separa
   });
 
   it('the calendar day survives, in every timezone', () => {
-    // The one assertion here that is safe to make unconditionally.
-    expect(Math.floor(reExport().v as number)).toBe(SERIAL);
+    // `Math.round`, not `Math.floor`: floor only holds if drift is upward, and
+    // nothing guarantees the direction — a zone west of UTC can round-trip a
+    // serial fractionally light, where floor would report the previous day and
+    // fail a test whose name promises every timezone. Third correction to this
+    // one assertion; the pattern is always the same, assuming instead of
+    // measuring.
+    expect(Math.round(reExport().v as number)).toBe(SERIAL);
   });
 
   it('DEFECT unique to this writer: any drift stays under a day, so the date is never wrong', () => {
