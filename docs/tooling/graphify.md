@@ -186,7 +186,7 @@ The graph holds structure, not behaviour. It cannot tell you:
 - **What code does** — logic, conditionals, ordering. `explain "formatCell"` gives its importers, not that it calls `XLSX.SSF.format` only when `t === 'n' && z`.
 - **Anything you intend to edit.** Every modification still needs the actual lines.
 - **Runtime and data-shape questions** — what a cell object looks like at a given moment, why a test fails.
-- **Non-import coupling** — `localStorage` keys, string-keyed translation lookups, dynamic imports. These are real dependencies with no AST edge, and the graph is blind to them. The orphaned `groq_api_key` key documented in `docs/modules/open-decisions.md` is exactly this class of link.
+- **Non-import coupling** — `localStorage` keys, string-keyed translation lookups, dynamic imports. These are real dependencies with no AST edge, and the graph is blind to them. The `groq_api_key` orphan documented in `docs/modules/open-decisions.md` was exactly this class of link — nothing imported it, so no graph edge existed to follow; it was found by reading, and cleaned in D5.
 - **Very recent edits**, until `update` is re-run.
 
 **Concrete payoff already banked:** `explain "exportToExcelSingleSheet"` surfaced `MergeTool.tsx` as an importer, which contradicted `docs/modules/exporter-date-format-audit.md` — that document had Merge Datasets on the `appendSheet` path only. It uses both writers (`components/MergeTool.tsx:170`, the "separate files" ZIP mode). The audit has been corrected. A static read had missed it twice.

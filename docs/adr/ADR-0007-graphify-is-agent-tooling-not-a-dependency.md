@@ -27,7 +27,7 @@
 
 **The graph is a snapshot, and a stale graph is worse than none.** It does not update itself — no watcher, no git hook (the repo's `core.hooksPath=.githooks` belongs to the ApexYard gate, and a Graphify hook would either be silently ignored or entangle itself with that). The rule is: when a graph answer contradicts the file in front of you, trust the file and run `graphify update .`.
 
-**It holds structure, not behaviour.** It cannot say what code does, and it is blind to non-import coupling — `localStorage` keys, string-keyed translation lookups, dynamic imports. The orphaned `groq_api_key` in [open-decisions.md](../modules/open-decisions.md#d5) is exactly the class of link with no AST edge.
+**It holds structure, not behaviour.** It cannot say what code does, and it is blind to non-import coupling — `localStorage` keys, string-keyed translation lookups, dynamic imports. The `groq_api_key` orphan in [open-decisions.md](../modules/open-decisions.md#d5) was exactly the class of link with no AST edge — a real dependency the graph could never have surfaced.
 
 **The nudge is advisory, and deliberately so.** The `PreToolUse` hooks emit `additionalContext` with no `permissionDecision`, so they cannot block a tool call — verified by parsing `.claude/settings.json`. Their wording says "MANDATORY"; the mechanism is a reminder. No blocking mode was enabled, and v0.8.44 has no such mode to enable.
 

@@ -9,7 +9,6 @@ const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 375, height: 812 } });
 await p.addInitScript(() => {
   localStorage.setItem('gemini_api_key', 'probe');
-  localStorage.setItem('groq_api_key', '');
 });
 await p.goto(url, { waitUntil: 'domcontentloaded' });
 await p.locator('aside').first().waitFor({ state: 'attached', timeout: 30000 });

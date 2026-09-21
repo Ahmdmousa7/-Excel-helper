@@ -187,6 +187,17 @@ const App: React.FC = () => {
     // not a permanent invariant. TD-048; see docs/modules/removed-modules.md.
     localStorage.removeItem('rewaa_admin_token');
 
+    // Same shape, different cause (D5). The API-key modal used to offer a Groq
+    // field whose "Test" button was a stub — `key.length > 10` returned true and
+    // showed a green badge, while no AI code path ever read the value. Removing
+    // the field left whatever a user typed stranded in localStorage with nothing
+    // left to view or clear it.
+    //
+    // Nothing reads 'groq_api_key' any more: the only remaining writers were two
+    // dev scripts, deleted alongside this line. Also one-shot — remove it on the
+    // same schedule as the token above. See docs/modules/open-decisions.md#d5.
+    localStorage.removeItem('groq_api_key');
+
     // 1. Load Keys
     const stored = getStoredApiKeys();
     if (stored.gemini) {

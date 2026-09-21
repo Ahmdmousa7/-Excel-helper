@@ -69,12 +69,15 @@ Reads the loaded workbook (`getSheetData(..., false)` ×2), maps columns to Rewa
 > accessor and the translation labels are all gone (commit `5c24fa2`).
 > `getStoredApiKeys()` is now `{ gemini: string }`.
 >
-> **One thing is still open, and it is deliberately the user's call:** the orphaned
-> `localStorage['groq_api_key']` value survives in the browsers of anyone who ever
-> typed a key there, and there is no longer any UI to clear it. Clearing it needs a
-> one-shot `removeItem` in `App.tsx` — the same pattern already used for the
-> Magic Links token in TD-048. Not done unilaterally, because it is application code
-> and the decision was reserved.
+> **CLOSED 2026-09-21.** The last open piece — the orphaned `localStorage['groq_api_key']`
+> value stranded in the browsers of anyone who ever typed a key there, with no UI left
+> to clear it — is now cleaned by a one-shot `removeItem` in `App.tsx`, next to and in
+> the same shape as the Magic Links cleanup. The two dev scripts that still seeded the
+> key (`measure-mobile-overflow.mjs`, `observe-origins.mjs`) were deleted in the same
+> change, so **nothing in the tree reads or writes it any more.**
+>
+> Both `removeItem` lines are a migration, not an invariant: delete them once returning
+> users have all loaded the app at least once. Tracked in TD-048's fix note.
 >
 > The description below is written in the present tense and is preserved as the record
 > of *why* the removal happened. **Read it as history, not as current behaviour.**

@@ -43,7 +43,6 @@ page.on('console', (m) => {
 
 await page.addInitScript(() => {
   localStorage.setItem('gemini_api_key', 'observe-placeholder');
-  localStorage.setItem('groq_api_key', '');
 });
 
 await page.goto(URL, { waitUntil: 'networkidle' }).catch(() => {});
