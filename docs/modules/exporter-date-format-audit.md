@@ -64,6 +64,47 @@ const ws = XLSX.utils.aoa_to_sheet(data);   // was XLSX_STYLE.utils.aoa_to_sheet
 
 **The one open risk:** whether styles survive a sheet built by the plain library. **My measurement was inconclusive** — the control failed too, meaning the test method is wrong, not the candidate. What it does establish is that the candidate is **no worse than current** on that axis. `exportToExcelSingleSheet` applies no styles today, so nothing is at risk now; a caller that styles its output later would be. **Resolve this before implementing**, with a test that reads styles back the way the app actually writes them.
 
+### The style question, settled 2026-09-21 — nothing is lost
+
+The earlier answer was "inconclusive", which is not an answer. It was inconclusive because the probe asked `XLSX_STYLE.read(..., { cellStyles: true })` and got `false` for **both** builders — including the one in production, which demonstrably does support styles. A probe that fails on the known-good path is measuring nothing.
+
+`tests/unit/exporterStyleCharacterization.test.ts` settles it by **unzipping the generated `.xlsx` and reading the XML Excel itself reads** — chasing `<c s="N">` in `sheet1.xml` through `<cellXfs>` into `<fonts>`/`<numFmts>` in `styles.xml`.
+
+| Dimension | Styled builder (today) | Plain builder (candidate) |
+|---|---|---|
+| Header cell style (bold + fill) | preserved | **identical** |
+| Body cell style (fill) | preserved | **identical** |
+| Custom number format (`yyyy-mm-dd`) | preserved | **identical** |
+| Custom number format (`#,##0.00`) | preserved | **identical** |
+| Column widths (`!cols`) | preserved | **identical** |
+| Plain cell XML | — | **byte-identical** |
+| Date cell format | preserved | **identical** |
+
+**The probe is proven to detect a regression, not merely to pass.** Four positive controls assert it reports *absence* correctly, and the suite was re-run with a deliberate mutation — cells silently rejecting style assignment — which produced exactly one failure, *"cell styles survive the PLAIN builder identically"*. A test that cannot fail proves nothing; this one fails when it should.
+
+**Conclusion: the candidate loses no styles, formats or widths.** The one open risk on this fix is closed.
+
+### Consumer exposure — `exportToExcelSingleSheet` has none
+
+All four call sites (`CleanTool:67`, `SplitterTool:35`, `SplitterTool:76`, `MergeTool:170`) pass a plain `any[][]` and receive an `ArrayBuffer`. The worksheet is built inside the helper and never handed back, so **a caller structurally cannot attach a style to it**. Nothing to lose.
+
+### FileValidationTab — 2 of the 6 sites are affected, not all 6
+
+Each site audited separately. Exposure requires a **`Date` object** reaching `aoa_to_sheet`, which happens only when values come through the `raw: true` read (line 136) uncoerced.
+
+| Site | Data it writes | `Date` can reach it? | Styles applied? |
+|---|---|:--:|:--:|
+| **601** | `exportData` — validated source rows, copied verbatim (chunked ZIP path) | **YES** | yes |
+| 643 | `changeLogData` — `String(row[i] \|\| "")` on every value | no — coerced | yes |
+| **693** | `exportData` — same as 601 (single-file path) | **YES** | yes |
+| 738 | `changeLogData` — same coercion as 643 | no — coerced | yes |
+| 790 | `summaryData` — labels, counts, and `new Date().toLocaleString()`, already a string | no | yes |
+| 803 | `supplierData` — supplier names from a `Set<string>` | no | yes |
+
+**So the fix belongs at 601 and 693 only.** The other four write synthesized or explicitly stringified data and have no defect to fix; changing them would be churn against working code. All six apply styles, and the characterization above proves that is safe either way — so a shared fix *could* cover all six, it simply is not needed for four of them.
+
+**Worth deciding:** the four unaffected sites keep a latent hazard — if anyone later routes source rows into the summary or change-log sheets, the bug returns silently. A one-line shared helper in `excelUtils` would make the safe builder the default and remove the trap. That is a design call, not a defect fix.
+
 ### Coverage added, no behaviour changed
 
 `tests/unit/exporterDateFormat.test.ts` is now **27 tests**, green under `TZ=UTC`, `Pacific/Kiritimati`, `Pacific/Midway` and `Asia/Kolkata`. It pins the candidate's properties *before* implementation, and the misleading assertion — `Math.round(v) === SERIAL` under the name "the calendar day survives, in every timezone" — is corrected: rounding hid the very corruption this section documents, because Excel truncates.
