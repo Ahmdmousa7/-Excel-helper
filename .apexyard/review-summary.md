@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:c74e5a6fdbefc44f520a3ef33e613f42fd98d373ec0e6c90d609a61fcc1e1122` |
+| Attestation id | `sha256:264725167ccd83036c75d374f0cbb783a94768673c40a06e999a4edf2b54805e` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `580c3d159c8a` |
+| Reviewed at commit | `4846983e7eb1` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **COMMENT** |
-| Files reviewed | 33 |
+| Files reviewed | 35 |
 
 ## What this is, and what it is not
 
@@ -33,7 +33,7 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | low | 2 |
 | info | 0 |
 
-Two independent changes land together: the completion of the Groq removal (dead key field, stub verifier, state, storage accessor, translations, and the misleading sidebar indicator term), and the adoption of Graphify as committed project-scoped agent tooling (skill, PreToolUse hooks, ADR-0007, docs) plus a TD-049 exporter date-format reproduction suite. The Groq removal is complete and correct on every path I traced — no dangling reference, no unused import, and the Sidebar indicator now keys on `keyCount` alone, which fixes the 'configured' lie D5 described. The reproduction tests are unusually good: measured rather than predicted, with two retracted claims documented in-place and a timezone assertion that was narrowed to an invariant instead of a guess. No blocking-handbook violation and nothing high or critical; the four findings below are hygiene items, and two of them are already owned in prose but not in the register that gets re-read.
+This PR completes the Groq removal (D5), lands Graphify as committed agent tooling with ADR-0007 and a how-to page, adds a no-network JWT lifetime script for TD-048, and records the exporter date-format defect as TD-049 with a unit spec and an e2e spec that both use expected-failure markers. The documentation and test work is unusually rigorous — the exporter specs measure rather than predict, the timezone assumptions are pinned correctly, and both the pip-bootstrap risk and the graph's staleness are disclosed rather than hidden. Four findings, none blocking: one incomplete refactor that the Groq deletion itself paid for twice, one unpinned dev-tooling install that can write to a teammate's system Python, one dead error branch in a script whose value proposition is auditability, and one stale comment that now contradicts the component it describes. No blocking-handbook violation and no high/critical issue.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 97 source files, 27701 lines
+- 97 source files, 27712 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

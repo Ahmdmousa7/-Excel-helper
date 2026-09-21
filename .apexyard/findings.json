@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:c74e5a6fdbefc44f520a3ef33e613f42fd98d373ec0e6c90d609a61fcc1e1122",
+  "attestation_id": "sha256:264725167ccd83036c75d374f0cbb783a94768673c40a06e999a4edf2b54805e",
   "available": true,
   "by_severity": {
     "critical": 0,
@@ -11,16 +11,16 @@
   "findings": [
     {
       "category": "code-smell",
-      "detail": "`services/geminiService.ts:161-174` carries its own `GEMINI_KEY_STORAGE` constant and its own exported `getStoredApiKeys` / `setStoredApiKeys`, duplicating `services/apiKeyStorage.ts` verbatim. This PR is the evidence of the cost: the same three-line Groq deletion had to be made in both files. Neither geminiService export is imported anywhere — App.tsx imports both from `apiKeyStorage` (App.tsx:8), and the only in-file consumer is `getStoredApiKey` at geminiService.ts:176. So `setStoredApiKeys` is a wholly unused export and `getStoredApiKeys` is a redundant one. The concrete failure this sets up: the storage key literal `'gemini_api_key'` now exists in two files, and a future rename applied to only one makes the modal save under one key while the AI service reads another — every AI feature silently stops working with a valid key on screen. Acknowledged in the body of commit 8859037 as 'the dead duplicate storage API', but a commit message is not somewhere a future reader queries; it has no TD id and no register row.",
+      "detail": "`services/apiKeyStorage.ts` opens by stating it was split out of `geminiService.ts` for TD-004 — but geminiService.ts:163-181 still carries its own `GEMINI_KEY_STORAGE = 'gemini_api_key'` constant and its own exported `getStoredApiKeys` / `setStoredApiKeys` / `getStoredApiKey`, functionally identical to the new module. This PR is itself the evidence of the cost: the Groq deletion had to be applied in both files. Neither geminiService export is consumed externally — App.tsx:8 imports both from `apiKeyStorage`, and the only in-file consumer is `getStoredApiKey` (geminiService.ts:122, :185), so `setStoredApiKeys` is a wholly unused export. The concrete failure this sets up: the literal `'gemini_api_key'` now lives in two files, and a rename applied to only one makes the modal save under one key while `getAiClient()` reads another — every AI feature silently stops working with a valid key visible on screen and no error anywhere. It also has no TD id and no register row, so it is untracked debt rather than accepted debt.",
       "file": "services/geminiService.ts",
       "line": 165,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "Groq removal had to be applied twice — geminiService still duplicates the key-storage API"
+      "summary": "geminiService still duplicates the key-storage API that apiKeyStorage.ts extracted"
     },
     {
       "category": "dependency",
-      "detail": "The committed skill runs `\"$PYTHON\" -m pip install graphifyy -q || \"$PYTHON\" -m pip install graphifyy -q --break-system-packages` (SKILL.md:92-93) when graphify is not importable and `uv` is absent. Two distinct problems. First, `--break-system-packages` writes to a distro-managed Python on the machine of a teammate whose only action was typing `/graphify` — ADR-0007 § Consequences and `docs/tooling/graphify.md` both warn about this, but a prose prerequisite does not gate an executing shell command, and the reason given for not patching it (the next `graphify install` overwrites the file) argues for a guard outside the vendored file, not for no guard. Second, and not covered anywhere in the PR: the install is **unpinned**, while `.claude/skills/graphify/.graphify_version` pins 0.8.44 and ADR-0007 reviews the local-only egress guarantees of that specific version. A bootstrapping teammate therefore gets whatever is latest on PyPI, which is not the version whose network behaviour was verified in ADR-0007 § Why.",
+      "detail": "SKILL.md:86-94 runs `\"$PYTHON\" -m pip install graphifyy -q || \"$PYTHON\" -m pip install graphifyy -q --break-system-packages` when `import graphify` fails and `uv` is absent. Two separate problems. First, `--break-system-packages` writes into a distro-managed Python on the machine of a teammate whose only action was typing `/graphify`; ADR-0007 § Consequences and `docs/tooling/graphify.md` § 'Install the CLI first' both disclose this honestly, but a prose prerequisite does not gate an executing shell command, and the stated reason for not patching it (the next `graphify install` overwrites the file) argues for a guard *outside* the vendored file rather than for no guard at all. Second, and not covered anywhere in the PR: the install is **unpinned**, while `.claude/skills/graphify/.graphify_version` pins `0.8.44` and ADR-0007's local-only-egress verification (§ Why: blackholed-proxy re-extract, seven provider keys unset, LLM egress confined to `llm.py`) is a claim about that specific version. A bootstrapping teammate gets whatever is currently latest on PyPI — not the version whose network behaviour was actually verified. `docs/tooling/graphify.md` § 9 also records that the package's own source points at `github.com/safishamsi/graphify` rather than the `Graphify-Labs` URL this work was requested against, and calls that discrepancy unresolved. This would be high if the bootstrap ran unconditionally rather than only when the CLI is absent, or if the package provenance discrepancy were resolved against the project.",
       "file": ".claude/skills/graphify/SKILL.md",
       "line": 92,
       "severity": "medium",
@@ -29,7 +29,7 @@
     },
     {
       "category": "code-smell",
-      "detail": "`decodePayload` wraps `Buffer.from(padded, 'base64').toString('utf8')` in a try/catch that calls `die(REFUSALS.payload)`. Node's base64 decoder silently discards characters outside the alphabet rather than throwing, and `toString('utf8')` substitutes U+FFFD rather than throwing, so lines 91-93 can never execute. Behaviour is still correct — garbage falls through to the `JSON.parse` catch at line 98 and produces the same refusal — so there is no user-visible defect, only a dead branch that reads as a handled case. Worth noting because this script's whole value proposition is that it can be audited by reading it (lines 12-21 make that claim explicitly), and a reader tracing the failure paths will conclude one of them is live when it is not.",
+      "detail": "`decodePayload` wraps `Buffer.from(padded, 'base64').toString('utf8')` in a try/catch that calls `die(REFUSALS.payload)` (lines 89-93). Node's base64 decoder silently discards characters outside the alphabet instead of throwing, and `toString('utf8')` substitutes U+FFFD rather than throwing, so that catch can never execute. Behaviour is still correct — garbage falls through to the `JSON.parse` catch at line 98 and produces the identical refusal, with no input echoed — so there is no user-visible defect. It matters only because this script's entire value proposition is that it can be audited by reading it: lines 12-21 make that claim explicitly (\"Verify by reading it\"), and a reader tracing the failure paths will conclude one of them is live when it is not.",
       "file": "scripts/jwt-lifetime.mjs",
       "line": 89,
       "severity": "low",
@@ -37,13 +37,13 @@
       "summary": "Unreachable catch — Buffer.from(str, 'base64') does not throw on malformed input"
     },
     {
-      "category": "technical-debt",
-      "detail": "The Groq removal is complete in code, but the user-entered Groq key survives in `localStorage` for anyone who ever typed one, and this PR deletes the last UI that could clear it. That is documented — `docs/modules/open-decisions.md` § D5 and `docs/modules/MODULE_GUIDE.md:536` both state it plainly, and the maintainer explicitly reserved the fix. Under `handbooks/general/technical-debt.md` that makes it deliberate and owned, so it is not a violation. The narrow problem is *where* it is recorded: D5 opens with '**RESOLVED 2026-08-17 — implemented as recommended**', which is exactly the point a reader stops reading, and the register that this PR did edit (adding TD-049) has no row for it. TD-048 tracks the structurally identical `rewaa_admin_token` orphan and gets a row; this one does not. Two dev scripts also still seed the key (`scripts/measure-mobile-overflow.mjs:12`, `scripts/observe-origins.mjs:46`) — outside this diff, but they are the same loose end.",
-      "file": "docs/quality/tech-debt-register.md",
-      "line": 13,
+      "category": "testing",
+      "detail": "`goto()`'s doc comment (lines 62-69) justifies seeding `gemini_api_key` by describing the API-key modal as \"a full-screen `fixed inset-0` overlay with no Escape handler that swallows every click\". That was true before TD-008, but `components/ApiKeyModal.tsx:39` now calls `useModalA11y(onClose)`, which the same file documents as \"Escape to close, Tab trapped inside, focus restored on close\" — and `e2e/modal.spec.ts` has an 'Escape closes it' spec that TD-040 discusses as an existing, passing test. The seeding is still correct and still worth doing (it avoids the modal entirely rather than dismissing it), so nothing is broken; the stated *reason* is just no longer the true one. It reads as a live constraint on the app in the one file the suite treats as the canonical description of the shell, which is where a future reader would go to learn what the modal does.",
+      "file": "e2e/pages/AppShell.ts",
+      "line": 67,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Orphaned localStorage['groq_api_key'] is recorded only under a heading marked RESOLVED"
+      "summary": "AppShell's goto() comment claims the API-key modal has no Escape handler — it does"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

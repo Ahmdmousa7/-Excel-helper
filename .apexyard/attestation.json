@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:c74e5a6fdbefc44f520a3ef33e613f42fd98d373ec0e6c90d609a61fcc1e1122",
+  "attestation_id": "sha256:264725167ccd83036c75d374f0cbb783a94768673c40a06e999a4edf2b54805e",
   "files": [
     {
       "oid": "274ba28fb1b4a372c2b3d985a4660d965abb2963",
@@ -54,7 +54,7 @@
       "path": ".gitignore"
     },
     {
-      "oid": "16b9f7c93f1ce7d6879e0020b815307e275461cf",
+      "oid": "0196c935a79c01d8f7d185f0b3eb040c75cecb35",
       "path": "App.tsx"
     },
     {
@@ -78,11 +78,11 @@
       "path": "docs/TESTING.md"
     },
     {
-      "oid": "a1781bb3a0829c72c566fc655a404cb0f52eafe3",
+      "oid": "a90e31c8cb663d62e7732351f1088b9f6f51a765",
       "path": "docs/adr/ADR-0007-graphify-is-agent-tooling-not-a-dependency.md"
     },
     {
-      "oid": "b6afd90052937b1524b58f1d2845b38550c6deff",
+      "oid": "a52911a2e1004d3110e60f4f00ca8c2933e382c7",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
@@ -90,15 +90,15 @@
       "path": "docs/modules/exporter-date-format-audit.md"
     },
     {
-      "oid": "91ecf20e2e294a73640333df04b0e468943a630a",
+      "oid": "eeaed15d639b3fb73383dae9e0e8d2ee44a6e82f",
       "path": "docs/modules/open-decisions.md"
     },
     {
-      "oid": "2e7559f26d40aa3a80be22e0b23cc7cb492dad57",
+      "oid": "32718444c112125b466d4481117afd02e0fcb313",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "a0c86b0fa66c27233e193f39c3ffc34bb5ec2244",
+      "oid": "d64a86234d016d393aac4d077fe5a9eb2784d9d1",
       "path": "docs/tooling/graphify.md"
     },
     {
@@ -116,6 +116,14 @@
     {
       "oid": "0026f1bc30d614bf0f5ac746b59d59ac977dc6f1",
       "path": "scripts/jwt-lifetime.mjs"
+    },
+    {
+      "oid": "5713925ddad4637a7d11be46b524be6bc901b9b0",
+      "path": "scripts/measure-mobile-overflow.mjs"
+    },
+    {
+      "oid": "c96e2fc706fffeb19a480208fd7f680b1b777eee",
+      "path": "scripts/observe-origins.mjs"
     },
     {
       "oid": "7ca272908be24d5604d0500c155cb0fab64753d0",
@@ -143,7 +151,7 @@
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "580c3d159c8ae9b536ad6709b82f6fe802778979",
+  "reviewed_at_commit": "4846983e7eb17fb1c790f369ae4852f8e5c1d51a",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "COMMENT"
