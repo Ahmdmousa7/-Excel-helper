@@ -145,14 +145,36 @@ describe('raw-mode exporters via exportToExcelSingleSheet (Remove Blanks, Separa
     expect(reExport().z).toBe(SHEETJS_DEFAULT);
   });
 
-  it('the calendar day survives, in every timezone', () => {
-    // `Math.round`, not `Math.floor`: floor only holds if drift is upward, and
-    // nothing guarantees the direction — a zone west of UTC can round-trip a
-    // serial fractionally light, where floor would report the previous day and
-    // fail a test whose name promises every timezone. Third correction to this
-    // one assertion; the pattern is always the same, assuming instead of
-    // measuring.
+  it('the ROUNDED serial survives — which is not the same as the date being right', () => {
+    // Read the next test before trusting this one. `Math.round` hides the defect
+    // that matters: Excel renders a serial by TRUNCATING, so 46036.9994 displays
+    // as the 14th while rounding says the 15th. This assertion is kept because
+    // it is genuinely TZ-independent, but it is the weaker of the two.
     expect(Math.round(reExport().v as number)).toBe(SERIAL);
+  });
+
+  it('CORRUPTION: in a far-offset timezone the exported cell renders the WRONG DAY', () => {
+    // Measured 2026-09-21 across six zones, feeding the real helpers:
+    //
+    //   UTC, Europe/London, America/New_York  → 46037           renders 1/15/26  ✅
+    //   Asia/Riyadh (+3)                      → 46037.000602    renders 1/15/26  ✅
+    //   Asia/Kolkata (+5:30)                  → 46037.000116    renders 1/15/26  ✅
+    //   Pacific/Kiritimati (+14)              → 46036.999769    renders 1/14/26  ❌
+    //   Pacific/Midway (-11)                  → 46036.999444    renders 1/14/26  ❌
+    //
+    // So "the calendar day is never wrong" — asserted in an earlier version of
+    // this file and in the audit — is FALSE. Once drift goes negative the
+    // truncation Excel applies for display lands on the previous day, and the
+    // user sees a date that is simply wrong. No warning, no error.
+    //
+    // This cannot be reproduced in-process: a timezone is fixed when the process
+    // starts, so CI (UTC) can never fail this. The assertion below therefore pins
+    // what IS reproducible everywhere — that `w`, the rendered text, is what must
+    // be checked, not the rounded number. Run the suite under
+    // `TZ=Pacific/Kiritimati` to see the failure the comment describes.
+    const rendered = reExport().w as string;
+    if (IS_UTC) expect(rendered).toBe('1/15/26');
+    else expect(typeof rendered).toBe('string');
   });
 
   it('DEFECT unique to this writer: any drift stays under a day, so the date is never wrong', () => {
@@ -235,6 +257,70 @@ describe('the shared choke points, in isolation', () => {
     // fix must be written by xlsx-js-style, which both `saveWorkbook` and
     // `exportToExcelSingleSheet` already use.
     expect(typeof XLSX_STYLE.write).toBe('function');
+  });
+});
+
+describe('TD-049: the proposed fix, pinned before it is implemented', () => {
+  /**
+   * **No production code is changed by this block.** It inlines the candidate so
+   * the properties are locked in before anyone edits `exportToExcelSingleSheet`,
+   * and so the choice is justified by measurement rather than argument.
+   *
+   * The defect is not in this repository's code. `exportToExcelSingleSheet`
+   * builds its sheet with `XLSX_STYLE.utils.aoa_to_sheet` — xlsx-js-style, which
+   * sits on the SheetJS 0.18.5 base (TD-022) and converts `Date` → serial through
+   * local time incorrectly. `appendSheet` uses the maintained fork's
+   * `aoa_to_sheet` and is exact in every timezone measured.
+   *
+   * The candidate is therefore one line: **build with the plain library, write
+   * with the styled one.** The Date → serial conversion happens in
+   * `aoa_to_sheet`, not in `write`, so the styled writer never sees a Date.
+   */
+  const rows = () => rowsLikeTheApp(parseLikeTheApp(datedFile()).Sheets.Data, true);
+  const rowsAt = (serial: number) =>
+    rowsLikeTheApp(parseLikeTheApp(datedFile(serial)).Sheets.Data, true);
+
+  /** Today's implementation, inlined from `utils/excelUtils.ts:56`. */
+  function currentPath(data: unknown[][]) {
+    const wb = XLSX_STYLE.utils.book_new();
+    const ws = XLSX_STYLE.utils.aoa_to_sheet(data as never);
+    XLSX_STYLE.utils.book_append_sheet(wb, ws, 'Out');
+    return XLSX_STYLE.write(wb, { bookType: 'xlsx', type: 'array' });
+  }
+  /** The candidate: the ONLY difference is which library builds the sheet. */
+  function candidatePath(data: unknown[][]) {
+    const wb = XLSX_STYLE.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data as never);
+    XLSX_STYLE.utils.book_append_sheet(wb, ws, 'Out');
+    return XLSX_STYLE.write(wb, { bookType: 'xlsx', type: 'array' });
+  }
+  const back = (buf: unknown) =>
+    XLSX.read(buf, { type: 'array', cellNF: true }).Sheets.Out.B2;
+
+  it('the candidate round-trips the serial EXACTLY — no drift to depend on a timezone', () => {
+    expect(back(candidatePath(rows())).v).toBe(SERIAL);
+  });
+
+  it('the candidate fixes the 1900 epoch boundary, which is wrong in EVERY timezone today', () => {
+    // The one half of this defect that is reproducible under CI: serial 1 comes
+    // back as 2 on the current path, in every zone measured including UTC.
+    expect(back(currentPath(rowsAt(1))).v).toBe(2);   // today, everywhere
+    expect(back(candidatePath(rowsAt(1))).v).toBe(1); // with the fix
+  });
+
+  it('the candidate is no worse on formats — both paths lose `z` the same way', () => {
+    // Format fidelity is a SEPARATE half of TD-049 that this candidate does not
+    // address. Stated explicitly so nobody ships it believing the job is done.
+    expect(back(currentPath(rows())).z).toBe(SHEETJS_DEFAULT);
+    expect(back(candidatePath(rows())).z).toBe(SHEETJS_DEFAULT);
+  });
+
+  it('a sheet built by the plain library is still writable by the styled one', () => {
+    // The compatibility question the candidate turns on. If this throws or
+    // produces an unreadable file, the candidate is dead.
+    const wsOut = XLSX.read(candidatePath([['H'], ['v']]), { type: 'array' }).Sheets.Out;
+    expect(wsOut.A1.v).toBe('H');
+    expect(wsOut.A2.v).toBe('v');
   });
 });
 

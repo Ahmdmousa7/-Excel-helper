@@ -7,6 +7,69 @@
 
 ---
 
+## 00. TD-049 investigation, 2026-09-21 — it is worse than "formatting" / أسوأ مما ظُنّ
+
+**Read this first. It supersedes the severity in §0 below, which is itself a correction of §1–§2.** Measured by running the real helpers under six timezones.
+
+### The finding that changes the rating: the exported date can be the WRONG DAY
+
+| Timezone | Offset | Exported serial | Excel renders | |
+|---|---:|---|---|:--:|
+| `UTC`, `Europe/London` | 0 | `46037` | `1/15/26` | ✅ |
+| `America/New_York` | −5 | `46037` | `1/15/26` | ✅ |
+| `Asia/Riyadh` | +3 | `46037.000602` | `1/15/26` | ✅ |
+| `Asia/Kolkata` | +5:30 | `46037.000116` | `1/15/26` | ✅ |
+| **`Pacific/Kiritimati`** | **+14** | `46036.999769` | **`1/14/26`** | ❌ |
+| **`Pacific/Midway`** | **−11** | `46036.999444` | **`1/14/26`** | ❌ |
+
+Excel **truncates** a serial for display, so the moment drift goes negative the cell shows the *previous day*. "The calendar day is never wrong" — asserted in §0 and in an earlier version of the test file — **is false**. This is silent data corruption, not a formatting complaint.
+
+### The cause is one library call, and it is not our code
+
+`exportToExcelSingleSheet` builds its sheet with **`XLSX_STYLE.utils.aoa_to_sheet`**. xlsx-js-style sits on the SheetJS **0.18.5** base (see TD-022) and converts `Date` → serial through local time incorrectly. `appendSheet` uses the maintained fork's `aoa_to_sheet` and was **exact in every timezone measured**, epoch included. Same input, same writer, different sheet builder — that is the whole difference.
+
+Two defects follow from it, and only one is timezone-dependent:
+
+- **Value drift → possible day shift.** Timezone-dependent; invisible under UTC, so **CI can never catch it**.
+- **1900 epoch boundary: serial `1` → `2`.** Reproducible in **every** timezone including UTC.
+
+### The blast radius is 13 call sites, not one
+
+| Site | Count | Reads `raw: true`? | Exposed? |
+|---|:--:|:--:|:--:|
+| `utils/excelUtils.ts:58` → `exportToExcelSingleSheet` | 1 | via callers | **Yes** — Remove Blanks, Separator, Merge Datasets (separate-files ZIP) |
+| `components/FileValidationTab.tsx` | 6 | **yes** (`sheet_to_json({raw:true})`, line 136) | **Yes** |
+| `components/VariableBalanceTab.tsx` | 4 | no — text mode | No (different defect: date-as-text) |
+| `components/VariableBalanceTabV2.tsx` | 2 | no — text mode | No, and the component is a dead import (D6) |
+
+**Correction to §2:** it lists Files Validation under text mode. It is not — it reads `raw: true` directly, so it is on the corrupting path and was mis-rated.
+
+### The candidate fix, measured rather than argued
+
+**Build the sheet with the plain library, write it with the styled one.** The `Date` → serial conversion happens in `aoa_to_sheet`, never in `write`, so the styled writer never sees a `Date`:
+
+```ts
+const ws = XLSX.utils.aoa_to_sheet(data);   // was XLSX_STYLE.utils.aoa_to_sheet
+```
+
+| Property | Today | Candidate |
+|---|---|---|
+| Serial, all six timezones | drifts, ±0.0006 | **exact `46037` everywhere** |
+| Epoch serial `1` | `2` | **`1`** |
+| Rendered day, ±14h zones | **wrong** | correct |
+| Number format `z` | lost → `m/d/yy` | **still lost** — not addressed |
+| Styles | see below | no worse |
+
+**What it does not fix:** format fidelity. `dd/mm/yyyy` still comes back `m/d/yy`. That half needs the `readGrid`/`writeSheet` approach Smart Lookup already uses, and is a larger change.
+
+**The one open risk:** whether styles survive a sheet built by the plain library. **My measurement was inconclusive** — the control failed too, meaning the test method is wrong, not the candidate. What it does establish is that the candidate is **no worse than current** on that axis. `exportToExcelSingleSheet` applies no styles today, so nothing is at risk now; a caller that styles its output later would be. **Resolve this before implementing**, with a test that reads styles back the way the app actually writes them.
+
+### Coverage added, no behaviour changed
+
+`tests/unit/exporterDateFormat.test.ts` is now **27 tests**, green under `TZ=UTC`, `Pacific/Kiritimati`, `Pacific/Midway` and `Asia/Kolkata`. It pins the candidate's properties *before* implementation, and the misleading assertion — `Math.round(v) === SERIAL` under the name "the calendar day survives, in every timezone" — is corrected: rounding hid the very corruption this section documents, because Excel truncates.
+
+---
+
 ## 0. RETRACTION — the static prediction was wrong / تصحيح
 
 **Added 2026-08-16, after reproduction. The analysis in §1–§2 below predicted the wrong failure, and this correction is the most useful thing in this document.** §1–§2 are left unedited as the record of what reading-without-running got wrong.
