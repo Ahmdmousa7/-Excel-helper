@@ -1,42 +1,51 @@
 {
-  "attestation_id": "sha256:eba955183a1525d33170da43c052635502f544644eb268eca790a93aed815e0b",
+  "attestation_id": "sha256:6d01f5881d9df7a7fbed0145439b1ada2760968f2a8357533a7d5bc0985cdf46",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
+    "low": 3,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "When a YES_NO column receives a non-blank value that `toYesNo` cannot classify (`maybe`, `discontinued`, `2`), it is replaced by the column default and the original is lost. That is different from the blank case: here the extraction *did* produce data, and it is being overwritten with a value that may invert its meaning (`Sellable: \"in store only\"` → `yes`, which puts the product on sale). Nothing surfaces it — `addLog` is never called, and the new audit columns cannot catch it because YES_NO_COLUMNS and COMPARED_COLUMNS are disjoint sets (`utils/templateMapping.ts:236` vs `:311`), so `matchesTemplate` returns TRUE for the row. The trade-off itself is documented and defensible (a rejected import is worse); the missing part is the signal. Severity stays low because the trigger is narrow — OCR of a menu rarely produces prose in a yes/no cell. It would rise to medium if this path were fed invoice or supplier-sheet extractions, where free-text flags are common.",
-      "file": "utils/templateMapping.ts",
-      "line": 216,
+      "detail": "Commit 9577b03 fixed generated product SKUs escaping duplicate detection by registering `randomSku` into `skuSet` (line ~357). The sibling branch that generates `Pack${n}-${Math.floor(Math.random()*1000000)}` for an empty pack SKU does not do the same. Because pack columns are reached through `mapping['sku']` only when non-empty, a generated pack SKU is written into `row[cIdx]` after the `field.key === 'sku'` pass has already seen the cell as blank — so it is never keyed, never in `taken`, and never deduped. That is the exact birthday-collision case the commit message says should no longer ship silently (~39% odds across 1,000 blank pack SKUs), just on the other branch. Narrow enough to be low: it needs two blanks to draw the same 6-digit value.",
+      "file": "components/FileValidationTab.tsx",
+      "line": 373,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Out-of-list yes/no values are discarded silently, with no audit signal"
+      "summary": "Generated pack SKUs skip the duplicate registry the PR just added"
     },
     {
-      "category": "testing",
-      "detail": "`utils/templateMapping.ts` is covered thoroughly (87 tests, including a verbatim-equivalence check on the moved routing/stripping helpers). The glue in `exportData` is not: that `In Rewaa Simple` is only ever TRUE for a non-variable row, that the comparison is fed `stripped` rather than `row`, and that the audit columns are omitted entirely when no Rewaa template is loaded. That glue is exactly where the defect fixed by `fcb08a3` lived — comparing against the unstripped row — and a second regression of the same shape would ship undetected. `matchesTemplate` is a pure function taking plain objects, so the pairing logic is testable without rendering the component.",
+      "category": "performance",
+      "detail": "`mapDataToTemplate([stripped], …)` is now called once per row instead of once per sheet, so `isRewaaTemplate(templateHeaders)` and `headerFor(templateHeaders, 'variant name')` are recomputed for every row. `matchesTemplate` compounds it: for each of ~60 template headers it calls `resolveSourceKey(h, keys)`, which builds a fresh `Map` over all the row's keys — so the audit columns cost O(headers × keys) per row, per template, and both `auditSimple` and `auditVar` can be on at once. OCR batches are typically hundreds of rows, not tens of thousands, so this is well short of a freeze; it becomes a real problem only if OCR output volume grows.",
       "file": "components/OcrTab.tsx",
-      "line": 543,
+      "line": 532,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "The audit-column pairing in exportData is the one new piece with no test"
+      "summary": "Template mapping and the audit check rebuild their header indexes per row"
     },
     {
-      "category": "code-smell",
-      "detail": "`matchesTemplate` resolves the expected value with `resolveSourceKey` independently of the mapping, which is what makes it an audit rather than a restatement — that part is right. The consequence is that a mapping the user chose on purpose is indistinguishable from a mapping that went wrong: `refreshMapping` explicitly preserves a user pointing `Retail Price` at `Promo` while `Price` also exists (tested at `tests/unit/templateMapping.test.ts:370`), and for that row the audit column reports FALSE. The user then investigates a column they set themselves. Recorded as an observation, not a request — the alternative (trusting the mapping) removes the check's entire value, and the current behaviour fails in the safe direction.",
-      "file": "utils/templateMapping.ts",
-      "line": 334,
+      "category": "typescript",
+      "detail": "The newly added helper declares `wb: any`, `toExportRow: (row: any[]) => any[]`, and `const issueData: any[][]`. These are new lines, not reindented legacy, and none carries a justification comment. `wb: any` is the one that costs something concretely: `wb.SheetNames.map(...)` and the `XLSX_STYLE.utils.book_append_sheet(wb, ...)` call are both unchecked, so a future rename or a wrong argument order compiles clean and fails at export time — the exact path a user only discovers as a corrupt download.",
+      "file": "components/FileValidationTab.tsx",
+      "line": 578,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "New appendIssueSheets signature introduces unjustified `any`"
+    },
+    {
+      "category": "architecture",
+      "detail": "Previously a barcode matching an SKU was only *reported*; it is now renamed on every occurrence, because the SKU claims the base code. Retail catalogues commonly set barcode == SKU deliberately across the whole file — in that case this PR rewrites the entire barcode column to `X-1`, `X-2`, … in one pass. This is deliberate, documented (MODULE_GUIDE 'Duplicates since 2026-09-28'), surfaced in the in-app auto-fix list, and recorded per row in the Change Log as `Resolved Barcode = SKU`, so it is not hidden and the source file is untouched. Raising this as an observation only: the pre-PR behaviour already treated the condition as an error, so auto-fixing is consistent — but the blast radius on a barcode==SKU catalogue is the whole column, and that is worth an explicit product-owner nod alongside D8.",
+      "file": "components/FileValidationTab.tsx",
+      "line": 554,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "A deliberate user remap reads as FALSE in the audit column"
+      "summary": "Barcode-equals-SKU is now silently auto-rewritten on every occurrence"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 4
 }

@@ -1,13 +1,53 @@
 {
-  "attestation_id": "sha256:eba955183a1525d33170da43c052635502f544644eb268eca790a93aed815e0b",
+  "attestation_id": "sha256:6d01f5881d9df7a7fbed0145439b1ada2760968f2a8357533a7d5bc0985cdf46",
   "files": [
+    {
+      "oid": "39633067cd1998279627b9ff5b354da8d156c629",
+      "path": "README.md"
+    },
+    {
+      "oid": "9f36bab34f28ce4ccb3c1e5d6ba234755ba57591",
+      "path": "components/FileValidationTab.tsx"
+    },
     {
       "oid": "45a5a7047adcfc4e272cb179fd125408be9b46ec",
       "path": "components/OcrTab.tsx"
     },
     {
+      "oid": "c02a1c7ad21da11c32f3c2c7427389fec70369de",
+      "path": "docs/TESTING.md"
+    },
+    {
+      "oid": "d56cfe71baf84705cd9f35371fbaa184ca274890",
+      "path": "docs/modules/MODULE_GUIDE.md"
+    },
+    {
+      "oid": "fe6c6574f697dd49d193cdc67c105db04d3ec4ff",
+      "path": "docs/modules/open-decisions.md"
+    },
+    {
+      "oid": "ff5338d8a1df9084cbbb968e129feaf7d0940105",
+      "path": "e2e/files-validation.spec.ts"
+    },
+    {
+      "oid": "1d5c8bf039ea9b536feadfd36a903a73b2bde577",
+      "path": "tests/unit/identifiers.test.ts"
+    },
+    {
+      "oid": "483a4208c7e28463f0d65fb634710a062d7464ec",
+      "path": "tests/unit/issueSheets.test.ts"
+    },
+    {
       "oid": "8e74572bdd23f5e2bf4404c1ce97fb16552480ae",
       "path": "tests/unit/templateMapping.test.ts"
+    },
+    {
+      "oid": "111eac9c27ea0186a06f28ab5de16f7ad2e42d4a",
+      "path": "utils/identifiers.ts"
+    },
+    {
+      "oid": "6ac31d0019913c7a6badb67f7225b049d68bb6a3",
+      "path": "utils/issueSheets.ts"
     },
     {
       "oid": "97ffb5875b07920da654d508cd30005badd71aa7",
@@ -18,12 +58,12 @@
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
+    "low": 3,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "fcb08a306eb5243a39da0f26f1eb5e76e97d2b51",
+  "reviewed_at_commit": "9577b036edc7e8f371c232f748334650985f1765",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

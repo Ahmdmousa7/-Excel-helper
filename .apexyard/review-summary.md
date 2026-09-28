@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:eba955183a1525d33170da43c052635502f544644eb268eca790a93aed815e0b` |
+| Attestation id | `sha256:6d01f5881d9df7a7fbed0145439b1ada2760968f2a8357533a7d5bc0985cdf46` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `fcb08a306eb5` |
+| Reviewed at commit | `9577b036edc7` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 3 |
+| Files reviewed | 13 |
 
 ## What this is, and what it is not
 
@@ -30,19 +30,19 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 2 |
+| low | 3 |
 | info | 1 |
 
-Part 2 of the OCR → Rewaa export: constructs `Variant Name` when the extraction omits it, normalises the `list yes no` columns to the two words the importer accepts, and adds `In Rewaa Simple` / `In Rewaa Variable` audit columns to the All Extracted Data sheet. Routing and stripping move out of `OcrTab.exportData` into `utils/templateMapping.ts` unchanged, with a test that compares them against the original inline code verbatim. I ran the suite: 87/87 pass, including the two golden tests that reproduce the real templates' own data rows cell-for-cell. All new exported functions carry explicit return types, own-property access is used throughout, and the Rewaa-only scoping is enforced on every new behaviour — no blocking findings, three low/info notes below.
+This PR extends Files Validation so duplicate SKUs and barcodes are compared by a mark-insensitive key and resolved per-CELL rather than per-row, adds per-error/per-fix issue sheets to the export (single-file and chunked-ZIP paths), and lifts the OCR routing/mapping/audit logic into testable pure utils. The duplicate-resolution logic is well factored into `utils/identifiers.ts` / `utils/issueSheets.ts`, backed by ~40 new unit tests plus the module's first e2e coverage, and the behaviour changes are recorded in `docs/modules/open-decisions.md` (D7 implemented, D8 opened) and `MODULE_GUIDE.md`. I verified the suffix registry (`taken`) genuinely prevents a fix from creating a new collision, that the ZIP `inScope` window matches the chunk slice, and that `exportHeaders` stays aligned with the spliced issue-sheet rows. No blocking-handbook violations and no high/critical defects; findings are advisory.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 560 warning(s) |
-| Vitest | pass | 440/440 passed, lines 99.17% |
-| Playwright | pass | 111/111 passed |
+| ESLint | pass | 0 error(s), 564 warning(s) |
+| Vitest | pass | 491/491 passed, lines 99.14% |
+| Playwright | pass | 114/114 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 100 source files, 29121 lines
+- 105 source files, 29910 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -63,7 +63,7 @@ reports zero failures for a tool that never executed.
 |---|---:|
 | `components/CompositeTab.tsx` | 1404 |
 | `components/VariableBalanceTab.tsx` | 1384 |
-| `components/FileValidationTab.tsx` | 1064 |
+| `components/FileValidationTab.tsx` | 1122 |
 | `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
 | `utils/translations.ts` | 899 |
