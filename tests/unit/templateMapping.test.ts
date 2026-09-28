@@ -262,3 +262,34 @@ describe('GOLDEN — output equals the template’s own sample rows', () => {
     expect(wrong.length).toBeGreaterThan(20);
   });
 });
+
+describe('header names that collide with Object.prototype', () => {
+  /**
+   * A template header is arbitrary user text. Before the own-property guards, a
+   * column named `constructor` crashed the mapper (it resolved to `Object`
+   * itself, which is not iterable) and one named `__proto__` vanished from the
+   * output (assigning to it sets the prototype, not a key). Both measured.
+   */
+  const collisions = ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf'];
+
+  it.each(collisions)('`%s` does not crash, has no default and no synonym', (h) => {
+    expect(() => resolveSourceKey(h, ['x'])).not.toThrow();
+    expect(resolveSourceKey(h, ['x'])).toBeUndefined();
+    expect(defaultFor(h)).toBeUndefined();
+  });
+
+  it.each(collisions)('`%s` survives as a real column in the output', (h) => {
+    const [out] = mapRowsToTemplate([{ src: 'v' }], autoMap([h], []), [h]);
+    expect(Object.keys(out)).toEqual([h]);
+    expect(out[h]).toBe('');
+  });
+
+  it('`__proto__` can be MAPPED like any other column', () => {
+    const mapping = autoMap(['__proto__'], ['__proto__']);
+    expect(Object.keys(mapping)).toEqual(['__proto__']);
+    const row: Record<string, unknown> = {};
+    Object.defineProperty(row, '__proto__', { value: 'kept', enumerable: true });
+    const [out] = mapRowsToTemplate([row], mapping, ['__proto__']);
+    expect(Object.getOwnPropertyDescriptor(out, '__proto__')?.value).toBe('kept');
+  });
+});

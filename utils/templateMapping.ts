@@ -15,6 +15,23 @@ export type TemplateRow = Record<string, unknown>;
 export type Mapping = Record<string, string>;
 
 /**
+ * Own-property access only. The lookup tables below are plain objects, and a
+ * template header is arbitrary user text: without these, a column named
+ * `constructor` resolved to `Object` itself and crashed the mapper, and one
+ * named `__proto__` was silently DROPPED from the output because assigning to
+ * it sets the prototype instead of a key. Both measured before the fix.
+ */
+const hasOwn = (obj: object, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(obj, key);
+
+const getOwn = <T,>(obj: Readonly<Record<string, T>>, key: string): T | undefined =>
+  hasOwn(obj, key) ? obj[key] : undefined;
+
+const setOwn = (obj: Record<string, unknown>, key: string, value: unknown): void => {
+  Object.defineProperty(obj, key, { value, enumerable: true, writable: true, configurable: true });
+};
+
+/**
  * Compare headers by meaning, not by spelling: case, surrounding whitespace,
  * runs of spaces, `_`/`-` separators and a leading UTF-8 BOM are all ignored.
  *
@@ -60,7 +77,12 @@ export const HEADER_SYNONYMS: Readonly<Record<string, readonly string[]>> = {
  * missing retail price exported as 0 imports as a free product, and it is the
  * one number the extraction exists to capture. Blank is visible; 0 is not.
  *
- * `Enable stock management` is `no`, as every sample row shows.
+ * `Enable stock management` is `no` — and this one CONTRADICTS the template.
+ * Both templates' own spec row says `list yes no Default yes`, meaning Rewaa's
+ * importer treats a blank as `yes`. Every sample data row says `no`, and the
+ * product owner explicitly asked for `no`. So `no` is written out on purpose,
+ * overriding Rewaa's own default rather than leaving the cell blank. Do not
+ * "fix" this to match the spec row without asking.
  */
 const PACK_DEFAULTS: Record<string, string | number> = {};
 for (const n of [1, 2, 3]) {
@@ -84,7 +106,7 @@ export const TEMPLATE_DEFAULTS: Readonly<Record<string, string | number>> = {
 };
 
 export const defaultFor = (templateHeader: unknown): string | number | undefined =>
-  TEMPLATE_DEFAULTS[normalizeHeader(templateHeader)];
+  getOwn(TEMPLATE_DEFAULTS, normalizeHeader(templateHeader));
 
 /** The extracted column that feeds `templateHeader`, or undefined if none does. */
 export function resolveSourceKey(
@@ -103,7 +125,7 @@ export function resolveSourceKey(
   const exact = byNorm.get(target);
   if (exact !== undefined) return exact;
 
-  for (const synonym of HEADER_SYNONYMS[target] ?? []) {
+  for (const synonym of getOwn(HEADER_SYNONYMS, target) ?? []) {
     const hit = byNorm.get(synonym);
     if (hit !== undefined) return hit;
   }
@@ -121,12 +143,13 @@ export function autoMap(
   available: readonly string[],
   existing: Mapping = {},
 ): Mapping {
-  const out: Mapping = { ...existing };
+  const out: Mapping = {};
+  for (const k of Object.keys(existing)) setOwn(out, k, existing[k]);
   for (const h of templateHeaders) {
     const key = String(h);
-    if (Object.prototype.hasOwnProperty.call(out, key)) continue;
+    if (hasOwn(out, key)) continue;
     const src = resolveSourceKey(h, available);
-    if (src !== undefined) out[key] = src;
+    if (src !== undefined) setOwn(out, key, src);
   }
   return out;
 }
@@ -152,9 +175,9 @@ export function mapRowsToTemplate(
     const out: TemplateRow = {};
     for (const h of templateHeaders) {
       const key = String(h);
-      const src = mapping[key];
-      const value = src ? row[src] : undefined;
-      out[key] = isBlank(value) ? (defaultFor(key) ?? '') : value;
+      const src = getOwn(mapping, key);
+      const value = src ? getOwn(row, src) : undefined;
+      setOwn(out, key, isBlank(value) ? (defaultFor(key) ?? '') : value);
     }
     return out;
   });
