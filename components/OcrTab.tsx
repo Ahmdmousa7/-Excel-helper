@@ -3,6 +3,7 @@ import { FileData, LogEntry, ProcessingStatus } from '../types';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { readExcelFile, getSheetData, saveWorkbook } from '../services/excelService';
 import { aiService } from '../services/aiServiceFactory';
+import { autoMap, mapRowsToTemplate, cleanTemplateHeaders } from '../utils/templateMapping';
 import ProgressBar from './ProgressBar';
 import { 
   ScanText, UploadCloud, FileText, Zap, TableProperties, Edit3, 
@@ -119,14 +120,14 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
         const rows = getSheetData(data.workbook, firstSheet, false); // Get all rows
         
         if (rows.length > 0) {
-           const headers = rows[0] as string[];
-           
-           // Auto-map logic
-           const initialMapping: Record<string, string> = {};
-           headers.forEach(h => {
-              const match = rawHeaders.find(rh => rh.toLowerCase() === String(h).toLowerCase());
-              if (match) initialMapping[h] = match;
-           });
+           // Row 1 only. Row 2 of a Rewaa template is a spec row ("Text | required")
+           // and must never be treated as headers or data (D7).
+           const headers = cleanTemplateHeaders(rows[0]);
+
+           // Shared resolver: case-insensitive, then synonyms (`Regular price` →
+           // `Retail Price`). Unmatched headers are left ABSENT so the effect below
+           // can still fill them once an extraction produces headers.
+           const initialMapping = autoMap(headers, rawHeaders);
 
            if (type === 'simple') {
                setSimpleTemplateFile(file);
@@ -165,6 +166,16 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
           setVarMapping(prev => ({...prev, [templateHeader]: extractedHeader}));
       }
   };
+
+  // A template loaded BEFORE extraction had nothing to match against, and
+  // auto-mapping used to run only at upload — so every column stayed unmapped.
+  // When an extraction produces headers, fill the entries that are still absent.
+  // Never touches a choice the user made, including an explicit "-- Ignore --".
+  useEffect(() => {
+      if (rawHeaders.length === 0) return;
+      if (simpleHeaders.length > 0) setSimpleMapping(prev => autoMap(simpleHeaders, rawHeaders, prev));
+      if (varHeaders.length > 0) setVarMapping(prev => autoMap(varHeaders, rawHeaders, prev));
+  }, [rawHeaders, simpleHeaders, varHeaders]);
 
   // --- SORT & FILTER HELPERS ---
   const handleSort = (key: string) => {
@@ -487,16 +498,11 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       setStatus(ProcessingStatus.COMPLETED);
   };
 
-  const mapDataToTemplate = (rows: any[], mapping: Record<string, string>, templateHeaders: string[]) => {
-      return rows.map(row => {
-          const newRow: any = {};
-          templateHeaders.forEach(tmplHead => {
-              const sourceKey = mapping[tmplHead];
-              newRow[tmplHead] = sourceKey ? row[sourceKey] : "";
-          });
-          return newRow;
-      });
-  };
+  // Exactly what the mapping panel shows, plus template defaults for columns
+  // with no value (Sellable `yes`, Enable stock management `no`, prices 0 — but
+  // never Retail Price). See utils/templateMapping.ts.
+  const mapDataToTemplate = (rows: any[], mapping: Record<string, string>, templateHeaders: string[]) =>
+      mapRowsToTemplate(rows, mapping, templateHeaders);
 
   const exportData = (dataToExport: any[]) => {
       if (dataToExport.length === 0) return;
@@ -835,7 +841,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                                       : (varTemplateFile ? varTemplateFile.name : "Upload Variable Excel Template")
                                   }
                               </span>
-                              <input type="file" className="hidden" accept=".xlsx" onChange={(e) => handleTemplateUpload(e, mappingTab)}/>
+                              <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={(e) => handleTemplateUpload(e, mappingTab)}/>
                           </label>
                           {(mappingTab === 'simple' ? simpleTemplateFile : varTemplateFile) && (
                               <button onClick={() => clearTemplate(mappingTab)} className="text-red-500 hover:bg-red-50 p-1 rounded">

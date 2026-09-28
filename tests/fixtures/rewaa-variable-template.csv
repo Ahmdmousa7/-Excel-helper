@@ -1,0 +1,5 @@
+Product Name,Category,Supplier,Brand,Description,Option 1,Option 1 Value,Option 2,Option 2 Value,Option 3,Option 3 Value,Variant Name,Variant SKU,Variant BARCODE,Variant DESCRIPTION,Sellable,Purchasable,Enable stock management,Weighted,Tracked by batch,Tracked by serial,Retail Price,Wholesale Price,Cost,Buy Price,Tax Code,DEF Quantity
+Text | required,Text,Text | from supplier,Text,Text,Text | required at least one,Text | required at least one,Text,Text,Text,Text,Text,Text unique in the file and in the system,Text,Text,list yes no Default yes,list yes no Default yes,list yes no Default yes,list yes no Default no,list yes no Default no,list yes no Default no,Number,Number,Number,Number,Text | from tax | Text the default tax if empty,Number
+حري | Hari,Fresh Meat | اللحوم الطازجة,,,,Portion | الحصة,نص | Half,,,,,حري | Hari | نص | Half,GEN-638216,,,yes,yes,no,no,no,no,0,0,0,0,,
+حري | Hari,Fresh Meat | اللحوم الطازجة,,,,Portion | الحصة,ربع | Quarter,,,,,حري | Hari | ربع | Quarter,GEN-596093,,,yes,yes,no,no,no,no,0,0,0,0,,
+حري | Hari,Fresh Meat | اللحوم الطازجة,,,,Portion | الحصة,كامل | Whole,,,,,حري | Hari | كامل | Whole,GEN-507299,,,yes,yes,no,no,no,no,0,0,0,0,,

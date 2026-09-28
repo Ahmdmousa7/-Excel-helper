@@ -1,0 +1,165 @@
+/**
+ * Mapping OCR output onto an uploaded import template (Rewaa Simple / Variable).
+ *
+ * One module, used by both the auto-mapper and the exporter, so the two can
+ * never disagree about which extracted column feeds which template column.
+ * They did disagree in an earlier implementation elsewhere: one side lowercased
+ * header keys and the other did not, so `Regular price` was found by the mapper
+ * and missed by the checker, and correct rows were reported as mismatches.
+ * Normalising in exactly one place makes that class of bug unrepresentable.
+ *
+ * Pure functions, no React, no SheetJS — testable against the real templates.
+ */
+
+export type TemplateRow = Record<string, unknown>;
+export type Mapping = Record<string, string>;
+
+/**
+ * Compare headers by meaning, not by spelling: case, surrounding whitespace,
+ * runs of spaces, `_`/`-` separators and a leading UTF-8 BOM are all ignored.
+ *
+ * The BOM matters in practice: a CSV saved by Excel starts with U+FEFF, and
+ * SheetJS can hand it through on the first header, so `Product Name` would
+ * otherwise fail to match `\uFEFFProduct Name` and silently map to nothing.
+ */
+export const normalizeHeader = (header: unknown): string =>
+  String(header ?? '')
+    .replace(/^\uFEFF/, '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * Other names the AI uses for a template column, keyed by the NORMALISED
+ * template header. Tried only after an exact match fails, and in the order
+ * listed, so a row that has both `Retail Price` and `Price` maps the former.
+ *
+ * Deliberately short. A synonym that is sometimes wrong is worse than a blank
+ * the user can see and fix in the mapping panel. Note that `price` is listed
+ * for Retail Price: right for menus, which is what this export is for, but on
+ * an INVOICE extraction a bare `price` is usually the purchase cost — check the
+ * mapping panel after extracting an invoice.
+ */
+export const HEADER_SYNONYMS: Readonly<Record<string, readonly string[]>> = {
+  'product name': ['name', 'item name'],
+  'retail price': ['regular price', 'selling price', 'price'],
+  'product sku': ['sku', 'item code', 'product code'],
+  'variant sku': ['sku', 'item code', 'product code'],
+  'barcode': ['ean', 'upc', 'gtin'],
+  'variant barcode': ['barcode', 'ean', 'upc', 'gtin'],
+  'description': ['desc', 'details'],
+  'variant description': ['description'],
+};
+
+/**
+ * Values a Rewaa import expects when the extraction supplied nothing, read off
+ * the data rows of the real templates (2026-09-28) rather than assumed.
+ *
+ * `Retail Price` is deliberately ABSENT. Every other price defaults to 0, but a
+ * missing retail price exported as 0 imports as a free product, and it is the
+ * one number the extraction exists to capture. Blank is visible; 0 is not.
+ *
+ * `Enable stock management` is `no`, as every sample row shows.
+ */
+const PACK_DEFAULTS: Record<string, string | number> = {};
+for (const n of [1, 2, 3]) {
+  PACK_DEFAULTS[`pack${n} def retail price`] = 0;
+  PACK_DEFAULTS[`pack${n} def buy price`] = 0;
+  PACK_DEFAULTS[`pack${n} sellable`] = 'yes';
+  PACK_DEFAULTS[`pack${n} purchasable`] = 'yes';
+}
+
+export const TEMPLATE_DEFAULTS: Readonly<Record<string, string | number>> = {
+  'sellable': 'yes',
+  'purchasable': 'yes',
+  'enable stock management': 'no',
+  'weighted': 'no',
+  'tracked by batch': 'no',
+  'tracked by serial': 'no',
+  'wholesale price': 0,
+  'cost': 0,
+  'buy price': 0,
+  ...PACK_DEFAULTS,
+};
+
+export const defaultFor = (templateHeader: unknown): string | number | undefined =>
+  TEMPLATE_DEFAULTS[normalizeHeader(templateHeader)];
+
+/** The extracted column that feeds `templateHeader`, or undefined if none does. */
+export function resolveSourceKey(
+  templateHeader: unknown,
+  available: readonly string[],
+): string | undefined {
+  const target = normalizeHeader(templateHeader);
+  if (!target) return undefined;
+
+  const byNorm = new Map<string, string>();
+  for (const key of available) {
+    const n = normalizeHeader(key);
+    if (n && !byNorm.has(n)) byNorm.set(n, key); // first spelling wins
+  }
+
+  const exact = byNorm.get(target);
+  if (exact !== undefined) return exact;
+
+  for (const synonym of HEADER_SYNONYMS[target] ?? []) {
+    const hit = byNorm.get(synonym);
+    if (hit !== undefined) return hit;
+  }
+  return undefined;
+}
+
+/**
+ * Fill in mapping entries that are still ABSENT. An entry that is present —
+ * including `''`, which is what the panel's "-- Ignore --" stores — is the
+ * user's decision and is never overwritten. Headers with no match stay absent,
+ * so a later extraction can still fill them.
+ */
+export function autoMap(
+  templateHeaders: readonly unknown[],
+  available: readonly string[],
+  existing: Mapping = {},
+): Mapping {
+  const out: Mapping = { ...existing };
+  for (const h of templateHeaders) {
+    const key = String(h);
+    if (Object.prototype.hasOwnProperty.call(out, key)) continue;
+    const src = resolveSourceKey(h, available);
+    if (src !== undefined) out[key] = src;
+  }
+  return out;
+}
+
+const isBlank = (v: unknown): boolean =>
+  v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
+
+/**
+ * Rows reshaped to exactly the template's columns, in the template's order.
+ *
+ * Uses the mapping AS GIVEN — no hidden resolution here — so the file matches
+ * what the mapping panel shows. A column with no source, or whose source is
+ * blank for this row, gets the template default when there is one and `''`
+ * otherwise. A default never overrides a value the extraction produced: an
+ * extracted `Sellable: no` stays `no`.
+ */
+export function mapRowsToTemplate(
+  rows: readonly TemplateRow[],
+  mapping: Mapping,
+  templateHeaders: readonly unknown[],
+): TemplateRow[] {
+  return rows.map((row) => {
+    const out: TemplateRow = {};
+    for (const h of templateHeaders) {
+      const key = String(h);
+      const src = mapping[key];
+      const value = src ? row[src] : undefined;
+      out[key] = isBlank(value) ? (defaultFor(key) ?? '') : value;
+    }
+    return out;
+  });
+}
+
+/** Template headers as loaded, with a CSV's leading BOM removed from the first. */
+export const cleanTemplateHeaders = (headers: readonly unknown[]): string[] =>
+  headers.map((h, i) => (i === 0 ? String(h ?? '').replace(/^\uFEFF/, '') : String(h ?? '')));
