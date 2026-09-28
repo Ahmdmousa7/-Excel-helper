@@ -353,6 +353,13 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
                                   row[cIdx] = randomSku;
                                   strVal = randomSku;
                                   currentActionsLog[r].push(`Generated Missing SKU`);
+                                  // Register it like any other SKU. A random 6-digit suffix
+                                  // collides by the birthday bound — about 39% odds across
+                                  // 1,000 blank SKUs — and generated values used to skip the
+                                  // duplicate check entirely, so collisions shipped silently.
+                                  const genKey = identifierKey(randomSku);
+                                  if (!skuSet.has(genKey)) skuSet.set(genKey, []);
+                                  skuSet.get(genKey)!.push({ r, c: cIdx });
                               }
                           } else if (field.key.includes('_sku') && field.key.startsWith('pack_')) {
                               const parts = field.key.split('_'); 

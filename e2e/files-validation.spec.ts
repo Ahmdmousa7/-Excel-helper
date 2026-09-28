@@ -36,20 +36,20 @@ const ROWS: (string | number)[][] = [
   ['Box', 'S-7', 'Z', 12, 6, 'Z', ''],                        // 7  same code in two cells of ONE row
 ];
 
-function workbook(): Buffer {
-  const ws = XLSX.utils.aoa_to_sheet(ROWS);
+function workbook(rows: (string | number)[][] = ROWS): Buffer {
+  const ws = XLSX.utils.aoa_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Products');
   return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
 }
 
-async function validate(app: AppShell, page: Page) {
+async function validate(app: AppShell, page: Page, rows: (string | number)[][] = ROWS) {
   await app.goto();
   await app.openToolMatching(/Files Validation/);
   await page.locator('input[type="file"]').first().setInputFiles({
     name: 'products.xlsx',
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    buffer: workbook(),
+    buffer: workbook(rows),
   });
   await page.getByRole('button', { name: /Run Validation/i }).click();
   await expect(page.getByRole('button', { name: /Export Report/i })).toBeVisible({ timeout: 30_000 });
@@ -141,5 +141,27 @@ test.describe('Files Validation — duplicates and issue sheets', () => {
     // Part 3 (rows 6-7): the duplicate-SKU fix and Box's barcode fix.
     expect(p3.SheetNames).toContain('Fix_Resolved Duplicate SKU');
     expect(p3.SheetNames).not.toContain('Err_Loss Alert');
+  });
+
+  test('generated SKUs cannot collide: they now go through the duplicate check', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    // Force every generated SKU to be identical — what the birthday bound makes
+    // likely on a large file (~39% at 1,000 blank SKUs), made certain here.
+    await page.addInitScript(() => { Math.random = () => 0.5; });
+    await validate(app, page, [
+      ['Name', 'SKU', 'Barcode', 'Retail Price', 'Cost'],
+      ['A', '', 'B1', 1, 0],                 // generated Rewaa-500000
+      ['B', '', 'B2', 1, 0],                 // generated Rewaa-500000 again
+      ['C', 'Rewaa-500000-1', 'B3', 1, 0],   // a REAL SKU already sitting on the first suffix
+    ]);
+    const wb = XLSX.read(await download(page), { type: 'buffer' });
+    const data = rowsOf(wb, 'Validated Data');
+    const sku = (data[0] as string[]).indexOf('SKU');
+    const skus = data.slice(1).map((r) => String(r[sku]));
+
+    // Before: A and B both shipped as Rewaa-500000. Now B is resolved, skipping
+    // the -1 that row C already owns, and C's real SKU is untouched.
+    expect(skus).toEqual(['Rewaa-500000', 'Rewaa-500000-2', 'Rewaa-500000-1']);
+    expect(new Set(skus).size).toBe(3);
   });
 });
