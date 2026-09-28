@@ -1,12 +1,12 @@
 {
-  "attestation_id": "sha256:6d01f5881d9df7a7fbed0145439b1ada2760968f2a8357533a7d5bc0985cdf46",
+  "attestation_id": "sha256:12c1d26fa290242432c3d668275b9ffc0bd7e35699252b3d3e2361aaf44345d8",
   "files": [
     {
-      "oid": "39633067cd1998279627b9ff5b354da8d156c629",
+      "oid": "c632f414db8197215ae5226aa4d4d26569437300",
       "path": "README.md"
     },
     {
-      "oid": "9f36bab34f28ce4ccb3c1e5d6ba234755ba57591",
+      "oid": "7300d90e1283fe1de7eef861f71fb733bca60be1",
       "path": "components/FileValidationTab.tsx"
     },
     {
@@ -14,7 +14,15 @@
       "path": "components/OcrTab.tsx"
     },
     {
-      "oid": "c02a1c7ad21da11c32f3c2c7427389fec70369de",
+      "oid": "173920f80df2386fb070be896ad6949a4ac6ac8c",
+      "path": "components/ProjectSummaryTab.tsx"
+    },
+    {
+      "oid": "8ed5fd8b8181f3a43bc93a0fc63cc0dd700159b0",
+      "path": "components/SupportChat.tsx"
+    },
+    {
+      "oid": "b94550eef873b125bff139907a7bf550f912731a",
       "path": "docs/TESTING.md"
     },
     {
@@ -26,8 +34,24 @@
       "path": "docs/modules/open-decisions.md"
     },
     {
+      "oid": "84430d4d93341e399dfebeb3faae7db9e2ceb607",
+      "path": "docs/quality/tech-debt-register.md"
+    },
+    {
+      "oid": "7eb965e27279bd689a636ca5eeec350b78985ea1",
+      "path": "e2e/csv-arabic.spec.ts"
+    },
+    {
       "oid": "ff5338d8a1df9084cbbb968e129feaf7d0940105",
       "path": "e2e/files-validation.spec.ts"
+    },
+    {
+      "oid": "b525ddabf13539389f0c39023604689c8ba7441a",
+      "path": "services/excelService.ts"
+    },
+    {
+      "oid": "ac093d8e139bfcb85e98b7b01f3fc1120a72f77d",
+      "path": "services/workbookBytes.ts"
     },
     {
       "oid": "1d5c8bf039ea9b536feadfd36a903a73b2bde577",
@@ -38,8 +62,12 @@
       "path": "tests/unit/issueSheets.test.ts"
     },
     {
-      "oid": "8e74572bdd23f5e2bf4404c1ce97fb16552480ae",
+      "oid": "6f3cb31f801fb5d74a27cf1185a1558694ae5a9e",
       "path": "tests/unit/templateMapping.test.ts"
+    },
+    {
+      "oid": "12bbc774f428770daa744a8c57a42186c5c5cbf6",
+      "path": "tests/unit/workbookBytes.test.ts"
     },
     {
       "oid": "111eac9c27ea0186a06f28ab5de16f7ad2e42d4a",
@@ -59,12 +87,12 @@
     "high": 0,
     "info": 1,
     "low": 3,
-    "medium": 0
+    "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "9577b036edc7e8f371c232f748334650985f1765",
+  "reviewed_at_commit": "019bd82e9482256535c5d4e5fc3f3bed8117f152",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "APPROVED"
+  "verdict": "COMMENT"
 }

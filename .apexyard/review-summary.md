@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:6d01f5881d9df7a7fbed0145439b1ada2760968f2a8357533a7d5bc0985cdf46` |
+| Attestation id | `sha256:12c1d26fa290242432c3d668275b9ffc0bd7e35699252b3d3e2361aaf44345d8` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `9577b036edc7` |
+| Reviewed at commit | `019bd82e9482` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **APPROVED** |
-| Files reviewed | 13 |
+| Verdict | **COMMENT** |
+| Files reviewed | 20 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
+| medium | 1 |
 | low | 3 |
 | info | 1 |
 
-This PR extends Files Validation so duplicate SKUs and barcodes are compared by a mark-insensitive key and resolved per-CELL rather than per-row, adds per-error/per-fix issue sheets to the export (single-file and chunked-ZIP paths), and lifts the OCR routing/mapping/audit logic into testable pure utils. The duplicate-resolution logic is well factored into `utils/identifiers.ts` / `utils/issueSheets.ts`, backed by ~40 new unit tests plus the module's first e2e coverage, and the behaviour changes are recorded in `docs/modules/open-decisions.md` (D7 implemented, D8 opened) and `MODULE_GUIDE.md`. I verified the suffix registry (`taken`) genuinely prevents a fix from creating a new collision, that the ZIP `inScope` window matches the chunk slice, and that `exportHeaders` stays aligned with the spliced issue-sheet rows. No blocking-handbook violations and no high/critical defects; findings are advisory.
+TD-050 CSV decoding fix (commit 019bd82) routes all four byte-reading upload paths through a new shared helper, services/workbookBytes.ts, that decodes delimited text as strict UTF-8 with a Windows-1256 fallback and sniffs magic bytes before trusting the extension; the branch also extracts Files Validation's duplicate-resolution and issue-sheet logic into utils/identifiers.ts and utils/issueSheets.ts, and OcrTab's routing/stripping into utils/templateMapping.ts, with new unit and Playwright coverage. The design is sound: layering is respected, the equivalence tests genuinely pin 'only decoding changed', and the cell-level (not row-level) duplicate fix is a real correctness improvement that is proven by mutation-checked e2e. No blocking-handbook violations and no security findings. Four minor items: one quadratic suffix search that can freeze the tab on a pathological-but-plausible file, a malformed table row in docs/TESTING.md that dropped the files-validation entry, some new unjustified `any` in the extracted export helper, and a 2-byte ZIP signature that is weaker than it reads.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ This PR extends Files Validation so duplicate SKUs and barcodes are compared by 
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 564 warning(s) |
-| Vitest | pass | 491/491 passed, lines 99.14% |
-| Playwright | pass | 114/114 passed |
+| Vitest | pass | 506/506 passed, lines 99.14% |
+| Playwright | pass | 116/116 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 105 source files, 29910 lines
+- 108 source files, 30203 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -63,14 +63,14 @@ reports zero failures for a tool that never executed.
 |---|---:|
 | `components/CompositeTab.tsx` | 1404 |
 | `components/VariableBalanceTab.tsx` | 1384 |
-| `components/FileValidationTab.tsx` | 1122 |
-| `components/SupportChat.tsx` | 955 |
+| `components/FileValidationTab.tsx` | 1124 |
+| `components/SupportChat.tsx` | 957 |
 | `components/TranslateTab.tsx` | 953 |
 | `utils/translations.ts` | 899 |
 | `components/OcrTab.tsx` | 884 |
 | `services/geminiService.ts` | 842 |
+| `components/ProjectSummaryTab.tsx` | 841 |
 | `components/ZidTab.tsx` | 841 |
-| `components/ProjectSummaryTab.tsx` | 840 |
 
 </details>
 

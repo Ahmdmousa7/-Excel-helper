@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:6d01f5881d9df7a7fbed0145439b1ada2760968f2a8357533a7d5bc0985cdf46",
+  "attestation_id": "sha256:12c1d26fa290242432c3d668275b9ffc0bd7e35699252b3d3e2361aaf44345d8",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,23 +8,23 @@
     },
     "components": {
       "files": 36,
-      "loc": 17644
+      "loc": 17649
     },
     "e2e": {
-      "files": 24,
-      "loc": 3064
+      "files": 25,
+      "loc": 3135
     },
     "hooks": {
       "files": 2,
       "loc": 169
     },
     "services": {
-      "files": 5,
-      "loc": 1179
+      "files": 6,
+      "loc": 1264
     },
     "tests": {
-      "files": 17,
-      "loc": 4400
+      "files": 18,
+      "loc": 4532
     },
     "types": {
       "files": 1,
@@ -54,11 +54,11 @@
       },
       {
         "file": "components/FileValidationTab.tsx",
-        "loc": 1122
+        "loc": 1124
       },
       {
         "file": "components/SupportChat.tsx",
-        "loc": 955
+        "loc": 957
       },
       {
         "file": "components/TranslateTab.tsx",
@@ -77,12 +77,12 @@
         "loc": 842
       },
       {
-        "file": "components/ZidTab.tsx",
+        "file": "components/ProjectSummaryTab.tsx",
         "loc": 841
       },
       {
-        "file": "components/ProjectSummaryTab.tsx",
-        "loc": 840
+        "file": "components/ZidTab.tsx",
+        "loc": 841
       }
     ],
     "threshold_loc": 800
@@ -96,6 +96,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 105,
-  "total_loc": 29910
+  "source_files": 108,
+  "total_loc": 30203
 }

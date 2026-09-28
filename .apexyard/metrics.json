@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:6d01f5881d9df7a7fbed0145439b1ada2760968f2a8357533a7d5bc0985cdf46",
+  "attestation_id": "sha256:12c1d26fa290242432c3d668275b9ffc0bd7e35699252b3d3e2361aaf44345d8",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,9 +21,9 @@
         "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab--5ftYpLa.js",
-        "gzip_bytes": 144786,
-        "raw_bytes": 444388
+        "file": "ProjectSummaryTab-BO6fLdhF.js",
+        "gzip_bytes": 144826,
+        "raw_bytes": 444476
       },
       {
         "file": "geminiService-DANz9Uo0.js",
@@ -31,9 +31,9 @@
         "raw_bytes": 280698
       },
       {
-        "file": "index.es-BqHFtZoN.js",
-        "gzip_bytes": 51641,
-        "raw_bytes": 151147
+        "file": "index.es-B0jCLCMv.js",
+        "gzip_bytes": 51665,
+        "raw_bytes": 151183
       },
       {
         "file": "html2canvas.esm-CBrSDip1.js",
@@ -46,14 +46,14 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-Bf46j7jP.js",
-        "gzip_bytes": 43358,
+        "file": "HomeTab-ChCMZrr6.js",
+        "gzip_bytes": 43360,
         "raw_bytes": 135983
       },
       {
-        "file": "index-BaltBapC.js",
-        "gzip_bytes": 30922,
-        "raw_bytes": 100741
+        "file": "index-DFYrLwJA.js",
+        "gzip_bytes": 30937,
+        "raw_bytes": 100842
       },
       {
         "file": "jszip.min-CiouRDUD.js",
@@ -61,9 +61,9 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-DNOOc7nX.js",
-        "gzip_bytes": 13691,
-        "raw_bytes": 37417
+        "file": "QrCodeTab-BrAg4Nsi.js",
+        "gzip_bytes": 13706,
+        "raw_bytes": 37453
       }
     ],
     "metrics": [
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1291.6,
+        "gzip_kb": 1292.6,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 89
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1305.9,
+        "gzip_kb": 1306.8,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 89
@@ -162,9 +162,9 @@
     "failures": [],
     "flaky_count": 0,
     "passed": true,
-    "passed_count": 114,
+    "passed_count": 116,
     "skipped_count": 0,
-    "total": 114
+    "total": 116
   },
   "schema": "apexyard.evidence.metrics/1",
   "typescript": {
@@ -184,10 +184,10 @@
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 491,
+      "passed": 506,
       "skipped": 0,
-      "suites": 107,
-      "total": 491
+      "suites": 112,
+      "total": 506
     }
   }
 }

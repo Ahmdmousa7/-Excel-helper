@@ -1,51 +1,60 @@
 {
-  "attestation_id": "sha256:6d01f5881d9df7a7fbed0145439b1ada2760968f2a8357533a7d5bc0985cdf46",
+  "attestation_id": "sha256:12c1d26fa290242432c3d668275b9ffc0bd7e35699252b3d3e2361aaf44345d8",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
     "low": 3,
-    "medium": 0
+    "medium": 1
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "Commit 9577b03 fixed generated product SKUs escaping duplicate detection by registering `randomSku` into `skuSet` (line ~357). The sibling branch that generates `Pack${n}-${Math.floor(Math.random()*1000000)}` for an empty pack SKU does not do the same. Because pack columns are reached through `mapping['sku']` only when non-empty, a generated pack SKU is written into `row[cIdx]` after the `field.key === 'sku'` pass has already seen the cell as blank — so it is never keyed, never in `taken`, and never deduped. That is the exact birthday-collision case the commit message says should no longer ship silently (~39% odds across 1,000 blank pack SKUs), just on the other branch. Narrow enough to be low: it needs two blanks to draw the same 6-digit value.",
-      "file": "components/FileValidationTab.tsx",
-      "line": 373,
-      "severity": "low",
+      "category": "performance",
+      "detail": "Each call scans `${base}-1`, `${base}-2`, … from scratch. For the i-th duplicate of the same base, suffixes 1..i-1 are already in `taken`, so the call costs i iterations and resolving k duplicates of one identifier costs ~k^2/2 Set lookups. This is not theoretical for this app: the barcode column of a supplier export frequently carries one repeated placeholder (`0`, `N/A`, a single house code), and the repo already tests 40,000-row workbooks (e2e/large-files). At k=40,000 that is ~800M lookups on the main thread inside processValidation — a multi-second-to-minute frozen tab with no progress signal, on exactly the file shape this feature exists to clean. At k=10,000 it is ~50M and merely sluggish, which is why this is medium rather than high; it would be high if the quadratic were unconditional rather than requiring one code to dominate the column. Note `resolveBarcodes` (utils/identifiers.ts:96) hits the same path via the cross-column branch, where EVERY occurrence is renamed, so k there equals the full group size.",
+      "file": "utils/identifiers.ts",
+      "line": 50,
+      "severity": "medium",
       "suggested_fix": null,
-      "summary": "Generated pack SKUs skip the duplicate registry the PR just added"
+      "summary": "nextFreeSuffix restarts at n=1, making k duplicates of one code O(k^2)"
     },
     {
-      "category": "performance",
-      "detail": "`mapDataToTemplate([stripped], …)` is now called once per row instead of once per sheet, so `isRewaaTemplate(templateHeaders)` and `headerFor(templateHeaders, 'variant name')` are recomputed for every row. `matchesTemplate` compounds it: for each of ~60 template headers it calls `resolveSourceKey(h, keys)`, which builds a fresh `Map` over all the row's keys — so the audit columns cost O(headers × keys) per row, per template, and both `auditSimple` and `auditVar` can be on at once. OCR batches are typically hundreds of rows, not tens of thousands, so this is well short of a freeze; it becomes a real problem only if OCR output volume grows.",
-      "file": "components/OcrTab.tsx",
-      "line": 532,
+      "category": "code-smell",
+      "detail": "Line 41 begins with a space and the description text, with no leading `| \\`files-validation\\` |`. The row renders as a single broken cell (or falls out of the table entirely) in every markdown viewer, so the one new suite that the PR describes as 'the module's first browser coverage' is the one suite the testing index does not name. The header line 20 was updated to '19 spec files, 116 tests' and docs/modules/MODULE_GUIDE.md:246 cross-references `e2e/files-validation.spec.ts`, so this is a transcription slip, not a missing decision.",
+      "file": "docs/TESTING.md",
+      "line": 41,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Template mapping and the audit check rebuild their header indexes per row"
+      "summary": "Malformed table row: the files-validation suite entry lost its name cell"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`ZIP_MAGIC = [0x50, 0x4b]` matches any file whose first two bytes are `PK`, including a plain CSV whose first column header begins with those letters (`PKG_SIZE`, `PK,Name,…`). `isBinaryWorkbook` then returns true, `readWorkbookBytes` takes the `type: 'array'` branch, and SheetJS fails on the non-ZIP body — the user gets a parse error instead of a decoded CSV. This is not a regression (the pre-PR `XLSX.read(bytes, {type:'array'})` and `{type:'binary'}` paths sniff the same prefix and fail identically), so it is low rather than medium; but the comment at line 29 states the function's job is to be authoritative about container detection, and a 2-byte prefix is weaker than that reads. The OLE signature at line 24 is already 4 bytes and is fine.",
+      "file": "services/workbookBytes.ts",
+      "line": 22,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "ZIP_MAGIC is 2 bytes, so a CSV whose first header starts with \"PK\" is treated as a workbook"
     },
     {
       "category": "typescript",
-      "detail": "The newly added helper declares `wb: any`, `toExportRow: (row: any[]) => any[]`, and `const issueData: any[][]`. These are new lines, not reindented legacy, and none carries a justification comment. `wb: any` is the one that costs something concretely: `wb.SheetNames.map(...)` and the `XLSX_STYLE.utils.book_append_sheet(wb, ...)` call are both unchecked, so a future rename or a wrong argument order compiles clean and fails at export time — the exact path a user only discovers as a corrupt download.",
+      "detail": "`wb: any` (line 582), `toExportRow: (row: any[]) => any[]` (line 584) and `issueData: any[][]` (line 595) are new `any`s in newly-authored code, with no `// reason:` comment. The workbook and row types are known here: the sibling code at line 648 already uses the same shapes concretely, and `IssueGroup` was given a precise type in utils/issueSheets.ts, so the helper is the one seam in this feature where the compiler stops checking. Concretely: a future change to the supplier-splice contract in the two callers (lines 695 and 870) — which build the export row differently — would not be caught, and those two callers currently duplicate the same splice logic.",
       "file": "components/FileValidationTab.tsx",
-      "line": 578,
+      "line": 582,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "New appendIssueSheets signature introduces unjustified `any`"
+      "summary": "New appendIssueSheets helper introduces unjustified `any` on all three data params"
     },
     {
       "category": "architecture",
-      "detail": "Previously a barcode matching an SKU was only *reported*; it is now renamed on every occurrence, because the SKU claims the base code. Retail catalogues commonly set barcode == SKU deliberately across the whole file — in that case this PR rewrites the entire barcode column to `X-1`, `X-2`, … in one pass. This is deliberate, documented (MODULE_GUIDE 'Duplicates since 2026-09-28'), surfaced in the in-app auto-fix list, and recorded per row in the Change Log as `Resolved Barcode = SKU`, so it is not hidden and the source file is untouched. Raising this as an observation only: the pre-PR behaviour already treated the condition as an error, so auto-fixing is consistent — but the blast radius on a barcode==SKU catalogue is the whole column, and that is worth an explicit product-owner nod alongside D8.",
+      "detail": "The cross-column branch of `resolveBarcodes` renames EVERY occurrence of a barcode whose key matches any SKU, including the first, and the old `reportErrors.push({msg: 'Cross-column Duplicate'})` / Error Description write was deleted. Many retailers legitimately set SKU == EAN for single-unit products, so for those files every barcode in the export is now suffixed `-1` and will no longer scan against the source data. The change is deliberate and visible in three places (the UI rules list at line 1042, MODULE_GUIDE.md, and the new `Fix_Resolved Barcode = SKU` sheet), and the e2e test at e2e/files-validation.spec.ts pins it — which is why this is an observation, not a request. Raising it only so the product owner sees it alongside open decision D8, which already asks a closely related question about Pack SKU references being renamed.",
       "file": "components/FileValidationTab.tsx",
-      "line": 554,
+      "line": 553,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Barcode-equals-SKU is now silently auto-rewritten on every occurrence"
+      "summary": "A barcode that equals its own product's SKU is now silently rewritten, not reported"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 4
+  "total": 5
 }
