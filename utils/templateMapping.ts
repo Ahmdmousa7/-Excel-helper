@@ -206,17 +206,138 @@ export function mapRowsToTemplate(
   // called `Sellable` or `Cost` must not silently receive `yes` / `0` it was
   // never designed for. Other templates keep the old behaviour: blank.
   const applyDefaults = isRewaaTemplate(templateHeaders);
+  const variantNameKey = applyDefaults ? headerFor(templateHeaders, 'variant name') : undefined;
   return rows.map((row) => {
     const out: TemplateRow = {};
     for (const h of templateHeaders) {
       const key = String(h);
       const src = getOwn(mapping, key);
-      const value = src ? getOwn(row, src) : undefined;
+      let value = src ? getOwn(row, src) : undefined;
+      if (applyDefaults && YES_NO_COLUMNS.has(normalizeHeader(key)) && !isBlank(value)) {
+        // An out-of-list value would be rejected by the importer, so it falls
+        // back to the column default just like a blank does.
+        value = toYesNo(value);
+      }
       const fallback = applyDefaults ? (defaultFor(key) ?? '') : '';
       setOwn(out, key, isBlank(value) ? fallback : value);
     }
+    if (variantNameKey && isBlank(getOwn(out, variantNameKey))) {
+      setOwn(out, variantNameKey, buildVariantName(out, templateHeaders));
+    }
     return out;
   });
+}
+
+/**
+ * Rewaa columns whose spec row says `list yes no` — the importer accepts only
+ * those two words. Normalised so an extracted `Yes`, `TRUE`, `1` or `نعم`
+ * arrives as `yes` rather than failing the import.
+ */
+const YES_NO_COLUMNS: ReadonlySet<string> = new Set([
+  'sellable', 'purchasable', 'enable stock management',
+  'weighted', 'tracked by batch', 'tracked by serial',
+  ...[1, 2, 3].flatMap((n) => [`pack${n} sellable`, `pack${n} purchasable`]),
+]);
+const YES_WORDS: ReadonlySet<string> = new Set(['yes', 'y', 'true', '1', 'نعم']);
+const NO_WORDS: ReadonlySet<string> = new Set(['no', 'n', 'false', '0', 'لا']);
+
+/** `yes` / `no`, or undefined for anything that is neither — which then takes the default. */
+export function toYesNo(value: unknown): 'yes' | 'no' | undefined {
+  if (value === true) return 'yes';
+  if (value === false) return 'no';
+  const s = String(value ?? '').trim().toLowerCase();
+  if (YES_WORDS.has(s)) return 'yes';
+  if (NO_WORDS.has(s)) return 'no';
+  return undefined;
+}
+
+/** The template's own spelling of a column, found by meaning. */
+function headerFor(templateHeaders: readonly unknown[], normalized: string): string | undefined {
+  const hit = templateHeaders.find((h) => normalizeHeader(h) === normalized);
+  return hit === undefined ? undefined : String(hit);
+}
+
+/**
+ * `Product Name | Option 1 Value | Option 2 Value | Option 3 Value`, skipping
+ * blanks — the convention in the supplied template (`حري | Hari | نص | Half`).
+ *
+ * Built from the MAPPED row, so it uses exactly what the file will contain.
+ * Blank when there is no product name or no option value at all: a variant row
+ * with no option is not a variant, and a guessed name would hide that.
+ * Build only — the halves themselves contain ` | `, so it cannot be split back.
+ */
+export function buildVariantName(out: TemplateRow, templateHeaders: readonly unknown[]): string {
+  const valueOf = (norm: string) => {
+    const k = headerFor(templateHeaders, norm);
+    const v = k === undefined ? undefined : getOwn(out, k);
+    return isBlank(v) ? '' : String(v).trim();
+  };
+  const name = valueOf('product name');
+  const options = ['option 1 value', 'option 2 value', 'option 3 value'].map(valueOf).filter(Boolean);
+  return name && options.length > 0 ? [name, ...options].join(' | ') : '';
+}
+
+/**
+ * Which sheet a generic row belongs to. Moved here unchanged from OcrTab so the
+ * export and the comparison columns route rows identically.
+ */
+export function isVariableRow(row: TemplateRow): boolean {
+  // `||`, not `??`, exactly as the original: an empty `Type` falls through to `type`.
+  const type = String(getOwn(row, 'Type') || getOwn(row, 'type') || '').toLowerCase();
+  return type.includes('variable') || type.includes('var');
+}
+
+/** A simple product carries no option or variant columns. Unchanged from OcrTab. */
+export function stripForSimple(row: TemplateRow): TemplateRow {
+  const out: TemplateRow = {};
+  for (const k of Object.keys(row)) {
+    const lower = k.toLowerCase();
+    if (!lower.includes('option') && !lower.includes('variant')) setOwn(out, k, row[k]);
+  }
+  return out;
+}
+
+/** A variable product carries no product-level SKU. Unchanged from OcrTab. */
+export function stripForVariable(row: TemplateRow): TemplateRow {
+  const out: TemplateRow = {};
+  for (const k of Object.keys(row)) {
+    const lower = k.toLowerCase();
+    if (lower !== 'product sku' && lower !== 'product_sku') setOwn(out, k, row[k]);
+  }
+  return out;
+}
+
+/** The fields a mismatch would actually hurt. Variant Name is excluded — it may be constructed. */
+const COMPARED_COLUMNS: ReadonlySet<string> = new Set([
+  'product name', 'product sku', 'variant sku', 'retail price', 'category',
+  'option 1 value', 'option 2 value', 'option 3 value',
+]);
+
+/**
+ * Does the mapped template row carry the generic row's data faithfully?
+ *
+ * The expected value is found in the GENERIC row independently of the mapping —
+ * by the same resolver, not by trusting the mapping — so a price the mapping
+ * missed, or pointed at the wrong column, shows up as FALSE. That is the point
+ * of the check: it audits the mapping, it does not restate it.
+ *
+ * A field the extraction left blank is not compared.
+ */
+export function matchesTemplate(
+  generic: TemplateRow,
+  mapped: TemplateRow,
+  templateHeaders: readonly unknown[],
+): boolean {
+  const keys = Object.keys(generic);
+  for (const h of templateHeaders) {
+    if (!COMPARED_COLUMNS.has(normalizeHeader(h))) continue;
+    const src = resolveSourceKey(h, keys);
+    if (src === undefined) continue;
+    const expected = getOwn(generic, src);
+    if (isBlank(expected)) continue;
+    if (String(getOwn(mapped, String(h)) ?? '').trim() !== String(expected).trim()) return false;
+  }
+  return true;
 }
 
 /**

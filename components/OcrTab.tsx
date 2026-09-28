@@ -3,7 +3,10 @@ import { FileData, LogEntry, ProcessingStatus } from '../types';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { readExcelFile, getSheetData, saveWorkbook } from '../services/excelService';
 import { aiService } from '../services/aiServiceFactory';
-import { autoMap, refreshMapping, mapRowsToTemplate, cleanTemplateHeaders, isCsvFile, parseCsvTemplate } from '../utils/templateMapping';
+import {
+  autoMap, refreshMapping, mapRowsToTemplate, cleanTemplateHeaders, isCsvFile, parseCsvTemplate,
+  isRewaaTemplate, isVariableRow, stripForSimple, stripForVariable, matchesTemplate,
+} from '../utils/templateMapping';
 import ProgressBar from './ProgressBar';
 import { 
   ScanText, UploadCloud, FileText, Zap, TableProperties, Edit3, 
@@ -514,64 +517,48 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
 
   const exportData = (dataToExport: any[]) => {
       if (dataToExport.length === 0) return;
-      
-      const wb = XLSX.utils.book_new();
-      
-      // 1. All Data Sheet
-      const wsAll = XLSX.utils.json_to_sheet(dataToExport);
-      XLSX.utils.book_append_sheet(wb, wsAll, "All Extracted Data");
 
-      // Filter Rows
-      const simpleRows = dataToExport.filter(r => {
-          const typeVal = String(r['Type'] || r['type'] || '').toLowerCase();
-          return typeVal === 'simple' || (!typeVal.includes('variable') && !typeVal.includes('var'));
-      }).map(row => {
-          const newRow = { ...row };
-          // Remove variable specific columns for simple products
-          const keysToRemove = Object.keys(newRow).filter(k => {
-              const lower = k.toLowerCase();
-              return lower.includes('option') || lower.includes('variant');
-          });
-          keysToRemove.forEach(k => delete newRow[k]);
-          return newRow;
+      const wb = XLSX.utils.book_new();
+      const simpleOn = !!simpleTemplateFile && simpleHeaders.length > 0;
+      const varOn = !!varTemplateFile && varHeaders.length > 0;
+
+      // Route, strip and map each row ONCE, keeping it paired with its source,
+      // so the audit columns on sheet 1 describe exactly the rows written to
+      // sheets 2 and 3. Routing and stripping are unchanged from before — they
+      // moved to utils/templateMapping.ts so they can be tested.
+      const routed = dataToExport.map((row) => {
+          const variable = isVariableRow(row);
+          const stripped = variable ? stripForVariable(row) : stripForSimple(row);
+          const mapped = variable
+              ? (varOn ? mapDataToTemplate([stripped], varMapping, varHeaders)[0] : stripped)
+              : (simpleOn ? mapDataToTemplate([stripped], simpleMapping, simpleHeaders)[0] : stripped);
+          return { row, variable, mapped };
       });
-      
-      const variableRows = dataToExport.filter(r => {
-          const typeVal = String(r['Type'] || r['type'] || '').toLowerCase();
-          return typeVal.includes('variable') || typeVal.includes('var');
-      }).map(row => {
-          const newRow = { ...row };
-          // Remove simple specific columns for variable products
-          const keysToRemove = Object.keys(newRow).filter(k => {
-              const lower = k.toLowerCase();
-              return lower === 'product sku' || lower === 'product_sku';
-          });
-          keysToRemove.forEach(k => delete newRow[k]);
-          return newRow;
+
+      // 1. All Data Sheet. When a REWAA template is loaded, each row also says
+      // whether its data arrived intact in that file — TRUE only for the sheet
+      // it was routed to, and only if every compared field matches.
+      const auditSimple = simpleOn && isRewaaTemplate(simpleHeaders);
+      const auditVar = varOn && isRewaaTemplate(varHeaders);
+      const allRows = routed.map(({ row, variable, mapped }) => {
+          if (!auditSimple && !auditVar) return row;
+          const out: Record<string, unknown> = { ...row };
+          if (auditSimple) out['In Rewaa Simple'] = !variable && matchesTemplate(row, mapped, simpleHeaders);
+          if (auditVar) out['In Rewaa Variable'] = variable && matchesTemplate(row, mapped, varHeaders);
+          return out;
       });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allRows), "All Extracted Data");
 
       // 2. Simple Products Sheet (Mapped if template exists)
-      if (simpleRows.length > 0) {
-          let exportSimple = simpleRows;
-          let sheetName = "Simple Products";
-          if (simpleTemplateFile && simpleHeaders.length > 0) {
-              exportSimple = mapDataToTemplate(simpleRows, simpleMapping, simpleHeaders);
-              sheetName = "Mapped Simple";
-          }
-          const wsSimple = XLSX.utils.json_to_sheet(exportSimple);
-          XLSX.utils.book_append_sheet(wb, wsSimple, sheetName);
+      const simpleOut = routed.filter((r) => !r.variable).map((r) => r.mapped);
+      if (simpleOut.length > 0) {
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(simpleOut), simpleOn ? "Mapped Simple" : "Simple Products");
       }
 
       // 3. Variable Products Sheet (Mapped if template exists)
-      if (variableRows.length > 0) {
-          let exportVar = variableRows;
-          let sheetName = "Variable Products";
-          if (varTemplateFile && varHeaders.length > 0) {
-              exportVar = mapDataToTemplate(variableRows, varMapping, varHeaders);
-              sheetName = "Mapped Variable";
-          }
-          const wsVariable = XLSX.utils.json_to_sheet(exportVar);
-          XLSX.utils.book_append_sheet(wb, wsVariable, sheetName);
+      const varOut = routed.filter((r) => r.variable).map((r) => r.mapped);
+      if (varOut.length > 0) {
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(varOut), varOn ? "Mapped Variable" : "Variable Products");
       }
 
       saveWorkbook(wb, `OCR_Extract_${Date.now()}.xlsx`);

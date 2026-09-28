@@ -2,6 +2,12 @@ import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
 import {
+  toYesNo,
+  buildVariantName,
+  isVariableRow,
+  stripForSimple,
+  stripForVariable,
+  matchesTemplate,
   isCsvFile,
   parseCsvTemplate,
   isRewaaTemplate,
@@ -423,5 +429,151 @@ X,1
     expect(isCsvFile('export', 'text/csv')).toBe(true);
     expect(isCsvFile('template.xlsx')).toBe(false);
     expect(isCsvFile('template.xls', 'application/vnd.ms-excel')).toBe(false);
+  });
+});
+
+describe('part 2 — yes/no columns are enforced on Rewaa templates', () => {
+  it('toYesNo accepts the common spellings, in English and Arabic', () => {
+    for (const v of ['yes', 'YES', ' Yes ', 'y', 'true', 'TRUE', '1', 1, true, 'نعم']) expect(toYesNo(v)).toBe('yes');
+    for (const v of ['no', 'No', 'n', 'false', '0', 0, false, 'لا']) expect(toYesNo(v)).toBe('no');
+    for (const v of ['maybe', 'enabled', '2', '']) expect(toYesNo(v)).toBeUndefined();
+  });
+
+  it('an extracted `Yes` / `TRUE` / `نعم` arrives as the exact word the importer accepts', () => {
+    const rows = [{ a: 'Yes', b: 'TRUE', c: 'نعم', d: 'No' }];
+    const mapping = { Sellable: 'a', Purchasable: 'b', Weighted: 'c', 'Enable stock management': 'd' };
+    const [out] = mapRowsToTemplate(rows, mapping, SIMPLE_HEADERS);
+    expect([out.Sellable, out.Purchasable, out.Weighted, out['Enable stock management']]).toEqual(['yes', 'yes', 'yes', 'no']);
+  });
+
+  it('an out-of-list value falls back to the column default, as a blank does', () => {
+    const [out] = mapRowsToTemplate([{ a: 'maybe' }], { 'Enable stock management': 'a' }, SIMPLE_HEADERS);
+    expect(out['Enable stock management']).toBe('no');
+  });
+
+  it('pack flags are enforced too', () => {
+    const [out] = mapRowsToTemplate([{ a: 'FALSE' }], { 'Pack2 Sellable': 'a' }, SIMPLE_HEADERS);
+    expect(out['Pack2 Sellable']).toBe('no');
+  });
+
+  it('a NON-Rewaa template is left exactly as extracted', () => {
+    const [out] = mapRowsToTemplate([{ a: 'Yes' }], { Sellable: 'a' }, ['Name', 'Sellable']);
+    expect(out.Sellable).toBe('Yes');
+  });
+});
+
+describe('part 2 — Variant Name is constructed when the extraction omits it', () => {
+  it('GOLDEN: omitting Variant Name still reproduces the template’s own row exactly', () => {
+    const expected = VARIABLE[2].map((v) => String(v ?? ''));
+    const extracted = {
+      'Product Name': expected[0], Category: expected[1],
+      'Option 1': expected[5], 'Option 1 Value': expected[6],
+      'Variant SKU': expected[12], 'Retail Price': 0,
+    };
+    const [out] = mapRowsToTemplate([extracted], autoMap(VARIABLE_HEADERS, Object.keys(extracted)), VARIABLE_HEADERS);
+    expect(out['Variant Name']).toBe('حري | Hari | نص | Half');
+    expect(VARIABLE_HEADERS.map((h) => String(out[h] ?? ''))).toEqual(expected);
+  });
+
+  it('joins every option value present, skipping blanks', () => {
+    const out = { 'Product Name': 'Shirt', 'Option 1 Value': 'Red', 'Option 2 Value': '', 'Option 3 Value': 'L' };
+    expect(buildVariantName(out, Object.keys(out))).toBe('Shirt | Red | L');
+  });
+
+  it('is blank without a product name, or without any option value', () => {
+    expect(buildVariantName({ 'Product Name': '', 'Option 1 Value': 'Red' }, ['Product Name', 'Option 1 Value'])).toBe('');
+    expect(buildVariantName({ 'Product Name': 'Shirt', 'Option 1 Value': '' }, ['Product Name', 'Option 1 Value'])).toBe('');
+  });
+
+  it('never overwrites a Variant Name the extraction supplied', () => {
+    const row = { n: 'Shirt', o: 'Red', vn: 'Custom name' };
+    const [out] = mapRowsToTemplate([row], { 'Product Name': 'n', 'Option 1 Value': 'o', 'Variant Name': 'vn' }, VARIABLE_HEADERS);
+    expect(out['Variant Name']).toBe('Custom name');
+  });
+
+  it('is not added to a non-Rewaa template that happens to have the column', () => {
+    const [out] = mapRowsToTemplate(
+      [{ n: 'Shirt', o: 'Red' }],
+      { 'Product Name': 'n', 'Option 1 Value': 'o' },
+      ['Product Name', 'Option 1 Value', 'Variant Name'],
+    );
+    expect(out['Variant Name']).toBe('');
+  });
+});
+
+describe('part 2 — routing moved out of OcrTab behaves exactly as before', () => {
+  // The original inline code, verbatim, so the refactor is checked rather than trusted.
+  const origIsSimple = (r: any) => {
+    const t = String(r['Type'] || r['type'] || '').toLowerCase();
+    return t === 'simple' || (!t.includes('variable') && !t.includes('var'));
+  };
+  const origIsVariable = (r: any) => {
+    const t = String(r['Type'] || r['type'] || '').toLowerCase();
+    return t.includes('variable') || t.includes('var');
+  };
+  const origStripSimple = (row: any) => {
+    const n = { ...row };
+    Object.keys(n)
+      .filter((k) => { const l = k.toLowerCase(); return l.includes('option') || l.includes('variant'); })
+      .forEach((k) => delete n[k]);
+    return n;
+  };
+  const origStripVariable = (row: any) => {
+    const n = { ...row };
+    Object.keys(n)
+      .filter((k) => { const l = k.toLowerCase(); return l === 'product sku' || l === 'product_sku'; })
+      .forEach((k) => delete n[k]);
+    return n;
+  };
+  const samples: any[] = [
+    { Type: 'Simple' }, { Type: 'Variable' }, { type: 'variable' }, { Type: 'VAR' },
+    { Type: '', type: 'Variable' }, {}, { Type: 'something' },
+    { Type: 'Simple', 'Option 1': 'x', 'Variant SKU': 'y', 'Product SKU': 'z', Name: 'n' },
+    { Type: 'Variable', 'Product SKU': 'a', product_sku: 'b', 'Variant SKU': 'c', 'Option 1 Value': 'd' },
+  ];
+
+  it.each(samples.map((row, i) => [i, row]))('sample %i routes identically', (_i, row) => {
+    expect(isVariableRow(row)).toBe(origIsVariable(row));
+    expect(!isVariableRow(row)).toBe(origIsSimple(row)); // exact complements
+  });
+
+  it.each(samples.map((row, i) => [i, row]))('sample %i strips identically, keys in the same order', (_i, row) => {
+    expect(Object.entries(stripForSimple(row))).toEqual(Object.entries(origStripSimple(row)));
+    expect(Object.entries(stripForVariable(row))).toEqual(Object.entries(origStripVariable(row)));
+  });
+});
+
+describe('part 2 — comparison columns audit the mapping rather than restate it', () => {
+  const generic = { 'Product Name': 'Tea', 'Regular price': 13, SKU: 'T-1', Category: 'Drinks', Type: 'Simple' };
+
+  it('TRUE when every compared field arrived intact', () => {
+    const [mapped] = mapRowsToTemplate([generic], autoMap(SIMPLE_HEADERS, Object.keys(generic)), SIMPLE_HEADERS);
+    expect(matchesTemplate(generic, mapped, SIMPLE_HEADERS)).toBe(true);
+  });
+
+  it('FALSE when the price was mapped to the wrong column', () => {
+    const wrong = { ...autoMap(SIMPLE_HEADERS, Object.keys(generic)), 'Retail Price': 'SKU' };
+    const [mapped] = mapRowsToTemplate([generic], wrong, SIMPLE_HEADERS);
+    expect(matchesTemplate(generic, mapped, SIMPLE_HEADERS)).toBe(false);
+  });
+
+  it('FALSE when the price was set to Ignore — the case the check exists for', () => {
+    const ignored = { ...autoMap(SIMPLE_HEADERS, Object.keys(generic)), 'Retail Price': '' };
+    const [mapped] = mapRowsToTemplate([generic], ignored, SIMPLE_HEADERS);
+    expect(mapped['Retail Price']).toBe('');
+    expect(matchesTemplate(generic, mapped, SIMPLE_HEADERS)).toBe(false);
+  });
+
+  it('a field the extraction left blank is not compared', () => {
+    const noPrice = { 'Product Name': 'Iced Tea', Type: 'Simple' };
+    const [mapped] = mapRowsToTemplate([noPrice], autoMap(SIMPLE_HEADERS, Object.keys(noPrice)), SIMPLE_HEADERS);
+    expect(matchesTemplate(noPrice, mapped, SIMPLE_HEADERS)).toBe(true);
+  });
+
+  it('a constructed Variant Name is not treated as a mismatch', () => {
+    const v = { 'Product Name': 'حري | Hari', 'Option 1 Value': 'نص | Half', 'Variant SKU': 'G-1', Type: 'Variable' };
+    const [mapped] = mapRowsToTemplate([v], autoMap(VARIABLE_HEADERS, Object.keys(v)), VARIABLE_HEADERS);
+    expect(mapped['Variant Name']).toBe('حري | Hari | نص | Half');
+    expect(matchesTemplate(v, mapped, VARIABLE_HEADERS)).toBe(true);
   });
 });
