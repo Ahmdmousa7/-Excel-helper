@@ -532,7 +532,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
           const mapped = variable
               ? (varOn ? mapDataToTemplate([stripped], varMapping, varHeaders)[0] : stripped)
               : (simpleOn ? mapDataToTemplate([stripped], simpleMapping, simpleHeaders)[0] : stripped);
-          return { row, variable, mapped };
+          return { row, variable, stripped, mapped };
       });
 
       // 1. All Data Sheet. When a REWAA template is loaded, each row also says
@@ -540,11 +540,13 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       // it was routed to, and only if every compared field matches.
       const auditSimple = simpleOn && isRewaaTemplate(simpleHeaders);
       const auditVar = varOn && isRewaaTemplate(varHeaders);
-      const allRows = routed.map(({ row, variable, mapped }) => {
+      const allRows = routed.map(({ row, variable, stripped, mapped }) => {
           if (!auditSimple && !auditVar) return row;
           const out: Record<string, unknown> = { ...row };
-          if (auditSimple) out['In Rewaa Simple'] = !variable && matchesTemplate(row, mapped, simpleHeaders);
-          if (auditVar) out['In Rewaa Variable'] = variable && matchesTemplate(row, mapped, varHeaders);
+          // Compared against the row actually fed to the mapper, so the
+          // deliberate stripping of option/SKU columns can never read as loss.
+          if (auditSimple) out['In Rewaa Simple'] = !variable && matchesTemplate(stripped, mapped, simpleHeaders);
+          if (auditVar) out['In Rewaa Variable'] = variable && matchesTemplate(stripped, mapped, varHeaders);
           return out;
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allRows), "All Extracted Data");
