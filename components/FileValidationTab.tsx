@@ -598,7 +598,11 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
                       exportData.push(newRow);
                   });
 
-                  const ws = XLSX_STYLE.utils.aoa_to_sheet(exportData);
+                  // TD-049: built with the PLAIN library. `exportData` copies validated source
+                  // rows verbatim from the `raw: true` read, so a Date can reach this call, and
+                  // xlsx-js-style's aoa_to_sheet mis-converts it (wrong day at UTC+14 / UTC-11).
+                  // Styles below are unaffected — verified in exporterStyleCharacterization.test.ts.
+                  const ws = XLSX.utils.aoa_to_sheet(exportData);
                   // Apply Styles
                   const range = XLSX_STYLE.utils.decode_range(ws['!ref'] || "A1");
                   for (let C = range.s.c; C <= range.e.c; ++C) {
@@ -690,7 +694,9 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
           exportData.push(newRow);
       });
 
-      const ws = XLSX_STYLE.utils.aoa_to_sheet(exportData);
+      // TD-049: plain builder — same reason as the chunked path above. `exportData`
+      // carries source rows verbatim, so a Date can reach here.
+      const ws = XLSX.utils.aoa_to_sheet(exportData);
       const range = XLSX_STYLE.utils.decode_range(ws['!ref'] || "A1");
       
       for (let C = range.s.c; C <= range.e.c; ++C) {

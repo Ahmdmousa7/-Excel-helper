@@ -145,72 +145,60 @@ describe('raw-mode exporters via exportToExcelSingleSheet (Remove Blanks, Separa
     expect(reExport().z).toBe(SHEETJS_DEFAULT);
   });
 
-  it('the ROUNDED serial survives — which is not the same as the date being right', () => {
-    // Read the next test before trusting this one. `Math.round` hides the defect
-    // that matters: Excel renders a serial by TRUNCATING, so 46036.9994 displays
-    // as the 14th while rounding says the 15th. This assertion is kept because
-    // it is genuinely TZ-independent, but it is the weaker of the two.
-    expect(Math.round(reExport().v as number)).toBe(SERIAL);
-  });
-
-  it('CORRUPTION: in a far-offset timezone the exported cell renders the WRONG DAY', () => {
-    // Measured 2026-09-21 across six zones, feeding the real helpers:
-    //
-    //   UTC, Europe/London, America/New_York  → 46037           renders 1/15/26  ✅
-    //   Asia/Riyadh (+3)                      → 46037.000602    renders 1/15/26  ✅
-    //   Asia/Kolkata (+5:30)                  → 46037.000116    renders 1/15/26  ✅
-    //   Pacific/Kiritimati (+14)              → 46036.999769    renders 1/14/26  ❌
-    //   Pacific/Midway (-11)                  → 46036.999444    renders 1/14/26  ❌
-    //
-    // So "the calendar day is never wrong" — asserted in an earlier version of
-    // this file and in the audit — is FALSE. Once drift goes negative the
-    // truncation Excel applies for display lands on the previous day, and the
-    // user sees a date that is simply wrong. No warning, no error.
-    //
-    // This cannot be reproduced in-process: a timezone is fixed when the process
-    // starts, so CI (UTC) can never fail this. The assertion below therefore pins
-    // what IS reproducible everywhere — that `w`, the rendered text, is what must
-    // be checked, not the rounded number. Run the suite under
-    // `TZ=Pacific/Kiritimati` to see the failure the comment describes.
-    const rendered = reExport().w as string;
-    if (IS_UTC) expect(rendered).toBe('1/15/26');
-    else expect(typeof rendered).toBe('string');
-  });
-
-  it('DEFECT unique to this writer: any drift stays under a day, so the date is never wrong', () => {
-    // The bound is the assertion, because it is true in every timezone.
-    //
-    // History, because it is the useful part: this started life as an
-    // unconditional `toBeGreaterThan(SERIAL)` — it passed on a UTC+3 machine and
-    // failed under TZ=UTC, which is what CI runs. The second attempt branched on
-    // `getTimezoneOffset() === 0`, which review correctly rejected: that
-    // predicate does not predict drift either (see IS_UTC above). Measured
-    // behaviour is UTC exact, UTC+3 about 9 seconds heavy.
-    //
-    // The user-facing risk this pins: a sub-day drift keeps the calendar day
-    // correct but stops the cell being a clean date serial, so an exact
-    // comparison against a date misses. A drift of a day or more would be a
-    // different and much worse bug, and this test is what would catch it.
-    expect(Math.abs((reExport().v as number) - SERIAL)).toBeLessThan(1);
-  });
-
-  it('DEFECT unique to this writer: the 1900 epoch boundary shifts by a day', () => {
-    // Serial 1 → 2. Not a realistic business date, but it proves this path is
-    // lossy rather than merely reformatting — and it is the path used by the two
-    // pure pass-through tools.
-    expect(reExport(1).v).toBe(2);
-  });
-
-  it.skipIf(!IS_UTC)('under UTC — the timezone CI runs — the serial round-trips exactly', () => {
-    // Skipped rather than inverted off-UTC, because what happens in another
-    // zone is not predictable from the offset alone. Under UTC it is exact, and
-    // CI is where this assertion earns its keep.
-    //
-    // This was originally an `it.fails()` asserting the opposite, which is how
-    // the whole timezone problem surfaced: the "desired" behaviour already held
-    // under UTC, so Vitest raised "Expect test to fail". An inverted marker is
-    // only valid while the defect is unconditional.
+  it('FIXED (TD-049): the serial is EXACT, in every timezone', () => {
+    // Was `Math.round(...)`, a hedge that existed only because the value drifted.
+    // Rounding was also what HID the corruption, since Excel truncates rather
+    // than rounds for display. Now the value is exact and the hedge is gone.
     expect(reExport().v).toBe(SERIAL);
+  });
+
+  it('FIXED (TD-049): the rendered day is correct, and this is the assertion that matters', () => {
+    // What this used to do, and why it is the most important test in the file.
+    //
+    // Measured 2026-09-21 on the OLD code path, across six timezones:
+    //
+    //   UTC, Europe/London, America/New_York  -> 46037          rendered 1/15/26  ok
+    //   Asia/Riyadh (+3)                      -> 46037.000602   rendered 1/15/26  ok
+    //   Asia/Kolkata (+5:30)                  -> 46037.000116   rendered 1/15/26  ok
+    //   Pacific/Kiritimati (+14)              -> 46036.999769   rendered 1/14/26  WRONG
+    //   Pacific/Midway (-11)                  -> 46036.999444   rendered 1/14/26  WRONG
+    //
+    // Excel TRUNCATES a serial for display, so once drift went negative the cell
+    // showed the previous day — a wrong date, silently, depending on where the
+    // user sat. Invisible under UTC, so CI could never have caught it.
+    //
+    // Assert on `w`, the rendered text, not on a rounded number: rounding is
+    // what concealed this for two rounds of analysis.
+    expect(reExport().w).toBe('1/15/26');
+  });
+
+  it('FIXED (TD-049): there is no drift left to bound', () => {
+    // This assertion went through three wrong versions before the fix, each one
+    // assuming rather than measuring: `toBeGreaterThan(SERIAL)` (passed only at
+    // UTC+3), then a branch on `getTimezoneOffset() === 0` (which does not
+    // predict drift), then a sub-day bound (true, but it tolerated the very
+    // corruption that mattered). With the builder swapped there is nothing to
+    // hedge: the round trip is exact everywhere.
+    expect(reExport().v as number).toBe(SERIAL);
+  });
+
+  it('FIXED (TD-049): the 1900 epoch boundary no longer shifts', () => {
+    // Serial 1 came back as 2 in EVERY timezone, UTC included — the one half of
+    // this defect that CI could have caught, had anything asserted it.
+    expect(reExport(1).v).toBe(1);
+  });
+
+  it('the history of this block, kept deliberately', () => {
+    // Four assertions in this describe were wrong before they were right, and
+    // every one failed the same way: asserting what I expected instead of
+    // measuring what happened. An `it.fails()` that already passed under UTC, a
+    // `toBeGreaterThan` that only held at UTC+3, an offset predicate that does
+    // not predict drift, a `Math.round` that hid a wrong date. The fix is one
+    // line; finding out what to fix took three corrections.
+    //
+    // This test asserts the one thing that ties them together: the exported cell
+    // must be a real date cell, not a string and not a hedge.
+    expect(reExport().t).toBe('n');
   });
 });
 

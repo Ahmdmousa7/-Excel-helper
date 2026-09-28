@@ -55,7 +55,25 @@ export const extractSheets = (workbook: any): string[] => {
 
 export const exportToExcelSingleSheet = (data: any[][], sheetName: string): ArrayBuffer => {
   const wb = XLSX_STYLE.utils.book_new();
-  const ws = XLSX_STYLE.utils.aoa_to_sheet(data);
+  // Build with the PLAIN library, write with the styled one. TD-049.
+  //
+  // `xlsx-js-style` sits on the SheetJS 0.18.5 base (TD-022), whose
+  // `aoa_to_sheet` converts a JS `Date` to a serial through local time
+  // incorrectly. The error is small but signed, and Excel TRUNCATES a serial for
+  // display — so at UTC+14 and UTC-11 the drift went negative and 15 Jan was
+  // rendered as `1/14/26`. A wrong date, silently, depending on where the user
+  // sat. It is invisible under UTC, so CI could never have caught it.
+  //
+  // `aoa_to_sheet` is where Date → serial happens; `write` only serialises what
+  // it is given. So building with the maintained fork and writing with the
+  // styled library keeps full style support while the styled library never sees
+  // a `Date`. Verified by XML inspection in
+  // `tests/unit/exporterStyleCharacterization.test.ts`: cell styles, number
+  // formats, column widths and plain-cell output are byte-identical either way.
+  //
+  // This does NOT address format fidelity — `dd/mm/yyyy` still exports as
+  // `m/d/yy`. That is the other half of TD-049 and a larger change.
+  const ws = XLSX.utils.aoa_to_sheet(data);
   XLSX_STYLE.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
   const buffer = XLSX_STYLE.write(wb, { bookType: 'xlsx', type: 'array' });
   return buffer;

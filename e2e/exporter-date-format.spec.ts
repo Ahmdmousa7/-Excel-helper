@@ -26,6 +26,7 @@ import { test, expect, TOOL, AppShell } from './fixtures';
 import type { Page } from '@playwright/test';
 import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
+import JSZip from 'jszip';
 
 const DATE_SERIAL = 46037; // 2026-01-15
 const DATE_FMT = 'yyyy-mm-dd';
@@ -122,5 +123,54 @@ test.describe('Exporter date format — reproduction', () => {
     expect(dateCell?.w, 'expected a rendered date, not a serial').toContain('26');
     expect(dateCell?.w, 'the serial should not be visible').not.toBe('46037');
     expect(dateCell?.z, 'the original format should have been replaced').toBe('m/d/yy');
+  });
+});
+
+test.describe('TD-049 — the other two consumers of exportToExcelSingleSheet', () => {
+  /**
+   * Remove Blanks is covered above. The shared helper has three consumers, and a
+   * unit test on the helper does not prove the other two reach it with real data
+   * through a real browser. Separator is the purest of them: it copies whole
+   * rows into one file per sheet with no transformation at all.
+   *
+   * These assert the FIXED behaviour (TD-049) — exact serial, correct rendered
+   * day. Playwright pins `timezoneId: 'UTC'`, where the old code was already
+   * correct, so these guard against regression rather than reproducing the bug;
+   * the timezone dimension is covered by the unit suite, which is run under
+   * seven zones.
+   */
+  test('Separator: a dated column survives the ZIP export exactly', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    await app.goto();
+    await app.openTool(TOOL.separator);
+
+    await page.locator('input[type="file"]').first().setInputFiles({
+      name: 'dated.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      buffer: makeDatedWorkbook(),
+    });
+
+    const btn = page.getByRole('button', { name: /Download ZIP Repository/i });
+    await btn.waitFor({ state: 'visible', timeout: 30_000 });
+    const download = page.waitForEvent('download', { timeout: 60_000 });
+    await btn.click();
+    const file = await download;
+
+    // One .xlsx per sheet, inside a ZIP.
+    const zip = await JSZip.loadAsync(readFileSync((await file.path())!));
+    const entry = Object.keys(zip.files).find((n) => n.endsWith('.xlsx'));
+    expect(entry, 'the ZIP contains no .xlsx').toBeTruthy();
+
+    const inner = await zip.files[entry!].async('nodebuffer');
+    const wb = XLSX.read(inner, { type: 'buffer', cellNF: true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const cell = Object.keys(sheet)
+      .filter((k) => !k.startsWith('!'))
+      .map((k) => sheet[k])
+      .find((c) => typeof c.v === 'number' && Math.floor(c.v) === DATE_SERIAL);
+
+    expect(cell, 'no cell holds the date serial').toBeTruthy();
+    expect(cell.v, 'the serial drifted — TD-049 has regressed').toBe(DATE_SERIAL);
+    expect(cell.w, 'the rendered day is wrong — TD-049 has regressed').toContain('15');
   });
 });
