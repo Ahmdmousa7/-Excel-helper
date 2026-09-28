@@ -171,16 +171,39 @@ export function mapRowsToTemplate(
   mapping: Mapping,
   templateHeaders: readonly unknown[],
 ): TemplateRow[] {
+  // Defaults are Rewaa's, so they apply to Rewaa templates only. The mapping
+  // panel accepts ANY template — a Salla, Zid or custom sheet with a column
+  // called `Sellable` or `Cost` must not silently receive `yes` / `0` it was
+  // never designed for. Other templates keep the old behaviour: blank.
+  const applyDefaults = isRewaaTemplate(templateHeaders);
   return rows.map((row) => {
     const out: TemplateRow = {};
     for (const h of templateHeaders) {
       const key = String(h);
       const src = getOwn(mapping, key);
       const value = src ? getOwn(row, src) : undefined;
-      setOwn(out, key, isBlank(value) ? (defaultFor(key) ?? '') : value);
+      const fallback = applyDefaults ? (defaultFor(key) ?? '') : '';
+      setOwn(out, key, isBlank(value) ? fallback : value);
     }
     return out;
   });
+}
+
+/**
+ * Columns only a Rewaa import template has together. Both templates — Simple
+ * and Variable — carry all three; generic product sheets rarely carry any.
+ */
+const REWAA_SIGNATURE = ['enable stock management', 'tracked by batch', 'tracked by serial'] as const;
+
+/**
+ * Is this a Rewaa import template? True when every signature column is present
+ * AND there is a Rewaa SKU column (`Product SKU` for Simple, `Variant SKU` for
+ * Variable). Deliberately strict: a false negative costs blanks the user can
+ * see; a false positive silently fills another platform's columns.
+ */
+export function isRewaaTemplate(templateHeaders: readonly unknown[]): boolean {
+  const have = new Set(templateHeaders.map(normalizeHeader));
+  return REWAA_SIGNATURE.every((c) => have.has(c)) && (have.has('product sku') || have.has('variant sku'));
 }
 
 /** Template headers as loaded, with a CSV's leading BOM removed from the first. */

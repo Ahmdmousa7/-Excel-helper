@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
 import {
+  isRewaaTemplate,
   normalizeHeader,
   resolveSourceKey,
   autoMap,
@@ -143,7 +144,12 @@ describe('autoMap', () => {
 });
 
 describe('mapRowsToTemplate', () => {
-  const headers = ['Product Name', 'Sellable', 'Retail Price', 'Tax Code'];
+  // A minimal REWAA-shaped template: the three signature columns plus a Rewaa
+  // SKU column, so defaults apply. See the scoping block below for non-Rewaa.
+  const headers = [
+    'Product Name', 'Product SKU', 'Sellable', 'Retail Price', 'Tax Code',
+    'Enable stock management', 'Tracked by batch', 'Tracked by serial',
+  ];
 
   it('fills a column with no source from the template default', () => {
     const [out] = mapRowsToTemplate([{ n: 'X' }], { 'Product Name': 'n' }, headers);
@@ -291,5 +297,39 @@ describe('header names that collide with Object.prototype', () => {
     Object.defineProperty(row, '__proto__', { value: 'kept', enumerable: true });
     const [out] = mapRowsToTemplate([row], mapping, ['__proto__']);
     expect(Object.getOwnPropertyDescriptor(out, '__proto__')?.value).toBe('kept');
+  });
+});
+
+describe('defaults are scoped to Rewaa templates', () => {
+  /**
+   * The mapping panel accepts ANY template. Rewaa's defaults must not leak into
+   * a Salla, Zid or custom sheet that happens to share a column name.
+   */
+  it('both real Rewaa templates are recognised', () => {
+    expect(isRewaaTemplate(SIMPLE_HEADERS)).toBe(true);
+    expect(isRewaaTemplate(VARIABLE_HEADERS)).toBe(true);
+  });
+
+  it('a generic sheet with the same column NAMES is not', () => {
+    expect(isRewaaTemplate(['Name', 'SKU', 'Price', 'Sellable', 'Cost', 'Weighted'])).toBe(false);
+  });
+
+  it('the signature columns alone are not enough without a Rewaa SKU column', () => {
+    expect(isRewaaTemplate(['Enable stock management', 'Tracked by batch', 'Tracked by serial', 'SKU'])).toBe(false);
+  });
+
+  it('recognition survives case, spacing and a BOM', () => {
+    expect(isRewaaTemplate(['\uFEFFproduct sku', 'ENABLE STOCK MANAGEMENT', 'tracked_by_batch', 'Tracked  by serial'])).toBe(true);
+  });
+
+  it('a NON-Rewaa template gets blanks, not Rewaa defaults', () => {
+    const generic = ['Name', 'Sellable', 'Cost', 'Weighted'];
+    const [out] = mapRowsToTemplate([{}], {}, generic);
+    expect(out).toEqual({ Name: '', Sellable: '', Cost: '', Weighted: '' });
+  });
+
+  it('a non-Rewaa template still maps its data normally', () => {
+    const [out] = mapRowsToTemplate([{ n: 'X', s: 'yes' }], { Name: 'n', Sellable: 's' }, ['Name', 'Sellable']);
+    expect(out).toEqual({ Name: 'X', Sellable: 'yes' });
   });
 });
