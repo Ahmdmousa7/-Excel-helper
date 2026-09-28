@@ -3,7 +3,7 @@ import { FileData, LogEntry, ProcessingStatus } from '../types';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { readExcelFile, getSheetData, saveWorkbook } from '../services/excelService';
 import { aiService } from '../services/aiServiceFactory';
-import { autoMap, refreshMapping, mapRowsToTemplate, cleanTemplateHeaders } from '../utils/templateMapping';
+import { autoMap, refreshMapping, mapRowsToTemplate, cleanTemplateHeaders, isCsvFile, parseCsvTemplate } from '../utils/templateMapping';
 import ProgressBar from './ProgressBar';
 import { 
   ScanText, UploadCloud, FileText, Zap, TableProperties, Edit3, 
@@ -115,10 +115,17 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
     const file = e.target.files?.[0];
     if (file) {
       try {
-        const data = await readExcelFile(file);
-        const firstSheet = data.sheets[0];
-        const rows = getSheetData(data.workbook, firstSheet, false); // Get all rows
-        
+        let rows: unknown[][];
+        if (isCsvFile(file.name, file.type)) {
+            // Decode as UTF-8 before parsing. readExcelFile would pass raw bytes and
+            // SheetJS would read a BOM-less UTF-8 CSV as Latin-1, turning Arabic
+            // headers into mojibake that matches nothing (TD-050).
+            rows = parseCsvTemplate(XLSX, await file.text());
+        } else {
+            const data = await readExcelFile(file);
+            rows = getSheetData(data.workbook, data.sheets[0], false);
+        }
+
         if (rows.length > 0) {
            // Row 1 only. Row 2 of a Rewaa template is a spec row ("Text | required")
            // and must never be treated as headers or data (D7).

@@ -8,8 +8,11 @@
  * and missed by the checker, and correct rows were reported as mismatches.
  * Normalising in exactly one place makes that class of bug unrepresentable.
  *
- * Pure functions, no React, no SheetJS — testable against the real templates.
+ * Pure functions, no React, and no RUNTIME SheetJS dependency (the one parser
+ * takes the library as a parameter) — testable against the real templates.
  */
+
+import type * as XLSXNS from 'xlsx';
 
 export type TemplateRow = Record<string, unknown>;
 export type Mapping = Record<string, string>;
@@ -231,6 +234,30 @@ const REWAA_SIGNATURE = ['enable stock management', 'tracked by batch', 'tracked
 export function isRewaaTemplate(templateHeaders: readonly unknown[]): boolean {
   const have = new Set(templateHeaders.map(normalizeHeader));
   return REWAA_SIGNATURE.every((c) => have.has(c)) && (have.has('product sku') || have.has('variant sku'));
+}
+
+/** Is this upload a CSV? By extension first, MIME type as a fallback. */
+export const isCsvFile = (name: string, mimeType = ''): boolean =>
+  /\.csv$/i.test(name) || mimeType === 'text/csv';
+
+/**
+ * Rows of a CSV template from its DECODED TEXT — pass `await file.text()`.
+ *
+ * Why not `readExcelFile`: it hands SheetJS the raw bytes, and a UTF-8 CSV
+ * without a BOM (every Google Sheets export) is then decoded as Latin-1, so an
+ * Arabic header comes out as mojibake, matches nothing, and is written back to
+ * the export as garbage. That is TD-050. `File.text()` decodes as UTF-8 and
+ * drops a BOM, so parsing the text sidesteps it. Scoped to template upload on
+ * purpose — the app-wide fix belongs to TD-050 and touches `.xls` too.
+ *
+ * The SheetJS instance is passed in, as `lookupEngine` does, so this module
+ * carries no runtime dependency on the library.
+ */
+export function parseCsvTemplate(lib: typeof XLSXNS, text: string): unknown[][] {
+  const wb = lib.read(text, { type: 'string' });
+  return lib.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {
+    header: 1, defval: '', raw: false,
+  }) as unknown[][];
 }
 
 /** Template headers as loaded, with a CSV's leading BOM removed from the first. */

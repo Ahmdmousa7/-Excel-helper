@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
 import {
+  isCsvFile,
+  parseCsvTemplate,
   isRewaaTemplate,
   refreshMapping,
   normalizeHeader,
@@ -373,5 +375,53 @@ describe('refreshMapping — a second extraction with different column names', (
   it('is idempotent — refreshing twice with the same extraction changes nothing', () => {
     const once = refreshMapping(H, ['Product Name', 'Price', 'SKU'], {});
     expect(refreshMapping(H, ['Product Name', 'Price', 'SKU'], once)).toEqual(once);
+  });
+});
+
+describe('CSV template upload decodes as UTF-8 — closing TD-050 for this path only', () => {
+  /**
+   * Goes through a real `File` and `File.text()`, which is what the upload
+   * handler calls, rather than simulating the decode.
+   */
+  const asFile = (bytes: BlobPart, name = 'template.csv') => new File([bytes], name, { type: 'text/csv' });
+
+  it('the real Rewaa template: same headers, and Arabic data intact', async () => {
+    const buf = readFileSync(new URL('../fixtures/rewaa-simple-template.csv', import.meta.url));
+    const rows = parseCsvTemplate(XLSX, await asFile(new Uint8Array(buf)).text());
+    expect(cleanTemplateHeaders(rows[0])).toEqual(SIMPLE_HEADERS);
+    expect(String(rows[2][0])).toContain('حوار بلدي الكيلو');
+  });
+
+  it('a template with ARABIC headers keeps them exactly', async () => {
+    const csv = `اسم المنتج,السعر,الباركود
+شاي,13,628
+`;
+    const rows = parseCsvTemplate(XLSX, await asFile(csv).text());
+    expect(cleanTemplateHeaders(rows[0])).toEqual(['اسم المنتج', 'السعر', 'الباركود']);
+  });
+
+  it('CONTRAST: the same Arabic headers through the app’s byte path come out as mojibake', () => {
+    // Why the CSV branch exists. This is readExcelFile's read, and TD-050.
+    const bytes = new TextEncoder().encode(`اسم المنتج,السعر
+شاي,13
+`);
+    const viaApp = rowsOf(bytes.buffer.slice(0) as ArrayBuffer)[0].map(String);
+    expect(viaApp).not.toEqual(['اسم المنتج', 'السعر']);
+    expect(/\p{Script=Arabic}/u.test(viaApp.join(''))).toBe(false);
+  });
+
+  it('a BOM-prefixed CSV does not leak the BOM into the first header', async () => {
+    const withBom = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(`Product Name,SKU
+X,1
+`)]);
+    const rows = parseCsvTemplate(XLSX, await asFile(withBom).text());
+    expect(cleanTemplateHeaders(rows[0])[0]).toBe('Product Name');
+  });
+
+  it('isCsvFile: by extension, case-insensitive, with MIME as a fallback', () => {
+    expect(isCsvFile('Rewaa.CSV')).toBe(true);
+    expect(isCsvFile('export', 'text/csv')).toBe(true);
+    expect(isCsvFile('template.xlsx')).toBe(false);
+    expect(isCsvFile('template.xls', 'application/vnd.ms-excel')).toBe(false);
   });
 });
