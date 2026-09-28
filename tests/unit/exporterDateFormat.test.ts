@@ -248,11 +248,14 @@ describe('the shared choke points, in isolation', () => {
   });
 });
 
-describe('TD-049: the proposed fix, pinned before it is implemented', () => {
+describe('TD-049: the fix, and proof the old builder is still broken', () => {
   /**
-   * **No production code is changed by this block.** It inlines the candidate so
-   * the properties are locked in before anyone edits `exportToExcelSingleSheet`,
-   * and so the choice is justified by measurement rather than argument.
+   * **No production code is changed by this block.** It inlines BOTH builders so
+   * the comparison survives the fix: `currentPath` is the old, broken builder,
+   * kept deliberately so the reason for the change stays demonstrable rather
+   * than becoming folklore in a commit message. If someone ever reverts
+   * `exportToExcelSingleSheet` to the styled builder, these tests still say why
+   * that is wrong.
    *
    * The defect is not in this repository's code. `exportToExcelSingleSheet`
    * builds its sheet with `XLSX_STYLE.utils.aoa_to_sheet` — xlsx-js-style, which

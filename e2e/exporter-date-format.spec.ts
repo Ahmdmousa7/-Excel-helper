@@ -164,12 +164,17 @@ test.describe('TD-049 — the other two consumers of exportToExcelSingleSheet', 
     const inner = await zip.files[entry!].async('nodebuffer');
     const wb = XLSX.read(inner, { type: 'buffer', cellNF: true });
     const sheet = wb.Sheets[wb.SheetNames[0]];
+    // Match within a day, NOT `Math.floor(...) === DATE_SERIAL`. If the bug
+    // returns with NEGATIVE drift (46036.9997, which is what UTC-11 produced)
+    // floor gives 46036, the find misses, and the test fails with "no cell holds
+    // the date serial" — blaming the wrong thing entirely. A guard that reports
+    // the wrong cause when it fires is worse than no guard.
     const cell = Object.keys(sheet)
       .filter((k) => !k.startsWith('!'))
       .map((k) => sheet[k])
-      .find((c) => typeof c.v === 'number' && Math.floor(c.v) === DATE_SERIAL);
+      .find((c) => typeof c.v === 'number' && Math.abs(c.v - DATE_SERIAL) < 1);
 
-    expect(cell, 'no cell holds the date serial').toBeTruthy();
+    expect(cell, 'no cell holds anything near the date serial').toBeTruthy();
     expect(cell.v, 'the serial drifted — TD-049 has regressed').toBe(DATE_SERIAL);
     expect(cell.w, 'the rendered day is wrong — TD-049 has regressed').toContain('15');
   });

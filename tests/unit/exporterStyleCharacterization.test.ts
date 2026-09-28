@@ -204,7 +204,15 @@ describe('TD-049 — does the plain builder lose anything the styled one keeps?'
 
 describe('TD-049 — the date cell, which is the whole reason for the change', () => {
   /** A Date object is what `raw: true` hands an exporter; that is the input that breaks. */
-  const dateRows = () => [['When'], [new Date(Date.UTC(2026, 0, 15))]];
+  // LOCAL midnight, not `Date.UTC(...)`. This fixture was wrong at first and the
+  // review caught it: a UTC-midnight Date is offset by the zone, so the test
+  // failed at UTC-11 (46036.54) and UTC+14 (46037.58) — the exact class of bug
+  // this work fixes, reproduced in the test meant to verify the fix.
+  //
+  // The app never produces such a Date: `sheet_to_json({ raw: true })` builds it
+  // from the serial through LOCAL time, so it represents local midnight, which
+  // round-trips exactly in any zone. `new Date(y, m, d)` matches that.
+  const dateRows = () => [['When'], [new Date(2026, 0, 15)]];
 
   async function dateFacts(build: Builder) {
     const ws = build(dateRows());
@@ -224,9 +232,10 @@ describe('TD-049 — the date cell, which is the whole reason for the change', (
     expect(plain.numFmt).toBe(styled.numFmt);
   });
 
-  it('the PLAIN builder writes the exact serial, in this timezone', async () => {
-    // TZ-independent by construction: the input is an explicit UTC instant, and
-    // the plain builder was measured exact in all six timezones tested.
+  it('the PLAIN builder writes the exact serial, in EVERY timezone', async () => {
+    // Verified under UTC, Pacific/Midway (-11) and Pacific/Kiritimati (+14),
+    // rather than asserted. The earlier version of this test claimed to be
+    // "TZ-independent by construction" and was not — it was only ever run in UTC.
     expect((await dateFacts(buildPlain)).v).toBe(SERIAL);
   });
 });
