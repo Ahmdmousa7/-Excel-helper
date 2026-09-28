@@ -3,7 +3,7 @@ import { FileData, LogEntry, ProcessingStatus } from '../types';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { readExcelFile, getSheetData, saveWorkbook } from '../services/excelService';
 import { aiService } from '../services/aiServiceFactory';
-import { autoMap, mapRowsToTemplate, cleanTemplateHeaders } from '../utils/templateMapping';
+import { autoMap, refreshMapping, mapRowsToTemplate, cleanTemplateHeaders } from '../utils/templateMapping';
 import ProgressBar from './ProgressBar';
 import { 
   ScanText, UploadCloud, FileText, Zap, TableProperties, Edit3, 
@@ -167,14 +167,15 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       }
   };
 
-  // A template loaded BEFORE extraction had nothing to match against, and
-  // auto-mapping used to run only at upload — so every column stayed unmapped.
-  // When an extraction produces headers, fill the entries that are still absent.
-  // Never touches a choice the user made, including an explicit "-- Ignore --".
+  // Re-map whenever an extraction produces headers. Covers two cases the
+  // upload-time auto-map missed: a template loaded BEFORE extraction (nothing to
+  // match yet), and a SECOND extraction whose column names differ from the
+  // first (a stale mapping would otherwise export blanks). Keeps an explicit
+  // "-- Ignore --" and any mapping whose column still exists. See refreshMapping.
   useEffect(() => {
       if (rawHeaders.length === 0) return;
-      if (simpleHeaders.length > 0) setSimpleMapping(prev => autoMap(simpleHeaders, rawHeaders, prev));
-      if (varHeaders.length > 0) setVarMapping(prev => autoMap(varHeaders, rawHeaders, prev));
+      if (simpleHeaders.length > 0) setSimpleMapping(prev => refreshMapping(simpleHeaders, rawHeaders, prev));
+      if (varHeaders.length > 0) setVarMapping(prev => refreshMapping(varHeaders, rawHeaders, prev));
   }, [rawHeaders, simpleHeaders, varHeaders]);
 
   // --- SORT & FILTER HELPERS ---

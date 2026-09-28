@@ -154,6 +154,33 @@ export function autoMap(
   return out;
 }
 
+/**
+ * Re-map after a NEW extraction, keeping what is still valid.
+ *
+ * `autoMap` alone never overwrites, which protects the user's choices — but it
+ * also froze auto-filled guesses. Extraction 1 names the column `Regular price`
+ * and `Retail Price` maps to it; extraction 2 calls it `Price`; the stale entry
+ * survived and the new prices exported BLANK, silently. Measured before the fix.
+ *
+ * So: an entry pointing at a column that does not exist in THIS extraction can
+ * only ever export blank, and is dropped and re-resolved. Kept untouched:
+ *   - an explicit `''` — the user's "-- Ignore --";
+ *   - any entry whose column still exists, whoever chose it.
+ */
+export function refreshMapping(
+  templateHeaders: readonly unknown[],
+  available: readonly string[],
+  existing: Mapping,
+): Mapping {
+  const present = new Set(available);
+  const kept: Mapping = {};
+  for (const k of Object.keys(existing)) {
+    const v = existing[k];
+    if (v === '' || present.has(v)) setOwn(kept, k, v);
+  }
+  return autoMap(templateHeaders, available, kept);
+}
+
 const isBlank = (v: unknown): boolean =>
   v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
 

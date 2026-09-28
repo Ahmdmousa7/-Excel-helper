@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
 import {
   isRewaaTemplate,
+  refreshMapping,
   normalizeHeader,
   resolveSourceKey,
   autoMap,
@@ -331,5 +332,46 @@ describe('defaults are scoped to Rewaa templates', () => {
   it('a non-Rewaa template still maps its data normally', () => {
     const [out] = mapRowsToTemplate([{ n: 'X', s: 'yes' }], { Name: 'n', Sellable: 's' }, ['Name', 'Sellable']);
     expect(out).toEqual({ Name: 'X', Sellable: 'yes' });
+  });
+});
+
+describe('refreshMapping — a second extraction with different column names', () => {
+  const H = [
+    'Product Name', 'Product SKU', 'Retail Price',
+    'Enable stock management', 'Tracked by batch', 'Tracked by serial',
+  ];
+
+  it('REGRESSION: a stale auto-mapping no longer exports the new prices as blank', () => {
+    // Extraction 1 calls the price `Regular price`; extraction 2 calls it `Price`.
+    // With autoMap alone the stale entry survived and 13 exported as ''.
+    const first = refreshMapping(H, ['Product Name', 'Regular price'], {});
+    expect(first['Retail Price']).toBe('Regular price');
+
+    const second = refreshMapping(H, ['Product Name', 'Price'], first);
+    expect(second['Retail Price']).toBe('Price');
+
+    const [out] = mapRowsToTemplate([{ 'Product Name': 'Tea', Price: 13 }], second, H);
+    expect(out['Retail Price']).toBe(13);
+  });
+
+  it('keeps an explicit "-- Ignore --" across extractions', () => {
+    const next = refreshMapping(H, ['Product Name', 'Price'], { 'Retail Price': '' });
+    expect(next['Retail Price']).toBe('');
+  });
+
+  it('keeps a user choice whose column still exists, even over a better synonym', () => {
+    // The user deliberately pointed Retail Price at `Promo`; `Price` also exists.
+    const next = refreshMapping(H, ['Promo', 'Price'], { 'Retail Price': 'Promo' });
+    expect(next['Retail Price']).toBe('Promo');
+  });
+
+  it('drops a mapping whose column vanished, and leaves it absent if nothing replaces it', () => {
+    const next = refreshMapping(H, ['Product Name'], { 'Retail Price': 'Regular price' });
+    expect(Object.prototype.hasOwnProperty.call(next, 'Retail Price')).toBe(false);
+  });
+
+  it('is idempotent — refreshing twice with the same extraction changes nothing', () => {
+    const once = refreshMapping(H, ['Product Name', 'Price', 'SKU'], {});
+    expect(refreshMapping(H, ['Product Name', 'Price', 'SKU'], once)).toEqual(once);
   });
 });
