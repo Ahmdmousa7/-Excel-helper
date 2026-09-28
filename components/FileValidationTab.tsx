@@ -7,7 +7,7 @@ import { FileData, ProcessingStatus, LogEntry } from '../types';
 import { getSheetData, saveWorkbook } from '../services/excelService';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { identifierKey, nextFreeSuffix, resolveBarcodes } from '../utils/identifiers';
-import { groupIssues, sheetNameFor } from '../utils/issueSheets';
+import { groupIssues, sheetNameFor, type IssueGroup } from '../utils/issueSheets';
 import ProgressBar from './ProgressBar';
 import { 
   ShieldCheck, UploadCloud, FileSpreadsheet, Settings, 
@@ -298,7 +298,9 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
       const errorDescColIndex = headers.length; 
       
       const skuSet = new Map<string, number[]>();
-      const barcodeSet = new Map<string, number[]>();
+      // Barcode occurrences are CELLS, not rows: one row can carry the same code in
+      // two barcode columns, and each needs its own fix.
+      const barcodeSet = new Map<string, { r: number; c: number }[]>();
       const foundSuppliers = new Set<string>();
       
       const subcategoryParents = new Map<string, string>(); // lowercase subcat -> original cat
@@ -379,7 +381,7 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
                               skuSet.get(idKey)!.push(r);
                           } else if (idKey && field.key === 'barcode') {
                               if (!barcodeSet.has(idKey)) barcodeSet.set(idKey, []);
-                              barcodeSet.get(idKey)!.push(r);
+                              barcodeSet.get(idKey)!.push({ r, c: cIdx });
                           }
                       }
                   }
@@ -541,14 +543,10 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
       // its first holder and suffixes the rest, as SKUs already did; a barcode
       // equal to an SKU is suffixed on every row, because the SKU claims the
       // base code. Only the barcode cell that actually collided is rewritten.
-      const barcodeCols = mapping['barcode'] || [];
       for (const fix of resolveBarcodes(barcodeSet, new Set(skuSet.keys()), taken)) {
-          barcodeCols.forEach(c => {
-              if (identifierKey(newRows[fix.rowIndex][c]) === fix.key) newRows[fix.rowIndex][c] = fix.newValue;
-          });
-          currentActionsLog[fix.rowIndex].push(
-              fix.reason === 'duplicate' ? `Resolved Duplicate Barcode` : `Resolved Barcode = SKU`,
-          );
+          newRows[fix.at.r][fix.at.c] = fix.newValue; // exactly the colliding cell
+          const action = fix.reason === 'duplicate' ? `Resolved Duplicate Barcode` : `Resolved Barcode = SKU`;
+          if (!currentActionsLog[fix.at.r].includes(action)) currentActionsLog[fix.at.r].push(action);
       }
 
       setProcessedData(newRows);
@@ -570,15 +568,21 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
   // row, so raw text would mean one sheet per row. `inScope` limits the sheets
   // to one ZIP part. Built with the PLAIN sheet builder: these are source rows,
   // so a Date can reach them (TD-049).
+  // `groups` is computed ONCE per export and filtered per part: categorising
+  // every error and action again for each ZIP part was O(parts x issues) regex
+  // work, and a large file can have dozens of parts.
   const appendIssueSheets = (
       wb: any,
       exportHeaders: string[],
       toExportRow: (row: any[]) => any[],
+      groups: IssueGroup[],
       inScope: (rowIndex: number) => boolean = () => true,
   ) => {
       const used = new Set<string>(wb.SheetNames.map((n: string) => n.toLowerCase()));
-      for (const group of groupIssues(errors, actionsLog, inScope)) {
-          const issueData = [exportHeaders, ...group.rows.map((r) => toExportRow(processedData[r]))];
+      for (const group of groups) {
+          const rows = group.rows.filter(inScope);
+          if (rows.length === 0) continue;
+          const issueData = [exportHeaders, ...rows.map((r) => toExportRow(processedData[r]))];
           const ws = XLSX.utils.aoa_to_sheet(issueData);
           const fill = group.kind === 'error' ? 'DC2626' : '059669';
           exportHeaders.forEach((_, c) => {
@@ -592,6 +596,7 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
 
   const handleExport = async () => {
       if (processedData.length === 0) return;
+      const issueGroups = groupIssues(errors, actionsLog);
       
       // BATCH EXPORT LOGIC
       if (exportBatchSize > 0 && processedData.length > exportBatchSize) {
@@ -680,7 +685,7 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
                       const r = [...row];
                       if (supplierColIdx !== undefined) r.splice(supplierColIdx + 1, 0, r[supplierColIdx] || "");
                       return r;
-                  }, (rowIndex) => rowIndex >= chunkStart && rowIndex < chunkStart + exportBatchSize);
+                  }, issueGroups, (rowIndex) => rowIndex >= chunkStart && rowIndex < chunkStart + exportBatchSize);
 
                   const wbBlob = XLSX_STYLE.write(wb, { bookType: 'xlsx', type: 'array' });
                   zip.file(`Validated_Part_${part}.xlsx`, wbBlob);
@@ -855,7 +860,7 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
           const r = [...row];
           if (supplierColIdx !== undefined) r.splice(supplierColIdx + 1, 0, r[supplierColIdx] || "");
           return r;
-      });
+      }, issueGroups);
 
       XLSX_STYLE.writeFile(wb, `Validated_${fileName || 'File'}.xlsx`);
       addLog("Export complete with Change Log, Summary and Suppliers list.", 'success');

@@ -21,14 +21,18 @@ const KASRA = String.fromCharCode(0x0650);
  * Row indices below are 0-based DATA rows.
  */
 const ROWS: (string | number)[][] = [
-  ['Name', 'SKU', 'Barcode', 'Retail Price', 'Cost'],
-  ['Tea', 'S-1', '6287013210006', 10, 5],             // 0
-  ['Coffee', 'S-2', `6287013210006${KASRA}`, 12, 6],  // 1  same barcode, hidden kasra
-  ['Milk', 'S-3', 'S-1', 8, 4],                       // 2  barcode equals an SKU
-  ['Juice', 'S-4', '00123', 9, 3],                    // 3  leading zeros ...
-  ['Water', 'S-5', '123', 2, 1],                      // 4  ... are NOT a duplicate (D7)
-  ['Loss', 'S-6', '999', 1, 50],                      // 5  cost > retail
-  ['Tea2', 'S-1', '777', 11, 5],                      // 6  duplicate SKU
+  // `Pack1 Barcode` is mapped to the barcode field by the auto-mapper, because
+  // it maps any header CONTAINING "barcode" — exactly as it does for a real
+  // Rewaa file. That makes row 7 carry one code in two barcode cells.
+  ['Name', 'SKU', 'Barcode', 'Retail Price', 'Cost', 'Pack1 Barcode'],
+  ['Tea', 'S-1', '6287013210006', 10, 5, ''],             // 0
+  ['Coffee', 'S-2', `6287013210006${KASRA}`, 12, 6, ''],  // 1  same barcode, hidden kasra
+  ['Milk', 'S-3', 'S-1', 8, 4, ''],                       // 2  barcode equals an SKU
+  ['Juice', 'S-4', '00123', 9, 3, ''],                    // 3  leading zeros ...
+  ['Water', 'S-5', '123', 2, 1, ''],                      // 4  ... are NOT a duplicate (D7)
+  ['Loss', 'S-6', '999', 1, 50, ''],                      // 5  cost > retail
+  ['Tea2', 'S-1', '777', 11, 5, ''],                      // 6  duplicate SKU
+  ['Box', 'S-7', 'Z', 12, 6, 'Z'],                        // 7  same code in two cells of ONE row
 ];
 
 function workbook(): Buffer {
@@ -81,6 +85,11 @@ test.describe('Files Validation — duplicates and issue sheets', () => {
     // Leading zeros are significant: neither is touched.
     expect(cell(3, 'Barcode')).toBe('00123');
     expect(cell(4, 'Barcode')).toBe('123');
+    // One row, one code in two barcode cells: the first cell keeps it and only
+    // the second is renamed. A row-level fix used to rewrite BOTH to Z-1,
+    // resolving nothing and creating a duplicate inside the row.
+    expect(cell(7, 'Barcode')).toBe('Z');
+    expect(cell(7, 'Pack1 Barcode')).toBe('Z-1');
 
     // One sheet per error and per fix.
     expect(wb.SheetNames).toEqual(expect.arrayContaining([
@@ -96,7 +105,7 @@ test.describe('Files Validation — duplicates and issue sheets', () => {
     const loss = rowsOf(wb, 'Err_Loss Alert');
     expect(loss[0]).toEqual(data[0]);
     expect(loss.slice(1).map((r) => r[0])).toEqual(['Loss']);
-    expect(rowsOf(wb, 'Fix_Resolved Duplicate Barcode').slice(1).map((r) => r[0])).toEqual(['Coffee']);
+    expect(rowsOf(wb, 'Fix_Resolved Duplicate Barcode').slice(1).map((r) => r[0])).toEqual(['Coffee', 'Box']);
     expect(rowsOf(wb, 'Fix_Resolved Barcode = SKU').slice(1).map((r) => r[0])).toEqual(['Milk']);
     expect(rowsOf(wb, 'Fix_Resolved Duplicate SKU').slice(1).map((r) => r[0])).toEqual(['Tea2']);
   });
@@ -104,7 +113,7 @@ test.describe('Files Validation — duplicates and issue sheets', () => {
   test('chunked ZIP: each part carries only its OWN rows’ issue sheets', async ({ app, page }) => {
     test.setTimeout(120_000);
     await validate(app, page);
-    await page.getByPlaceholder('Max Rows/File').fill('3'); // parts: rows 0-2, 3-5, 6
+    await page.getByPlaceholder('Max Rows/File').fill('3'); // parts: rows 0-2, 3-5, 6-7
 
     const zip = await JSZip.loadAsync(await download(page));
     const part = async (n: number) =>
@@ -125,7 +134,7 @@ test.describe('Files Validation — duplicates and issue sheets', () => {
     expect(p2.SheetNames).toContain('Err_Loss Alert');
     expect(p2.SheetNames.filter((n) => n.startsWith('Fix_'))).toEqual([]);
 
-    // Part 3 (row 6): only the duplicate-SKU fix.
+    // Part 3 (rows 6-7): the duplicate-SKU fix and Box's barcode fix.
     expect(p3.SheetNames).toContain('Fix_Resolved Duplicate SKU');
     expect(p3.SheetNames).not.toContain('Err_Loss Alert');
   });

@@ -92,19 +92,19 @@ describe('resolveBarcodes', () => {
   it('duplicate barcode: the first holder keeps it, later rows get -1, -2', () => {
     const fixes = resolveBarcodes(new Map([['B', [1, 4, 7]]]), new Set(), new Set(['B']));
     expect(fixes).toEqual([
-      { rowIndex: 4, key: 'B', newValue: 'B-1', reason: 'duplicate' },
-      { rowIndex: 7, key: 'B', newValue: 'B-2', reason: 'duplicate' },
+      { at: 4, key: 'B', newValue: 'B-1', reason: 'duplicate' },
+      { at: 7, key: 'B', newValue: 'B-2', reason: 'duplicate' },
     ]);
   });
 
   it('cross-column: a barcode equal to an SKU is renamed, because the SKU owns the code', () => {
     const fixes = resolveBarcodes(new Map([['C', [2]]]), new Set(['C']), new Set(['C']));
-    expect(fixes).toEqual([{ rowIndex: 2, key: 'C', newValue: 'C-1', reason: 'cross-column' }]);
+    expect(fixes).toEqual([{ at: 2, key: 'C', newValue: 'C-1', reason: 'cross-column' }]);
   });
 
   it('cross-column AND duplicated: every barcode row is renamed, the first included', () => {
     const fixes = resolveBarcodes(new Map([['C', [2, 5]]]), new Set(['C']), new Set(['C']));
-    expect(fixes.map((f) => [f.rowIndex, f.newValue])).toEqual([[2, 'C-1'], [5, 'C-2']]);
+    expect(fixes.map((f) => [f.at, f.newValue])).toEqual([[2, 'C-1'], [5, 'C-2']]);
   });
 
   it('never assigns a value already present elsewhere in the file', () => {
@@ -127,6 +127,31 @@ describe('resolveBarcodes', () => {
     });
     const fixes = resolveBarcodes(groups, new Set(), new Set(groups.keys()));
     // The kasra row is a duplicate of row 0; the leading-zero pair is NOT (D7).
-    expect(fixes).toEqual([{ rowIndex: 1, key: '6287013210006', newValue: '6287013210006-1', reason: 'duplicate' }]);
+    expect(fixes).toEqual([{ at: 1, key: '6287013210006', newValue: '6287013210006-1', reason: 'duplicate' }]);
+  });
+});
+
+describe('resolveBarcodes addresses CELLS, not rows', () => {
+  it('REGRESSION: two barcode cells in one row with the same code get DIFFERENT values', () => {
+    // Measured before the fix: a row-level rewrite turned [B, B] into
+    // [B-1, B-1] — resolving nothing and creating a duplicate inside the row.
+    const row = ['Tea', 'B', 'B'];
+    const groups = new Map([['B', [{ r: 0, c: 1 }, { r: 0, c: 2 }]]]);
+    for (const fix of resolveBarcodes(groups, new Set(), new Set(['B']))) row[fix.at.c] = fix.newValue;
+    expect(row).toEqual(['Tea', 'B', 'B-1']);
+    expect(new Set(row.slice(1)).size).toBe(2);
+  });
+
+  it('a cross-column code in two cells of one row gets two distinct suffixes', () => {
+    const row = ['Tea', 'C', 'C'];
+    const groups = new Map([['C', [{ r: 0, c: 1 }, { r: 0, c: 2 }]]]);
+    for (const fix of resolveBarcodes(groups, new Set(['C']), new Set(['C']))) row[fix.at.c] = fix.newValue;
+    expect(row).toEqual(['Tea', 'C-1', 'C-2']);
+  });
+
+  it('returns the caller’s cell reference unchanged, whatever its shape', () => {
+    const ref = { sheet: 'x', r: 9, c: 4 };
+    const [fix] = resolveBarcodes(new Map([['K', [{ sheet: 'y', r: 0, c: 0 }, ref]]]), new Set(), new Set(['K']));
+    expect(fix.at).toBe(ref);
   });
 });
