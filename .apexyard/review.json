@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:28f52fcbad7f012a15dd76ee754f7db5e8c4770cfa5e1bb269b5c1dcb2029891",
+  "attestation_id": "sha256:ecb8366a50b5ae55896ca2f9b9eef9f867900da809ad89c6af11e648abbc2438",
   "available": true,
-  "files_reviewed": 24,
+  "files_reviewed": 4,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 3,
+    "low": 1,
     "medium": 0
   },
-  "findings_total": 3,
+  "findings_total": 1,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This branch extends OCR Extraction to accept spreadsheets and Word documents through the existing structured-extraction pipeline, fixes CSV byte decoding (TD-050) at four read sites via a new services/workbookBytes.ts, and rewrites Files Validation's duplicate SKU/barcode resolution to be cell-addressed and collision-safe, with per-issue export sheets. The risky logic was extracted into pure modules (utils/identifiers.ts, utils/issueSheets.ts, utils/ocrTextInput.ts, utils/templateMapping.ts) and each is covered by new unit tests plus three e2e specs. I traced the SKU/barcode resolution, the ZIP-part inScope windowing, the docx XML-to-text regexes and the workbook magic-byte sniffing and found no correctness defect; no blocking-handbook violation. Three advisory nits only.",
+  "summary": "Removes the unconditional `exportData(allResults)` call that fired when OCR extraction completed, replacing it with a log line telling the user to click the existing Export button (decision D9), and records decisions D8/D9/D10 in the module docs. The e2e spec is inverted correctly: it now registers a `download` listener, asserts nothing downloads on its own within a bounded window, then clicks Export and reads the workbook. I verified the commit's load-bearing claim — `handleExport` exports `masterData`, and both the text path (`setMasterData(resultArray)`, line 411) and the file path (`setMasterData(prev => [...prev, ...result])`, line 472) store the very same object references that `allResults` holds, so the in-place post-processing (random SKUs at 396/452, duplicate-name suffixes at 531) is reflected in the exported file; the Export button is rendered whenever `masterData.length > 0` (line 780) with the exact accessible name the test targets. No handbook violations: no new I/O in the component, no new `any`, no hook or cleanup changes, no dependency changes. One low-severity i18n gap.",
   "verdict": "approved"
 }

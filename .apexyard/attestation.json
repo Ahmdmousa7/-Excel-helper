@@ -1,113 +1,33 @@
 {
-  "attestation_id": "sha256:28f52fcbad7f012a15dd76ee754f7db5e8c4770cfa5e1bb269b5c1dcb2029891",
+  "attestation_id": "sha256:ecb8366a50b5ae55896ca2f9b9eef9f867900da809ad89c6af11e648abbc2438",
   "files": [
     {
-      "oid": "30805b3f4ade9350a6215a5c0b7cacfc9dcb4ea7",
-      "path": "README.md"
-    },
-    {
-      "oid": "7300d90e1283fe1de7eef861f71fb733bca60be1",
-      "path": "components/FileValidationTab.tsx"
-    },
-    {
-      "oid": "262878f2b966c0eb909876178f64a92edd3ca6dd",
+      "oid": "87a6e9d03b35d0ad0405fd462ba42c38ab9230a9",
       "path": "components/OcrTab.tsx"
     },
     {
-      "oid": "173920f80df2386fb070be896ad6949a4ac6ac8c",
-      "path": "components/ProjectSummaryTab.tsx"
-    },
-    {
-      "oid": "8ed5fd8b8181f3a43bc93a0fc63cc0dd700159b0",
-      "path": "components/SupportChat.tsx"
-    },
-    {
-      "oid": "240ae91d7462c89df4ff08d5187ea3fd174ac041",
-      "path": "docs/TESTING.md"
-    },
-    {
-      "oid": "3a9f3e8d1679407f58e404b2b4e8fe39d5c114fb",
+      "oid": "f9b3e3c157e7679bbec935a614d76d3b32e30c29",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "e10d5706809dce61a0b9f60ebfffc9af3f797a3d",
+      "oid": "cecc1b6d3ad19286d2c7be791b50308e83b42dfa",
       "path": "docs/modules/open-decisions.md"
     },
     {
-      "oid": "84430d4d93341e399dfebeb3faae7db9e2ceb607",
-      "path": "docs/quality/tech-debt-register.md"
-    },
-    {
-      "oid": "7eb965e27279bd689a636ca5eeec350b78985ea1",
-      "path": "e2e/csv-arabic.spec.ts"
-    },
-    {
-      "oid": "ff5338d8a1df9084cbbb968e129feaf7d0940105",
-      "path": "e2e/files-validation.spec.ts"
-    },
-    {
-      "oid": "f84611261e84d923e18d7285b6a68104393fa3f4",
+      "oid": "d3a45f823dcab26bac5cf73bd0f7a551885e4930",
       "path": "e2e/ocr-text-input.spec.ts"
-    },
-    {
-      "oid": "b525ddabf13539389f0c39023604689c8ba7441a",
-      "path": "services/excelService.ts"
-    },
-    {
-      "oid": "774b23c89c2abad3761c11ed6bb1ece79d7395a8",
-      "path": "services/geminiService.ts"
-    },
-    {
-      "oid": "da94052e679ddc7df012a443b662a8094a376bf0",
-      "path": "services/workbookBytes.ts"
-    },
-    {
-      "oid": "1ce8a27b391dd360cb76743ba4131965c637e9d6",
-      "path": "tests/unit/identifiers.test.ts"
-    },
-    {
-      "oid": "483a4208c7e28463f0d65fb634710a062d7464ec",
-      "path": "tests/unit/issueSheets.test.ts"
-    },
-    {
-      "oid": "9e63899c5f64c6ecf46d67c97ef062fc0fc4edd5",
-      "path": "tests/unit/ocrTextInput.test.ts"
-    },
-    {
-      "oid": "6f3cb31f801fb5d74a27cf1185a1558694ae5a9e",
-      "path": "tests/unit/templateMapping.test.ts"
-    },
-    {
-      "oid": "fa52c5e3ad0d47e0d2a66e9fdce4136af10be038",
-      "path": "tests/unit/workbookBytes.test.ts"
-    },
-    {
-      "oid": "c88e00361deb090422eef15adecab44f5bf4e85d",
-      "path": "utils/identifiers.ts"
-    },
-    {
-      "oid": "6ac31d0019913c7a6badb67f7225b049d68bb6a3",
-      "path": "utils/issueSheets.ts"
-    },
-    {
-      "oid": "eb5de5d48b6cd87f2d522a1bb093a905b7fb9090",
-      "path": "utils/ocrTextInput.ts"
-    },
-    {
-      "oid": "97ffb5875b07920da654d508cd30005badd71aa7",
-      "path": "utils/templateMapping.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 3,
+    "low": 1,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "75dbbfbd5bc4f00b1b4b9797e360ba3c7d115517",
+  "reviewed_at_commit": "0d18bbc1f8df4d5167db41aa9cdeddf0b28c2623",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

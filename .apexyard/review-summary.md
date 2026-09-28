@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:28f52fcbad7f012a15dd76ee754f7db5e8c4770cfa5e1bb269b5c1dcb2029891` |
+| Attestation id | `sha256:ecb8366a50b5ae55896ca2f9b9eef9f867900da809ad89c6af11e648abbc2438` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `75dbbfbd5bc4` |
+| Reviewed at commit | `0d18bbc1f8df` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 24 |
+| Files reviewed | 4 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 3 |
+| low | 1 |
 | info | 0 |
 
-This branch extends OCR Extraction to accept spreadsheets and Word documents through the existing structured-extraction pipeline, fixes CSV byte decoding (TD-050) at four read sites via a new services/workbookBytes.ts, and rewrites Files Validation's duplicate SKU/barcode resolution to be cell-addressed and collision-safe, with per-issue export sheets. The risky logic was extracted into pure modules (utils/identifiers.ts, utils/issueSheets.ts, utils/ocrTextInput.ts, utils/templateMapping.ts) and each is covered by new unit tests plus three e2e specs. I traced the SKU/barcode resolution, the ZIP-part inScope windowing, the docx XML-to-text regexes and the workbook magic-byte sniffing and found no correctness defect; no blocking-handbook violation. Three advisory nits only.
+Removes the unconditional `exportData(allResults)` call that fired when OCR extraction completed, replacing it with a log line telling the user to click the existing Export button (decision D9), and records decisions D8/D9/D10 in the module docs. The e2e spec is inverted correctly: it now registers a `download` listener, asserts nothing downloads on its own within a bounded window, then clicks Export and reads the workbook. I verified the commit's load-bearing claim — `handleExport` exports `masterData`, and both the text path (`setMasterData(resultArray)`, line 411) and the file path (`setMasterData(prev => [...prev, ...result])`, line 472) store the very same object references that `allResults` holds, so the in-place post-processing (random SKUs at 396/452, duplicate-name suffixes at 531) is reflected in the exported file; the Export button is rendered whenever `masterData.length > 0` (line 780) with the exact accessible name the test targets. No handbook violations: no new I/O in the component, no new `any`, no hook or cleanup changes, no dependency changes. One low-severity i18n gap.
 
 ## Quality gates
 
@@ -45,14 +45,14 @@ This branch extends OCR Extraction to accept spreadsheets and Word documents thr
 | Playwright | pass | 119/119 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | pass | 19 violation node(s) |
+| Accessibility | pass | 20 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 111 source files, 30693 lines
+- 111 source files, 30713 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -66,7 +66,7 @@ reports zero failures for a tool that never executed.
 | `components/FileValidationTab.tsx` | 1124 |
 | `components/SupportChat.tsx` | 957 |
 | `components/TranslateTab.tsx` | 953 |
-| `components/OcrTab.tsx` | 934 |
+| `components/OcrTab.tsx` | 936 |
 | `utils/translations.ts` | 899 |
 | `services/geminiService.ts` | 850 |
 | `components/ProjectSummaryTab.tsx` | 841 |

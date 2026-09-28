@@ -1,42 +1,24 @@
 {
-  "attestation_id": "sha256:28f52fcbad7f012a15dd76ee754f7db5e8c4770cfa5e1bb269b5c1dcb2029891",
+  "attestation_id": "sha256:ecb8366a50b5ae55896ca2f9b9eef9f867900da809ad89c6af11e648abbc2438",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 3,
+    "low": 1,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "The `@param tier Defaults to 'fast'. Web Scraper asks for 'quality'; OCR's text path deliberately does not…` block at 459-465 documented `extractStructuredData`. The new constant and its own doc comment were inserted directly after it, so that block now attaches to `export const MAX_EXTRACTION_TEXT` — a number that has no `tier` parameter. The tier rationale is load-bearing (it explains why OCR's new spreadsheet/Word path stays on 'fast'), and it is now invisible on hover at the call site in OcrTab.tsx:466.",
-      "file": "services/geminiService.ts",
-      "line": 459,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "MAX_EXTRACTION_TEXT was inserted between extractStructuredData and its JSDoc"
-    },
-    {
-      "category": "performance",
-      "detail": "`mapDataToTemplate([stripped], varMapping, varHeaders)[0]` (577-578) invokes `mapRowsToTemplate` per row. That function recomputes `isRewaaTemplate(templateHeaders)` — which builds `new Set(templateHeaders.map(normalizeHeader))` over the full ~70-column Rewaa template — and `headerFor(templateHeaders, 'variant name')` on every call (utils/templateMapping.ts:208-209). Previously both ran once for the whole array. It is a constant-factor regression, not a complexity change, so a few-hundred-row extraction is still fine; it would become a real problem only if this export path is ever pointed at a multi-thousand-row source, which is why it is `low` and not `medium`.",
+      "detail": "Line 546 emits `${t.common.completed} ...` (translated), then line 551 emits the literal `Click Export to download the results.` In Arabic the user now reads \"اكتمل 12 items extracted.\" followed by an English sentence — and since this PR removes the automatic download, that sentence is the only prompt telling the user an action is still required. Impact is limited because the Export button's own label is hardcoded \"Export\" too (line 803), so the instruction still names what is on screen, and `docs/modules/MODULE_GUIDE.md:398-402` already documents this tab's log messages as English-only — that convention is what keeps this at low rather than medium. Note the e2e spec hardcodes the same literal (`e2e/ocr-text-input.spec.ts:85`), so localising it later requires touching both.",
       "file": "components/OcrTab.tsx",
-      "line": 577,
+      "line": 551,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "exportData now calls mapDataToTemplate once per row instead of once per batch"
-    },
-    {
-      "category": "typescript",
-      "detail": "`wb: any` (582), `toExportRow: (row: any[]) => any[]` (584) and `issueData: any[][]` (595) are newly added lines, not reindented legacy. `wb` is always an XLSX workbook and the two call sites (695, 870) always pass the same shape, so the compiler currently cannot catch a mis-ordered argument — e.g. swapping `exportHeaders` and `issueGroups` would type-check. The handbook's escape-hatch rule is exactly about new code like this.",
-      "file": "components/FileValidationTab.tsx",
-      "line": 582,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "New appendIssueSheets helper introduces unjustified `any` in its signature"
+      "summary": "New completion instruction is hardcoded English next to a translated string"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 1
 }
