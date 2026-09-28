@@ -398,7 +398,9 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
       if (analystFile) {
          const XLSX = await import('xlsx');
          const ab = await analystFile.arrayBuffer();
-         const wb = XLSX.read(ab, { type: 'array' });
+         // Lazy, like SheetJS above, so neither lands in the main bundle. TD-050.
+         const { readWorkbookBytes } = await import('../services/workbookBytes');
+         const wb = readWorkbookBytes(new Uint8Array(ab), analystFile.name);
          const ws = wb.Sheets[wb.SheetNames[0]];
          const data = XLSX.utils.sheet_to_csv(ws);
          contextData = data.slice(0, 15000); 

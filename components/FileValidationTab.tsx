@@ -7,6 +7,7 @@ import { FileData, ProcessingStatus, LogEntry } from '../types';
 import { getSheetData, saveWorkbook } from '../services/excelService';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { identifierKey, nextFreeSuffix, resolveBarcodes } from '../utils/identifiers';
+import { readWorkbookBytes } from '../services/workbookBytes';
 import { groupIssues, sheetNameFor, capIssueRows, issueCapNote, type IssueGroup } from '../utils/issueSheets';
 import ProgressBar from './ProgressBar';
 import { 
@@ -190,8 +191,9 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
     try {
         const reader = new FileReader();
         reader.onload = (evt) => {
-            const bstr = evt.target?.result;
-            const wb = XLSX.read(bstr, { type: 'binary', cellDates: true, cellNF: false, cellText: false });
+            // Bytes, not a binary string, so a CSV can be decoded as UTF-8 (TD-050).
+            const bytes = new Uint8Array(evt.target?.result as ArrayBuffer);
+            const wb = readWorkbookBytes(bytes, f.name, { cellDates: true, cellNF: false, cellText: false });
             
             setWorkbook(wb);
             setSheetNames(wb.SheetNames);
@@ -201,7 +203,7 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
             setFileName(f.name);
             addLog(`${t.system.fileLoaded}: ${f.name}`, 'success');
         };
-        reader.readAsBinaryString(f);
+        reader.readAsArrayBuffer(f);
     } catch (err: any) {
         addLog(`Error: ${err.message}`, 'error');
     }

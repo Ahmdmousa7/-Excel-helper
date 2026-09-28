@@ -6,6 +6,7 @@ import { TRANSLATIONS, Language } from '../utils/translations';
 // input, and since ADR-0005 it is also its only copy.
 import { FieldCondition, FieldDef, isFieldDefArray } from '../utils/projectSummarySchema';
 import * as XLSX from 'xlsx';
+import { readWorkbookBytes } from '../services/workbookBytes';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -383,7 +384,7 @@ const ProjectSummaryTab: React.FC<Props> = ({ language = 'en' }) => {
     reader.onload = (evt) => {
       try {
         const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
+        const wb = readWorkbookBytes(data, file.name); // CSV decoded as UTF-8 (TD-050)
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });

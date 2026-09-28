@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
+import { readWorkbookBytes } from '../../services/workbookBytes';
 import { readFileSync } from 'node:fs';
 import {
   toYesNo,
@@ -30,7 +31,10 @@ import {
  * cell-for-cell the data row the template's own author wrote.
  */
 
-/** The options `readExcelFile` passes to SheetJS — kept identical on purpose. */
+/**
+ * RAW SheetJS on bytes, with readExcelFile's options — what readExcelFile did
+ * BEFORE TD-050 was fixed. Kept to show why readWorkbookBytes exists.
+ */
 const APP_READ_OPTS = { type: 'array', raw: true, cellNF: true } as const;
 
 function fixtureBytes(name: string): ArrayBuffer {
@@ -47,10 +51,8 @@ function rowsOf(ab: ArrayBuffer, extra: Record<string, unknown> = {}): unknown[]
 
 /**
  * Fixtures are decoded as UTF-8 (`codepage: 65001`) so the golden rows below
- * contain real Arabic. **The app's own read path does NOT do this** — see the
- * TD-050 test: a BOM-less UTF-8 CSV comes out as mojibake through
- * `readExcelFile`. Headers are ASCII, so template MAPPING is unaffected either
- * way; that is why this increment is not blocked on TD-050.
+ * contain real Arabic. The app does the equivalent through readWorkbookBytes
+ * (TD-050, fixed 2026-09-28); SheetJS on raw bytes alone does not.
  */
 const loadTemplate = (name: string) => rowsOf(fixtureBytes(name), { codepage: 65001 });
 
@@ -71,20 +73,25 @@ describe('the templates load through the app’s own read path', () => {
     expect(String(SIMPLE[1][0])).toBe('Text | required'); // row 2 is the spec row
   });
 
-  it('headers load identically through the app’s exact path — mapping does not depend on TD-050', () => {
-    const viaApp = cleanTemplateHeaders(rowsOf(fixtureBytes('rewaa-simple-template.csv'))[0]);
-    expect(viaApp).toEqual(SIMPLE_HEADERS);
+  it('headers load identically through the app’s real read path', () => {
+    const wb = readWorkbookBytes(new Uint8Array(fixtureBytes('rewaa-simple-template.csv')), 'template.csv', { raw: true, cellNF: true });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: false }) as unknown[][];
+    expect(cleanTemplateHeaders(rows[0])).toEqual(SIMPLE_HEADERS);
   });
 
-  it('KNOWN DEFECT (TD-050): the app’s read path turns BOM-less UTF-8 Arabic into mojibake', () => {
-    // Measured 2026-09-28. `readExcelFile` hands SheetJS the bytes with no
-    // codepage, so a UTF-8 CSV without a BOM — what Google Sheets exports, and
-    // what this template is — is decoded as Latin-1. With a BOM, or with
-    // `codepage: 65001`, it decodes correctly. Not fixed here: `readExcelFile`
-    // also reads legacy .xls, where forcing a codepage is not obviously safe.
-    const viaApp = String(rowsOf(fixtureBytes('rewaa-simple-template.csv'))[2][0]);
-    expect(/\p{Script=Arabic}/u.test(viaApp)).toBe(false); // no Arabic-script letter survives the decode
-    expect(String(SIMPLE[2][0])).toContain('حوار بلدي الكيلو'); // decoded as UTF-8
+  it('TD-050 FIXED: the app’s read path keeps BOM-less UTF-8 Arabic', () => {
+    // SheetJS handed raw bytes still decodes this as Latin-1 — that is library
+    // behaviour and it has not changed. What changed is that the app no longer
+    // hands it raw bytes for a CSV: readWorkbookBytes decodes the text first.
+    //
+    // This test USED to be titled "KNOWN DEFECT" and pinned only the first
+    // line below, with a note that it would fail once the defect was fixed.
+    // It would not have: it tested SheetJS, not the app. Both are asserted now.
+    const rawSheetJs = String(rowsOf(fixtureBytes('rewaa-simple-template.csv'))[2][0]);
+    expect(/\p{Script=Arabic}/u.test(rawSheetJs)).toBe(false); // the library, unchanged
+    const wb = readWorkbookBytes(new Uint8Array(fixtureBytes('rewaa-simple-template.csv')), 'template.csv', { raw: true, cellNF: true });
+    const viaApp = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: false }) as unknown[][];
+    expect(String(viaApp[2][0])).toContain('حوار بلدي الكيلو'); // the app, fixed
   });
 });
 
@@ -406,8 +413,8 @@ describe('CSV template upload decodes as UTF-8 — closing TD-050 for this path 
     expect(cleanTemplateHeaders(rows[0])).toEqual(['اسم المنتج', 'السعر', 'الباركود']);
   });
 
-  it('CONTRAST: the same Arabic headers through the app’s byte path come out as mojibake', () => {
-    // Why the CSV branch exists. This is readExcelFile's read, and TD-050.
+  it('CONTRAST: the same Arabic headers through RAW SheetJS on bytes come out as mojibake', () => {
+    // Why a decode step exists at all. This was readExcelFile's read before TD-050.
     const bytes = new TextEncoder().encode(`اسم المنتج,السعر
 شاي,13
 `);

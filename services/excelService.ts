@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import XLSX_STYLE from 'xlsx-js-style';
 import { FileData, SheetData } from '../types';
 import { scientificNumberOverride, plainNumberString } from '../utils/cellText';
+import { readWorkbookBytes } from './workbookBytes';
 
 export const readExcelFile = async (file: File): Promise<FileData> => {
   return new Promise((resolve, reject) => {
@@ -15,7 +16,10 @@ export const readExcelFile = async (file: File): Promise<FileData> => {
         // the number 46037 once the values are read — which is exactly how Smart
         // Lookup exported dates as serials (TD-045). It adds a format string per
         // formatted cell and changes no value.
-        const workbook = XLSX.read(data, { type: 'array', raw: true, cellNF: true });
+        // readWorkbookBytes decodes a CSV as UTF-8 (falling back to Windows-1256)
+        // before parsing; SheetJS alone read it as Latin-1 and turned Arabic into
+        // mojibake (TD-050). Binary workbooks are parsed exactly as before.
+        const workbook = readWorkbookBytes(data, file.name, { raw: true, cellNF: true });
         resolve({
           name: file.name,
           workbook: workbook,
