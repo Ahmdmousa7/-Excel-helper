@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:1713a0b411ca8a9f543a12763ec9073c027e2d31a1c325a7c0a4710ca511cb5a",
+  "attestation_id": "sha256:6222d11aeca9e9a1885a44357ef513a3f58f3fd916259d02cbea07dc87baa605",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,7 +8,7 @@
     },
     "components": {
       "files": 36,
-      "loc": 17583
+      "loc": 17589
     },
     "e2e": {
       "files": 23,
@@ -23,16 +23,16 @@
       "loc": 1179
     },
     "tests": {
-      "files": 14,
-      "loc": 3490
+      "files": 15,
+      "loc": 3786
     },
     "types": {
       "files": 1,
       "loc": 105
     },
     "utils": {
-      "files": 9,
-      "loc": 1830
+      "files": 10,
+      "loc": 2019
     }
   },
   "layering": {
@@ -70,7 +70,7 @@
       },
       {
         "file": "components/OcrTab.tsx",
-        "loc": 881
+        "loc": 887
       },
       {
         "file": "services/geminiService.ts",
@@ -96,6 +96,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 98,
-  "total_loc": 28151
+  "source_files": 100,
+  "total_loc": 28642
 }

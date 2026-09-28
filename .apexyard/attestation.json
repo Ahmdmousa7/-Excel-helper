@@ -1,49 +1,45 @@
 {
-  "attestation_id": "sha256:1713a0b411ca8a9f543a12763ec9073c027e2d31a1c325a7c0a4710ca511cb5a",
+  "attestation_id": "sha256:6222d11aeca9e9a1885a44357ef513a3f58f3fd916259d02cbea07dc87baa605",
   "files": [
     {
-      "oid": "9269fc2e7ef0e57ec4e7bb934077660d8b6bc2b4",
-      "path": "components/FileValidationTab.tsx"
+      "oid": "8ea6aca770fd0fd3d87f04c740bc4f50eccec37f",
+      "path": "components/OcrTab.tsx"
     },
     {
-      "oid": "129415531964326aa8e2076aa312aef57f1f033f",
-      "path": "docs/modules/exporter-date-format-audit.md"
+      "oid": "5f5cd07c365fc312351e295838857912f10c9d7d",
+      "path": "docs/modules/ocr-rewaa-plan.md"
     },
     {
-      "oid": "7d23520989c6b0d759ed9fb3a95323a8c3f486ee",
-      "path": "docs/modules/open-decisions.md"
-    },
-    {
-      "oid": "5d5cdc1c74d6918f90b83de2f299166daf84f622",
+      "oid": "f39bcca6cfe80229a40e9e7240aea99ad561e593",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "df293e7ea245da6dde384b442e1380ccc542aede",
-      "path": "e2e/exporter-date-format.spec.ts"
+      "oid": "638d73b541da25466567486b86ef8b841d11cfe6",
+      "path": "tests/fixtures/rewaa-simple-template.csv"
     },
     {
-      "oid": "b09ca2b99bd8517bce56a0f0c185771122c7622a",
-      "path": "tests/unit/exporterDateFormat.test.ts"
+      "oid": "af720c39cb582a633b1b3fec94bdb6dc8258d71c",
+      "path": "tests/fixtures/rewaa-variable-template.csv"
     },
     {
-      "oid": "c3ea6e7a2569402e10549cab2821d4e602403d01",
-      "path": "tests/unit/exporterStyleCharacterization.test.ts"
+      "oid": "bd6e8da3c349a146a25c7aae229c7fcebbf8dc37",
+      "path": "tests/unit/templateMapping.test.ts"
     },
     {
-      "oid": "b4c32890a8e51ec368803a799b074dfdc7ace809",
-      "path": "utils/excelUtils.ts"
+      "oid": "859f2777ca1f5045949aa699bb5fd3ad63261a06",
+      "path": "utils/templateMapping.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 2,
+    "info": 2,
+    "low": 3,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "0d613398c6222c0204b3fa4fc67559e811dcb1e3",
+  "reviewed_at_commit": "03557d8167a5644549f5f4810865eb8b0be25297",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:1713a0b411ca8a9f543a12763ec9073c027e2d31a1c325a7c0a4710ca511cb5a` |
+| Attestation id | `sha256:6222d11aeca9e9a1885a44357ef513a3f58f3fd916259d02cbea07dc87baa605` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `0d613398c622` |
+| Reviewed at commit | `03557d8167a5` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 8 |
+| Files reviewed | 7 |
 
 ## What this is, and what it is not
 
@@ -30,18 +30,18 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 2 |
-| info | 0 |
+| low | 3 |
+| info | 2 |
 
-TD-049 fix: three sheet-building call sites (utils/excelUtils.ts:76, FileValidationTab.tsx:605 and :699) switch from xlsx-js-style's aoa_to_sheet to the plain (aliased @e965/xlsx 0.20.3) one, while still writing through the styled library — so a JS Date never reaches the 0.18.5-based builder that converted it through local time and rendered 15 Jan as 1/14/26 at UTC+14 and UTC-11. I confirmed the premise rather than taking it on trust: FileValidationTab.tsx:192 reads with cellDates: true and :136 does sheet_to_json({ raw: true }), so Dates genuinely reach exportData; and I ran the two changed unit files under Asia/Riyadh, Pacific/Kiritimati and Pacific/Midway — 40/40 green in all three, including the two zones that used to produce the wrong day. The style-equivalence claim is backed by a characterization test that inspects the generated XML and carries four positive controls, which is the right shape for that question. Two low, non-blocking documentation/test-message nits; nothing that should hold the merge.
+Extracts OCR→Rewaa template mapping into a new pure module (`utils/templateMapping.ts`) shared by the auto-mapper and the exporter, adds synonym resolution, template defaults, BOM/own-property hardening, and a fill-on-extraction effect; widens template upload to accept .csv/.xls. Backed by 38 passing unit tests (verified locally) that golden-test both real Rewaa templates cell-for-cell, plus a recorded TD-050 entry for the unrelated CSV decoding defect. The design is sound — normalising in one place, defaults that never override extracted data, and Retail Price deliberately left without a default are all the right calls and are well argued in code. No blocking-handbook violations; the findings below are low-severity polish and one disclosed coverage gap.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 561 warning(s) |
-| Vitest | pass | 353/353 passed, lines 98.75% |
+| ESLint | pass | 0 error(s), 560 warning(s) |
+| Vitest | pass | 391/391 passed, lines 99% |
 | Playwright | pass | 111/111 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 98 source files, 28151 lines
+- 100 source files, 28642 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -67,7 +67,7 @@ reports zero failures for a tool that never executed.
 | `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
 | `utils/translations.ts` | 899 |
-| `components/OcrTab.tsx` | 881 |
+| `components/OcrTab.tsx` | 887 |
 | `services/geminiService.ts` | 842 |
 | `components/ZidTab.tsx` | 841 |
 | `components/ProjectSummaryTab.tsx` | 840 |
