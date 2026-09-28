@@ -1,60 +1,33 @@
 {
-  "attestation_id": "sha256:6222d11aeca9e9a1885a44357ef513a3f58f3fd916259d02cbea07dc87baa605",
+  "attestation_id": "sha256:110af9982bfff81fdd11191f2d06f170bbd059ad8d0ff94e48cdcf367f391d5a",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
-    "low": 3,
+    "info": 0,
+    "low": 2,
     "medium": 0
   },
   "findings": [
     {
-      "category": "technical-debt",
-      "detail": "The `accept` widening to `.xlsx,.xls,.csv` is necessary — the commit correctly notes the real templates are CSV and could not be loaded at all before. But it makes `handleTemplateUpload` the first *template* path to route through `readExcelFile`'s BOM-less-UTF-8 defect recorded as TD-050 in the same PR. The argument that this is safe rests entirely on template headers being ASCII, which holds for the two fixture templates but is an unstated assumption, not a checked one: only `rows[0]` is read, so a localised template with Arabic column names would produce mojibake header strings that flow into `simpleHeaders`, the mapping panel labels, and the exported sheet's header row. The failure is loud rather than silent (Rewaa's importer would reject the header row, and the user can re-save as .xlsx), which is why this is low. It would rise to medium with evidence that Rewaa ships a localised template variant.",
-      "file": "components/OcrTab.tsx",
-      "line": 844,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "`.csv` template upload is now the primary path while TD-050 decodes non-ASCII CSVs as mojibake"
-    },
-    {
-      "category": "typescript",
-      "detail": "The rewritten `mapDataToTemplate` is a two-line passthrough to `mapRowsToTemplate`, but its signature keeps `rows: any[]` and returns `any[]` by inference, discarding the `TemplateRow[]` / `Mapping` types the new module exports. The commit body calls this out as deliberate (\"cosmetic type widening only\"), so it is a known choice rather than an oversight — but the wrapper now earns nothing: it renames no argument, reorders nothing, and adds no behaviour. Keeping it means the two export call sites at lines 550 and 562 are typed `any` for no reason, so a future argument-order mistake between `mapping` and `templateHeaders` (both plausible at a glance) would not be caught by the compiler.",
-      "file": "components/OcrTab.tsx",
-      "line": 504,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "`mapDataToTemplate` wrapper re-widens the new module's precise types back to `any[]`"
-    },
-    {
-      "category": "typescript",
-      "detail": "The PR's stated goal in `03557d8` is that prototype-colliding template headers can no longer crash or vanish, and `utils/templateMapping.ts` routes every read through `getOwn`. The one consumer that still does a raw index read is the mapping panel: `value={(mappingTab === 'simple' ? simpleMapping : varMapping)[tmplHead] || \"\"}`. `autoMap` returns a plain object literal, so for a template column named `toString`, `constructor`, or `valueOf` — none of which `autoMap` will ever populate, since `resolveSourceKey` correctly returns `undefined` for them — this expression yields the inherited `Object.prototype` function, which is truthy. React then stringifies a function into the `<select>`'s `value`, the control matches no `<option>`, and the panel displays a selection the state does not hold. The test `'`%s` survives as a real column in the output'` asserts these headers round-trip through the mapper, so the guard is complete in `utils/` and incomplete in the component that renders it. Narrow trigger — it needs a template whose column is literally named after an `Object.prototype` member — which is why this is low, not medium.",
-      "file": "components/OcrTab.tsx",
-      "line": 867,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Mapping panel reads the mapping object with a raw index, defeating the new own-property guard"
-    },
-    {
-      "category": "architecture",
-      "detail": "Defaults are matched by normalised header name alone, with no check that the uploaded file is actually a Rewaa template. The names are generic enough to collide: a user who uploads their own spreadsheet containing a `Cost`, `Buy Price`, `Sellable`, or `Weighted` column and deliberately leaves it unmapped now receives `0` / `yes` / `no` in the export where they previously received a blank. This is an observation rather than a request — the module, the panel, and the whole feature are explicitly the Rewaa import path, the substituted values are visible in the output file, and the `'every default names a column that exists in one of the two templates'` test already guards the inverse direction (typo'd defaults that never apply). Worth a sentence in the module docblock so a future reader does not discover the scope by surprise.",
+      "category": "performance",
+      "detail": "`fallback = applyDefaults ? (defaultFor(key) ?? '') : ''` sits inside the per-row loop, and `defaultFor` runs `normalizeHeader` — four regex replaces plus a toLowerCase — on the same fixed set of template headers for every row. The header set is invariant across rows, so the work is rows × columns when it only needs to be columns: a 43-column Simple template over 500 extracted rows is ~21,500 redundant normalisations. No user-visible impact at realistic OCR volumes (rows come from images, not a spreadsheet), which is why this is low rather than a hot-path finding — it would rise to medium only if this mapper were ever reused for the sheet-sized inputs the other tabs handle.",
       "file": "utils/templateMapping.ts",
-      "line": 111,
-      "severity": "info",
+      "line": 215,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "`TEMPLATE_DEFAULTS` is keyed on generic header names and applies to any uploaded template"
+      "summary": "defaultFor() re-normalises every template header once per row instead of once per column"
     },
     {
-      "category": "testing",
-      "detail": "The new `useEffect` is the fix for the reported bug that a template loaded before extraction mapped nothing, and it is correct as written — functional `setState` updaters mean `simpleMapping`/`varMapping` do not belong in the dependency array, the deps cover every reactive value read, and `autoMap`'s never-overwrite contract is what makes it safe to re-run. Its underlying contract is well covered by the `'leaves unmatched headers ABSENT so a later extraction can still fill them'` test. What is untested is the wiring: that the effect fires on `rawHeaders` arriving, and that it does not clobber a user's `-- Ignore --` chosen between upload and extraction. The commit body discloses this explicitly (\"the fill-on-extraction effect is still untested\"), which satisfies the technical-debt handbook's rule 6 — recording it here only so the gap is visible in the review record.",
+      "category": "typescript",
+      "detail": "The diff rewrites this function body entirely, so its `rows: any[]` parameter is newly-added code rather than a line the PR merely reindents — the type-safety handbook's carve-out for untouched legacy lines doesn't apply. The wrapper now adds nothing: it forwards all three arguments to mapRowsToTemplate unchanged, so the only thing it contributes is an `any` that erases the `TemplateRow` typing the new module was written to provide. Concretely, a caller passing the wrong shape (e.g. simpleRows before the Simple/Variable split at line 558) type-checks silently here but would not against mapRowsToTemplate's own signature.",
       "file": "components/OcrTab.tsx",
-      "line": 170,
-      "severity": "info",
+      "line": 512,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "The fill-on-extraction effect is the one new behaviour with no test"
+      "summary": "Rewritten mapDataToTemplate keeps `any[]` and is now a pure pass-through alias"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 5
+  "total": 2
 }

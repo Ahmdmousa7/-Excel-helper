@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:6222d11aeca9e9a1885a44357ef513a3f58f3fd916259d02cbea07dc87baa605` |
+| Attestation id | `sha256:110af9982bfff81fdd11191f2d06f170bbd059ad8d0ff94e48cdcf367f391d5a` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `03557d8167a5` |
+| Reviewed at commit | `834fc8af6541` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 3 |
-| info | 2 |
+| low | 2 |
+| info | 0 |
 
-Extracts OCR→Rewaa template mapping into a new pure module (`utils/templateMapping.ts`) shared by the auto-mapper and the exporter, adds synonym resolution, template defaults, BOM/own-property hardening, and a fill-on-extraction effect; widens template upload to accept .csv/.xls. Backed by 38 passing unit tests (verified locally) that golden-test both real Rewaa templates cell-for-cell, plus a recorded TD-050 entry for the unrelated CSV decoding defect. The design is sound — normalising in one place, defaults that never override extracted data, and Retail Price deliberately left without a default are all the right calls and are well argued in code. No blocking-handbook violations; the findings below are low-severity polish and one disclosed coverage gap.
+Extracts OCR→template column mapping out of OcrTab.tsx into a pure, dependency-injected utils/templateMapping.ts, widens the template upload to .xls/.csv with a UTF-8 CSV decode path (TD-050), adds synonym resolution, Rewaa-scoped defaults, prototype-key hardening, and a re-map-on-extraction effect. Backed by 54 unit tests against the two real Rewaa CSV templates — I ran them locally and all 54 pass. I verified the new useEffect cannot loop (rawHeaders/simpleHeaders/varHeaders are all useState values, and refreshMapping is proven idempotent by its own test), that XLSX is already imported at OcrTab.tsx:14, and that isRewaaTemplate correctly gates defaults away from non-Rewaa sheets. No blocking handbook violations and no high/critical findings; two low-severity notes only.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ Extracts OCR→Rewaa template mapping into a new pure module (`utils/templateMap
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 560 warning(s) |
-| Vitest | pass | 391/391 passed, lines 99% |
+| Vitest | pass | 407/407 passed, lines 99.05% |
 | Playwright | pass | 111/111 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 100 source files, 28642 lines
+- 100 source files, 28859 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -67,7 +67,7 @@ reports zero failures for a tool that never executed.
 | `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
 | `utils/translations.ts` | 899 |
-| `components/OcrTab.tsx` | 887 |
+| `components/OcrTab.tsx` | 895 |
 | `services/geminiService.ts` | 842 |
 | `components/ZidTab.tsx` | 841 |
 | `components/ProjectSummaryTab.tsx` | 840 |

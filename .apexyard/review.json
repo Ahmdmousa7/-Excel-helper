@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:6222d11aeca9e9a1885a44357ef513a3f58f3fd916259d02cbea07dc87baa605",
+  "attestation_id": "sha256:110af9982bfff81fdd11191f2d06f170bbd059ad8d0ff94e48cdcf367f391d5a",
   "available": true,
   "files_reviewed": 7,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
-    "low": 3,
+    "info": 0,
+    "low": 2,
     "medium": 0
   },
-  "findings_total": 5,
+  "findings_total": 2,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Extracts OCR→Rewaa template mapping into a new pure module (`utils/templateMapping.ts`) shared by the auto-mapper and the exporter, adds synonym resolution, template defaults, BOM/own-property hardening, and a fill-on-extraction effect; widens template upload to accept .csv/.xls. Backed by 38 passing unit tests (verified locally) that golden-test both real Rewaa templates cell-for-cell, plus a recorded TD-050 entry for the unrelated CSV decoding defect. The design is sound — normalising in one place, defaults that never override extracted data, and Retail Price deliberately left without a default are all the right calls and are well argued in code. No blocking-handbook violations; the findings below are low-severity polish and one disclosed coverage gap.",
+  "summary": "Extracts OCR→template column mapping out of OcrTab.tsx into a pure, dependency-injected utils/templateMapping.ts, widens the template upload to .xls/.csv with a UTF-8 CSV decode path (TD-050), adds synonym resolution, Rewaa-scoped defaults, prototype-key hardening, and a re-map-on-extraction effect. Backed by 54 unit tests against the two real Rewaa CSV templates — I ran them locally and all 54 pass. I verified the new useEffect cannot loop (rawHeaders/simpleHeaders/varHeaders are all useState values, and refreshMapping is proven idempotent by its own test), that XLSX is already imported at OcrTab.tsx:14, and that isRewaaTemplate correctly gates defaults away from non-Rewaa sheets. No blocking handbook violations and no high/critical findings; two low-severity notes only.",
   "verdict": "approved"
 }
