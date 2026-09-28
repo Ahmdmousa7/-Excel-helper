@@ -115,3 +115,10 @@ describe('extractDocxText — a real .docx package', () => {
     await expect(extractDocxText(await zip.generateAsync({ type: 'uint8array' }))).rejects.toThrow(/word\/document\.xml is missing/);
   });
 });
+
+describe('docxXmlToText survives malformed entities', () => {
+  it('an out-of-range numeric entity is kept as written instead of aborting the document', () => {
+    // String.fromCodePoint throws above U+10FFFF; one bad entity used to fail the whole file.
+    expect(docxXmlToText(doc(p('Tea &#99999999; 13')))).toBe('Tea &#99999999; 13');
+  });
+});

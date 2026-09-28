@@ -49,7 +49,9 @@ const decodeEntities = (s: string): string =>
   s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, body: string) => {
     if (body[0] === '#') {
       const cp = body[1].toLowerCase() === 'x' ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
-      return Number.isFinite(cp) ? String.fromCodePoint(cp) : whole;
+      // fromCodePoint THROWS above U+10FFFF, so a malformed entity such as
+      // `&#99999999;` would abort the whole document; keep it as written instead.
+      return Number.isFinite(cp) && cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : whole;
     }
     return ENTITIES[body.toLowerCase()] ?? whole;
   });

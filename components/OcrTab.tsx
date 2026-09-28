@@ -648,7 +648,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                               <input type="file" multiple accept="image/*,.pdf,.xlsx,.xls,.csv,.tsv,.docx,.doc" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer"/>
                               <UploadCloud size={40} className="text-slate-300 mb-4"/>
                               <p className="text-slate-600 font-bold">{t.ocr.uploadTitle}</p>
-                              <p className="text-slate-400 text-sm">JPG, PNG, PDF</p>
+                              <p className="text-slate-400 text-sm">JPG, PNG, PDF, Excel, CSV, Word (.docx)</p>
                           </div>
                       ) : (
                           <div className="relative">
