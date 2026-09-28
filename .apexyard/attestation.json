@@ -1,145 +1,37 @@
 {
-  "attestation_id": "sha256:264725167ccd83036c75d374f0cbb783a94768673c40a06e999a4edf2b54805e",
+  "attestation_id": "sha256:1713a0b411ca8a9f543a12763ec9073c027e2d31a1c325a7c0a4710ca511cb5a",
   "files": [
     {
-      "oid": "274ba28fb1b4a372c2b3d985a4660d965abb2963",
-      "path": ".claude/CLAUDE.md"
+      "oid": "9269fc2e7ef0e57ec4e7bb934077660d8b6bc2b4",
+      "path": "components/FileValidationTab.tsx"
     },
     {
-      "oid": "293d21a90b306aa6c9b47e536eaaf2718ad08157",
-      "path": ".claude/settings.json"
-    },
-    {
-      "oid": "e4d803571b3aa966a1aba370942dbd07a05868c3",
-      "path": ".claude/skills/graphify/.graphify_version"
-    },
-    {
-      "oid": "3df00d55f11f58e857f935054f1e4f5730c488b4",
-      "path": ".claude/skills/graphify/SKILL.md"
-    },
-    {
-      "oid": "77844343e140553b7f1bf419e32640568c2014ff",
-      "path": ".claude/skills/graphify/references/add-watch.md"
-    },
-    {
-      "oid": "242ff868e015b158504dda3ea1992e4cd9686843",
-      "path": ".claude/skills/graphify/references/exports.md"
-    },
-    {
-      "oid": "2cc19197836df0bcc796c87f233daa950238b458",
-      "path": ".claude/skills/graphify/references/extraction-spec.md"
-    },
-    {
-      "oid": "a41ea06e17c1676483356a2a06504a1bfb0870e4",
-      "path": ".claude/skills/graphify/references/github-and-merge.md"
-    },
-    {
-      "oid": "438b8b16be18480a1e77759b3e74fc8a9e97eae7",
-      "path": ".claude/skills/graphify/references/hooks.md"
-    },
-    {
-      "oid": "3ed5f65a23663d20f69b154d3f20fde96919e671",
-      "path": ".claude/skills/graphify/references/query.md"
-    },
-    {
-      "oid": "b967f8379998b890945706b3c95fef23b2ec402f",
-      "path": ".claude/skills/graphify/references/transcribe.md"
-    },
-    {
-      "oid": "b00917c83a884e835e3b445675aa98cc62c7f76b",
-      "path": ".claude/skills/graphify/references/update.md"
-    },
-    {
-      "oid": "3899a51684a839c2da10536c3023b55b71bf9b2a",
-      "path": ".gitignore"
-    },
-    {
-      "oid": "0196c935a79c01d8f7d185f0b3eb040c75cecb35",
-      "path": "App.tsx"
-    },
-    {
-      "oid": "417efeb27e11ed96f1405246a6425988e1101cbc",
-      "path": "CLAUDE.md"
-    },
-    {
-      "oid": "257b1e62376916d6511908202d57b648bd60790a",
-      "path": "README.md"
-    },
-    {
-      "oid": "5be1a8b23a14829835a64c8f6890200ffbdf9177",
-      "path": "components/ApiKeyModal.tsx"
-    },
-    {
-      "oid": "f9bd305773db4c47b5789eca6fa075d73b789cbc",
-      "path": "components/Sidebar.tsx"
-    },
-    {
-      "oid": "3b0db515da2a125dc2c0ea04f2a7b2774ddd74d3",
-      "path": "docs/TESTING.md"
-    },
-    {
-      "oid": "a90e31c8cb663d62e7732351f1088b9f6f51a765",
-      "path": "docs/adr/ADR-0007-graphify-is-agent-tooling-not-a-dependency.md"
-    },
-    {
-      "oid": "a52911a2e1004d3110e60f4f00ca8c2933e382c7",
-      "path": "docs/modules/MODULE_GUIDE.md"
-    },
-    {
-      "oid": "781b052225136428061e306bead6998748fde89b",
+      "oid": "129415531964326aa8e2076aa312aef57f1f033f",
       "path": "docs/modules/exporter-date-format-audit.md"
     },
     {
-      "oid": "eeaed15d639b3fb73383dae9e0e8d2ee44a6e82f",
+      "oid": "7d23520989c6b0d759ed9fb3a95323a8c3f486ee",
       "path": "docs/modules/open-decisions.md"
     },
     {
-      "oid": "32718444c112125b466d4481117afd02e0fcb313",
+      "oid": "5d5cdc1c74d6918f90b83de2f299166daf84f622",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "d64a86234d016d393aac4d077fe5a9eb2784d9d1",
-      "path": "docs/tooling/graphify.md"
-    },
-    {
-      "oid": "4d92b6a631aa61c41ce9b44030c9694a11924e01",
+      "oid": "df293e7ea245da6dde384b442e1380ccc542aede",
       "path": "e2e/exporter-date-format.spec.ts"
     },
     {
-      "oid": "a5a3520f6a8ee1e7b3232af8650563881db2324a",
-      "path": "e2e/modal.spec.ts"
-    },
-    {
-      "oid": "cc4d1d4e8c162a19391065fdddd3ac6bffd12192",
-      "path": "e2e/pages/AppShell.ts"
-    },
-    {
-      "oid": "0026f1bc30d614bf0f5ac746b59d59ac977dc6f1",
-      "path": "scripts/jwt-lifetime.mjs"
-    },
-    {
-      "oid": "5713925ddad4637a7d11be46b524be6bc901b9b0",
-      "path": "scripts/measure-mobile-overflow.mjs"
-    },
-    {
-      "oid": "c96e2fc706fffeb19a480208fd7f680b1b777eee",
-      "path": "scripts/observe-origins.mjs"
-    },
-    {
-      "oid": "7ca272908be24d5604d0500c155cb0fab64753d0",
-      "path": "services/apiKeyStorage.ts"
-    },
-    {
-      "oid": "e3e34a3534356a5ddf626455182031460d3e6f6f",
-      "path": "services/geminiService.ts"
-    },
-    {
-      "oid": "9fade81722695dd147ac58077f361535f49dc115",
+      "oid": "b09ca2b99bd8517bce56a0f0c185771122c7622a",
       "path": "tests/unit/exporterDateFormat.test.ts"
     },
     {
-      "oid": "3d059f8b8e36e9cf32d7abe5c03a896b8ef42a8a",
-      "path": "utils/translations.ts"
+      "oid": "c3ea6e7a2569402e10549cab2821d4e602403d01",
+      "path": "tests/unit/exporterStyleCharacterization.test.ts"
+    },
+    {
+      "oid": "b4c32890a8e51ec368803a799b074dfdc7ace809",
+      "path": "utils/excelUtils.ts"
     }
   ],
   "findings_by_severity": {
@@ -147,12 +39,12 @@
     "high": 0,
     "info": 0,
     "low": 2,
-    "medium": 2
+    "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "4846983e7eb17fb1c790f369ae4852f8e5c1d51a",
+  "reviewed_at_commit": "0d613398c6222c0204b3fa4fc67559e811dcb1e3",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "COMMENT"
+  "verdict": "APPROVED"
 }

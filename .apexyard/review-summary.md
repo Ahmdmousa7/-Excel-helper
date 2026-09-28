@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:264725167ccd83036c75d374f0cbb783a94768673c40a06e999a4edf2b54805e` |
+| Attestation id | `sha256:1713a0b411ca8a9f543a12763ec9073c027e2d31a1c325a7c0a4710ca511cb5a` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `4846983e7eb1` |
+| Reviewed at commit | `0d613398c622` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **COMMENT** |
-| Files reviewed | 35 |
+| Verdict | **APPROVED** |
+| Files reviewed | 8 |
 
 ## What this is, and what it is not
 
@@ -29,20 +29,20 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 2 |
+| medium | 0 |
 | low | 2 |
 | info | 0 |
 
-This PR completes the Groq removal (D5), lands Graphify as committed agent tooling with ADR-0007 and a how-to page, adds a no-network JWT lifetime script for TD-048, and records the exporter date-format defect as TD-049 with a unit spec and an e2e spec that both use expected-failure markers. The documentation and test work is unusually rigorous — the exporter specs measure rather than predict, the timezone assumptions are pinned correctly, and both the pip-bootstrap risk and the graph's staleness are disclosed rather than hidden. Four findings, none blocking: one incomplete refactor that the Groq deletion itself paid for twice, one unpinned dev-tooling install that can write to a teammate's system Python, one dead error branch in a script whose value proposition is auditability, and one stale comment that now contradicts the component it describes. No blocking-handbook violation and no high/critical issue.
+TD-049 fix: three sheet-building call sites (utils/excelUtils.ts:76, FileValidationTab.tsx:605 and :699) switch from xlsx-js-style's aoa_to_sheet to the plain (aliased @e965/xlsx 0.20.3) one, while still writing through the styled library — so a JS Date never reaches the 0.18.5-based builder that converted it through local time and rendered 15 Jan as 1/14/26 at UTC+14 and UTC-11. I confirmed the premise rather than taking it on trust: FileValidationTab.tsx:192 reads with cellDates: true and :136 does sheet_to_json({ raw: true }), so Dates genuinely reach exportData; and I ran the two changed unit files under Asia/Riyadh, Pacific/Kiritimati and Pacific/Midway — 40/40 green in all three, including the two zones that used to produce the wrong day. The style-equivalence claim is backed by a characterization test that inspects the generated XML and carries four positive controls, which is the right shape for that question. Two low, non-blocking documentation/test-message nits; nothing that should hold the merge.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 562 warning(s) |
-| Vitest | pass | 334/335 passed, lines 98.75% |
-| Playwright | pass | 110/110 passed |
+| ESLint | pass | 0 error(s), 561 warning(s) |
+| Vitest | pass | 353/353 passed, lines 98.75% |
+| Playwright | pass | 111/111 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 97 source files, 27712 lines
+- 98 source files, 28151 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -63,7 +63,7 @@ reports zero failures for a tool that never executed.
 |---|---:|
 | `components/CompositeTab.tsx` | 1404 |
 | `components/VariableBalanceTab.tsx` | 1384 |
-| `components/FileValidationTab.tsx` | 1058 |
+| `components/FileValidationTab.tsx` | 1064 |
 | `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
 | `utils/translations.ts` | 899 |

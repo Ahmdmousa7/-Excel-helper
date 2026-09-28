@@ -1,51 +1,33 @@
 {
-  "attestation_id": "sha256:264725167ccd83036c75d374f0cbb783a94768673c40a06e999a4edf2b54805e",
+  "attestation_id": "sha256:1713a0b411ca8a9f543a12763ec9073c027e2d31a1c325a7c0a4710ca511cb5a",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
     "low": 2,
-    "medium": 2
+    "medium": 0
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "`services/apiKeyStorage.ts` opens by stating it was split out of `geminiService.ts` for TD-004 — but geminiService.ts:163-181 still carries its own `GEMINI_KEY_STORAGE = 'gemini_api_key'` constant and its own exported `getStoredApiKeys` / `setStoredApiKeys` / `getStoredApiKey`, functionally identical to the new module. This PR is itself the evidence of the cost: the Groq deletion had to be applied in both files. Neither geminiService export is consumed externally — App.tsx:8 imports both from `apiKeyStorage`, and the only in-file consumer is `getStoredApiKey` (geminiService.ts:122, :185), so `setStoredApiKeys` is a wholly unused export. The concrete failure this sets up: the literal `'gemini_api_key'` now lives in two files, and a rename applied to only one makes the modal save under one key while `getAiClient()` reads another — every AI feature silently stops working with a valid key visible on screen and no error anywhere. It also has no TD id and no register row, so it is untracked debt rather than accepted debt.",
-      "file": "services/geminiService.ts",
-      "line": 165,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "geminiService still duplicates the key-storage API that apiKeyStorage.ts extracted"
-    },
-    {
-      "category": "dependency",
-      "detail": "SKILL.md:86-94 runs `\"$PYTHON\" -m pip install graphifyy -q || \"$PYTHON\" -m pip install graphifyy -q --break-system-packages` when `import graphify` fails and `uv` is absent. Two separate problems. First, `--break-system-packages` writes into a distro-managed Python on the machine of a teammate whose only action was typing `/graphify`; ADR-0007 § Consequences and `docs/tooling/graphify.md` § 'Install the CLI first' both disclose this honestly, but a prose prerequisite does not gate an executing shell command, and the stated reason for not patching it (the next `graphify install` overwrites the file) argues for a guard *outside* the vendored file rather than for no guard at all. Second, and not covered anywhere in the PR: the install is **unpinned**, while `.claude/skills/graphify/.graphify_version` pins `0.8.44` and ADR-0007's local-only-egress verification (§ Why: blackholed-proxy re-extract, seven provider keys unset, LLM egress confined to `llm.py`) is a claim about that specific version. A bootstrapping teammate gets whatever is currently latest on PyPI — not the version whose network behaviour was actually verified. `docs/tooling/graphify.md` § 9 also records that the package's own source points at `github.com/safishamsi/graphify` rather than the `Graphify-Labs` URL this work was requested against, and calls that discrepancy unresolved. This would be high if the bootstrap ran unconditionally rather than only when the CLI is absent, or if the package provenance discrepancy were resolved against the project.",
-      "file": ".claude/skills/graphify/SKILL.md",
-      "line": 92,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "Vendored skill bootstrap pip-installs an unpinned package, overriding pip's system-Python guard"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`decodePayload` wraps `Buffer.from(padded, 'base64').toString('utf8')` in a try/catch that calls `die(REFUSALS.payload)` (lines 89-93). Node's base64 decoder silently discards characters outside the alphabet instead of throwing, and `toString('utf8')` substitutes U+FFFD rather than throwing, so that catch can never execute. Behaviour is still correct — garbage falls through to the `JSON.parse` catch at line 98 and produces the identical refusal, with no input echoed — so there is no user-visible defect. It matters only because this script's entire value proposition is that it can be audited by reading it: lines 12-21 make that claim explicitly (\"Verify by reading it\"), and a reader tracing the failure paths will conclude one of them is live when it is not.",
-      "file": "scripts/jwt-lifetime.mjs",
-      "line": 89,
+      "category": "technical-debt",
+      "detail": "The site-by-site exposure table updated the two changed sites to '601 (now :605)' and '693 (now :699)', but left the other four rows at 643 / 738 / 790 / 803. The comments added above the two fixed calls shifted those lines: the styled builders now sit at 647 (changeLogData, chunked), 744 (changeLogData, single), 796 (summaryData) and 809 (supplierData). The same stale set is repeated in docs/quality/tech-debt-register.md:13 ('the styled one at 643/738/790/803'). This matters more than usual here because the register explicitly hands those four line numbers to a future reader as the latent trap to watch, and the final commit of this branch claims to have fixed audit line numbers — so a reader will reasonably trust them and land on the wrong lines.",
+      "file": "docs/modules/exporter-date-format-audit.md",
+      "line": 98,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Unreachable catch — Buffer.from(str, 'base64') does not throw on malformed input"
+      "summary": "Four of the six FileValidationTab line refs are now stale"
     },
     {
       "category": "testing",
-      "detail": "`goto()`'s doc comment (lines 62-69) justifies seeding `gemini_api_key` by describing the API-key modal as \"a full-screen `fixed inset-0` overlay with no Escape handler that swallows every click\". That was true before TD-008, but `components/ApiKeyModal.tsx:39` now calls `useModalA11y(onClose)`, which the same file documents as \"Escape to close, Tab trapped inside, focus restored on close\" — and `e2e/modal.spec.ts` has an 'Escape closes it' spec that TD-040 discusses as an existing, passing test. The seeding is still correct and still worth doing (it avoids the modal entirely rather than dismissing it), so nothing is broken; the stated *reason* is just no longer the true one. It reads as a live constraint on the app in the one file the suite treats as the canonical description of the shell, which is where a future reader would go to learn what the modal does.",
-      "file": "e2e/pages/AppShell.ts",
-      "line": 67,
+      "detail": "The two sibling assertions in this describe carry explanatory messages ('exportData carries source rows, so a Date reaches this call…' and a comment on the length-2 guard), but `expect(styled).toHaveLength(4)` has only a preceding comment. This is the assertion most likely to trip on a legitimate change — consolidating the chunked and single export paths, or dropping the supplier sheet, moves the count without introducing any defect — and when it does, the failure a future author sees is a bare 'expected length 4, received 3' with no hint that the correct response is to redo the exposure analysis in the audit rather than to bump the number.",
+      "file": "tests/unit/exporterDateFormat.test.ts",
+      "line": 373,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "AppShell's goto() comment claims the API-key modal has no Escape handler — it does"
+      "summary": "The styled-builder count guard fires without an explanation message"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 4
+  "total": 2
 }

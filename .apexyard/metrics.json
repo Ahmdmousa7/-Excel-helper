@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:264725167ccd83036c75d374f0cbb783a94768673c40a06e999a4edf2b54805e",
+  "attestation_id": "sha256:1713a0b411ca8a9f543a12763ec9073c027e2d31a1c325a7c0a4710ca511cb5a",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,8 +21,8 @@
         "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab-p-T_10At.js",
-        "gzip_bytes": 144786,
+        "file": "ProjectSummaryTab-0Hp4xoSl.js",
+        "gzip_bytes": 144790,
         "raw_bytes": 444388
       },
       {
@@ -31,7 +31,7 @@
         "raw_bytes": 280698
       },
       {
-        "file": "index.es-B5HOnPTs.js",
+        "file": "index.es-KHY5jwgR.js",
         "gzip_bytes": 51642,
         "raw_bytes": 151147
       },
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-D_O4HchW.js",
-        "gzip_bytes": 43359,
+        "file": "HomeTab-CwPVRfLq.js",
+        "gzip_bytes": 43360,
         "raw_bytes": 135983
       },
       {
-        "file": "index-BFkgfte3.js",
-        "gzip_bytes": 30925,
+        "file": "index-COI_3JoF.js",
+        "gzip_bytes": 30915,
         "raw_bytes": 100741
       },
       {
@@ -61,8 +61,8 @@
         "raw_bytes": 96519
       },
       {
-        "file": "QrCodeTab-CfDxur2C.js",
-        "gzip_bytes": 13692,
+        "file": "QrCodeTab-DL1e_pLK.js",
+        "gzip_bytes": 13691,
         "raw_bytes": 37417
       }
     ],
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1289,
+        "gzip_kb": 1289.1,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 89
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1303.2,
+        "gzip_kb": 1303.3,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 89
@@ -126,7 +126,7 @@
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-unused-vars",
-        "warnings": 181
+        "warnings": 180
       },
       {
         "errors": 0,
@@ -154,7 +154,7 @@
         "warnings": 3
       }
     ],
-    "warnings": 562
+    "warnings": 561
   },
   "playwright": {
     "available": true,
@@ -162,9 +162,9 @@
     "failures": [],
     "flaky_count": 0,
     "passed": true,
-    "passed_count": 110,
+    "passed_count": 111,
     "skipped_count": 0,
-    "total": 110
+    "total": 111
   },
   "schema": "apexyard.evidence.metrics/1",
   "typescript": {
@@ -184,10 +184,10 @@
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 334,
-      "skipped": 1,
-      "suites": 73,
-      "total": 335
+      "passed": 353,
+      "skipped": 0,
+      "suites": 79,
+      "total": 353
     }
   }
 }

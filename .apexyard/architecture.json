@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:264725167ccd83036c75d374f0cbb783a94768673c40a06e999a4edf2b54805e",
+  "attestation_id": "sha256:1713a0b411ca8a9f543a12763ec9073c027e2d31a1c325a7c0a4710ca511cb5a",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,11 +8,11 @@
     },
     "components": {
       "files": 36,
-      "loc": 17577
+      "loc": 17583
     },
     "e2e": {
       "files": 23,
-      "loc": 2836
+      "loc": 2896
     },
     "hooks": {
       "files": 2,
@@ -23,8 +23,8 @@
       "loc": 1179
     },
     "tests": {
-      "files": 13,
-      "loc": 3135
+      "files": 14,
+      "loc": 3490
     },
     "types": {
       "files": 1,
@@ -32,7 +32,7 @@
     },
     "utils": {
       "files": 9,
-      "loc": 1812
+      "loc": 1830
     }
   },
   "layering": {
@@ -54,7 +54,7 @@
       },
       {
         "file": "components/FileValidationTab.tsx",
-        "loc": 1058
+        "loc": 1064
       },
       {
         "file": "components/SupportChat.tsx",
@@ -96,6 +96,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 97,
-  "total_loc": 27712
+  "source_files": 98,
+  "total_loc": 28151
 }
