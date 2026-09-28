@@ -188,3 +188,27 @@ Do not auto-trigger a browser download when processing finishes. Browsers block 
 ```
 Processing complete  →  [ Download Excel ]
 ```
+
+---
+
+## D8 — should Pack SKU columns count as duplicates at all? / هل تُحسب أكواد العبوات مكررة؟
+
+**OPEN — found 2026-09-28 while fixing Files Validation. Needs the product owner.**
+
+Files Validation's auto-mapper maps any header *containing* "sku" to the SKU field, so `Pack1 SKU`, `Pack2 SKU` and `Pack3 SKU` take part in duplicate detection alongside the product SKU.
+
+But the Rewaa Simple template's own spec row describes a Pack SKU as **`SKU from product in system or in the file`** — a **reference** to another product, not a new identifier. On that reading, a Pack SKU *equal* to some product's SKU is not a duplicate; it is the pack pointing at its unit, which is exactly what it is supposed to do.
+
+### What happens today
+
+- Before 2026-09-28: a duplicate-SKU fix wrote the new SKU into **every** SKU-mapped column of the row, overwriting its pack SKUs. **Fixed** — each fix now rewrites only the colliding cell, pinned by `e2e/files-validation.spec.ts`.
+- **Still true:** if a Pack SKU equals an earlier product SKU, it is counted as a duplicate and **that pack cell is renamed** (`S-1` → `S-1-1`), breaking the reference.
+
+### The decision
+
+| Option | Effect |
+|---|---|
+| **A. Exclude Pack SKU columns from SKU duplicate detection** (recommended) | Pack references are left alone. A pack SKU is then only checked for being non-empty when a pack label exists, as today |
+| B. Keep them in, as now | A pack referencing an existing product has its reference renamed |
+
+Recommendation is **A**, but it changes what the validator reports, so it is not made unilaterally. The same heuristic the module already uses to avoid *generating* SKUs for pack columns (`headerName.includes('pack')`) would identify them.

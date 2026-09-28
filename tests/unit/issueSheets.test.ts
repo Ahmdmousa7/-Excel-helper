@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { errorCategory, fixCategory, sheetNameFor, groupIssues } from '../../utils/issueSheets';
+import {
+  errorCategory, fixCategory, sheetNameFor, groupIssues,
+  capIssueRows, issueCapNote, MAX_ISSUE_SHEET_ROWS,
+} from '../../utils/issueSheets';
 
 describe('errorCategory — one category per KIND of error, not per row', () => {
   it('drops the leading [Column]: prefix', () => {
@@ -138,5 +141,31 @@ describe('groupIssues', () => {
 
   it('no issues → no sheets', () => {
     expect(groupIssues([], [[], []])).toEqual([]);
+  });
+});
+
+describe('issue sheets are capped, visibly', () => {
+  it('under the cap, everything is shown and nothing is hidden', () => {
+    expect(capIssueRows([1, 2, 3], 5)).toEqual({ shown: [1, 2, 3], hidden: 0 });
+  });
+
+  it('over the cap, the first N are shown and the rest are counted', () => {
+    const rows = Array.from({ length: 12 }, (_, i) => i);
+    expect(capIssueRows(rows, 10)).toEqual({ shown: rows.slice(0, 10), hidden: 2 });
+  });
+
+  it('exactly at the cap is not truncated', () => {
+    expect(capIssueRows([1, 2], 2).hidden).toBe(0);
+  });
+
+  it('the default cap is large enough for normal files', () => {
+    expect(MAX_ISSUE_SHEET_ROWS).toBeGreaterThanOrEqual(10_000);
+  });
+
+  it('the note says how many rows are missing and where they are', () => {
+    expect(issueCapNote(1, 10)).toMatch(/1 more row not listed/);
+    expect(issueCapNote(250, 10)).toMatch(/250 more rows not listed/);
+    expect(issueCapNote(250, 10)).toMatch(/first 10/);
+    expect(issueCapNote(250, 10)).toMatch(/Validated Data/);
   });
 });

@@ -101,3 +101,23 @@ export function groupIssues(
     ...collect(fixEntries).map((g) => ({ kind: 'fix' as const, ...g })),
   ];
 }
+
+/**
+ * Rows listed per issue sheet. Every row on an issue sheet is a COPY of a row
+ * already in Validated Data, so without a limit a large file in which most rows
+ * share one issue would roughly double the export's size and build time. The
+ * cap is visible — see issueCapNote — never a silent truncation.
+ */
+export const MAX_ISSUE_SHEET_ROWS = 10_000;
+
+export function capIssueRows(
+  rows: readonly number[],
+  max: number = MAX_ISSUE_SHEET_ROWS,
+): { shown: number[]; hidden: number } {
+  return { shown: rows.slice(0, max), hidden: Math.max(0, rows.length - max) };
+}
+
+/** The last row of a capped sheet, saying exactly how much is missing and where it is. */
+export const issueCapNote = (hidden: number, max: number = MAX_ISSUE_SHEET_ROWS): string =>
+  `… ${hidden} more row${hidden === 1 ? '' : 's'} not listed here (this sheet shows the first ${max}). ` +
+  `Every row is in "Validated Data".`;

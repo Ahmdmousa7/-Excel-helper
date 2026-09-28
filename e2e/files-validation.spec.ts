@@ -7,7 +7,7 @@
  * paths — a single workbook, and the chunked ZIP whose parts must each carry
  * only their own rows' issues.
  */
-import { test, expect } from './fixtures';
+import { test, expect, AppShell } from './fixtures';
 import type { Page } from '@playwright/test';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
@@ -24,15 +24,16 @@ const ROWS: (string | number)[][] = [
   // `Pack1 Barcode` is mapped to the barcode field by the auto-mapper, because
   // it maps any header CONTAINING "barcode" — exactly as it does for a real
   // Rewaa file. That makes row 7 carry one code in two barcode cells.
-  ['Name', 'SKU', 'Barcode', 'Retail Price', 'Cost', 'Pack1 Barcode'],
-  ['Tea', 'S-1', '6287013210006', 10, 5, ''],             // 0
-  ['Coffee', 'S-2', `6287013210006${KASRA}`, 12, 6, ''],  // 1  same barcode, hidden kasra
-  ['Milk', 'S-3', 'S-1', 8, 4, ''],                       // 2  barcode equals an SKU
-  ['Juice', 'S-4', '00123', 9, 3, ''],                    // 3  leading zeros ...
-  ['Water', 'S-5', '123', 2, 1, ''],                      // 4  ... are NOT a duplicate (D7)
-  ['Loss', 'S-6', '999', 1, 50, ''],                      // 5  cost > retail
-  ['Tea2', 'S-1', '777', 11, 5, ''],                      // 6  duplicate SKU
-  ['Box', 'S-7', 'Z', 12, 6, 'Z'],                        // 7  same code in two cells of ONE row
+  // `Pack1 SKU` is likewise mapped to the SKU field.
+  ['Name', 'SKU', 'Barcode', 'Retail Price', 'Cost', 'Pack1 Barcode', 'Pack1 SKU'],
+  ['Tea', 'S-1', '6287013210006', 10, 5, '', ''],             // 0
+  ['Coffee', 'S-2', `6287013210006${KASRA}`, 12, 6, '', ''],  // 1  same barcode, hidden kasra
+  ['Milk', 'S-3', 'S-1', 8, 4, '', ''],                       // 2  barcode equals an SKU
+  ['Juice', 'S-4', '00123', 9, 3, '', ''],                    // 3  leading zeros ...
+  ['Water', 'S-5', '123', 2, 1, '', ''],                      // 4  ... are NOT a duplicate (D7)
+  ['Loss', 'S-6', '999', 1, 50, '', ''],                      // 5  cost > retail
+  ['Tea2', 'S-1', '777', 11, 5, '', 'P-9'],                   // 6  duplicate SKU, own pack SKU
+  ['Box', 'S-7', 'Z', 12, 6, 'Z', ''],                        // 7  same code in two cells of ONE row
 ];
 
 function workbook(): Buffer {
@@ -42,7 +43,7 @@ function workbook(): Buffer {
   return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
 }
 
-async function validate(app: any, page: Page) {
+async function validate(app: AppShell, page: Page) {
   await app.goto();
   await app.openToolMatching(/Files Validation/);
   await page.locator('input[type="file"]').first().setInputFiles({
@@ -78,6 +79,9 @@ test.describe('Files Validation — duplicates and issue sheets', () => {
     expect(cell(1, 'Barcode')).toBe('6287013210006-1');
     // Duplicate SKU resolved first, taking S-1-1 …
     expect(cell(6, 'SKU')).toBe('S-1-1');
+    // … in the SKU cell ONLY. The row's pack SKU is left alone; the fix used to
+    // write the new SKU into every column mapped to the SKU field, Pack1 SKU included.
+    expect(cell(6, 'Pack1 SKU')).toBe('P-9');
     // … so the barcode that clashed with SKU S-1 skips to S-1-2 instead of
     // creating a new duplicate. The SKU keeps the base code.
     expect(cell(2, 'Barcode')).toBe('S-1-2');

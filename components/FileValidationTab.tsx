@@ -7,7 +7,7 @@ import { FileData, ProcessingStatus, LogEntry } from '../types';
 import { getSheetData, saveWorkbook } from '../services/excelService';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { identifierKey, nextFreeSuffix, resolveBarcodes } from '../utils/identifiers';
-import { groupIssues, sheetNameFor, type IssueGroup } from '../utils/issueSheets';
+import { groupIssues, sheetNameFor, capIssueRows, issueCapNote, type IssueGroup } from '../utils/issueSheets';
 import ProgressBar from './ProgressBar';
 import { 
   ShieldCheck, UploadCloud, FileSpreadsheet, Settings, 
@@ -297,7 +297,9 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
       const reportErrors: {rowIndex: number, colIndex: number, msg: string}[] = [];
       const errorDescColIndex = headers.length; 
       
-      const skuSet = new Map<string, number[]>();
+      // SKU occurrences are CELLS too: the auto-mapper maps `Pack1 SKU`… to the SKU
+      // field, so a row-wide rewrite would overwrite the row's pack SKUs.
+      const skuSet = new Map<string, { r: number; c: number }[]>();
       // Barcode occurrences are CELLS, not rows: one row can carry the same code in
       // two barcode columns, and each needs its own fix.
       const barcodeSet = new Map<string, { r: number; c: number }[]>();
@@ -378,7 +380,7 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
                           const idKey = identifierKey(strVal);
                           if (idKey && field.key === 'sku') {
                               if (!skuSet.has(idKey)) skuSet.set(idKey, []);
-                              skuSet.get(idKey)!.push(r);
+                              skuSet.get(idKey)!.push({ r, c: cIdx });
                           } else if (idKey && field.key === 'barcode') {
                               if (!barcodeSet.has(idKey)) barcodeSet.set(idKey, []);
                               barcodeSet.get(idKey)!.push({ r, c: cIdx });
@@ -524,19 +526,15 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
       // `X`, `X` became `X`, `X-1` even when the file already held an `X-1`.
       const taken = new Set<string>([...skuSet.keys(), ...barcodeSet.keys()]);
 
-      skuSet.forEach((indices, sku) => {
-          if (indices.length > 1) {
-              indices.forEach((rIdx, i) => {
-                  if (i > 0) {
-                      const newSku = nextFreeSuffix(sku, taken);
-                      const mappedSkuCols = mapping['sku'] || [];
-                      mappedSkuCols.forEach(c => {
-                          newRows[rIdx][c] = newSku;
-                      });
-                      currentActionsLog[rIdx].push(`Resolved Duplicate SKU`);
-                  }
-              });
-          }
+      // The first occurrence keeps the SKU; each later one is renamed IN ITS OWN
+      // CELL. This used to write the new SKU into every column mapped to the SKU
+      // field — which includes `Pack1 SKU`… — overwriting the row's pack SKUs.
+      skuSet.forEach((cells, sku) => {
+          cells.forEach((cell, i) => {
+              if (i === 0) return;
+              newRows[cell.r][cell.c] = nextFreeSuffix(sku, taken);
+              if (!currentActionsLog[cell.r].includes(`Resolved Duplicate SKU`)) currentActionsLog[cell.r].push(`Resolved Duplicate SKU`);
+          });
       });
 
       // Barcodes are now RESOLVED rather than only reported. A duplicate keeps
@@ -582,7 +580,11 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
       for (const group of groups) {
           const rows = group.rows.filter(inScope);
           if (rows.length === 0) continue;
-          const issueData = [exportHeaders, ...rows.map((r) => toExportRow(processedData[r]))];
+          // Capped, visibly: every listed row is a copy, so an uncapped sheet on a
+          // large file where most rows share an issue would double the export.
+          const { shown, hidden } = capIssueRows(rows);
+          const issueData: any[][] = [exportHeaders, ...shown.map((r) => toExportRow(processedData[r]))];
+          if (hidden > 0) issueData.push([issueCapNote(hidden)]);
           const ws = XLSX.utils.aoa_to_sheet(issueData);
           const fill = group.kind === 'error' ? 'DC2626' : '059669';
           exportHeaders.forEach((_, c) => {
