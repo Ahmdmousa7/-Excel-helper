@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:110af9982bfff81fdd11191f2d06f170bbd059ad8d0ff94e48cdcf367f391d5a",
+  "attestation_id": "sha256:eba955183a1525d33170da43c052635502f544644eb268eca790a93aed815e0b",
   "available": true,
-  "files_reviewed": 7,
+  "files_reviewed": 3,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 2,
     "medium": 0
   },
-  "findings_total": 2,
+  "findings_total": 3,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Extracts OCR→template column mapping out of OcrTab.tsx into a pure, dependency-injected utils/templateMapping.ts, widens the template upload to .xls/.csv with a UTF-8 CSV decode path (TD-050), adds synonym resolution, Rewaa-scoped defaults, prototype-key hardening, and a re-map-on-extraction effect. Backed by 54 unit tests against the two real Rewaa CSV templates — I ran them locally and all 54 pass. I verified the new useEffect cannot loop (rawHeaders/simpleHeaders/varHeaders are all useState values, and refreshMapping is proven idempotent by its own test), that XLSX is already imported at OcrTab.tsx:14, and that isRewaaTemplate correctly gates defaults away from non-Rewaa sheets. No blocking handbook violations and no high/critical findings; two low-severity notes only.",
+  "summary": "Part 2 of the OCR → Rewaa export: constructs `Variant Name` when the extraction omits it, normalises the `list yes no` columns to the two words the importer accepts, and adds `In Rewaa Simple` / `In Rewaa Variable` audit columns to the All Extracted Data sheet. Routing and stripping move out of `OcrTab.exportData` into `utils/templateMapping.ts` unchanged, with a test that compares them against the original inline code verbatim. I ran the suite: 87/87 pass, including the two golden tests that reproduce the real templates' own data rows cell-for-cell. All new exported functions carry explicit return types, own-property access is used throughout, and the Rewaa-only scoping is enforced on every new behaviour — no blocking findings, three low/info notes below.",
   "verdict": "approved"
 }

@@ -1,45 +1,29 @@
 {
-  "attestation_id": "sha256:110af9982bfff81fdd11191f2d06f170bbd059ad8d0ff94e48cdcf367f391d5a",
+  "attestation_id": "sha256:eba955183a1525d33170da43c052635502f544644eb268eca790a93aed815e0b",
   "files": [
     {
-      "oid": "83e66134e3086f5e7a5a28c4d9e27d35251ff4fb",
+      "oid": "45a5a7047adcfc4e272cb179fd125408be9b46ec",
       "path": "components/OcrTab.tsx"
     },
     {
-      "oid": "5f5cd07c365fc312351e295838857912f10c9d7d",
-      "path": "docs/modules/ocr-rewaa-plan.md"
-    },
-    {
-      "oid": "6fede1fe070e0ac1baf964f2b1a9e9371ff7c351",
-      "path": "docs/quality/tech-debt-register.md"
-    },
-    {
-      "oid": "638d73b541da25466567486b86ef8b841d11cfe6",
-      "path": "tests/fixtures/rewaa-simple-template.csv"
-    },
-    {
-      "oid": "af720c39cb582a633b1b3fec94bdb6dc8258d71c",
-      "path": "tests/fixtures/rewaa-variable-template.csv"
-    },
-    {
-      "oid": "1630bbfa7a201a15e6dc625a202019bf2dc3affa",
+      "oid": "8e74572bdd23f5e2bf4404c1ce97fb16552480ae",
       "path": "tests/unit/templateMapping.test.ts"
     },
     {
-      "oid": "58ca53e15b0a6fc894fcbeaa8eced8f261284c1d",
+      "oid": "97ffb5875b07920da654d508cd30005badd71aa7",
       "path": "utils/templateMapping.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 2,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "834fc8af65416403a9d1b8b9aaa595f27119884a",
+  "reviewed_at_commit": "fcb08a306eb5243a39da0f26f1eb5e76e97d2b51",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

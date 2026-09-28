@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:110af9982bfff81fdd11191f2d06f170bbd059ad8d0ff94e48cdcf367f391d5a` |
+| Attestation id | `sha256:eba955183a1525d33170da43c052635502f544644eb268eca790a93aed815e0b` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `834fc8af6541` |
+| Reviewed at commit | `fcb08a306eb5` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 7 |
+| Files reviewed | 3 |
 
 ## What this is, and what it is not
 
@@ -31,9 +31,9 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | high | 0 |
 | medium | 0 |
 | low | 2 |
-| info | 0 |
+| info | 1 |
 
-Extracts OCR→template column mapping out of OcrTab.tsx into a pure, dependency-injected utils/templateMapping.ts, widens the template upload to .xls/.csv with a UTF-8 CSV decode path (TD-050), adds synonym resolution, Rewaa-scoped defaults, prototype-key hardening, and a re-map-on-extraction effect. Backed by 54 unit tests against the two real Rewaa CSV templates — I ran them locally and all 54 pass. I verified the new useEffect cannot loop (rawHeaders/simpleHeaders/varHeaders are all useState values, and refreshMapping is proven idempotent by its own test), that XLSX is already imported at OcrTab.tsx:14, and that isRewaaTemplate correctly gates defaults away from non-Rewaa sheets. No blocking handbook violations and no high/critical findings; two low-severity notes only.
+Part 2 of the OCR → Rewaa export: constructs `Variant Name` when the extraction omits it, normalises the `list yes no` columns to the two words the importer accepts, and adds `In Rewaa Simple` / `In Rewaa Variable` audit columns to the All Extracted Data sheet. Routing and stripping move out of `OcrTab.exportData` into `utils/templateMapping.ts` unchanged, with a test that compares them against the original inline code verbatim. I ran the suite: 87/87 pass, including the two golden tests that reproduce the real templates' own data rows cell-for-cell. All new exported functions carry explicit return types, own-property access is used throughout, and the Rewaa-only scoping is enforced on every new behaviour — no blocking findings, three low/info notes below.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ Extracts OCR→template column mapping out of OcrTab.tsx into a pure, dependency
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 560 warning(s) |
-| Vitest | pass | 407/407 passed, lines 99.05% |
+| Vitest | pass | 440/440 passed, lines 99.17% |
 | Playwright | pass | 111/111 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 100 source files, 28859 lines
+- 100 source files, 29121 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -67,7 +67,7 @@ reports zero failures for a tool that never executed.
 | `components/SupportChat.tsx` | 955 |
 | `components/TranslateTab.tsx` | 953 |
 | `utils/translations.ts` | 899 |
-| `components/OcrTab.tsx` | 895 |
+| `components/OcrTab.tsx` | 884 |
 | `services/geminiService.ts` | 842 |
 | `components/ZidTab.tsx` | 841 |
 | `components/ProjectSummaryTab.tsx` | 840 |

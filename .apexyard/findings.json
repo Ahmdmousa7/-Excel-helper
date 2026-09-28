@@ -1,33 +1,42 @@
 {
-  "attestation_id": "sha256:110af9982bfff81fdd11191f2d06f170bbd059ad8d0ff94e48cdcf367f391d5a",
+  "attestation_id": "sha256:eba955183a1525d33170da43c052635502f544644eb268eca790a93aed815e0b",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 2,
     "medium": 0
   },
   "findings": [
     {
-      "category": "performance",
-      "detail": "`fallback = applyDefaults ? (defaultFor(key) ?? '') : ''` sits inside the per-row loop, and `defaultFor` runs `normalizeHeader` — four regex replaces plus a toLowerCase — on the same fixed set of template headers for every row. The header set is invariant across rows, so the work is rows × columns when it only needs to be columns: a 43-column Simple template over 500 extracted rows is ~21,500 redundant normalisations. No user-visible impact at realistic OCR volumes (rows come from images, not a spreadsheet), which is why this is low rather than a hot-path finding — it would rise to medium only if this mapper were ever reused for the sheet-sized inputs the other tabs handle.",
+      "category": "code-smell",
+      "detail": "When a YES_NO column receives a non-blank value that `toYesNo` cannot classify (`maybe`, `discontinued`, `2`), it is replaced by the column default and the original is lost. That is different from the blank case: here the extraction *did* produce data, and it is being overwritten with a value that may invert its meaning (`Sellable: \"in store only\"` → `yes`, which puts the product on sale). Nothing surfaces it — `addLog` is never called, and the new audit columns cannot catch it because YES_NO_COLUMNS and COMPARED_COLUMNS are disjoint sets (`utils/templateMapping.ts:236` vs `:311`), so `matchesTemplate` returns TRUE for the row. The trade-off itself is documented and defensible (a rejected import is worse); the missing part is the signal. Severity stays low because the trigger is narrow — OCR of a menu rarely produces prose in a yes/no cell. It would rise to medium if this path were fed invoice or supplier-sheet extractions, where free-text flags are common.",
       "file": "utils/templateMapping.ts",
-      "line": 215,
+      "line": 216,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "defaultFor() re-normalises every template header once per row instead of once per column"
+      "summary": "Out-of-list yes/no values are discarded silently, with no audit signal"
     },
     {
-      "category": "typescript",
-      "detail": "The diff rewrites this function body entirely, so its `rows: any[]` parameter is newly-added code rather than a line the PR merely reindents — the type-safety handbook's carve-out for untouched legacy lines doesn't apply. The wrapper now adds nothing: it forwards all three arguments to mapRowsToTemplate unchanged, so the only thing it contributes is an `any` that erases the `TemplateRow` typing the new module was written to provide. Concretely, a caller passing the wrong shape (e.g. simpleRows before the Simple/Variable split at line 558) type-checks silently here but would not against mapRowsToTemplate's own signature.",
+      "category": "testing",
+      "detail": "`utils/templateMapping.ts` is covered thoroughly (87 tests, including a verbatim-equivalence check on the moved routing/stripping helpers). The glue in `exportData` is not: that `In Rewaa Simple` is only ever TRUE for a non-variable row, that the comparison is fed `stripped` rather than `row`, and that the audit columns are omitted entirely when no Rewaa template is loaded. That glue is exactly where the defect fixed by `fcb08a3` lived — comparing against the unstripped row — and a second regression of the same shape would ship undetected. `matchesTemplate` is a pure function taking plain objects, so the pairing logic is testable without rendering the component.",
       "file": "components/OcrTab.tsx",
-      "line": 512,
+      "line": 543,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Rewritten mapDataToTemplate keeps `any[]` and is now a pure pass-through alias"
+      "summary": "The audit-column pairing in exportData is the one new piece with no test"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`matchesTemplate` resolves the expected value with `resolveSourceKey` independently of the mapping, which is what makes it an audit rather than a restatement — that part is right. The consequence is that a mapping the user chose on purpose is indistinguishable from a mapping that went wrong: `refreshMapping` explicitly preserves a user pointing `Retail Price` at `Promo` while `Price` also exists (tested at `tests/unit/templateMapping.test.ts:370`), and for that row the audit column reports FALSE. The user then investigates a column they set themselves. Recorded as an observation, not a request — the alternative (trusting the mapping) removes the check's entire value, and the current behaviour fails in the safe direction.",
+      "file": "utils/templateMapping.ts",
+      "line": 334,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "A deliberate user remap reads as FALSE in the audit column"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 3
 }
