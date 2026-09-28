@@ -212,3 +212,22 @@ But the Rewaa Simple template's own spec row describes a Pack SKU as **`SKU from
 | B. Keep them in, as now | A pack referencing an existing product has its reference renamed |
 
 Recommendation is **A**, but it changes what the validator reports, so it is not made unilaterally. The same heuristic the module already uses to avoid *generating* SKUs for pack columns (`headerName.includes('pack')`) would identify them.
+
+---
+
+## D9 — OCR Extraction already auto-downloads / الاستخراج يُنزّل الملف تلقائياً
+
+**OPEN — found 2026-09-28. Conflicts with D7 rule 4.**
+
+D7 decided *"Do not auto-trigger a browser download when processing finishes … use an explicit user action."* That rule was written about porting the AI Studio applet — but the **live** OCR tab already does it: when extraction completes, `handleProcess` calls `exportData(allResults)` unconditionally (`// Auto export logic`), and a workbook downloads with no click.
+
+Why it matters: the download fires long after the click that started it — an extraction can take a minute — so browsers treat it as unsolicited, and depending on settings it is blocked, prompted, or silently dropped. A user can finish an extraction and have nothing arrive.
+
+A manual **Export** button already exists in the results bar, so removing the automatic download strands nobody.
+
+| Option | Effect |
+|---|---|
+| **A. Remove the auto-download** (recommended, per D7) | The file is produced only when the user clicks Export |
+| B. Keep it | Existing behaviour; some browsers will block it |
+
+Not changed unilaterally, because it removes behaviour users may rely on. `e2e/ocr-text-input.spec.ts` currently waits for the automatic download; under option A it would click Export instead.

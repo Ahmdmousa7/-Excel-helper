@@ -463,6 +463,14 @@ export const translateBatch = async (
  *   A tier rather than a model id keeps the caller free of Gemini specifics — see
  *   `AiTier`.
  */
+/**
+ * The most input text a single structured extraction sends to the model; the
+ * rest is cut. Exported so callers that CONVERT files to text (OCR's
+ * spreadsheet and Word input) can warn against this same number instead of a
+ * copy that could drift from it.
+ */
+export const MAX_EXTRACTION_TEXT = 500_000;
+
 export const extractStructuredData = async (
     text: string,
     prompt: string,
@@ -481,7 +489,7 @@ export const extractStructuredData = async (
               ${prompt}
               
               Input Text:
-              ${text.substring(0, 500000)}
+              ${text.substring(0, MAX_EXTRACTION_TEXT)}
               
               Return a valid JSON array.
             `;

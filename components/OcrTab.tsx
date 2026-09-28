@@ -3,6 +3,9 @@ import { FileData, LogEntry, ProcessingStatus } from '../types';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { readExcelFile, getSheetData, saveWorkbook } from '../services/excelService';
 import { aiService } from '../services/aiServiceFactory';
+import { MAX_EXTRACTION_TEXT } from '../services/geminiService';
+import { readWorkbookBytes } from '../services/workbookBytes';
+import { textInputKind, workbookToText, extractDocxText } from '../utils/ocrTextInput';
 import {
   autoMap, refreshMapping, mapRowsToTemplate, cleanTemplateHeaders, isCsvFile, parseCsvTemplate,
   isRewaaTemplate, isVariableRow, stripForSimple, stripForVariable, matchesTemplate,
@@ -30,6 +33,12 @@ interface MediaFile {
   mimeType: string;
   status: ProcessingStatus;
   rotation: number;
+  /**
+   * Spreadsheet or Word input, already converted to text. Present => the file is
+   * sent through the SAME structured-extraction call as the tab's text mode;
+   * absent => it is an image or PDF sent as media.
+   */
+  text?: string;
 }
 
 const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
@@ -254,7 +263,38 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       const newFiles: MediaFile[] = [];
       const uploadedFiles: File[] = Array.from(e.target.files);
       for (const file of uploadedFiles) {
-         const base64Data = await new Promise<string>((resolve) => {
+         const kind = textInputKind(file.name);
+         if (kind === 'legacy-doc') {
+             // A binary OLE format with no text layer this app can read. Sending it
+             // as "media" would hand the model an unreadable blob.
+             addLog(`${file.name}: legacy Word .doc files cannot be read. Save it as .docx and upload again.`, 'error');
+             continue;
+         }
+
+         // Spreadsheets and Word documents are converted to TEXT here, then take
+         // the same extraction path as the tab's text mode — no second pipeline.
+         let text: string | undefined;
+         if (kind) {
+             try {
+                 const bytes = new Uint8Array(await file.arrayBuffer());
+                 text = kind === 'spreadsheet'
+                     ? workbookToText(XLSX, readWorkbookBytes(bytes, file.name)) // TD-050 decoding
+                     : await extractDocxText(bytes);
+             } catch (err: unknown) {
+                 addLog(`${file.name}: ${err instanceof Error ? err.message : String(err)}`, 'error');
+                 continue;
+             }
+             if (!text.trim()) {
+                 addLog(`${file.name}: no text found to extract.`, 'warning');
+                 continue;
+             }
+             if (text.length > MAX_EXTRACTION_TEXT) {
+                 // The extraction call cuts its input at this length, silently.
+                 addLog(`${file.name}: ${text.length.toLocaleString()} characters — only the first ${MAX_EXTRACTION_TEXT.toLocaleString()} will be read. Split the file to extract the rest.`, 'warning');
+             }
+         }
+
+         const base64Data = kind ? '' : await new Promise<string>((resolve) => {
             const reader = new FileReader();
             reader.onload = (ev) => {
                const res = ev.target?.result as string;
@@ -266,11 +306,12 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
          newFiles.push({
            id: Math.random().toString(36).substr(2, 9),
            file,
-           previewUrl: URL.createObjectURL(file),
+           previewUrl: kind ? '' : URL.createObjectURL(file),
            base64Data,
            mimeType: file.type,
            status: ProcessingStatus.IDLE,
-           rotation: 0
+           rotation: 0,
+           text,
          });
       }
       setFiles(prev => [...prev, ...newFiles]);
@@ -388,7 +429,10 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
               const file = files[i];
               addLog(`Processing file ${i + 1} of ${files.length}: ${file.file.name}...`, 'info');
               try {
-                  const result: any = await aiService.extractFromMedia(
+                  const result: any = file.text !== undefined
+                      // Spreadsheet / Word input: the very call text mode uses, same prompt.
+                      ? await aiService.extractStructuredData(file.text, fullPrompt, undefined, (msg) => addLog(msg, 'warning'))
+                      : await aiService.extractFromMedia(
                       { data: file.base64Data, mimeType: file.mimeType },
                       fullPrompt,
                       (msg: string) => addLog(msg, 'success'),
@@ -601,7 +645,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                       {/* Input Area */}
                       {inputType === 'file' ? (
                           <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center hover:bg-slate-50 transition-all cursor-pointer relative">
-                              <input type="file" multiple accept="image/*,.pdf" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer"/>
+                              <input type="file" multiple accept="image/*,.pdf,.xlsx,.xls,.csv,.tsv,.docx,.doc" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer"/>
                               <UploadCloud size={40} className="text-slate-300 mb-4"/>
                               <p className="text-slate-600 font-bold">{t.ocr.uploadTitle}</p>
                               <p className="text-slate-400 text-sm">JPG, PNG, PDF</p>
@@ -625,7 +669,11 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                               <div className="flex gap-2 overflow-x-auto pb-2">
                                   {files.map(f => (
                                       <div key={f.id} className="relative w-20 h-20 border rounded-lg overflow-hidden shrink-0 group">
-                                          {f.mimeType.includes('image') ? (
+                                          {f.text !== undefined ? (
+                                              <div className="w-full h-full flex items-center justify-center bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase">
+                                                  {f.file.name.split('.').pop()}
+                                              </div>
+                                          ) : f.mimeType.includes('image') ? (
                                               <img
                                                 src={f.previewUrl}
                                                 alt={`Preview of ${f.file.name}`}
@@ -763,7 +811,9 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                           <div className="w-1/3 border-r border-slate-200 bg-slate-800 flex items-center justify-center p-4 relative">
                               {files.length > 0 ? (
                                   <div className="relative w-full h-full">
-                                      {files[0].mimeType.includes("pdf") ? (
+                                      {files[0].text !== undefined ? (
+                                        <pre className="w-full h-full overflow-auto whitespace-pre-wrap text-xs p-3 bg-white rounded" dir="auto" aria-label="Text that will be sent for extraction">{files[0].text.slice(0, 20_000)}</pre>
+                                      ) : files[0].mimeType.includes("pdf") ? (
                                         <iframe src={files[0].previewUrl} className="w-full h-full rounded" title="Source PDF" />
                                       ) : (
                                         <img src={files[0].previewUrl} className="object-contain w-full h-full rounded" alt="Source" />

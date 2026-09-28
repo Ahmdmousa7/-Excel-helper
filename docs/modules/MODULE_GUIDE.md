@@ -48,7 +48,7 @@ Produced before the guide was written. These are mismatches between what existin
 | **Salla Organizer** | Split Salla exports into Simple/Variable | `5` | `components/SallaTab.tsx` | `.xlsx` | XLSX `Salla_Analyzed*` | Active |
 | **Zid Organizer** | Organise Zid products, fill parent names | `13` | `components/ZidTab.tsx` | `.xlsx` | XLSX `Zid_Organized_*` / `Zid_Mapped_*` | Active |
 | **Composite Check** | Validate composite items against raw materials | `4` | `components/CompositeTab.tsx`, `utils/quantityRule.ts` | `.xlsx`, 2 sheets | XLSX, 3 sheets | Active |
-| **OCR Extraction** | Images/PDF → structured table via AI | `12` | `components/OcrTab.tsx` | `image/*`, `.pdf`, `.xlsx` template | XLSX | Active |
+| **OCR Extraction** | Images/PDF, spreadsheets and Word → structured table via AI | `12` | `components/OcrTab.tsx` | `image/*`, `.pdf`, `.xlsx .xls .csv .tsv`, `.docx`; template `.xlsx .xls .csv` | XLSX | Active |
 | **Web Scraper** | URL → structured table via AI | `3` | `components/WebScraperTab.tsx` | URL + prompt | XLSX | Active |
 | **PDF Tools** | Merge / split PDFs | `7` | `components/PdfToolsTab.tsx` | `application/pdf` | PDF or ZIP | Active |
 | **Images to PDF** | Images → one PDF | `8` | `components/ImageToPdfTab.tsx` | `image/png,jpeg,webp` | PDF | Active |
@@ -386,8 +386,8 @@ No three-way compare, no cell-level colour diff export. `components/CompareTool.
 **AR:** يرسل الصور أو ملفات PDF (أو نصاً ملصوقاً) إلى Gemini ويعيد جدولاً منظماً — فواتير أو قوائم أو إيصالات — ويمكن تحديد شكله بقالب Excel.
 
 #### Input / ماذا يدخل؟
-**EN:** `accept="image/*,.pdf"` for media, `accept=".xlsx"` for the optional schema template. Two paths: **image/PDF** → `extractFromMedia` (`quality` tier, Pro-first); **pasted text** → `extractStructuredData` (`fast` tier, Flash-first). Requires a Gemini key.
-**AR:** يقبل الصور وPDF، وقالب `.xlsx` اختياري. مسارَان: الوسائط عبر `extractFromMedia` (فئة الجودة)، والنص عبر `extractStructuredData` (الفئة السريعة). ويلزم مفتاح Gemini.
+**EN:** `accept="image/*,.pdf,.xlsx,.xls,.csv,.tsv,.docx,.doc"` for input, `accept=".xlsx,.xls,.csv"` for the optional template. **Three paths, one pipeline:** **image/PDF** → `extractFromMedia` (`quality` tier); **pasted text** → `extractStructuredData` (`fast` tier); and, since 2026-09-28, **spreadsheet (`.xlsx .xls .csv .tsv`) and Word (`.docx`)** files are converted to text at upload and sent through that SAME `extractStructuredData` call with the same prompt — so translation, variant splitting, random SKUs, template mapping and the audit columns all apply unchanged. Spreadsheets are read through the TD-050 decoder, so BOM-less Arabic CSVs survive; each sheet becomes CSV, headed by its name when there are several. A `.docx` keeps its structure: paragraphs as lines, table rows as tab-separated columns; tracked-change deletions and field codes are dropped. **Legacy `.doc` is refused** with an explanation (a binary format with no readable text layer). Input over 500,000 characters is cut by the extraction call, and the tab now warns when that happens. The split view shows the converted text — exactly what the model will read.
+**AR:** يقبل الصور وPDF، **وأيضاً ملفات Excel وCSV وWord (`.docx`)** منذ 2026-09-28: تُحوَّل إلى نص عند الرفع وتمر بنفس مسار الاستخراج ونفس التعليمات، فتنطبق الترجمة وتقسيم المتغيرات والربط بالقالب كما هي. تُقرأ ملفات CSV العربية بلا BOM بشكل صحيح، وتحافظ جداول Word على أعمدتها. ملفات `.doc` القديمة غير مدعومة ويظهر سبب ذلك. ويظهر تحذير إذا تجاوز النص 500,000 حرف.
 
 #### Output / ماذا يخرج؟
 XLSX of the extracted rows. Progress is reported per file, and per extracted item name as the stream arrives.
