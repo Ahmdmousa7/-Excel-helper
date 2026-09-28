@@ -155,3 +155,29 @@ describe('resolveBarcodes addresses CELLS, not rows', () => {
     expect(fix.at).toBe(ref);
   });
 });
+
+describe('nextFreeSuffix scales linearly', () => {
+  it('10,000 copies of one code resolve fast, and every value is unique', () => {
+    // Restarting the search at -1 on every call made this O(k^2).
+    const taken = new Set<string>(['X']);
+    const started = performance.now();
+    const out = Array.from({ length: 10_000 }, () => nextFreeSuffix('X', taken));
+    const ms = performance.now() - started;
+    expect(new Set(out).size).toBe(10_000);
+    expect(out[0]).toBe('X-1');
+    expect(out[9_999]).toBe('X-10000');
+    expect(ms).toBeLessThan(1_000); // generous; the quadratic version took far longer
+  });
+
+  it('resuming never re-issues a value, even with pre-existing gaps', () => {
+    const taken = new Set(['X', 'X-1', 'X-3']);
+    expect([nextFreeSuffix('X', taken), nextFreeSuffix('X', taken), nextFreeSuffix('X', taken)])
+      .toEqual(['X-2', 'X-4', 'X-5']);
+  });
+
+  it('different bases keep independent cursors', () => {
+    const taken = new Set(['A', 'B']);
+    expect([nextFreeSuffix('A', taken), nextFreeSuffix('B', taken), nextFreeSuffix('A', taken)])
+      .toEqual(['A-1', 'B-1', 'A-2']);
+  });
+});

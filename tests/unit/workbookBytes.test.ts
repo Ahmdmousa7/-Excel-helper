@@ -122,3 +122,18 @@ describe('EQUIVALENCE — ASCII CSVs parse exactly as each old path did', () => 
     expect(cellsOf(readWorkbookBytes(bytes, 'f.csv'))).toEqual(cellsOf(XLSX.read(bytes, { type: 'array' })));
   });
 });
+
+describe('the ZIP sniff uses the full signature, not just "PK"', () => {
+  it('a CSV whose first header starts with "PK" is still read as text', () => {
+    // A primary-key column is a common first header. Sniffing only the two
+    // bytes `PK` mistook such a file for a workbook.
+    const bytes = utf8('PK,Name\n1,شاي\n');
+    expect(isBinaryWorkbook(bytes)).toBe(false);
+    expect(firstCell(readWorkbookBytes(bytes, 'keys.csv'))).toEqual([['PK', 'Name'], ['1', 'شاي']]);
+  });
+
+  it('a real ZIP container is still recognised', () => {
+    expect(isBinaryWorkbook(new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x14]))).toBe(true);
+    expect(isBinaryWorkbook(new Uint8Array([0x50, 0x4b, 0x05, 0x06]))).toBe(true);
+  });
+});

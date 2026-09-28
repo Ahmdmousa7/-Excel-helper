@@ -18,8 +18,17 @@ import * as XLSX from 'xlsx';
  * kept separate from this on purpose.
  */
 
-/** `.xlsx`, `.xlsb`, `.ods` — all ZIP containers. */
-const ZIP_MAGIC = [0x50, 0x4b] as const;
+/**
+ * `.xlsx`, `.xlsb`, `.ods` are ZIP containers. The FULL 4-byte signatures, not
+ * just `PK`: a CSV whose first header starts with "PK" — a primary-key column is
+ * common — would otherwise be mistaken for a workbook. Local file header, then
+ * the empty-archive and spanned-archive markers.
+ */
+const ZIP_MAGICS = [
+  [0x50, 0x4b, 0x03, 0x04],
+  [0x50, 0x4b, 0x05, 0x06],
+  [0x50, 0x4b, 0x07, 0x08],
+] as const;
 /** Legacy `.xls` — an OLE compound document. */
 const OLE_MAGIC = [0xd0, 0xcf, 0x11, 0xe0] as const;
 
@@ -32,7 +41,7 @@ const startsWith = (bytes: Uint8Array, sig: readonly number[]) => sig.every((b, 
  * parsed as a workbook rather than decoded as text and turned to garbage.
  */
 export const isBinaryWorkbook = (bytes: Uint8Array): boolean =>
-  startsWith(bytes, ZIP_MAGIC) || startsWith(bytes, OLE_MAGIC);
+  ZIP_MAGICS.some((sig) => startsWith(bytes, sig)) || startsWith(bytes, OLE_MAGIC);
 
 /** A delimited-text spreadsheet, by extension. */
 export const isDelimitedTextName = (fileName: string): boolean => /\.(csv|tsv)$/i.test(fileName);

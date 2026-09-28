@@ -38,7 +38,7 @@ Components are not unit-tested. They do I/O directly and would each need a DOM p
 | `composite-quantity-rules` | Quantity must be > 0: zero and negative flagged in both languages, with the right cell reference. |
 | `support-chat-fallback` | A model fallback reaches the user, and neither notices nor errors leak into the next prompt. |
 | `csv-arabic` | TD-050: a BOM-less Arabic CSV uploaded through the shared reader and through Files Validation's own reader keeps its Arabic in the downloaded file. Reverting either reader fails exactly its own test. |
- Duplicate rules and the per-error / per-fix sheets through a real upload → validate → download, in both the single-file and chunked-ZIP paths. The module's first browser coverage. |
+| `files-validation` | Duplicate rules and the per-error / per-fix sheets through a real upload → validate → download, in both the single-file and chunked-ZIP paths. The module's first browser coverage. |
 | `exporter-date-format` | **A reproduction, not a guard** (TD-049): a dated column exported through Remove Blanks keeps its value but loses its number format. Uses `test.fail()`, so it passes while the defect exists and **fails when someone fixes it**. |
 
 ### There is no auth bypass any more

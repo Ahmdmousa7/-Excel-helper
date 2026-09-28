@@ -47,14 +47,24 @@ export const identifierKey = (value: unknown): string =>
  * NEW duplicate whenever the file already contained an `X-1`.
  */
 export function nextFreeSuffix(base: string, taken: Set<string>): string {
-  for (let n = 1; ; n++) {
+  // Resume where the last call for this base stopped. Restarting at 1 made k
+  // duplicates of one code cost O(k^2) — ~50 million lookups for 10,000 copies.
+  // Safe because `taken` only ever grows: a suffix passed over once can never
+  // become free again.
+  let cursors = SUFFIX_CURSORS.get(taken);
+  if (!cursors) SUFFIX_CURSORS.set(taken, (cursors = new Map()));
+  for (let n = cursors.get(base) ?? 1; ; n++) {
     const candidate = `${base}-${n}`;
     if (!taken.has(candidate)) {
       taken.add(candidate);
+      cursors.set(base, n + 1);
       return candidate;
     }
   }
 }
+
+/** Per-`taken`-set resume points, so callers need not thread any state through. */
+const SUFFIX_CURSORS = new WeakMap<Set<string>, Map<string, number>>();
 
 export type BarcodeFix<T> = {
   /** WHERE to write — the caller's own cell reference, returned as given. */
