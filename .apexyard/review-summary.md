@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:12c1d26fa290242432c3d668275b9ffc0bd7e35699252b3d3e2361aaf44345d8` |
+| Attestation id | `sha256:28f52fcbad7f012a15dd76ee754f7db5e8c4770cfa5e1bb269b5c1dcb2029891` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `019bd82e9482` |
+| Reviewed at commit | `75dbbfbd5bc4` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **COMMENT** |
-| Files reviewed | 20 |
+| Verdict | **APPROVED** |
+| Files reviewed | 24 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 1 |
+| medium | 0 |
 | low | 3 |
-| info | 1 |
+| info | 0 |
 
-TD-050 CSV decoding fix (commit 019bd82) routes all four byte-reading upload paths through a new shared helper, services/workbookBytes.ts, that decodes delimited text as strict UTF-8 with a Windows-1256 fallback and sniffs magic bytes before trusting the extension; the branch also extracts Files Validation's duplicate-resolution and issue-sheet logic into utils/identifiers.ts and utils/issueSheets.ts, and OcrTab's routing/stripping into utils/templateMapping.ts, with new unit and Playwright coverage. The design is sound: layering is respected, the equivalence tests genuinely pin 'only decoding changed', and the cell-level (not row-level) duplicate fix is a real correctness improvement that is proven by mutation-checked e2e. No blocking-handbook violations and no security findings. Four minor items: one quadratic suffix search that can freeze the tab on a pathological-but-plausible file, a malformed table row in docs/TESTING.md that dropped the files-validation entry, some new unjustified `any` in the extracted export helper, and a 2-byte ZIP signature that is weaker than it reads.
+This branch extends OCR Extraction to accept spreadsheets and Word documents through the existing structured-extraction pipeline, fixes CSV byte decoding (TD-050) at four read sites via a new services/workbookBytes.ts, and rewrites Files Validation's duplicate SKU/barcode resolution to be cell-addressed and collision-safe, with per-issue export sheets. The risky logic was extracted into pure modules (utils/identifiers.ts, utils/issueSheets.ts, utils/ocrTextInput.ts, utils/templateMapping.ts) and each is covered by new unit tests plus three e2e specs. I traced the SKU/barcode resolution, the ZIP-part inScope windowing, the docx XML-to-text regexes and the workbook magic-byte sniffing and found no correctness defect; no blocking-handbook violation. Three advisory nits only.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ TD-050 CSV decoding fix (commit 019bd82) routes all four byte-reading upload pat
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 564 warning(s) |
-| Vitest | pass | 506/506 passed, lines 99.14% |
-| Playwright | pass | 116/116 passed |
+| Vitest | pass | 536/536 passed, lines 99.21% |
+| Playwright | pass | 119/119 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 108 source files, 30203 lines
+- 111 source files, 30693 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -66,9 +66,9 @@ reports zero failures for a tool that never executed.
 | `components/FileValidationTab.tsx` | 1124 |
 | `components/SupportChat.tsx` | 957 |
 | `components/TranslateTab.tsx` | 953 |
+| `components/OcrTab.tsx` | 934 |
 | `utils/translations.ts` | 899 |
-| `components/OcrTab.tsx` | 884 |
-| `services/geminiService.ts` | 842 |
+| `services/geminiService.ts` | 850 |
 | `components/ProjectSummaryTab.tsx` | 841 |
 | `components/ZidTab.tsx` | 841 |
 

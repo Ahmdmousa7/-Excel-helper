@@ -1,60 +1,42 @@
 {
-  "attestation_id": "sha256:12c1d26fa290242432c3d668275b9ffc0bd7e35699252b3d3e2361aaf44345d8",
+  "attestation_id": "sha256:28f52fcbad7f012a15dd76ee754f7db5e8c4770cfa5e1bb269b5c1dcb2029891",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
+    "info": 0,
     "low": 3,
-    "medium": 1
+    "medium": 0
   },
   "findings": [
     {
+      "category": "code-smell",
+      "detail": "The `@param tier Defaults to 'fast'. Web Scraper asks for 'quality'; OCR's text path deliberately does not…` block at 459-465 documented `extractStructuredData`. The new constant and its own doc comment were inserted directly after it, so that block now attaches to `export const MAX_EXTRACTION_TEXT` — a number that has no `tier` parameter. The tier rationale is load-bearing (it explains why OCR's new spreadsheet/Word path stays on 'fast'), and it is now invisible on hover at the call site in OcrTab.tsx:466.",
+      "file": "services/geminiService.ts",
+      "line": 459,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "MAX_EXTRACTION_TEXT was inserted between extractStructuredData and its JSDoc"
+    },
+    {
       "category": "performance",
-      "detail": "Each call scans `${base}-1`, `${base}-2`, … from scratch. For the i-th duplicate of the same base, suffixes 1..i-1 are already in `taken`, so the call costs i iterations and resolving k duplicates of one identifier costs ~k^2/2 Set lookups. This is not theoretical for this app: the barcode column of a supplier export frequently carries one repeated placeholder (`0`, `N/A`, a single house code), and the repo already tests 40,000-row workbooks (e2e/large-files). At k=40,000 that is ~800M lookups on the main thread inside processValidation — a multi-second-to-minute frozen tab with no progress signal, on exactly the file shape this feature exists to clean. At k=10,000 it is ~50M and merely sluggish, which is why this is medium rather than high; it would be high if the quadratic were unconditional rather than requiring one code to dominate the column. Note `resolveBarcodes` (utils/identifiers.ts:96) hits the same path via the cross-column branch, where EVERY occurrence is renamed, so k there equals the full group size.",
-      "file": "utils/identifiers.ts",
-      "line": 50,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "nextFreeSuffix restarts at n=1, making k duplicates of one code O(k^2)"
-    },
-    {
-      "category": "code-smell",
-      "detail": "Line 41 begins with a space and the description text, with no leading `| \\`files-validation\\` |`. The row renders as a single broken cell (or falls out of the table entirely) in every markdown viewer, so the one new suite that the PR describes as 'the module's first browser coverage' is the one suite the testing index does not name. The header line 20 was updated to '19 spec files, 116 tests' and docs/modules/MODULE_GUIDE.md:246 cross-references `e2e/files-validation.spec.ts`, so this is a transcription slip, not a missing decision.",
-      "file": "docs/TESTING.md",
-      "line": 41,
+      "detail": "`mapDataToTemplate([stripped], varMapping, varHeaders)[0]` (577-578) invokes `mapRowsToTemplate` per row. That function recomputes `isRewaaTemplate(templateHeaders)` — which builds `new Set(templateHeaders.map(normalizeHeader))` over the full ~70-column Rewaa template — and `headerFor(templateHeaders, 'variant name')` on every call (utils/templateMapping.ts:208-209). Previously both ran once for the whole array. It is a constant-factor regression, not a complexity change, so a few-hundred-row extraction is still fine; it would become a real problem only if this export path is ever pointed at a multi-thousand-row source, which is why it is `low` and not `medium`.",
+      "file": "components/OcrTab.tsx",
+      "line": 577,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Malformed table row: the files-validation suite entry lost its name cell"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`ZIP_MAGIC = [0x50, 0x4b]` matches any file whose first two bytes are `PK`, including a plain CSV whose first column header begins with those letters (`PKG_SIZE`, `PK,Name,…`). `isBinaryWorkbook` then returns true, `readWorkbookBytes` takes the `type: 'array'` branch, and SheetJS fails on the non-ZIP body — the user gets a parse error instead of a decoded CSV. This is not a regression (the pre-PR `XLSX.read(bytes, {type:'array'})` and `{type:'binary'}` paths sniff the same prefix and fail identically), so it is low rather than medium; but the comment at line 29 states the function's job is to be authoritative about container detection, and a 2-byte prefix is weaker than that reads. The OLE signature at line 24 is already 4 bytes and is fine.",
-      "file": "services/workbookBytes.ts",
-      "line": 22,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "ZIP_MAGIC is 2 bytes, so a CSV whose first header starts with \"PK\" is treated as a workbook"
+      "summary": "exportData now calls mapDataToTemplate once per row instead of once per batch"
     },
     {
       "category": "typescript",
-      "detail": "`wb: any` (line 582), `toExportRow: (row: any[]) => any[]` (line 584) and `issueData: any[][]` (line 595) are new `any`s in newly-authored code, with no `// reason:` comment. The workbook and row types are known here: the sibling code at line 648 already uses the same shapes concretely, and `IssueGroup` was given a precise type in utils/issueSheets.ts, so the helper is the one seam in this feature where the compiler stops checking. Concretely: a future change to the supplier-splice contract in the two callers (lines 695 and 870) — which build the export row differently — would not be caught, and those two callers currently duplicate the same splice logic.",
+      "detail": "`wb: any` (582), `toExportRow: (row: any[]) => any[]` (584) and `issueData: any[][]` (595) are newly added lines, not reindented legacy. `wb` is always an XLSX workbook and the two call sites (695, 870) always pass the same shape, so the compiler currently cannot catch a mis-ordered argument — e.g. swapping `exportHeaders` and `issueGroups` would type-check. The handbook's escape-hatch rule is exactly about new code like this.",
       "file": "components/FileValidationTab.tsx",
       "line": 582,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "New appendIssueSheets helper introduces unjustified `any` on all three data params"
-    },
-    {
-      "category": "architecture",
-      "detail": "The cross-column branch of `resolveBarcodes` renames EVERY occurrence of a barcode whose key matches any SKU, including the first, and the old `reportErrors.push({msg: 'Cross-column Duplicate'})` / Error Description write was deleted. Many retailers legitimately set SKU == EAN for single-unit products, so for those files every barcode in the export is now suffixed `-1` and will no longer scan against the source data. The change is deliberate and visible in three places (the UI rules list at line 1042, MODULE_GUIDE.md, and the new `Fix_Resolved Barcode = SKU` sheet), and the e2e test at e2e/files-validation.spec.ts pins it — which is why this is an observation, not a request. Raising it only so the product owner sees it alongside open decision D8, which already asks a closely related question about Pack SKU references being renamed.",
-      "file": "components/FileValidationTab.tsx",
-      "line": 553,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "A barcode that equals its own product's SKU is now silently rewritten, not reported"
+      "summary": "New appendIssueSheets helper introduces unjustified `any` in its signature"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 5
+  "total": 3
 }
