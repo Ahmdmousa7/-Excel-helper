@@ -37,7 +37,7 @@ Two defects follow from it, and only one is timezone-dependent:
 
 | Site | Count | Reads `raw: true`? | Exposed? |
 |---|:--:|:--:|:--:|
-| `utils/excelUtils.ts:58` → `exportToExcelSingleSheet` | 1 | via callers | **Yes** — Remove Blanks, Separator, Merge Datasets (separate-files ZIP) |
+| `utils/excelUtils.ts` → `exportToExcelSingleSheet` (call at :76 after the fix) | 1 | via callers | **Yes** — Remove Blanks, Separator, Merge Datasets (separate-files ZIP) |
 | `components/FileValidationTab.tsx` | 6 | **yes** (`sheet_to_json({raw:true})`, line 136) | **Yes** |
 | `components/VariableBalanceTab.tsx` | 4 | no — text mode | No (different defect: date-as-text) |
 | `components/VariableBalanceTabV2.tsx` | 2 | no — text mode | No, and the component is a dead import (D6) |
@@ -94,9 +94,9 @@ Each site audited separately. Exposure requires a **`Date` object** reaching `ao
 
 | Site | Data it writes | `Date` can reach it? | Styles applied? |
 |---|---|:--:|:--:|
-| **601** | `exportData` — validated source rows, copied verbatim (chunked ZIP path) | **YES** | yes |
+| **601** (now :605) | `exportData` — validated source rows, copied verbatim (chunked ZIP path) | **YES** | yes |
 | 643 | `changeLogData` — `String(row[i] \|\| "")` on every value | no — coerced | yes |
-| **693** | `exportData` — same as 601 (single-file path) | **YES** | yes |
+| **693** (now :699) | `exportData` — same as 601 (single-file path) | **YES** | yes |
 | 738 | `changeLogData` — same coercion as 643 | no — coerced | yes |
 | 790 | `summaryData` — labels, counts, and `new Date().toLocaleString()`, already a string | no | yes |
 | 803 | `supplierData` — supplier names from a `Set<string>` | no | yes |

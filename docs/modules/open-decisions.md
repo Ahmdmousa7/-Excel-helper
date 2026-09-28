@@ -129,3 +129,60 @@ The only mention of Groq outside the key plumbing is a **comment** in `types/ai.
 **Do not build a Groq integration to justify the UI.** The `AiTier` abstraction already makes adding a provider a contained change if it is ever wanted; the field is not what makes that possible, and its presence today only misinforms.
 
 **Before removing, confirm one thing:** that no one is relying on the field as a place to *store* a key for manual use elsewhere. It is a plausible-if-unintended use, and `localStorage['groq_api_key']` would disappear with the field — the same orphaned-value question TD-048 raised.
+
+---
+
+## D6 — the AI Studio applet is not the product / تطبيق AI Studio ليس المنتج
+
+**DECIDED 2026-09-28.** Recorded because it has already cost real work.
+
+Five sessions of OCR / Rewaa-mapping development happened in a **Google AI Studio applet** — `rewaaParityService.ts`, `rewaaComparisonService.ts`, `pdfExtractionService.ts`, a 5-tab master export, parity columns, `.docx`/spreadsheet ingestion, version `1.2.1`. **None of it exists in this repository**, verified by file check: every one of those paths is absent and `package.json` is still `1.0.0`. The two codebases have never been synced, and `app/applet/` here holds three unrelated test scripts.
+
+The live site at `ahmdmousa7.github.io/-Excel-helper` is built from **this repository**. So that work reaches no user.
+
+### The decision
+
+> **`D:\Rewaa agent tool\excel-helper` is the product repository. The AI Studio applet is not.**
+
+And, equally binding:
+
+> **Do not rebuild the Rewaa/OCR work from scratch if the applet source can be exported.** Port and adapt it, then reconcile with this repo's architecture and tests. An audit and a porting plan come first, and are reviewed before any production code changes.
+
+### Why it is written down
+
+The failure mode is not that someone chose the wrong repo — it is that nobody noticed two were diverging until five increments had landed in the one without users. Anyone told "the OCR export already works" should check **here** before believing it.
+
+---
+
+## D7 — three product rules for the Rewaa/OCR work / ثلاث قواعد
+
+**DECIDED 2026-09-28**, before implementation, so they are not re-litigated mid-build.
+
+### 1. Template row 2 is metadata, not data
+
+The Rewaa Simple and Variable templates carry a second row of specifications — `Text | required`, `Text | required | unique in the file and in the system`, `list yes no Default yes`. It is **template/spec metadata**. Exclude it from ordinary exports; include it only when the export is *explicitly* a template or spec export. Emitting it into a normal product file would inject a junk row that an importer may well accept as a product.
+
+### 2. Identifiers are exact text — `00123` ≠ `123`
+
+**Leading zeros are significant and must be preserved.** SKU and barcode are identifiers, not numbers: compare them as text, never by converting to a number first.
+
+**This reverses an earlier instruction.** A previous message asked for leading zeros to be *stripped* during duplicate detection, so `00123` would be flagged as a duplicate of `123`. That rule was rejected on review because it manufactures false duplicates — it merges two genuinely distinct SKUs and then "resolves" the conflict by renaming one of them, corrupting a catalogue while reporting success. **The stripping rule must not be implemented.**
+
+### 3. Diacritics and invisible marks ARE stripped — and this is not the same rule
+
+`6287013210006ِ` (a barcode carrying an Arabic kasra) **must** match `6287013210006`. Diacritics, zero-width characters and stray punctuation are invisible artefacts of copy-paste; they change the rendering, not the identifier. Leading zeros are part of the identifier. The two rules point in opposite directions on purpose:
+
+| Input | Compared against | Match? | Why |
+|---|---|:--:|---|
+| `6287013210006ِ` | `6287013210006` | ✅ yes | the kasra is an invisible mark |
+| `00123` | `123` | ❌ **no** | the zeros are part of the code |
+
+Normalization strips marks. It does **not** touch digits. And in every case the **original cell value is preserved in the output** — normalization exists only for the comparison.
+
+### 4. No unsolicited downloads
+
+Do not auto-trigger a browser download when processing finishes. Browsers block unprompted downloads and the behaviour varies by security settings, so a "it just downloads" design fails silently for some users. Use an explicit user action:
+
+```
+Processing complete  →  [ Download Excel ]
+```

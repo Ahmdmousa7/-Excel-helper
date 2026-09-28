@@ -126,12 +126,17 @@ test.describe('Exporter date format — reproduction', () => {
   });
 });
 
-test.describe('TD-049 — the other two consumers of exportToExcelSingleSheet', () => {
+test.describe('TD-049 — Separator, the second consumer of exportToExcelSingleSheet', () => {
   /**
-   * Remove Blanks is covered above. The shared helper has three consumers, and a
-   * unit test on the helper does not prove the other two reach it with real data
-   * through a real browser. Separator is the purest of them: it copies whole
-   * rows into one file per sheet with no transformation at all.
+   * Remove Blanks is covered above; this covers Separator, the purest of the
+   * three — it copies whole rows into one file per sheet with no transformation.
+   *
+   * **Merge Datasets, the third consumer, is NOT covered end to end.** Its
+   * separate-files ZIP mode reaches the same helper, and the helper is unit
+   * tested across seven timezones, but no browser test drives Merge's
+   * multi-file upload and output-mode selection. Stated rather than implied,
+   * because a describe that claims more coverage than it has is how a gap
+   * survives review.
    *
    * These assert the FIXED behaviour (TD-049) — exact serial, correct rendered
    * day. Playwright pins `timezoneId: 'UTC'`, where the old code was already

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
 import XLSX_STYLE from 'xlsx-js-style';
+import { readFileSync } from 'node:fs';
 import { appendSheet, createWorkbook } from '../../services/excelService';
 import { exportToExcelSingleSheet } from '../../utils/excelUtils';
 import { readGrid, writeSheet } from '../../utils/lookupEngine';
@@ -35,20 +36,6 @@ const SERIAL = 46037; // 2026-01-15
 const ORIGINAL_FMT = 'yyyy-mm-dd';
 const SHEETJS_DEFAULT = 'm/d/yy';
 
-/**
- * SheetJS converts between serials and `Date` objects through local time, so
- * anything asserting an exact serial after a round trip is timezone-dependent.
- * CI runs UTC; this file was written on a UTC+3 machine and two assertions
- * passed only there.
- *
- * `IS_UTC` gates the one assertion that is only *meaningful* under UTC. It is
- * deliberately NOT used to predict drift in other zones: a first attempt did
- * that (`offset === 0 ? exact : drifts`) and the predicate does not hold —
- * whether a zone drifts depends on the offset **at the 1900 epoch** versus at
- * the target date, so a zone sitting at offset 0 today can still drift, and a
- * non-zero zone need not. Assert invariants; skip what cannot be asserted.
- */
-const IS_UTC = new Date(Date.UTC(2026, 0, 15)).getTimezoneOffset() === 0;
 
 function datedFile(serial = SERIAL, fmt = ORIGINAL_FMT) {
   const ws = XLSX.utils.aoa_to_sheet([['SKU', 'WhenAdded'], ['A-1', serial]]);
@@ -335,5 +322,54 @@ describe('Smart Lookup shows the shape a fix would take', () => {
     ws.A2.z = '0.00%';
     const out = writeSheet(XLSX, ['Price'], readGrid(XLSX, ws).slice(1));
     expect(out.A2.z).toBe('0.00%');
+  });
+});
+
+describe('TD-049: the FileValidationTab fixes cannot be silently reverted', () => {
+  /**
+   * A SOURCE guard, not a behavioural test, and the distinction is deliberate.
+   *
+   * `FileValidationTab.tsx:601` and `:693` were switched to the plain builder
+   * because `exportData` carries validated source rows verbatim, so a `Date`
+   * reaches them. Nothing tested that. Exercising those lines properly means
+   * driving the mapping UI, uploading, mapping columns and exporting — a real
+   * e2e worth having, but until it exists a revert of either line would pass
+   * every check in this repository, which is how the original defect survived.
+   *
+   * So this asserts the one thing that is cheap and exact: `exportData` is never
+   * handed to the builder that corrupts dates. It will fail the moment someone
+   * puts `XLSX_STYLE` back, and the message says why.
+   */
+  const source = readFileSync(
+    new URL('../../components/FileValidationTab.tsx', import.meta.url),
+    'utf8',
+  );
+
+  it('neither exportData sheet is built with the date-corrupting builder', () => {
+    const offenders = source
+      .split(/\r?\n/)
+      .map((line, i) => ({ line: line.trim(), n: i + 1 }))
+      .filter((l) => /XLSX_STYLE\.utils\.aoa_to_sheet\(\s*exportData\s*\)/.test(l.line));
+
+    expect(
+      offenders,
+      'exportData carries source rows, so a Date reaches this call and ' +
+        'xlsx-js-style mis-converts it — use XLSX.utils.aoa_to_sheet. See TD-049.',
+    ).toEqual([]);
+  });
+
+  it('both exportData sheets ARE built with the plain builder — two of them', () => {
+    // Guards the other direction: if a future refactor collapses or deletes one
+    // of the two export paths, this notices rather than silently passing.
+    const uses = source.match(/XLSX\.utils\.aoa_to_sheet\(\s*exportData\s*\)/g) || [];
+    expect(uses).toHaveLength(2);
+  });
+
+  it('the four synthesized-data sheets are deliberately left on the styled builder', () => {
+    // changeLogData x2, summaryData, supplierData. They cannot receive a Date —
+    // every value is String()-coerced or synthesized — so they were not changed.
+    // If this count moves, the exposure analysis in the audit needs redoing.
+    const styled = source.match(/XLSX_STYLE\.utils\.aoa_to_sheet\(/g) || [];
+    expect(styled).toHaveLength(4);
   });
 });
