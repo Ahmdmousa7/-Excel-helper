@@ -545,8 +545,10 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       if (allResults.length > 0) {
           addLog(`${t.common.completed} ${allResults.length} items extracted.`, 'success');
           setShowConfig(false); // Auto collapse config to show results
-          
-          exportData(allResults); // Auto export logic
+          // No automatic download (D9). It fired long after the click that started
+          // the extraction, so browsers treated it as unsolicited and could block
+          // it silently. The results bar's Export button produces the same file.
+          addLog(`Click Export to download the results.`, 'info');
       } else {
           addLog("No data extracted.", 'warning');
       }

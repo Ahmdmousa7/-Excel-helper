@@ -67,10 +67,28 @@ async function openOcr(app: any, page: Page) {
   await expect(ocrInput(page)).toHaveCount(1);
 }
 
-/** Extraction auto-exports on completion, so the download is caught, not clicked. */
+/**
+ * Extract, confirm NOTHING downloads on its own (D9), then export by clicking.
+ *
+ * The tab used to auto-download on completion — long after the click that
+ * started it, so browsers treated it as unsolicited and could block it. The
+ * absence check needs a short bounded wait: there is no event for "a download
+ * did not happen", and the old auto-export fired within a moment of the
+ * completion log this waits for.
+ */
 async function extractAndDownload(page: Page): Promise<XLSX.WorkBook> {
-  const pending = page.waitForEvent('download', { timeout: 60_000 });
+  let unsolicited = 0;
+  const count = () => { unsolicited++; };
+  page.on('download', count);
   await page.getByRole('button', { name: /Start Extraction/i }).click();
+  await page.getByRole('button', { name: /Show Logs/i }).click();
+  await expect(page.getByText('Click Export to download the results.')).toBeVisible({ timeout: 60_000 });
+  await page.waitForTimeout(1_500);
+  page.off('download', count);
+  expect(unsolicited, 'a download started without the user clicking Export').toBe(0);
+
+  const pending = page.waitForEvent('download', { timeout: 30_000 });
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
   return XLSX.read(readFileSync((await (await pending).path())!), { type: 'buffer' });
 }
 

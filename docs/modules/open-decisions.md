@@ -193,7 +193,9 @@ Processing complete  →  [ Download Excel ]
 
 ## D8 — should Pack SKU columns count as duplicates at all? / هل تُحسب أكواد العبوات مكررة؟
 
-**OPEN — found 2026-09-28 while fixing Files Validation. Needs the product owner.**
+**DECIDED 2026-09-28 — option B: Pack SKUs keep counting as duplicates.** The product owner answered "yes" to *should Pack SKUs count as duplicates?*. This was not the recommendation, and the consequence stands as described below: a Pack SKU equal to an earlier product SKU is treated as a duplicate and that pack cell is renamed. No code change.
+
+*Original finding, kept for the record:*
 
 Files Validation's auto-mapper maps any header *containing* "sku" to the SKU field, so `Pack1 SKU`, `Pack2 SKU` and `Pack3 SKU` take part in duplicate detection alongside the product SKU.
 
@@ -217,7 +219,9 @@ Recommendation is **A**, but it changes what the validator reports, so it is not
 
 ## D9 — OCR Extraction already auto-downloads / الاستخراج يُنزّل الملف تلقائياً
 
-**OPEN — found 2026-09-28. Conflicts with D7 rule 4.**
+**DECIDED 2026-09-28 — option A: the auto-download is removed.** The product owner agreed. Extraction now finishes and the workbook is produced only when the user clicks **Export**.
+
+*Original finding, kept for the record:*
 
 D7 decided *"Do not auto-trigger a browser download when processing finishes … use an explicit user action."* That rule was written about porting the AI Studio applet — but the **live** OCR tab already does it: when extraction completes, `handleProcess` calls `exportData(allResults)` unconditionally (`// Auto export logic`), and a workbook downloads with no click.
 
@@ -231,3 +235,13 @@ A manual **Export** button already exists in the results bar, so removing the au
 | B. Keep it | Existing behaviour; some browsers will block it |
 
 Not changed unilaterally, because it removes behaviour users may rely on. `e2e/ocr-text-input.spec.ts` currently waits for the automatic download; under option A it would click Export instead.
+
+---
+
+## D10 — resolved barcodes are not scannable, and that is accepted / الباركود المعدَّل لا يُمسح ضوئياً
+
+**DECIDED 2026-09-28 — keep as is.**
+
+Files Validation resolves a duplicate barcode by appending `-1`, `-2` (and a barcode equal to an SKU the same way). The result — `6287013210006-1` — is no longer a valid EAN/GTIN and will not scan at a till, so it will not match the code printed on the product.
+
+The product owner chose to keep this behaviour. It is not hidden: every rename is listed in the export's Change Log and in the `Fix_Resolved Duplicate Barcode` / `Fix_Resolved Barcode = SKU` sheets, which are the places to review a resolved barcode before import.

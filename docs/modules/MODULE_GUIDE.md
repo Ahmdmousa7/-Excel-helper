@@ -390,7 +390,7 @@ No three-way compare, no cell-level colour diff export. `components/CompareTool.
 **AR:** يقبل الصور وPDF، **وأيضاً ملفات Excel وCSV وWord (`.docx`)** منذ 2026-09-28: تُحوَّل إلى نص عند الرفع وتمر بنفس مسار الاستخراج ونفس التعليمات، فتنطبق الترجمة وتقسيم المتغيرات والربط بالقالب كما هي. تُقرأ ملفات CSV العربية بلا BOM بشكل صحيح، وتحافظ جداول Word على أعمدتها. ملفات `.doc` القديمة غير مدعومة ويظهر سبب ذلك. ويظهر تحذير إذا تجاوز النص 500,000 حرف.
 
 #### Output / ماذا يخرج؟
-XLSX of the extracted rows. Progress is reported per file, and per extracted item name as the stream arrives.
+XLSX of the extracted rows, produced when the user clicks **Export** — there is no automatic download since 2026-09-28 (D9), because a download firing long after the click that started it is treated as unsolicited and can be blocked. Progress is reported per file, and per extracted item name as the stream arrives.
 
 #### Errors / ما الأخطاء التي تظهر؟
 | Error (EN) | Arabic | Trigger |
