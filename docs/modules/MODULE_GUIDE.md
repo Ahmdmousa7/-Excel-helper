@@ -227,8 +227,8 @@ No resume of a partial run, no per-cell retry, no offline translation, no langua
 **AR:** يفحص ملف منتجات مقابل قواعد استيراد رواء — الرموز والأكواد والباركود والأسعار — ويصلح ما يمكن إصلاحه بأمان ويسرد الباقي.
 
 #### Input / ماذا يدخل؟ · Output / ماذا يخرج؟
-**EN:** `.xlsx .xls .csv` (own uploader). Columns are mapped to standard fields (SKU, Barcode, …). Output `Validated_<name>.xlsx` with styled highlighting of problem cells.
-**AR:** يقبل `.xlsx .xls .csv`، وتُربط الأعمدة بالحقول القياسية. ويُخرج `Validated_<الاسم>.xlsx` مع تمييز الخلايا المشكلة.
+**EN:** `.xlsx .xls .csv` (own uploader). Columns are mapped to standard fields (SKU, Barcode, …). Output `Validated_<name>.xlsx` with styled highlighting of problem cells, plus **one sheet per distinct error (`Err_…`, red header) and per distinct fix (`Fix_…`, green header)** holding exactly the rows concerned. With *Max Rows/File* set, the output is a ZIP of `Validated_Part_<n>.xlsx`, and each part carries only its own rows' issue sheets. Issue sheets group by category, so every Loss Alert shares one sheet whatever its numbers.
+**AR:** يقبل `.xlsx .xls .csv`، وتُربط الأعمدة بالحقول القياسية. ويُخرج `Validated_<الاسم>.xlsx` مع تمييز الخلايا المشكلة، إضافةً إلى **ورقة لكل نوع خطأ (`Err_…` بترويسة حمراء) ولكل نوع تصحيح (`Fix_…` بترويسة خضراء)** تضم الصفوف المعنية فقط. وعند تحديد عدد الصفوف لكل ملف يكون الناتج ملف ZIP، وكل جزء يحمل أوراق مشاكل صفوفه فقط.
 
 #### Errors / ما الأخطاء التي تظهر؟
 | Error (EN) | Arabic | Trigger |
@@ -239,10 +239,19 @@ No resume of a partial run, no per-cell retry, no offline translation, no langua
 
 #### Error handling · Edge cases · Unsupported
 **EN:** Row problems are highlighted rather than fatal; the preview caps at 100 rows. Scientific-notation barcodes are protected by the shared `cellText` override (TD-038). No cross-file validation, and the rule set is not user-editable.
+
+**Duplicates (since 2026-09-28).** SKUs and barcodes are compared by `identifierKey`, which ignores **invisible** characters only — combining marks such as a stray kasra, zero-width and direction marks, a BOM, tatweel. So `6287013210006` followed by a kasra *is* a duplicate of `6287013210006`. **Leading zeros, visible punctuation and case still count** (D7): `00123` is not `123`, and `X-1` is not `X1`. The cell's original value is never rewritten by the comparison.
+- Duplicate **SKU** → later rows get `-1`, `-2` (unchanged).
+- Duplicate **barcode** → later rows get `-1`, `-2`; the first holder keeps the code. Previously only reported.
+- Barcode **equal to an SKU** → the SKU owns the code, so every such barcode is suffixed. Previously only reported.
+- Suffixes skip any value already in the file, so a fix can no longer create a new duplicate.
+
 **AR:** المشاكل تُميَّز ولا تُوقف العملية، والمعاينة محدودة بـ 100 صف. الباركود بالصيغة العلمية محمي عبر الأداة المشتركة. لا تحقق بين ملفات، ولا يمكن للمستخدم تعديل القواعد.
 
+**التكرار (منذ 2026-09-28):** تُقارن الأكواد بعد تجاهل **العلامات غير المرئية** فقط (مثل الكسرة الزائدة والمسافات الصفرية)، فيُعتبر الباركود مع كسرة زائدة مكرراً. أما **الأصفار البادئة وعلامات الترقيم والحالة** فتبقى مهمة: `00123` ليس `123`. الباركود المكرر أو المطابق لكود منتج يُضاف له `-1` و`-2` تلقائياً، ولا تُنشئ الإضافة تكراراً جديداً.
+
 #### Code location / أين الكود؟ · Tests / أين الاختبارات؟
-`components/FileValidationTab.tsx` (1,057 lines). **No dedicated tests** — the shared cell-value behaviour it relies on is covered by `tests/unit/excelServiceCellValues.test.ts` and `tests/unit/cellText.test.ts`, but no test exercises this module's own rules. See §8.
+`components/FileValidationTab.tsx`, with the duplicate rules in `utils/identifiers.ts` and the issue-sheet grouping in `utils/issueSheets.ts`. **Tests:** `tests/unit/identifiers.test.ts`, `tests/unit/issueSheets.test.ts`, and **`e2e/files-validation.spec.ts` — the module's first browser coverage**, driving upload → validation → export through both the single-file and chunked-ZIP paths and reading the downloaded cells. The module's *other* rules (symbols, prices, categories, packs) are still untested beyond shared cell-value coverage; see §8.
 
 ---
 

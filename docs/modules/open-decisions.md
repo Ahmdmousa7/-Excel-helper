@@ -179,6 +179,8 @@ The Rewaa Simple and Variable templates carry a second row of specifications —
 
 Normalization strips marks. It does **not** touch digits. And in every case the **original cell value is preserved in the output** — normalization exists only for the comparison.
 
+> **IMPLEMENTED 2026-09-28** in `utils/identifiers.ts` (`identifierKey`), used by Files Validation. Both halves of this rule are pinned by tests, and mutation-checked: making the key strip leading zeros fails the suite, and so does making it stop stripping marks. Visible punctuation is also left alone — SKUs use `-`, and the resolver appends `-1`, so stripping hyphens would manufacture collisions.
+
 ### 4. No unsolicited downloads
 
 Do not auto-trigger a browser download when processing finishes. Browsers block unprompted downloads and the behaviour varies by security settings, so a "it just downloads" design fails silently for some users. Use an explicit user action:

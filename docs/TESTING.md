@@ -2,8 +2,8 @@
 
 | Layer | Tool | Count | Command |
 |---|---|---:|---|
-| Unit | Vitest | 335 | `npm run test` |
-| E2E | Playwright | 110 | `npm run e2e` |
+| Unit | Vitest | 483 | `npm run test` |
+| E2E | Playwright | 113 | `npm run e2e` |
 
 `npm run verify` runs lint → typecheck → unit → build, i.e. everything the `quality` CI job runs.
 
@@ -17,7 +17,7 @@ Components are not unit-tested. They do I/O directly and would each need a DOM p
 
 ## E2E tests
 
-`e2e/**` — **17 spec files, 110 tests** (verified 2026-08-18). The first nine below were the original risk areas; the rest were added as specific defects were fixed, and each one exists because something broke.
+`e2e/**` — **18 spec files, 113 tests** (verified 2026-09-28). The first nine below were the original risk areas; the rest were added as specific defects were fixed, and each one exists because something broke.
 
 | Suite | What it pins |
 |---|---|
@@ -37,6 +37,7 @@ Components are not unit-tested. They do I/O directly and would each need a DOM p
 | `smart-lookup` | **The exported file matches the on-screen preview cell for cell** (TD-043), first-match on duplicate keys, and that a returned date keeps its format (TD-045). |
 | `composite-quantity-rules` | Quantity must be > 0: zero and negative flagged in both languages, with the right cell reference. |
 | `support-chat-fallback` | A model fallback reaches the user, and neither notices nor errors leak into the next prompt. |
+| `files-validation` | Duplicate rules and the per-error / per-fix sheets through a real upload → validate → download, in both the single-file and chunked-ZIP paths. The module's first browser coverage. |
 | `exporter-date-format` | **A reproduction, not a guard** (TD-049): a dated column exported through Remove Blanks keeps its value but loses its number format. Uses `test.fail()`, so it passes while the defect exists and **fails when someone fixes it**. |
 
 ### There is no auth bypass any more

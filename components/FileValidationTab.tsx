@@ -6,6 +6,8 @@ import JSZip from 'jszip';
 import { FileData, ProcessingStatus, LogEntry } from '../types';
 import { getSheetData, saveWorkbook } from '../services/excelService';
 import { TRANSLATIONS, Language } from '../utils/translations';
+import { identifierKey, nextFreeSuffix, resolveBarcodes } from '../utils/identifiers';
+import { groupIssues, sheetNameFor } from '../utils/issueSheets';
 import ProgressBar from './ProgressBar';
 import { 
   ShieldCheck, UploadCloud, FileSpreadsheet, Settings, 
@@ -367,12 +369,17 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
                           if (/[^a-zA-Z0-9\-_|\u0600-\u06FF\s]/.test(strVal)) {
                               rowErrors.push(`[${headers[cIdx]}]: Invalid characters`);
                           }
-                          if (field.key === 'sku') {
-                              if (!skuSet.has(strVal)) skuSet.set(strVal, []);
-                              skuSet.get(strVal)!.push(r);
-                          } else if (field.key === 'barcode') {
-                              if (!barcodeSet.has(strVal)) barcodeSet.set(strVal, []);
-                              barcodeSet.get(strVal)!.push(r);
+                          // Keyed by MEANING, not spelling: invisible marks (a trailing
+                          // kasra, a zero-width space) are ignored, so they no longer hide
+                          // a duplicate. Leading zeros and visible punctuation still count
+                          // (D7). The cell value itself is left untouched.
+                          const idKey = identifierKey(strVal);
+                          if (idKey && field.key === 'sku') {
+                              if (!skuSet.has(idKey)) skuSet.set(idKey, []);
+                              skuSet.get(idKey)!.push(r);
+                          } else if (idKey && field.key === 'barcode') {
+                              if (!barcodeSet.has(idKey)) barcodeSet.set(idKey, []);
+                              barcodeSet.get(idKey)!.push(r);
                           }
                       }
                   }
@@ -510,45 +517,39 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
           }
       }
 
+      // Every identifier already in the file. A resolution suffix is never one
+      // of these, so fixing a duplicate can no longer CREATE one — previously
+      // `X`, `X` became `X`, `X-1` even when the file already held an `X-1`.
+      const taken = new Set<string>([...skuSet.keys(), ...barcodeSet.keys()]);
+
       skuSet.forEach((indices, sku) => {
           if (indices.length > 1) {
               indices.forEach((rIdx, i) => {
                   if (i > 0) {
+                      const newSku = nextFreeSuffix(sku, taken);
                       const mappedSkuCols = mapping['sku'] || [];
                       mappedSkuCols.forEach(c => {
-                          newRows[rIdx][c] = `${sku}-${i}`;
+                          newRows[rIdx][c] = newSku;
                       });
                       currentActionsLog[rIdx].push(`Resolved Duplicate SKU`);
                   }
               });
           }
-          if (barcodeSet.has(sku)) {
-              indices.forEach(rIdx => {
-                  const currentErr = newRows[rIdx][errorDescColIndex] || "";
-                  newRows[rIdx][errorDescColIndex] = currentErr + (currentErr ? "; " : "") + "SKU conflicts with Barcode column";
-                  reportErrors.push({ rowIndex: rIdx, colIndex: -1, msg: "Cross-column Duplicate" });
-              });
-          }
       });
 
-      barcodeSet.forEach((indices, barcode) => {
-          if (indices.length > 1) {
-              indices.forEach(rIdx => {
-                  const currentErr = newRows[rIdx][errorDescColIndex] || "";
-                  newRows[rIdx][errorDescColIndex] = currentErr + (currentErr ? "; " : "") + "Duplicate Barcode";
-                  reportErrors.push({ rowIndex: rIdx, colIndex: -1, msg: "Duplicate Barcode" });
-              });
-          }
-          if (skuSet.has(barcode)) {
-               indices.forEach(rIdx => {
-                  const currentErr = newRows[rIdx][errorDescColIndex] || "";
-                  if (!currentErr.includes("SKU conflicts")) {
-                      newRows[rIdx][errorDescColIndex] = currentErr + (currentErr ? "; " : "") + "Barcode conflicts with SKU column";
-                      reportErrors.push({ rowIndex: rIdx, colIndex: -1, msg: "Cross-column Duplicate" });
-                  }
-              });
-          }
-      });
+      // Barcodes are now RESOLVED rather than only reported. A duplicate keeps
+      // its first holder and suffixes the rest, as SKUs already did; a barcode
+      // equal to an SKU is suffixed on every row, because the SKU claims the
+      // base code. Only the barcode cell that actually collided is rewritten.
+      const barcodeCols = mapping['barcode'] || [];
+      for (const fix of resolveBarcodes(barcodeSet, new Set(skuSet.keys()), taken)) {
+          barcodeCols.forEach(c => {
+              if (identifierKey(newRows[fix.rowIndex][c]) === fix.key) newRows[fix.rowIndex][c] = fix.newValue;
+          });
+          currentActionsLog[fix.rowIndex].push(
+              fix.reason === 'duplicate' ? `Resolved Duplicate Barcode` : `Resolved Barcode = SKU`,
+          );
+      }
 
       setProcessedData(newRows);
       setErrors(reportErrors);
@@ -561,6 +562,32 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
       else setViewFilter('all');
       
       addLog(`${t.common.completed}. Found ${reportErrors.length} issues (auto-fixes applied).`, reportErrors.length > 0 ? 'warning' : 'success');
+  };
+
+  // One sheet per distinct error and per distinct fix, holding exactly the rows
+  // that triggered it: `Err_…` with red headers, `Fix_…` with green. Grouped by
+  // CATEGORY, not raw message — a Loss Alert carries different numbers on every
+  // row, so raw text would mean one sheet per row. `inScope` limits the sheets
+  // to one ZIP part. Built with the PLAIN sheet builder: these are source rows,
+  // so a Date can reach them (TD-049).
+  const appendIssueSheets = (
+      wb: any,
+      exportHeaders: string[],
+      toExportRow: (row: any[]) => any[],
+      inScope: (rowIndex: number) => boolean = () => true,
+  ) => {
+      const used = new Set<string>(wb.SheetNames.map((n: string) => n.toLowerCase()));
+      for (const group of groupIssues(errors, actionsLog, inScope)) {
+          const issueData = [exportHeaders, ...group.rows.map((r) => toExportRow(processedData[r]))];
+          const ws = XLSX.utils.aoa_to_sheet(issueData);
+          const fill = group.kind === 'error' ? 'DC2626' : '059669';
+          exportHeaders.forEach((_, c) => {
+              const ref = XLSX.utils.encode_cell({ r: 0, c });
+              if (ws[ref]) ws[ref].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: fill } } };
+          });
+          ws['!cols'] = exportHeaders.map(() => ({ wch: 15 }));
+          XLSX_STYLE.utils.book_append_sheet(wb, ws, sheetNameFor(group.kind === 'error' ? 'Err_' : 'Fix_', group.category, used));
+      }
   };
 
   const handleExport = async () => {
@@ -646,6 +673,14 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
                   });
                   const wsLog = XLSX_STYLE.utils.aoa_to_sheet(changeLogData);
                   XLSX_STYLE.utils.book_append_sheet(wb, wsLog, "Change Log");
+
+                  // Issue sheets for THIS part's rows only.
+                  const chunkStart = i;
+                  appendIssueSheets(wb, exportHeaders, (row) => {
+                      const r = [...row];
+                      if (supplierColIdx !== undefined) r.splice(supplierColIdx + 1, 0, r[supplierColIdx] || "");
+                      return r;
+                  }, (rowIndex) => rowIndex >= chunkStart && rowIndex < chunkStart + exportBatchSize);
 
                   const wbBlob = XLSX_STYLE.write(wb, { bookType: 'xlsx', type: 'array' });
                   zip.file(`Validated_Part_${part}.xlsx`, wbBlob);
@@ -816,6 +851,12 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
           XLSX_STYLE.utils.book_append_sheet(wb, wsSuppliers, "Suppliers");
       }
 
+      appendIssueSheets(wb, exportHeaders, (row) => {
+          const r = [...row];
+          if (supplierColIdx !== undefined) r.splice(supplierColIdx + 1, 0, r[supplierColIdx] || "");
+          return r;
+      });
+
       XLSX_STYLE.writeFile(wb, `Validated_${fileName || 'File'}.xlsx`);
       addLog("Export complete with Change Log, Summary and Suppliers list.", 'success');
   };
@@ -982,6 +1023,9 @@ const FileValidationTab: React.FC<Props> = ({ addLog, onReset, language = 'en', 
                                      <li>Empty SKU → Random "Rewaa-..."</li>
                                      <li>Pack SKU → Random "Pack-..." (If Label exists)</li>
                                      <li>Duplicate SKU → Appends "-1", "-2"</li>
+                                     <li>Duplicate Barcode → Appends "-1", "-2"</li>
+                                     <li>Barcode matching an SKU → Barcode gets "-1"</li>
+                                     <li>Hidden marks (e.g. a stray kasra) ignored when finding duplicates — leading zeros still count</li>
                                      <li>Booleans → Standard "yes"/"no"</li>
                                  </ul>
                              </div>
