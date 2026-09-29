@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:ecb8366a50b5ae55896ca2f9b9eef9f867900da809ad89c6af11e648abbc2438",
+  "attestation_id": "sha256:0f82d6f1c64088146c420d212fb820c1b4dda273f4529d77fe303338ffdf1ae7",
   "available": true,
-  "files_reviewed": 4,
+  "files_reviewed": 16,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 1,
+    "info": 1,
+    "low": 2,
     "medium": 0
   },
-  "findings_total": 1,
+  "findings_total": 3,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Removes the unconditional `exportData(allResults)` call that fired when OCR extraction completed, replacing it with a log line telling the user to click the existing Export button (decision D9), and records decisions D8/D9/D10 in the module docs. The e2e spec is inverted correctly: it now registers a `download` listener, asserts nothing downloads on its own within a bounded window, then clicks Export and reads the workbook. I verified the commit's load-bearing claim — `handleExport` exports `masterData`, and both the text path (`setMasterData(resultArray)`, line 411) and the file path (`setMasterData(prev => [...prev, ...result])`, line 472) store the very same object references that `allResults` holds, so the in-place post-processing (random SKUs at 396/452, duplicate-name suffixes at 531) is reflected in the exported file; the Export button is rendered whenever `masterData.length > 0` (line 780) with the exact accessible name the test targets. No handbook violations: no new I/O in the component, no new `any`, no hook or cleanup changes, no dependency changes. One low-severity i18n gap.",
+  "summary": "This PR hardens OCR Extraction on three fronts: model fallback in geminiService now classifies a failure as retired / no-quota / overloaded / transient and walks the candidate list after ONE request instead of burning the retry budget (plus gemini-3-flash-preview appended as the last quality candidate, documented as D11); a new pure utils/ocrPostProcess.ts applies the price-range business rule and collects mapping columns from every extracted row; and utils/aiErrors.ts replaces raw JSON-in-JSON provider errors with one localised sentence (EN/AR). Layering, secrets and injection surfaces are clean — no blocking-handbook violations. I ran the four touched unit suites locally (177 tests, all green) and read the new e2e spec, which pins the real-run data shape end to end; the remaining findings are advisory polish, nothing that should hold the merge.",
   "verdict": "approved"
 }

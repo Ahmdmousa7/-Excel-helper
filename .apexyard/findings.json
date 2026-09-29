@@ -1,24 +1,42 @@
 {
-  "attestation_id": "sha256:ecb8366a50b5ae55896ca2f9b9eef9f867900da809ad89c6af11e648abbc2438",
+  "attestation_id": "sha256:0f82d6f1c64088146c420d212fb820c1b4dda273f4529d77fe303338ffdf1ae7",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 1,
+    "info": 1,
+    "low": 2,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "Line 546 emits `${t.common.completed} ...` (translated), then line 551 emits the literal `Click Export to download the results.` In Arabic the user now reads \"اكتمل 12 items extracted.\" followed by an English sentence — and since this PR removes the automatic download, that sentence is the only prompt telling the user an action is still required. Impact is limited because the Export button's own label is hardcoded \"Export\" too (line 803), so the instruction still names what is on screen, and `docs/modules/MODULE_GUIDE.md:398-402` already documents this tab's log messages as English-only — that convention is what keeps this at low rather than medium. Note the e2e spec hardcodes the same literal (`e2e/ocr-text-input.spec.ts:85`), so localising it later requires touching both.",
-      "file": "components/OcrTab.tsx",
-      "line": 551,
+      "detail": "`PRICE_HEADERS` flattens `'retail price'` and its synonyms (`regular price`, `selling price`, `price`) into one unordered Set, and `findKey` returns the FIRST row key that matches in `Object.keys` order. `resolveSourceKey` in templateMapping.ts deliberately tries the exact header first and only then the synonyms in listed order, precisely so a row carrying both `Price` and `Retail Price` maps the latter — and the module header states the whole point of templateMapping is that the mapper and the exporter 'can never disagree about which extracted column feeds which template column'. A row where the model emits `Price` before `Retail Price` now has the range rule applied to `Price` (which the HEADER_SYNONYMS comment itself notes is usually the purchase cost on an invoice extraction) while `Retail Price` keeps the range text and exports unchanged. Narrow trigger — the OCR prompt asks for `Retail Price` by name — which is why this is low rather than medium; it would rise if invoice extractions routinely returned both columns. The same applies to `DESCRIPTION_HEADERS` at line 42.",
+      "file": "utils/ocrPostProcess.ts",
+      "line": 71,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "New completion instruction is hardcoded English next to a translated string"
+      "summary": "findKey uses a flat synonym Set, losing templateMapping's exact-before-synonym precedence"
+    },
+    {
+      "category": "typescript",
+      "detail": "`applyPriceRanges` returns a well-typed `PriceRangeResult` whose `rows` is `Record<string, unknown>[]`, but the new lines re-widen it: `const resultArray: any[] = ranged.rows` (402), `let result: any[] = []` (461), and the two `(r: any) =>` predicates at 400/463. The file is pervasively `any` already, so this is idiomatic here rather than a regression — but it discards type information the PR itself just created, which is the one case the strict-mode handbook asks a reviewer to push back on. None of the four carries an inline justification comment.",
+      "file": "components/OcrTab.tsx",
+      "line": 402,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "New `any` annotations added where the source type is now known"
+    },
+    {
+      "category": "typescript",
+      "detail": "`const key = findKey(rows[idx[0]], PRICE_HEADERS)!` asserts away a `.find()` that can return undefined. It is provably safe — the grouping loop at 179-186 only pushes an index when `findKey` returned a key for that same row — so this is an observation, not a defect. It is called out only because it is exactly the shape the type-safety handbook lists, and the proof lives ten lines away where a future reader will not look.",
+      "file": "utils/ocrPostProcess.ts",
+      "line": 190,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "Non-null assertion on a `.find()` result in the merge loop"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 1
+  "total": 3
 }

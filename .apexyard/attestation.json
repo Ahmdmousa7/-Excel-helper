@@ -1,33 +1,81 @@
 {
-  "attestation_id": "sha256:ecb8366a50b5ae55896ca2f9b9eef9f867900da809ad89c6af11e648abbc2438",
+  "attestation_id": "sha256:0f82d6f1c64088146c420d212fb820c1b4dda273f4529d77fe303338ffdf1ae7",
   "files": [
     {
-      "oid": "87a6e9d03b35d0ad0405fd462ba42c38ab9230a9",
+      "oid": "9965af661f8ba29f12e2a18fe13f6f46ee009942",
+      "path": "README.md"
+    },
+    {
+      "oid": "b12274275879ebd3063dafcbe479b1967be83c39",
       "path": "components/OcrTab.tsx"
     },
     {
-      "oid": "f9b3e3c157e7679bbec935a614d76d3b32e30c29",
+      "oid": "6d6b2ee634d561b74019239f51aaaceed1d3309f",
+      "path": "docs/TESTING.md"
+    },
+    {
+      "oid": "894db1f268d96fa62b7afd0075d12c3de1e32d43",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "cecc1b6d3ad19286d2c7be791b50308e83b42dfa",
+      "oid": "c5bb1b2875712bc3ffb8830e07845c8d1be6e0f8",
       "path": "docs/modules/open-decisions.md"
     },
     {
-      "oid": "d3a45f823dcab26bac5cf73bd0f7a551885e4930",
-      "path": "e2e/ocr-text-input.spec.ts"
+      "oid": "d574ff9696b6a4f0e9f5a74900e7f86633bd11e8",
+      "path": "docs/quality/tech-debt-register.md"
+    },
+    {
+      "oid": "82a8f3eb3967c3a2f00e19ef6c009ea0057dab92",
+      "path": "e2e/ocr-rewaa-export.spec.ts"
+    },
+    {
+      "oid": "9f3f71d059d1ce58cacd32a30e233dbb0d45fc72",
+      "path": "services/geminiService.ts"
+    },
+    {
+      "oid": "cd39c4f51daf8b8cf48b9d22a278efea63792582",
+      "path": "tests/unit/aiErrors.test.ts"
+    },
+    {
+      "oid": "4b51fad62afd857b41714c5de0d222eaa5e32483",
+      "path": "tests/unit/geminiFallback.test.ts"
+    },
+    {
+      "oid": "ab19ce7ff27299f7f2cb0910fc5519f90c31a153",
+      "path": "tests/unit/ocrPostProcess.test.ts"
+    },
+    {
+      "oid": "0b8075e23867867af4419f8d28b61a6058a5c6f6",
+      "path": "tests/unit/templateMapping.test.ts"
+    },
+    {
+      "oid": "f2825c6e5aef4fbb574b75582117b9eceeb22653",
+      "path": "utils/aiErrors.ts"
+    },
+    {
+      "oid": "0cdf289a12bed731fd30dc8755aeb8136972df58",
+      "path": "utils/ocrPostProcess.ts"
+    },
+    {
+      "oid": "16d6c3b4f84b81036fe484268d4eef7ca77edf62",
+      "path": "utils/templateMapping.ts"
+    },
+    {
+      "oid": "65918c8cd04c169ae9975dd2137278debada83ad",
+      "path": "utils/translations.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 1,
+    "info": 1,
+    "low": 2,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "0d18bbc1f8df4d5167db41aa9cdeddf0b28c2623",
+  "reviewed_at_commit": "897a52f8cadfa71e94b79f387f58e77dd64f958e",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

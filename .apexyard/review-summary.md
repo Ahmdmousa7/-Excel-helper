@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:ecb8366a50b5ae55896ca2f9b9eef9f867900da809ad89c6af11e648abbc2438` |
+| Attestation id | `sha256:0f82d6f1c64088146c420d212fb820c1b4dda273f4529d77fe303338ffdf1ae7` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `0d18bbc1f8df` |
+| Reviewed at commit | `897a52f8cadf` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 4 |
+| Files reviewed | 16 |
 
 ## What this is, and what it is not
 
@@ -30,29 +30,29 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
-| info | 0 |
+| low | 2 |
+| info | 1 |
 
-Removes the unconditional `exportData(allResults)` call that fired when OCR extraction completed, replacing it with a log line telling the user to click the existing Export button (decision D9), and records decisions D8/D9/D10 in the module docs. The e2e spec is inverted correctly: it now registers a `download` listener, asserts nothing downloads on its own within a bounded window, then clicks Export and reads the workbook. I verified the commit's load-bearing claim — `handleExport` exports `masterData`, and both the text path (`setMasterData(resultArray)`, line 411) and the file path (`setMasterData(prev => [...prev, ...result])`, line 472) store the very same object references that `allResults` holds, so the in-place post-processing (random SKUs at 396/452, duplicate-name suffixes at 531) is reflected in the exported file; the Export button is rendered whenever `masterData.length > 0` (line 780) with the exact accessible name the test targets. No handbook violations: no new I/O in the component, no new `any`, no hook or cleanup changes, no dependency changes. One low-severity i18n gap.
+This PR hardens OCR Extraction on three fronts: model fallback in geminiService now classifies a failure as retired / no-quota / overloaded / transient and walks the candidate list after ONE request instead of burning the retry budget (plus gemini-3-flash-preview appended as the last quality candidate, documented as D11); a new pure utils/ocrPostProcess.ts applies the price-range business rule and collects mapping columns from every extracted row; and utils/aiErrors.ts replaces raw JSON-in-JSON provider errors with one localised sentence (EN/AR). Layering, secrets and injection surfaces are clean — no blocking-handbook violations. I ran the four touched unit suites locally (177 tests, all green) and read the new e2e spec, which pins the real-run data shape end to end; the remaining findings are advisory polish, nothing that should hold the merge.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 564 warning(s) |
-| Vitest | pass | 536/536 passed, lines 99.21% |
-| Playwright | pass | 119/119 passed |
+| ESLint | pass | 0 error(s), 569 warning(s) |
+| Vitest | pass | 626/626 passed, lines 99.33% |
+| Playwright | pass | 122/122 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
-| Accessibility | pass | 20 violation node(s) |
+| Accessibility | pass | 19 violation node(s) |
 
 A gate reading **not run** is not a gate that passed. Nothing in this bundle
 reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 111 source files, 30713 lines
+- 117 source files, 31900 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -65,10 +65,10 @@ reports zero failures for a tool that never executed.
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1124 |
 | `components/SupportChat.tsx` | 957 |
+| `components/OcrTab.tsx` | 956 |
 | `components/TranslateTab.tsx` | 953 |
-| `components/OcrTab.tsx` | 936 |
-| `utils/translations.ts` | 899 |
-| `services/geminiService.ts` | 850 |
+| `services/geminiService.ts` | 935 |
+| `utils/translations.ts` | 925 |
 | `components/ProjectSummaryTab.tsx` | 841 |
 | `components/ZidTab.tsx` | 841 |
 
