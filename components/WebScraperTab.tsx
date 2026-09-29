@@ -6,7 +6,8 @@ import { saveWorkbook } from '../services/excelService';
 import { aiService } from '../services/aiServiceFactory';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { readableAiError } from '../utils/aiErrors';
-import { yallaMenuSource, fetchYallaMenu } from '../utils/yallaMenu';
+import { yallaMenuSource } from '../utils/yallaMenu';
+import { fetchYallaMenu } from '../services/yallaMenuService';
 import ProgressBar from './ProgressBar';
 import { Globe, Download, Search, AlertCircle, Table, ExternalLink, Zap, RefreshCw, CheckSquare } from 'lucide-react';
 
@@ -48,7 +49,9 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
      // A Yalla QR Codes menu: read the menu's own data, which carries every
      // item's options (sizes etc.) with their prices. The page text does not —
      // items with sizes are listed there with no price at all. Any failure
-     // falls through to the page-text route below.
+     // falls through to the page-text route below — a timeout too: the menu
+     // read is bounded (YALLA_REQUEST_TIMEOUT_MS / YALLA_MENU_TIMEOUT_MS in
+     // services/yallaMenuService.ts), so a hung menu API cannot hang the scrape.
      const yalla = yallaMenuSource(targetUrl);
      if (yalla) {
         try {

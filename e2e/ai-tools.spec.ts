@@ -15,6 +15,7 @@ import * as XLSX from 'xlsx';
 import { readFileSync } from 'node:fs';
 import { TRANSLATIONS } from '../utils/translations';
 import { MODEL_CANDIDATES } from '../services/geminiService';
+import { YALLA_REQUEST_TIMEOUT_MS, YALLA_MENU_TIMEOUT_MS } from '../services/yallaMenuService';
 
 const SITE = 'https://kelah.yallaqrcodes.com/branch/1/';
 const MENU = readFileSync(new URL('../tests/fixtures/kelah-menu.jina.md', import.meta.url), 'utf-8');
@@ -213,6 +214,29 @@ test.describe('Web Scraper — kelah.yallaqrcodes.com menu', () => {
     await expect(page.getByText(/Could not read the menu data; using the page text instead/)).toBeVisible();
     expect(asked).toEqual([`https://r.jina.ai/${SITE}`]);
     expect(calls[0].body).toContain('سبانش لاتيه');
+  });
+
+  test('MENU DATA hangs → times out and falls back to the page text; the scrape does not hang', async ({ app, page }) => {
+    test.setTimeout(90_000);
+    // The menu API accepts the request and never answers.
+    await page.route('https://kelah.yallaqrcodes.com/api/**', () => { /* never fulfilled */ });
+    const { asked } = await jinaFromFixture(page);
+    const calls = await modelAnswers(page, ANSWER);
+    await app.goto();
+    await app.openToolMatching(/Web Scraper|كاشط الويب|استخراج الويب/);
+    await page.getByPlaceholder('https://example.com/products').fill(SITE);
+    const started = Date.now();
+    await page.getByRole('button', { name: TRANSLATIONS.en.common.start }).click();
+    await page.getByRole('button', { name: TRANSLATIONS.en.actions.showLogs }).click();
+    await expect(page.getByText(/Could not read the menu data; using the page text instead/)).toBeVisible({ timeout: 40_000 });
+    await expect(page.getByText(`${TRANSLATIONS.en.scraper.preview} (4)`)).toBeVisible({ timeout: 30_000 });
+    const waited = Date.now() - started;
+    // Bounded by YALLA_REQUEST_TIMEOUT_MS (8 s) — not the 30 s whole-read cap, and not forever.
+    expect(waited).toBeGreaterThanOrEqual(YALLA_REQUEST_TIMEOUT_MS - 500);
+    expect(waited).toBeLessThan(YALLA_MENU_TIMEOUT_MS);
+    expect(asked).toEqual([`https://r.jina.ai/${SITE}`]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body).toContain('سبانش لاتيه'); // the page text reached the model
   });
 
   test('LIVE SITE (E2E_NETWORK=1): fetches the real menu and sends it to the model', async ({ app, page }) => {

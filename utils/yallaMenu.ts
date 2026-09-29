@@ -14,9 +14,10 @@
  * all with a `branch: <n>` header taken from `/branch/<n>/` in the page URL. The
  * server's CORS policy allows that header from any origin (checked 2026-09-29).
  *
- * This module turns that JSON into plain text for the model, one line per
- * variant with its real price. Pure except `fetchYallaMenu`, which takes the
- * fetch function as a parameter so it can be tested without a network.
+ * This module is PURE: it recognises a platform URL and turns that JSON into
+ * plain text for the model, one line per variant with its real price. Reading
+ * the JSON over the network, with its timeouts, is
+ * `services/yallaMenuService.ts`.
  */
 
 export interface YallaSource {
@@ -156,34 +157,4 @@ export function yallaMenuText(
     lines.push('');
   }
   return { text: lines.join('\n').trim(), stats };
-}
-
-type FetchLike = (url: string, init?: { headers?: Record<string, string> }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
-
-/**
- * Read the whole menu. Item details are fetched a few at a time — every item,
- * because the light listing's `options_count` is 0 even for items that have
- * options. A detail that fails leaves that item without variants (counted in
- * `failedDetails`) rather than failing the scrape.
- */
-export async function fetchYallaMenu(src: YallaSource, pageUrl: string, fetchFn: FetchLike, concurrency = 6) {
-  const headers: Record<string, string> = { accept: 'application/json', ...(src.branch ? { branch: src.branch } : {}) };
-  const get = async (path: string) => {
-    const res = await fetchFn(`${src.origin}${path}`, { headers });
-    if (!res.ok) throw new Error(`${path} returned HTTP ${res.status}`);
-    const body = (await res.json()) as { data?: unknown };
-    return body?.data;
-  };
-  const [categories, items] = await Promise.all([get('/api/categories/'), get('/api/items-light/')]);
-  if (!Array.isArray(categories) || !Array.isArray(items) || items.length === 0) throw new Error('menu data has no items');
-  const details = new Map<number, YallaDetail>();
-  let failedDetails = 0;
-  const queue = (items as YallaItem[]).filter((i) => !i.is_deleted).map((i) => i.id);
-  await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
-    for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
-      try { details.set(id, ((await get(`/api/items/${id}/`)) ?? {}) as YallaDetail); } catch { failedDetails++; }
-    }
-  }));
-  const { text, stats } = yallaMenuText(categories as YallaCategory[], items as YallaItem[], details, pageUrl);
-  return { text, stats, failedDetails };
 }

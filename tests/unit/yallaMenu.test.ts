@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { yallaMenuSource, yallaMenuText, fetchYallaMenu, type YallaDetail } from '../../utils/yallaMenu';
+import { yallaMenuSource, yallaMenuText, type YallaDetail } from '../../utils/yallaMenu';
 
 /** Real data from kelah.yallaqrcodes.com (2026-09-29), trimmed — see the fixture's `_source`. */
 const FX = JSON.parse(readFileSync(new URL('../fixtures/yalla-kelah.json', import.meta.url), 'utf-8'));
@@ -120,43 +120,5 @@ describe('yallaMenuText — review findings (2f16972)', () => {
     const text = yallaMenuText(CATS, [item({ category: 424242, price: 9 })], new Map()).text;
     expect(text).toContain('## (no section)');
     expect(text).toContain('- صنف تجريبي | Price: 9.00');
-  });
-});
-
-describe('fetchYallaMenu', () => {
-  const fakeFetch = (fail: (url: string) => boolean = () => false) => {
-    const calls: { url: string; branch?: string }[] = [];
-    const fn = async (url: string, init?: { headers?: Record<string, string> }) => {
-      calls.push({ url, branch: init?.headers?.branch });
-      if (fail(url)) return { ok: false, status: 500, json: async () => ({}) };
-      const path = new URL(url).pathname;
-      const body = path === '/api/categories/' ? FX.categories
-        : path === '/api/items-light/' ? FX.items
-        : FX.details[/\/api\/items\/(\d+)\//.exec(path)![1]];
-      return { ok: true, status: 200, json: async () => body };
-    };
-    return { fn, calls };
-  };
-
-  it('reads the sections, the items and EVERY item’s options, sending the branch header', async () => {
-    const { fn, calls } = fakeFetch();
-    const { text, stats, failedDetails } = await fetchYallaMenu(yallaMenuSource(PAGE)!, PAGE, fn);
-    expect(failedDetails).toBe(0);
-    expect(stats.withVariants).toBe(5);
-    expect(text).toContain('Option 1 Value: إبريق صغير | Price: 15.00');
-    expect(calls.filter((c) => c.url.includes('/api/items/'))).toHaveLength(ITEMS.length);
-    expect(calls.every((c) => c.branch === '1')).toBe(true);
-  });
-
-  it('a failed item detail leaves that item without variants instead of failing the scrape', async () => {
-    const { fn } = fakeFetch((u) => u.endsWith('/api/items/127/'));
-    const { text, failedDetails } = await fetchYallaMenu(yallaMenuSource(PAGE)!, PAGE, fn);
-    expect(failedDetails).toBe(1);
-    expect(text).toContain('- شاي أحمر | Price: (no price listed on the menu)');
-  });
-
-  it('a failed listing throws, so the caller can fall back to the page text', async () => {
-    const { fn } = fakeFetch((u) => u.endsWith('/api/items-light/'));
-    await expect(fetchYallaMenu(yallaMenuSource(PAGE)!, PAGE, fn)).rejects.toThrow(/items-light.*500/);
   });
 });

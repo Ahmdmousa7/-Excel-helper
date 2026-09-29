@@ -128,5 +128,5 @@ cover every case in `utils/yallaMenu.ts` — sizes on an item with no base price
 (`شاي أحمر`, `مارجريتا`), sizes whose top price equals the base (`ديناميت
 دجاج`), choices at no extra cost (`كيمكس حار أو بارد`), a meal whose dishes are
 the options, plain priced items, and an item with no price anywhere
-(`وجبة كاري`). Used by `tests/unit/yallaMenu.test.ts` and `e2e/ai-tools.spec.ts`.
+(`وجبة كاري`). Used by `tests/unit/yallaMenu.test.ts`, `tests/unit/yallaMenuService.test.ts` and `e2e/ai-tools.spec.ts`.
 
