@@ -1,60 +1,14 @@
 {
-  "attestation_id": "sha256:f070985e6746c7c94843f558e6ed80a7a37c6711f6b567fab50bc25e3efa4447",
+  "attestation_id": "sha256:ce08e005921d36430ff8fde59510966e8dae01f5dd76c7c375ae1a66a96a5c4b",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 4,
+    "info": 0,
+    "low": 0,
     "medium": 0
   },
-  "findings": [
-    {
-      "category": "code-smell",
-      "detail": "The stored key string is now parsed in four places with three different expressions: getStoredApiKey (line 183, `split('\\n').map(trim).filter`), rotateKey (line 399, `split('\\n').filter(trim)`), getMaxRetries (line 414, `split('\\n').filter(trim)`) and the new storedKeyCount (line 410, `split(/\\r?\\n/).filter(trim)`). I checked the divergence and it is currently harmless — for any CRLF or LF input the two forms produce the same non-empty count, so advanceModel's `storedKeyCount() > 1` and rotateKey's `allKeys.length <= 1` cannot disagree. The cost is future-facing: the no-quota rotation loop in advanceModel is correct only while those two agree, and nothing in the file says so. If someone later 'fixes' rotateKey to also strip \\r, or switches one of them to a different split, advanceModel can enter its rotation loop while rotateKey refuses to rotate — producing keyCount-1 useless identical requests per model.",
-      "file": "services/geminiService.ts",
-      "line": 410,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "storedKeyCount is a fourth copy of the key-splitting logic, with a different separator"
-    },
-    {
-      "category": "technical-debt",
-      "detail": "The rewritten OCR paragraph inserts \"Applies to every AI call (TD-051).\" but leaves the pre-existing closing sentence \"Applies to OCR's two calls (`extractFromMedia`, `extractStructuredData`) only.\" untouched a few clauses later. The whole point of this PR is that the second sentence is no longer true, and MODULE_GUIDE.md is the document a reader consults precisely to answer \"does this tab get fallback?\". Leaving both claims in one paragraph means the next reader has to go read geminiService.ts to find out which one is current — which is the cost the guide exists to remove.",
-      "file": "docs/modules/MODULE_GUIDE.md",
-      "line": 415,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "OCR error-handling paragraph now contradicts itself in the same sentence run"
-    },
-    {
-      "category": "technical-debt",
-      "detail": "This PR removes advancePastRetiredModel, which was retireModel's sole production caller. Grepping the tree, retireModel is now referenced only by its own tests (tests/unit/geminiModels.test.ts:418, 429, 438, 451, 550, 559, 567, 574, 585) and by two comments that still describe it as live (services/geminiService.ts:21 'resolveModel() and retireModel() below do the walking', and :204 'never calls retireModel'). An exported function kept alive only by its own tests is dead code that reads as API: the next person to change the per-key retirement registry will assume retireModel is a supported entry point and keep it consistent with advanceModel for no benefit.",
-      "file": "services/geminiService.ts",
-      "line": 157,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "retireModel is now an unused export — its only production caller was deleted"
-    },
-    {
-      "category": "typescript",
-      "detail": "CompareTool declares `language?: string` (line 13), so the new readableAiError call site at line 172 has to hand-narrow with `language === 'ar' ? 'ar' : 'en'` to satisfy readableAiError's `Language` parameter. The behaviour is correct today, but the narrowing silently swallows any future third locale: adding 'fr' to the Language union would make every other tab localise while Compare's AI error quietly falls back to English, with no compiler error to point at. The union type already exists and is imported throughout the codebase (utils/translations.ts `Language`), and the sibling tabs touched in this same PR — TranslateTab.tsx:374 and WebScraperTab.tsx:206 — pass `language` straight through because their props are typed.",
-      "file": "components/CompareTool.tsx",
-      "line": 172,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "`language === 'ar' ? 'ar' : 'en'` narrows a prop that should be typed Language"
-    },
-    {
-      "category": "typescript",
-      "detail": "The try/catch split around the AI call requires hoisting the binding, which introduces `let result: any[];`. The type is inherited from `aiService.extractStructuredData`'s declared `Promise<any[]>` and matches the file's neighbours (OcrTab.tsx:461 uses the same shape), so this is not new looseness — but the type-safety handbook asks for a same-line reason on any `any[]` added in a diff, and this one reads as an unexplained choice to someone who does not know the service signature. Flagging for the record only; the fix is a comment, not a redesign.",
-      "file": "components/WebScraperTab.tsx",
-      "line": 197,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "New `let result: any[]` declaration carries no justification comment"
-    }
-  ],
+  "findings": [],
   "schema": "apexyard.evidence.findings/1",
-  "total": 5
+  "total": 0
 }

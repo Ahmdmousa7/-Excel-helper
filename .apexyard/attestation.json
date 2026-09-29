@@ -1,85 +1,25 @@
 {
-  "attestation_id": "sha256:f070985e6746c7c94843f558e6ed80a7a37c6711f6b567fab50bc25e3efa4447",
+  "attestation_id": "sha256:ce08e005921d36430ff8fde59510966e8dae01f5dd76c7c375ae1a66a96a5c4b",
   "files": [
     {
-      "oid": "3e79970194f33c8d0a6098213217831e0703f637",
-      "path": "README.md"
-    },
-    {
-      "oid": "fc338df417e3188aef06b11ef67578195109c844",
-      "path": "components/CompareTool.tsx"
-    },
-    {
-      "oid": "ec23f078b5d5bd5ac768c663892b200d3759addb",
-      "path": "components/SupportChat.tsx"
-    },
-    {
-      "oid": "e88f10552e9dc32f1a4cb2fc6675007f577db07d",
-      "path": "components/TranslateTab.tsx"
-    },
-    {
-      "oid": "6aa5588b2007a71826ba892ddbba2afe0245fc3a",
-      "path": "components/WebScraperTab.tsx"
-    },
-    {
-      "oid": "b9283d01abe8d51fe2d2fcfe240d57d3835a64b0",
-      "path": "docs/TESTING.md"
-    },
-    {
-      "oid": "0f0e4edd634e4bd79a501de7a177627fb5225035",
+      "oid": "8e32fc1b7e5b5835995d86ce16a7da589b5e8ce4",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "cf21eba20c767e92ccebdcc1d6b1e162fb31d5d7",
-      "path": "docs/quality/tech-debt-register.md"
-    },
-    {
-      "oid": "b0a099037ed0b2c2546953624c711fe89868be27",
-      "path": "e2e/ai-tools.spec.ts"
-    },
-    {
-      "oid": "05320b17dc56acf59b2c9294adec739e365fcc96",
-      "path": "e2e/support-chat-fallback.spec.ts"
-    },
-    {
-      "oid": "c2313b378e7356de02f61feb0f86677f815ea74a",
+      "oid": "47bcb5642bb81381a6e8444b012b735cdec6d4bf",
       "path": "services/geminiService.ts"
-    },
-    {
-      "oid": "153e89ece80a3b7d6c001bc8ed3a8e715da0c851",
-      "path": "tests/fixtures/README.md"
-    },
-    {
-      "oid": "092f0dd8ed592cb80c48b4680ac228b3d3b8eb6e",
-      "path": "tests/fixtures/kelah-menu.jina.md"
-    },
-    {
-      "oid": "85f22a40966aa93cffa53cc3543ef4baca30ed96",
-      "path": "tests/unit/aiErrors.test.ts"
-    },
-    {
-      "oid": "82046281182baf059c08be7d8accd270dfacdcc8",
-      "path": "tests/unit/geminiFallback.test.ts"
-    },
-    {
-      "oid": "6629844e2f77d1d8207d707473caaad485bcdf9c",
-      "path": "utils/aiErrors.ts"
-    },
-    {
-      "oid": "fecd25a0e49fc8ac6572a0dcad0a25d5eece35b8",
-      "path": "utils/translations.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 4,
+    "info": 0,
+    "low": 0,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "bddbb4377928f0b2463c0e9a9d1b5d7c552928a0",
+  "reviewed_at_commit": "d92016555d87f2a7226b3a688d50cf6e4021e2f9",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"
