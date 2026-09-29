@@ -116,3 +116,17 @@ menu, so this markdown is exactly the text the Web Scraper sends to the model.
 and deterministically. The same spec has one test that fetches the live page
 instead; it runs only with `E2E_NETWORK=1`.
 
+---
+
+## `yalla-kelah.json` — Web Scraper variants
+
+The Yalla QR Codes platform's own menu data for
+`https://kelah.yallaqrcodes.com/branch/1/`, captured 2026-09-29 from
+`/api/categories/`, `/api/items-light/` and `/api/items/<id>/`: a **subset** of
+8 items in 5 sections, fields trimmed to those the scraper reads. Chosen to
+cover every case in `utils/yallaMenu.ts` — sizes on an item with no base price
+(`شاي أحمر`, `مارجريتا`), sizes whose top price equals the base (`ديناميت
+دجاج`), choices at no extra cost (`كيمكس حار أو بارد`), a meal whose dishes are
+the options, plain priced items, and an item with no price anywhere
+(`وجبة كاري`). Used by `tests/unit/yallaMenu.test.ts` and `e2e/ai-tools.spec.ts`.
+

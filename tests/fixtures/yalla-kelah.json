@@ -1,0 +1,348 @@
+{
+ "_source": "https://kelah.yallaqrcodes.com/branch/1/ — /api/categories/, /api/items-light/, /api/items/<id>/, captured 2026-09-29; subset, fields trimmed",
+ "categories": {
+  "status": "success",
+  "data": [
+   {
+    "id": 26,
+    "name_ar": "المشروبات الساخنة",
+    "name_en": "",
+    "sort_order": 1,
+    "is_deleted": false
+   },
+   {
+    "id": 11,
+    "name_ar": "وجبات كيلة الصحية",
+    "name_en": "",
+    "sort_order": 11,
+    "is_deleted": false
+   },
+   {
+    "id": 14,
+    "name_ar": "القهوة المختصة",
+    "name_en": "",
+    "sort_order": 13,
+    "is_deleted": false
+   },
+   {
+    "id": 16,
+    "name_ar": "البيتزا",
+    "name_en": "",
+    "sort_order": 22,
+    "is_deleted": false
+   },
+   {
+    "id": 18,
+    "name_ar": "البطاطس",
+    "name_en": "",
+    "sort_order": 24,
+    "is_deleted": false
+   }
+  ]
+ },
+ "items": {
+  "status": "success",
+  "data": [
+   {
+    "id": 127,
+    "category": 26,
+    "price": 0.0,
+    "available": true,
+    "is_deleted": false,
+    "sort_order": 1,
+    "name_ar": "شاي أحمر",
+    "name_en": "",
+    "description_ar": "",
+    "image_full": "https://d8aaen7rph5y9.cloudfront.net/app/mediafiles/t_1756683027_8960f5/items/%D8%B4%D8%A7%D9%8A_%D8%A3%D8%AD%D9%85%D8%B1_17697082368372956.webp"
+   },
+   {
+    "id": 128,
+    "category": 26,
+    "price": 4.0,
+    "available": true,
+    "is_deleted": false,
+    "sort_order": 2,
+    "name_ar": "شاي أخضر",
+    "name_en": "",
+    "description_ar": "كوب",
+    "image_full": "https://d8aaen7rph5y9.cloudfront.net/app/mediafiles/t_1756683027_8960f5/items/%D8%B4%D8%A7%D9%8A_%D8%A3%D8%AE%D8%B6%D8%B1_17697082419433368.webp"
+   },
+   {
+    "id": 129,
+    "category": 26,
+    "price": 5.0,
+    "available": true,
+    "is_deleted": false,
+    "sort_order": 3,
+    "name_ar": "كرك",
+    "name_en": "",
+    "description_ar": "كوب",
+    "image_full": "https://d8aaen7rph5y9.cloudfront.net/app/mediafiles/t_1756683027_8960f5/items/%D9%83%D8%B1%D9%83_17697082526947170.webp"
+   },
+   {
+    "id": 85,
+    "category": 18,
+    "price": 22.0,
+    "available": true,
+    "is_deleted": false,
+    "sort_order": 1,
+    "name_ar": "ديناميت دجاج",
+    "name_en": "",
+    "description_ar": "حجم صغير 18\nحجم كبير 22",
+    "image_full": "https://d8aaen7rph5y9.cloudfront.net/app/mediafiles/t_1756683027_8960f5/items/%D8%AF%D9%8A%D9%86%D8%A7%D9%85%D9%8A%D8%AA_%D8%AF%D8%AC%D8%A7%D8%AC_17697082326355444.webp"
+   },
+   {
+    "id": 68,
+    "category": 14,
+    "price": 15.0,
+    "available": true,
+    "is_deleted": false,
+    "sort_order": 1,
+    "name_ar": "كيمكس حار أو بارد",
+    "name_en": "",
+    "description_ar": "",
+    "image_full": "https://d8aaen7rph5y9.cloudfront.net/app/mediafiles/t_1756683027_8960f5/items/%D9%83%D9%8A%D9%85%D9%83%D8%B3_%D8%AD%D8%A7%D8%B1_%D8%A3%D9%88_%D8%A8%D8%A7%D8%B1%D8%AF_17697082364326570.webp"
+   },
+   {
+    "id": 72,
+    "category": 16,
+    "price": 0.0,
+    "available": true,
+    "is_deleted": false,
+    "sort_order": 1,
+    "name_ar": "مارجريتا",
+    "name_en": "",
+    "description_ar": "",
+    "image_full": null
+   },
+   {
+    "id": 138,
+    "category": 11,
+    "price": 0.0,
+    "available": true,
+    "is_deleted": false,
+    "sort_order": 4,
+    "name_ar": "وجبة كاري",
+    "name_en": "",
+    "description_ar": "",
+    "image_full": "https://d8aaen7rph5y9.cloudfront.net/app/mediafiles/t_1756683027_8960f5/items/%D9%88%D8%AC%D8%A8%D8%A9_%D9%83%D8%A7%D8%B1%D9%8A_17697082553475282.webp"
+   },
+   {
+    "id": 42,
+    "category": 11,
+    "price": 0.0,
+    "available": true,
+    "is_deleted": false,
+    "sort_order": 1,
+    "name_ar": "الوجبة اليومية 150 جرام",
+    "name_en": "",
+    "description_ar": "",
+    "image_full": "https://d8aaen7rph5y9.cloudfront.net/app/mediafiles/t_1756683027_8960f5/items/%D8%A7%D9%84%D9%88%D8%AC%D8%A8%D8%A9_%D8%A7%D9%84%D9%8A%D9%88%D9%85%D9%8A%D8%A9_150_%D8%AC%D8%B1%D8%A7%D9%85_17697082320340120.webp"
+   }
+  ]
+ },
+ "details": {
+  "127": {
+   "status": "success",
+   "data": {
+    "modifiers": [
+     {
+      "name_ar": "شاي أحمر - الحجم",
+      "min_options": 1,
+      "max_options": 1,
+      "options": [
+       {
+        "name_ar": "كوب",
+        "price": 4.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "إبريق صغير",
+        "price": 15.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "إبريق كبير",
+        "price": 20.0,
+        "available": true,
+        "is_deleted": false
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "128": {
+   "status": "success",
+   "data": {
+    "modifiers": []
+   }
+  },
+  "129": {
+   "status": "success",
+   "data": {
+    "modifiers": []
+   }
+  },
+  "85": {
+   "status": "success",
+   "data": {
+    "modifiers": [
+     {
+      "name_ar": "ديناميت دجاج - الحجم",
+      "min_options": 1,
+      "max_options": 1,
+      "options": [
+       {
+        "name_ar": "صغير",
+        "price": 18.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "كبير",
+        "price": 22.0,
+        "available": true,
+        "is_deleted": false
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "68": {
+   "status": "success",
+   "data": {
+    "modifiers": [
+     {
+      "name_ar": "كيمكس حار أو بارد - النوع",
+      "min_options": 1,
+      "max_options": null,
+      "options": [
+       {
+        "name_ar": "حار",
+        "price": 0.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "بارد",
+        "price": 0.0,
+        "available": true,
+        "is_deleted": false
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "72": {
+   "status": "success",
+   "data": {
+    "modifiers": [
+     {
+      "name_ar": "مارجريتا - الحجم",
+      "min_options": 1,
+      "max_options": 1,
+      "options": [
+       {
+        "name_ar": "وسط",
+        "price": 27.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "كبير",
+        "price": 37.0,
+        "available": true,
+        "is_deleted": false
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "138": {
+   "status": "success",
+   "data": {
+    "modifiers": []
+   }
+  },
+  "42": {
+   "status": "success",
+   "data": {
+    "modifiers": [
+     {
+      "name_ar": "الوجبة اليومية 150 جرام - اختار",
+      "min_options": 1,
+      "max_options": null,
+      "options": [
+       {
+        "name_ar": "وجبة دجاج مشوي",
+        "price": 25.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "وجبة دجاج ليمون",
+        "price": 28.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "وجبة كاري دجاج",
+        "price": 32.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "وجبة دجاج زعتر",
+        "price": 24.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "وجبة كرات لحم",
+        "price": 38.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "وجبة فيليه سمك",
+        "price": 32.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "وجبة سالمون",
+        "price": 40.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "وجبة شاورما",
+        "price": 29.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "وجبة باربكيو",
+        "price": 30.0,
+        "available": true,
+        "is_deleted": false
+       },
+       {
+        "name_ar": "سلطة جرجير",
+        "price": 24.0,
+        "available": true,
+        "is_deleted": false
+       }
+      ]
+     }
+    ]
+   }
+  }
+ }
+}

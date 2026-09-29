@@ -69,6 +69,25 @@ async function jinaFromFixture(page: Page) {
   return { asked, noCache };
 }
 
+/** The platform's own menu data, from the real capture (utils/yallaMenu.ts). */
+const YALLA = JSON.parse(readFileSync(new URL('../tests/fixtures/yalla-kelah.json', import.meta.url), 'utf-8'));
+
+async function yallaFromFixture(page: Page) {
+  const asked: { path: string; branch?: string }[] = [];
+  await page.route('https://kelah.yallaqrcodes.com/api/**', async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    asked.push({ path, branch: route.request().headers()['branch'] });
+    const body = path === '/api/categories/' ? YALLA.categories
+      : path === '/api/items-light/' ? YALLA.items
+      : YALLA.details[/\/api\/items\/(\d+)\//.exec(path)?.[1] ?? ''];
+    await route.fulfill({ status: body ? 200 : 404, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body ?? {}) });
+  });
+  return asked;
+}
+
+/** The menu data unreachable: the scraper must fall back to the page text. */
+const yallaDown = (page: Page) => page.route('https://kelah.yallaqrcodes.com/api/**', (route) => route.abort('failed'));
+
 const RAW = /RESOURCE_EXHAUSTED|UNAVAILABLE|"error"|\{"|googleapis|limit: 0/;
 
 async function openScraper(app: any, page: Page) {
@@ -82,6 +101,7 @@ test.describe('Web Scraper — kelah.yallaqrcodes.com menu', () => {
     test.setTimeout(90_000);
     const { asked, noCache } = await jinaFromFixture(page);
     const calls = await modelAnswers(page, ANSWER);
+    await yallaDown(page); // page-text route (the menu-data route has its own tests)
     await openScraper(app, page);
     await page.getByRole('button', { name: TRANSLATIONS.en.common.start }).click();
     await expect(page.getByText(`${TRANSLATIONS.en.scraper.preview} (4)`)).toBeVisible({ timeout: 60_000 });
@@ -105,6 +125,7 @@ test.describe('Web Scraper — kelah.yallaqrcodes.com menu', () => {
     test.setTimeout(90_000);
     await jinaFromFixture(page);
     const models = await modelFails(page, 'no-quota');
+    await yallaDown(page); // page-text route (the menu-data route has its own tests)
     await openScraper(app, page);
     await page.getByRole('button', { name: TRANSLATIONS.en.common.start }).click();
     await page.getByRole('button', { name: TRANSLATIONS.en.actions.showLogs }).click();
@@ -119,6 +140,7 @@ test.describe('Web Scraper — kelah.yallaqrcodes.com menu', () => {
     test.setTimeout(90_000);
     await jinaFromFixture(page);
     await modelFails(page, 'busy');
+    await yallaDown(page); // page-text route (the menu-data route has its own tests)
     await openScraper(app, page);
     await app.toggleLanguage();
     const ar = TRANSLATIONS.ar;
@@ -136,6 +158,7 @@ test.describe('Web Scraper — kelah.yallaqrcodes.com menu', () => {
       status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: `Title: x${' \n'.repeat(120)}`,
     }));
     const models = await modelFails(page, 'no-quota');
+    await yallaDown(page); // page-text route (the menu-data route has its own tests)
     await openScraper(app, page);
     await page.getByRole('button', { name: TRANSLATIONS.en.common.start }).click();
     await page.getByRole('button', { name: TRANSLATIONS.en.actions.showLogs }).click();
@@ -143,16 +166,68 @@ test.describe('Web Scraper — kelah.yallaqrcodes.com menu', () => {
     expect(models).toHaveLength(0);
   });
 
+  test('MENU DATA: items with sizes arrive as variant rows with their real prices; Jina is not needed', async ({ app, page }) => {
+    test.setTimeout(90_000);
+    const asked = await yallaFromFixture(page);
+    const jina = await jinaFromFixture(page);
+    const rows = [
+      { Name: 'شاي أحمر', Category: 'المشروبات الساخنة', Price: 4, 'Option 1': 'الحجم', 'Option 1 Value': 'كوب', Type: 'Variable' },
+      { Name: 'شاي أحمر', Category: 'المشروبات الساخنة', Price: 15, 'Option 1': 'الحجم', 'Option 1 Value': 'إبريق صغير', Type: 'Variable' },
+      { Name: 'شاي أحمر', Category: 'المشروبات الساخنة', Price: 20, 'Option 1': 'الحجم', 'Option 1 Value': 'إبريق كبير', Type: 'Variable' },
+    ];
+    const calls = await modelAnswers(page, rows);
+    await openScraper(app, page);
+    await page.getByRole('button', { name: TRANSLATIONS.en.common.start }).click();
+    await page.getByRole('button', { name: TRANSLATIONS.en.actions.showLogs }).click();
+    await expect(page.getByText(`${TRANSLATIONS.en.scraper.preview} (3)`)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/Read the menu data: 8 items, 5 with options/)).toBeVisible();
+
+    // The platform's JSON, with the branch from /branch/1/ in the URL.
+    expect(asked.map((a) => a.path)).toEqual(expect.arrayContaining(['/api/categories/', '/api/items-light/', '/api/items/127/']));
+    expect(asked.every((a) => a.branch === '1')).toBe(true);
+    expect(jina.asked).toEqual([]);
+    // What the page text never had: شاي أحمر's sizes and prices.
+    const prompt = calls[0].body;
+    for (const s of ['VARIANT شاي أحمر', 'إبريق صغير | Price: 15.00', 'إبريق كبير | Price: 20.00', 'مارجريتا', 'Option 1 Value: كبير | Price: 37.00']) {
+      expect(prompt).toContain(s);
+    }
+    expect(prompt).toContain("fill 'Option 1' and 'Option 1 Value'");
+
+    const pending = page.waitForEvent('download');
+    await page.getByRole('button', { name: TRANSLATIONS.en.common.download, exact: true }).click();
+    const wb = XLSX.read(readFileSync((await (await pending).path())!), { type: 'buffer' });
+    expect(XLSX.utils.sheet_to_json(wb.Sheets['Scraped Data'])).toEqual(rows);
+  });
+
+  test('MENU DATA unreachable → falls back to the page text, and says so', async ({ app, page }) => {
+    test.setTimeout(90_000);
+    await yallaDown(page);
+    const { asked } = await jinaFromFixture(page);
+    const calls = await modelAnswers(page, ANSWER);
+    await app.goto();
+    await app.openToolMatching(/Web Scraper|كاشط الويب|استخراج الويب/);
+    await page.getByPlaceholder('https://example.com/products').fill(SITE);
+    await page.getByRole('button', { name: TRANSLATIONS.en.common.start }).click();
+    await page.getByRole('button', { name: TRANSLATIONS.en.actions.showLogs }).click();
+    await expect(page.getByText(`${TRANSLATIONS.en.scraper.preview} (4)`)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/Could not read the menu data; using the page text instead/)).toBeVisible();
+    expect(asked).toEqual([`https://r.jina.ai/${SITE}`]);
+    expect(calls[0].body).toContain('سبانش لاتيه');
+  });
+
   test('LIVE SITE (E2E_NETWORK=1): fetches the real menu and sends it to the model', async ({ app, page }) => {
     test.skip(process.env.E2E_NETWORK !== '1', 'network test — set E2E_NETWORK=1 to fetch the real site');
     test.setTimeout(180_000);
     const calls = await modelAnswers(page, ANSWER);
+    // Nothing intercepted but the model: the REAL menu data, as users get it.
     await openScraper(app, page);
     await page.getByRole('button', { name: TRANSLATIONS.en.common.start }).click();
     await expect(page.getByText(`${TRANSLATIONS.en.scraper.preview} (4)`)).toBeVisible({ timeout: 150_000 });
     expect(calls).toHaveLength(1);
-    // Items from across the real page — the first section, the middle, the last.
-    for (const s of ['شاي أخضر', 'سبانش لاتيه', 'بكج الحفلات']) expect(calls[0].body).toContain(s);
+    // Items from across the real menu — and the sizes the page text never showed.
+    for (const s of ['شاي أخضر', 'سبانش لاتيه', 'بكج الحفلات', 'إبريق صغير | Price: 15.00', 'VARIANT مارجريتا']) {
+      expect(calls[0].body).toContain(s);
+    }
   });
 });
 

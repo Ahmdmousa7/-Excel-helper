@@ -6,6 +6,7 @@ import { saveWorkbook } from '../services/excelService';
 import { aiService } from '../services/aiServiceFactory';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { readableAiError } from '../utils/aiErrors';
+import { yallaMenuSource, fetchYallaMenu } from '../utils/yallaMenu';
 import ProgressBar from './ProgressBar';
 import { Globe, Download, Search, AlertCircle, Table, ExternalLink, Zap, RefreshCw, CheckSquare } from 'lucide-react';
 
@@ -14,6 +15,15 @@ interface Props {
   onReset: () => void;
   language?: Language;
 }
+
+/**
+ * Added to the prompt when the input is menu data (`utils/yallaMenu.ts`): its
+ * lines are already one row each, and VARIANT rows need the option columns.
+ */
+const MENU_ROW_RULES =
+  "Every line that starts with '- ' is exactly one output row, including items with no price (leave the price empty). " +
+  "For '- VARIANT' lines also fill 'Option 1' and 'Option 1 Value' as given and set 'Type' to 'Variable'; for the other lines set 'Type' to 'Simple'. " +
+  'Use the prices exactly as given.';
 
 const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   const t = TRANSLATIONS[language];
@@ -34,7 +44,23 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
   const [scrapedData, setScrapedData] = useState<any[]>([]);
   const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
 
-  const fetchContent = async (targetUrl: string): Promise<{ text: string; source: 'html' | 'markdown' | 'json' }> => {
+  const fetchContent = async (targetUrl: string): Promise<{ text: string; source: 'html' | 'markdown' | 'json' | 'menu' }> => {
+     // A Yalla QR Codes menu: read the menu's own data, which carries every
+     // item's options (sizes etc.) with their prices. The page text does not —
+     // items with sizes are listed there with no price at all. Any failure
+     // falls through to the page-text route below.
+     const yalla = yallaMenuSource(targetUrl);
+     if (yalla) {
+        try {
+           const { text, stats, failedDetails } = await fetchYallaMenu(yalla, targetUrl, (u, init) => fetch(u, init));
+           addLog(`Read the menu data: ${stats.items} items, ${stats.withVariants} with options (${stats.variantRows} variant rows)${stats.noPrice ? `, ${stats.noPrice} with no price on the menu` : ''}.`, 'info');
+           if (failedDetails > 0) addLog(`${failedDetails} item(s) could not be read in full; they are listed without their options.`, 'warning');
+           return { text, source: 'menu' };
+        } catch (e) {
+           console.warn('Menu data unavailable, using the page text instead.', e);
+           addLog('Could not read the menu data; using the page text instead (sizes and other options may be missing).', 'warning');
+        }
+     }
      try {
         const jinaUrl = `https://r.jina.ai/${targetUrl}`;
         // `X-No-Cache`: Jina otherwise serves its CACHED copy of a page, and for
@@ -156,7 +182,7 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
       setProgress(40);
       let finalCleanText = "";
 
-      if (source === 'markdown') {
+      if (source === 'markdown' || source === 'menu') {
           finalCleanText = content;
       } else {
           const parser = new DOMParser();
@@ -178,7 +204,8 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
           }
       }
 
-      finalCleanText = finalCleanText.replace(/\s+/g, ' ').trim();
+      // Menu data keeps its line breaks: one line per row is its structure.
+      finalCleanText = source === 'menu' ? finalCleanText.trim() : finalCleanText.replace(/\s+/g, ' ').trim();
 
       if (finalCleanText.length < 50) {
          throw new Error("Content too short.");
@@ -204,7 +231,8 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
       try {
         result = await aiService.extractStructuredData(
           finalCleanText,
-          queryInstruction,
+          // Variants need columns the default field list does not name.
+          source === 'menu' ? [queryInstruction, MENU_ROW_RULES].join(' ') : queryInstruction,
           'quality',
           (msg) => addLog(msg, 'warning'),
         );
