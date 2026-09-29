@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:011036d8ea135fb727b2fc655e20c9d78a62ff84bcdeff05383515518187c987` |
+| Attestation id | `sha256:b1bb95960a2b2d1dd5e0f79b48bd46fec0c921578ac2610af8e1d2fa8b7196dd` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `90cbd92065c8` |
+| Reviewed at commit | `23020f56703c` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 4 |
+| Files reviewed | 9 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 1 |
-| low | 0 |
+| medium | 2 |
+| low | 3 |
 | info | 1 |
 
-This PR adds `X-No-Cache: true` to the Web Scraper's Jina requests so a scrape gets the live page instead of Jina's cached copy, which for the client-rendered kelah menu was a 243-byte empty app shell. The change is small, well-motivated, documented in both TESTING.md and MODULE_GUIDE.md, and covered by a new assertion in `e2e/ai-tools.spec.ts` that fails if the header is removed. One medium concern: the same custom-header object is now also passed to the `corsproxy.io` fallback, which previously sent a header-free simple request — that path is untested and the header addition changes its CORS characteristics.
+Adds `utils/yallaMenu.ts`, which reads Yalla QR Codes menus from the platform's own JSON API (`/api/categories/`, `/api/items-light/`, `/api/items/<id>/`) and renders them as one text line per sellable row, so items whose prices live behind a required size choice stop being dropped by the page-text scrape. `WebScraperTab` tries this route first and falls back to the existing Jina/page-text path on any failure, with a user-visible warning. The change is well-scoped and unusually well covered — 162 lines of unit tests over a real captured fixture plus two new e2e tests (menu-data path and fallback path), with docs and fixture READMEs updated. No blocking findings; the notes below are a missing request timeout that defeats the documented fallback on a hung API, layer placement of the new I/O module, and two small typing nits.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ This PR adds `X-No-Cache: true` to the Web Scraper's Jina requests so a scrape g
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 569 warning(s) |
-| Vitest | pass | 644/644 passed, lines 99.34% |
-| Playwright | pass | 127/128 passed |
+| Vitest | pass | 670/670 passed, lines 99.31% |
+| Playwright | pass | 129/130 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 118 source files, 32337 lines
+- 120 source files, 32793 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

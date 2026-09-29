@@ -1,33 +1,69 @@
 {
-  "attestation_id": "sha256:011036d8ea135fb727b2fc655e20c9d78a62ff84bcdeff05383515518187c987",
+  "attestation_id": "sha256:b1bb95960a2b2d1dd5e0f79b48bd46fec0c921578ac2610af8e1d2fa8b7196dd",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 0,
-    "medium": 1
+    "low": 3,
+    "medium": 2
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "Before this PR the corsproxy fallback was `fetch('https://corsproxy.io/?…')` with no init — a CORS *simple* request, so the browser issued no preflight. It now carries `jinaHeaders`, which includes three non-simple headers (`X-Return-Format`, `X-Timeout`, `X-No-Cache`), so the browser must first send an `OPTIONS` preflight to corsproxy.io and see those names echoed in `Access-Control-Allow-Headers`. If corsproxy.io does not allow them, the fetch rejects, the outer `catch` at line 73 swallows it into a `console.warn`, and control falls through to the raw-HTML proxy loop at line 113 — which fetches `targetUrl` directly and, for exactly the client-rendered SPA this PR is fixing, returns the empty shell. The net effect would be losing the Jina fallback silently for users whose direct fetch to r.jina.ai is blocked. Separately, even when the preflight passes, it is unverified that corsproxy.io forwards `X-No-Cache` upstream to Jina, so the header may simply be a no-op on this path. No test exercises the corsproxy branch (the spec only routes `https://r.jina.ai/**`), so neither outcome would be caught. Kept at medium rather than high because it only affects an already-degraded fallback and the primary direct path — the one the new test asserts — is unaffected. It would be high if the direct path were commonly blocked in production, or if a reproduction showed corsproxy.io rejecting the preflight.",
-      "file": "components/WebScraperTab.tsx",
-      "line": 66,
+      "category": "architecture",
+      "detail": "`handbooks/architecture/frontend-boundaries.md` maps the layers as `services/` = I/O and `utils/` = pure logic, with rule 2 placing direct `fetch` in `services/`. `fetchYallaMenu` is a network orchestrator in `utils/` (the module header acknowledges it: \"Pure except `fetchYallaMenu`\"), and `components/WebScraperTab.tsx:55` supplies the browser `fetch` directly. I am NOT treating this as a blocking violation: the rule's stated rationale is testability, and this PR satisfies it better than the code around it — the I/O is dependency-injected and `tests/unit/yallaMenu.test.ts` exercises the whole fetch path with no network and no DOM, which none of the eight pre-existing `fetch(` calls in this same function can claim. What would make it blocking is I/O *logic* (retry, header, or endpoint decisions) living in the component rather than a one-line fetch adapter. Flagging it so the layer map stays honest as this module grows.",
+      "file": "utils/yallaMenu.ts",
+      "line": 169,
       "severity": "medium",
       "suggested_fix": null,
-      "summary": "corsproxy fallback now sends custom headers, turning a simple request into a preflighted one"
+      "summary": "Network I/O lives in `utils/`, and the raw `fetch` reference is in the component"
     },
     {
-      "category": "architecture",
-      "detail": "`handbooks/architecture/frontend-boundaries.md` § rule 2 flags `fetch(` inside `components/**`, and `fetchContent` makes five of them. Recording this as an observation only: every one of those calls predates this PR, and the diff adds no new I/O — it extracts the existing header literal into a `const` and passes it to two existing `fetch` calls. Per the diff-scoped judgement the handbook itself applies (\"judge the diff, not the file it lands in\"), asking a 22-line header change to first extract `services/scrapeService.ts` is not actionable review feedback, so this is not scored as a violation and does not affect the verdict. Worth noting because the untestability it causes is visible right here: the corsproxy branch in the finding above can only be covered by a Playwright route intercept, not a unit test.",
-      "file": "components/WebScraperTab.tsx",
-      "line": 54,
+      "category": "performance",
+      "detail": "`get()` calls `fetchFn` with no `AbortSignal` and no deadline. `fetch` has no default timeout, so if `kelah.yallaqrcodes.com/api/categories/` accepts the connection and then stalls (captive portal, overloaded origin, DNS-level blackhole), `fetchYallaMenu` never settles: the `catch` in `WebScraperTab.tsx:59` never runs, the documented page-text fallback never fires, and the tab sits at 5% with the last log line `Processing <url>...` and no way to cancel. This is the one failure mode the try/catch design does not actually cover — every other path (non-2xx, CORS refusal, malformed JSON) is handled correctly. The Jina route next to it already guards this server-side with `X-Timeout: 30`.",
+      "file": "utils/yallaMenu.ts",
+      "line": 171,
+      "severity": "medium",
+      "suggested_fix": null,
+      "summary": "No timeout on the menu API calls — a hung request never falls back"
+    },
+    {
+      "category": "performance",
+      "detail": "Every non-deleted item gets its own `/api/items/<id>/` request (correctly so — the comment explains `options_count` is unreliable), six at a time. The real kelah menu is 26 sections, so a few hundred round trips before anything is shown is plausible. `setProgress(40)` only runs after `fetchContent` returns, so the bar stays at 5% and the log stays silent for the entire fetch; a user on a slow connection cannot distinguish \"reading 300 items\" from \"hung\". Low rather than medium because the work completes and the success log afterwards is genuinely informative — it would rise if a menu ever pushes this past ~30s.",
+      "file": "utils/yallaMenu.ts",
+      "line": 182,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Per-item detail fan-out gives no progress signal while it runs"
+    },
+    {
+      "category": "typescript",
+      "detail": "`yallaMenuSource` and `yallaMenuText` both declare their return types; `fetchYallaMenu` relies on inference for `{ text, stats, failedDetails }`. `handbooks/language/typescript/type-safety.md` rule 6 asks exported functions to carry explicit return types so a public signature cannot change silently — here, adding or renaming a returned field would propagate into `WebScraperTab.tsx:55`'s destructure without the compiler flagging the contract change.",
+      "file": "utils/yallaMenu.ts",
+      "line": 169,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Exported `fetchYallaMenu` has no explicit return type"
+    },
+    {
+      "category": "typescript",
+      "detail": "`Array.isArray(categories)` / `Array.isArray(items)` validates the container, not the elements, and the result is then asserted into typed arrays. If the platform ever returns `data: [null, …]` or an object per element, `live(items)` / `i.is_deleted` throws a `TypeError` inside `fetchYallaMenu`. The blast radius is genuinely contained — the throw lands in the component's `catch` and the page-text fallback runs with a warning — which is why this is low, not medium. Per `handbooks/language/typescript/type-safety.md` rule 4, external data stays `unknown` until validated.",
+      "file": "utils/yallaMenu.ts",
+      "line": 187,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Third-party JSON cast to `YallaCategory[]` / `YallaItem[]` after an `Array.isArray` check only"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`variantPrice` treats a required option's `price` as the FULL price (well-evidenced: ديناميت دجاج 22 → صغير 18 / كبير 22, and pinned by a test), while the add-on line renders the same field as `+${money(o.price ?? 0)}` — a surcharge. Both readings come from one platform field distinguished only by `min_options`. If an optional modifier ever carries full prices the way required ones do, the add-on text hands the model `عسل +37.00` and that wrong figure reaches the Description column of the export. No action needed if the capture confirms the split — recording it so the assumption is visible rather than implicit.",
+      "file": "utils/yallaMenu.ts",
+      "line": 128,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Network I/O lives in the component, but this PR does not introduce it"
+      "summary": "`option.price` is read as a full price for required choices and as a surcharge for add-ons"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 6
 }

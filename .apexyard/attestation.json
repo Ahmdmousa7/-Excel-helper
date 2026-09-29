@@ -1,33 +1,53 @@
 {
-  "attestation_id": "sha256:011036d8ea135fb727b2fc655e20c9d78a62ff84bcdeff05383515518187c987",
+  "attestation_id": "sha256:b1bb95960a2b2d1dd5e0f79b48bd46fec0c921578ac2610af8e1d2fa8b7196dd",
   "files": [
     {
-      "oid": "d86d38f63f3e465b3734ce09ac1b67d67d3b66c1",
+      "oid": "fc0db8cb2d3ac83e58675f1944a0d03ed279b403",
+      "path": "README.md"
+    },
+    {
+      "oid": "bf9769f6ddd066fc0313426f1df24ea6a9d08762",
       "path": "components/WebScraperTab.tsx"
     },
     {
-      "oid": "8b77b5fda1ec500cf69d35b5f97b24fe297991cd",
+      "oid": "3c9ccff64232c062401d8b5e397de1d9e196f9ef",
       "path": "docs/TESTING.md"
     },
     {
-      "oid": "078d78637ccf32340b83a03fb24265508e78147b",
+      "oid": "d75db446c8cf9359453637cc671a3edb41d2d2ca",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "a5c45c4c8c7c2166470016df23c9d3aa034fdd3f",
+      "oid": "30891d253d125bff42639e0bf0f923c2244ac59c",
       "path": "e2e/ai-tools.spec.ts"
+    },
+    {
+      "oid": "5c0f484308d6981bca777328f1a47da25b8f35ef",
+      "path": "tests/fixtures/README.md"
+    },
+    {
+      "oid": "7eaa9fe224b4d9fc39bcc903bf7846c684d352f3",
+      "path": "tests/fixtures/yalla-kelah.json"
+    },
+    {
+      "oid": "ef45c216885201c445918a18fd4444fb79001ae9",
+      "path": "tests/unit/yallaMenu.test.ts"
+    },
+    {
+      "oid": "a52cce737ce4639f4fd4f7b921a1555e9508ab05",
+      "path": "utils/yallaMenu.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 0,
-    "medium": 1
+    "low": 3,
+    "medium": 2
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "90cbd92065c8cde319914036aa9d27111e321115",
+  "reviewed_at_commit": "23020f56703cc1653129ba3cfebad26f504058f8",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"
