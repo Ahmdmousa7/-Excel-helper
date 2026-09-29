@@ -337,6 +337,29 @@ const advanceModel = (
   if (kind === 'overloaded') skipped.add(model);
   else retiredFor(keyBucket()).add(model);
 
+  // No quota is a fact about THIS key, not the model. With several keys, try
+  // the same model on each other key before settling for a worse model —
+  // otherwise one free-tier key drags every run down to Flash while the next
+  // key could serve Pro. Keys already known to lack quota for it are skipped,
+  // so each (key, model) pair costs at most one request. After a full cycle
+  // with no taker the order is back where it started, and the list walk below
+  // proceeds as with a single key. (Overload is the model's, for every key:
+  // rotating would not help, so it never gets here.)
+  if (kind === 'no-quota') {
+    const keyCount = storedKeyCount();
+    for (let i = 1; i < keyCount; i++) {
+      rotateKey();
+      if (!retiredFor(keyBucket()).has(model)) {
+        // No key text in the notice, ever — only that a different one is used.
+        const notice = `Model "${model}" has no quota on this API key; trying the next API key.`;
+        console.warn(notice);
+        onNotice?.(notice);
+        return model;
+      }
+    }
+    if (keyCount > 1) rotateKey(); // full cycle: back to the key we started on
+  }
+
   const retired = retiredFor(keyBucket());
   const next = MODEL_CANDIDATES[tier].find((m) => !retired.has(m) && !skipped.has(m));
   if (!next) {
@@ -382,6 +405,10 @@ export const rotateKey = () => {
     localStorage.setItem(GEMINI_KEY_STORAGE, newOrder.join('\n'));
     return true;
 };
+
+/** How many API keys are configured (one per line). */
+const storedKeyCount = (): number =>
+    (localStorage.getItem(GEMINI_KEY_STORAGE) || '').split(/\r?\n/).filter(k => k.trim()).length;
 
 export const getMaxRetries = () => {
     const allKeys = (localStorage.getItem(GEMINI_KEY_STORAGE) || '').split('\n').filter(k => k.trim());
@@ -603,8 +630,6 @@ export const processGeneralFile = async (
   instruction: string,
   onNotice?: ModelNotice,
 ): Promise<string> => {
-  const client = getAiClient();
-
   const parts: any[] = [];
 
   if (input.text) {
@@ -625,6 +650,8 @@ export const processGeneralFile = async (
 
   for (;;) {
     try {
+      // Per attempt, not once: a no-quota fallback may have rotated the key.
+      const client = getAiClient();
       const response = await client.models.generateContent({
           model,
           contents: { parts },
@@ -655,12 +682,13 @@ export const generateText = async (
   tier: AiTier = 'fast',
   onNotice?: ModelNotice,
 ): Promise<string> => {
-  const client = getAiClient();
   let model = resolveModel(tier);
   const skipped = new Set<string>(); // overloaded models, this call only
 
   for (;;) {
     try {
+      // Per attempt, not once: a no-quota fallback may have rotated the key.
+      const client = getAiClient();
       const response = await client.models.generateContent({
         model,
         contents: prompt,

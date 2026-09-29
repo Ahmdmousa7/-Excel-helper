@@ -18,7 +18,11 @@ type Behaviour = 'ok' | 'no-quota' | 'overloaded' | 'rate-limited' | 'retired' |
 
 const state = vi.hoisted(() => ({
   tried: [] as string[],
+  /** `key:model` for every request — the key is the one the client was built with. */
+  triedWithKey: [] as string[],
   behaviour: {} as Record<string, string>,
+  /** Per-key overrides: keyBehaviour[key][model] wins over behaviour[model]. */
+  keyBehaviour: {} as Record<string, Record<string, string>>,
   /** For 'rate-limited': fail this many times, then succeed. */
   rateLimitedRemaining: 0,
 }));
@@ -45,9 +49,10 @@ const OVERLOADED = () => sdkError(503, {
 const BAD_KEY = () => sdkError(400, { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT' });
 const RETIRED = () => new Error('models/x is not found for API version v1beta. status: NOT_FOUND');
 
-function fail(model: string): void {
+function fail(model: string, apiKey = ''): void {
   state.tried.push(model);
-  const b = state.behaviour[model] ?? 'ok';
+  state.triedWithKey.push(`${apiKey}:${model}`);
+  const b = state.keyBehaviour[apiKey]?.[model] ?? state.behaviour[model] ?? 'ok';
   if (b === 'no-quota') throw NO_QUOTA(model);
   if (b === 'overloaded') throw OVERLOADED();
   if (b === 'retired') throw RETIRED();
@@ -60,13 +65,15 @@ function fail(model: string): void {
 
 vi.mock('@google/genai', () => ({
   GoogleGenAI: class {
+    apiKey: string;
+    constructor(opts: { apiKey: string }) { this.apiKey = opts?.apiKey ?? ''; }
     models = {
       generateContent: async ({ model }: { model: string }) => {
-        fail(model);
+        fail(model, this.apiKey);
         return { text: `[{"Product Name":"from ${model}"}]` };
       },
       generateContentStream: async ({ model }: { model: string }) => {
-        fail(model);
+        fail(model, this.apiKey);
         return (async function* () { yield { text: `[{"Product Name":"from ${model}"}]` }; })();
       },
     };
@@ -85,18 +92,22 @@ const PROS = Q.filter((m) => m.includes('pro'));
 const FLASHES = Q.filter((m) => m.includes('flash'));
 const IMAGE = { data: 'AAAA', mimeType: 'image/jpeg' };
 
+/** The stored key value: ONE key, or several separated by newlines (rotation). */
 let storedKey = 'AIzaKEY-A';
 const originalLocalStorage = (globalThis as any).localStorage;
 
 beforeEach(() => {
   state.tried.length = 0;
+  state.triedWithKey.length = 0;
   state.behaviour = {};
+  state.keyBehaviour = {};
   state.rateLimitedRemaining = 0;
   storedKey = 'AIzaKEY-A';
   resetRetiredModels();
   (globalThis as any).localStorage = {
     getItem: (k: string) => (k === 'gemini_api_key' ? storedKey : ''),
-    setItem: () => {},
+    // Stateful, so rotateKey() really moves to the next key.
+    setItem: (k: string, v: string) => { if (k === 'gemini_api_key') storedKey = v; },
   };
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -312,5 +323,70 @@ describe('generateText (Support Chat) — TD-051', () => {
     const err = await generateText('hello').then(() => null, (e) => e);
     expect(err.aiKind).toBe('all-models-busy');
     expect(state.tried).toEqual([...F]);
+  });
+});
+
+// --- Review finding (TD-051): no-quota must try the NEXT KEY before a worse model
+
+describe('no quota on this key → the next API key first, a worse model only when no key can', () => {
+  const KEYS = ['AIzaKEY-A', 'AIzaKEY-B'].join(String.fromCharCode(10)); // one key per line
+
+  it('key A has no Pro quota, key B does → stays on Pro, on key B', async () => {
+    storedKey = KEYS;
+    state.keyBehaviour['AIzaKEY-A'] = { [PROS[0]]: 'no-quota' };
+    const notices: string[] = [];
+    const out = await extractFromMedia(IMAGE, 'menu', undefined, (n) => notices.push(n));
+    expect(out).toEqual([{ 'Product Name': `from ${PROS[0]}` }]);
+    expect(state.triedWithKey).toEqual([`AIzaKEY-A:${PROS[0]}`, `AIzaKEY-B:${PROS[0]}`]);
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatch(/no quota on this API key; trying the next API key/i);
+    expect(notices[0]).not.toMatch(/quality may differ/i); // same model: no downgrade
+    expect(notices.join(' ')).not.toContain('AIzaKEY'); // never a credential in a notice
+  });
+
+  it('NO key has quota for the model → only then the next model, one request per key', async () => {
+    storedKey = KEYS;
+    state.behaviour[PROS[0]] = 'no-quota';
+    const out = await extractFromMedia(IMAGE, 'menu');
+    expect(out).toEqual([{ 'Product Name': `from ${PROS[1]}` }]);
+    expect(state.triedWithKey.slice(0, 2)).toEqual([`AIzaKEY-A:${PROS[0]}`, `AIzaKEY-B:${PROS[0]}`]);
+    expect(state.tried).toEqual([PROS[0], PROS[0], PROS[1]]);
+  });
+
+  it('every model on every key has no quota → stops with "no-model" after one request per key and model', async () => {
+    storedKey = KEYS;
+    for (const m of Q) state.behaviour[m] = 'no-quota';
+    const err = await extractFromMedia(IMAGE, 'menu').then(() => null, (e) => e);
+    expect(err.aiKind).toBe('no-model');
+    expect(state.triedWithKey).toHaveLength(Q.length * 2);
+    expect(new Set(state.triedWithKey).size).toBe(Q.length * 2); // nothing asked twice
+  });
+
+  it('an OVERLOADED model does not rotate keys — overload is the model, not the key', async () => {
+    storedKey = KEYS;
+    state.behaviour[PROS[0]] = 'overloaded';
+    await extractFromMedia(IMAGE, 'menu');
+    expect(state.triedWithKey).toEqual([`AIzaKEY-A:${PROS[0]}`, `AIzaKEY-A:${PROS[1]}`]);
+  });
+
+  it('the same rule in the other AI calls: translateBatch, processGeneralFile, generateText', async () => {
+    for (const run of [
+      () => translateBatch([{ text: 'x' }], TRANSLATE_OPTS),
+      () => processGeneralFile({ text: 'a' }, 'x'),
+      () => generateText('hi', 'quality'),
+    ]) {
+      storedKey = KEYS;
+      resetRetiredModels();
+      state.triedWithKey.length = 0;
+      state.keyBehaviour = { 'AIzaKEY-A': { [PROS[0]]: 'no-quota' } };
+      await run();
+      expect(state.triedWithKey).toEqual([`AIzaKEY-A:${PROS[0]}`, `AIzaKEY-B:${PROS[0]}`]);
+    }
+  });
+
+  it('with ONE key nothing changes: straight to the next model', async () => {
+    state.behaviour[PROS[0]] = 'no-quota';
+    await extractFromMedia(IMAGE, 'menu');
+    expect(state.triedWithKey).toEqual([`AIzaKEY-A:${PROS[0]}`, `AIzaKEY-A:${PROS[1]}`]);
   });
 });

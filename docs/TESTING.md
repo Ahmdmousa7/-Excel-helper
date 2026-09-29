@@ -2,7 +2,7 @@
 
 | Layer | Tool | Count | Command |
 |---|---|---:|---|
-| Unit | Vitest | 638 | `npm run test` |
+| Unit | Vitest | 644 | `npm run test` |
 | E2E | Playwright | 128 | `npm run e2e` |
 
 `npm run verify` runs lint → typecheck → unit → build, i.e. everything the `quality` CI job runs.

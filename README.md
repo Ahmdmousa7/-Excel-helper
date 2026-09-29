@@ -32,7 +32,7 @@ npm run dev
 | `npm run verify` | lint → typecheck → unit tests → build (everything the `quality` CI job runs) |
 | `npm run lint` | ESLint. Errors fail; warnings are documented known debt. |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run test` | Vitest unit suite (638 tests, 22 files — verified 2026-09-29) |
+| `npm run test` | Vitest unit suite (644 tests, 22 files — verified 2026-09-29) |
 | `npm run test:coverage` | Unit tests with coverage thresholds |
 | `npm run e2e` | Playwright (128 tests, 22 specs — verified 2026-09-29; 1 runs only with `E2E_NETWORK=1`) |
 | `npm run e2e:report` | Open the last Playwright HTML report |
