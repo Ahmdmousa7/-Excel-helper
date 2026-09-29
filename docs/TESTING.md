@@ -2,8 +2,8 @@
 
 | Layer | Tool | Count | Command |
 |---|---|---:|---|
-| Unit | Vitest | 644 | `npm run test` |
-| E2E | Playwright | 128 | `npm run e2e` |
+| Unit | Vitest | 670 | `npm run test` |
+| E2E | Playwright | 130 | `npm run e2e` |
 
 `npm run verify` runs lint → typecheck → unit → build, i.e. everything the `quality` CI job runs.
 
@@ -17,7 +17,7 @@ Components are not unit-tested. They do I/O directly and would each need a DOM p
 
 ## E2E tests
 
-`e2e/**` — **22 spec files, 128 tests** (verified 2026-09-29; one is a network test that is skipped unless `E2E_NETWORK=1`). The first nine below were the original risk areas; the rest were added as specific defects were fixed, and each one exists because something broke.
+`e2e/**` — **22 spec files, 130 tests** (verified 2026-09-29; one is a network test that is skipped unless `E2E_NETWORK=1`). The first nine below were the original risk areas; the rest were added as specific defects were fixed, and each one exists because something broke.
 
 | Suite | What it pins |
 |---|---|
