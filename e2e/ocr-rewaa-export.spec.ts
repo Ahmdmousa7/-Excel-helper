@@ -172,6 +172,13 @@ test.describe('OCR Extraction — Rewaa export on real-run data', () => {
     // --- All Extracted Data --------------------------------------------------
     const all = sheet(wb, 'All Extracted Data');
     expect(all).toHaveLength(9); // 10 extracted, one split duplicate merged back
+    // Traceability: the unmapped sheet keeps what the model returned — the `yes`
+    // that the Rewaa sheets above overrode to `no` is still visible here.
+    const raw = (name: string, opt?: string) => all.find((r) => r['Product Name'] === name
+      && (opt === undefined || r['Option 1 Value'] === opt))!['Enable stock management'];
+    expect(raw('استشوار شعر قصير | Short hair blow-dry')).toBe('yes');
+    expect(raw(DYE, 'Short | القصير')).toBe('yes');
+    expect(raw('مساج إسترخاء | Relaxing massage')).toBe('no');
     expect(all.filter((r) => r['Product Name'] === DYE && r['Option 1 Value'] === 'Long | الطويل')).toHaveLength(1);
     expect(all.every((r) => r['In Rewaa Simple'] === true || r['In Rewaa Variable'] === true),
       'a row did not arrive intact in its Rewaa sheet').toBe(true);
