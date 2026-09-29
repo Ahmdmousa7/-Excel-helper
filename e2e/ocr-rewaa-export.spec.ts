@@ -31,12 +31,13 @@ const variant = (name: string, value: string, price: unknown, extra: Record<stri
 /** First rows SIMPLE, variant columns only later — the order the live run had. */
 const ANSWER = [
   { 'Variant SKU': '', Category: 'قسم الإستشوار | Blow-dry Section', 'Product Name': 'استشوار شعر قصير | Short hair blow-dry',
-    Description: '', 'Retail Price': 50, Type: 'Simple', 'Enable stock management': 'no', 'Product SKU': '00123' },
+    // The model said `yes`: a Rewaa export must still say `no`.
+    Description: '', 'Retail Price': 50, Type: 'Simple', 'Enable stock management': 'yes', 'Product SKU': '00123' },
   { 'Variant SKU': '', Category: 'قسم المساج | Massage Section', 'Product Name': 'مساج إسترخاء | Relaxing massage',
     Description: '', 'Retail Price': 140, Type: 'Simple', 'Enable stock management': 'no', 'Product SKU': '123' },
   { 'Variant SKU': '', Category: 'قسم البشرة | Skin Section', 'Product Name': 'تنظيف بشرة | Facial cleaning',
     Description: '', 'Retail Price': `50${EM_DASH}100`, Type: 'Simple', 'Enable stock management': 'no' },
-  variant(DYE, 'Short | القصير', 400, { 'Variant SKU': '00456' }),
+  variant(DYE, 'Short | القصير', 400, { 'Variant SKU': '00456', 'Enable stock management': 'yes' }),
   variant(DYE, 'Medium | الوسط', 500),
   // The split the old prompt asked for, exactly as the model produced it.
   variant(DYE, 'Long | الطويل', 600, { 'Option 2': 'Range | المدى', 'Option 2 Value': 'Small | صغير' }),
@@ -156,7 +157,8 @@ test.describe('OCR Extraction — Rewaa export on real-run data', () => {
     expect(v[2]['Option 2 Value']).toBe('');
     expect(v[0].Description).toBe('');     // a normal price gets no range text
     expect(v[0]['Variant SKU']).toBe('00456');
-    expect(v.every((r) => r['Enable stock management'] === 'no')).toBe(true); // approved rule, unchanged
+    // Approved Rewaa rule: `no` on every row, even where the model said `yes`.
+    expect(v.map((r) => r['Enable stock management'])).toEqual(v.map(() => 'no'));
 
     // --- Mapped Simple -------------------------------------------------------
     const s = sheet(wb, 'Mapped Simple');
@@ -165,6 +167,7 @@ test.describe('OCR Extraction — Rewaa export on real-run data', () => {
     ]);
     expect(s[2].Description).toBe('Price range: 50 to 100');
     expect(s[0]['Product SKU']).not.toBe(s[1]['Product SKU']); // 00123 is not 123
+    expect(s.map((r) => r['Enable stock management'])).toEqual(['no', 'no', 'no']);
 
     // --- All Extracted Data --------------------------------------------------
     const all = sheet(wb, 'All Extracted Data');

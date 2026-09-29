@@ -453,6 +453,22 @@ describe('part 2 — yes/no columns are enforced on Rewaa templates', () => {
     expect([out.Sellable, out.Purchasable, out.Weighted, out['Enable stock management']]).toEqual(['yes', 'yes', 'yes', 'no']);
   });
 
+  it('Enable stock management is ALWAYS `no` on a Rewaa template — an extracted `yes` does not survive', () => {
+    // Approved Rewaa-template rule. The OCR prompt asks the model to fill this
+    // column, so a `yes` can arrive; it must never reach a Rewaa export.
+    for (const headers of [SIMPLE_HEADERS, VARIABLE_HEADERS]) {
+      const rows = [{ s: 'yes' }, { s: 'Yes' }, { s: 'TRUE' }, { s: 'نعم' }, { s: 1 }, { s: 'no' }, { s: '' }, {}];
+      const out = mapRowsToTemplate(rows, { 'Enable stock management': 's' }, headers);
+      expect(out.map((r) => r['Enable stock management'])).toEqual(rows.map(() => 'no'));
+    }
+  });
+
+  it('…while a NON-Rewaa template keeps the extracted value (the rule does not leak)', () => {
+    const generic = ['Name', 'Enable stock management'];
+    const [out] = mapRowsToTemplate([{ s: 'yes' }], { 'Enable stock management': 's' }, generic);
+    expect(out['Enable stock management']).toBe('yes');
+  });
+
   it('an out-of-list value falls back to the column default, as a blank does', () => {
     const [out] = mapRowsToTemplate([{ a: 'maybe' }], { 'Enable stock management': 'a' }, SIMPLE_HEADERS);
     expect(out['Enable stock management']).toBe('no');

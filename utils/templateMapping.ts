@@ -85,7 +85,8 @@ export const HEADER_SYNONYMS: Readonly<Record<string, readonly string[]>> = {
  * importer treats a blank as `yes`. Every sample data row says `no`, and the
  * product owner explicitly asked for `no`. So `no` is written out on purpose,
  * overriding Rewaa's own default rather than leaving the cell blank. Do not
- * "fix" this to match the spec row without asking.
+ * "fix" this to match the spec row without asking. Since 2026-09-29 it is also
+ * ENFORCED — an extracted `yes` is overwritten too; see REWAA_FIXED_VALUES.
  */
 const PACK_DEFAULTS: Record<string, string | number> = {};
 for (const n of [1, 2, 3]) {
@@ -219,7 +220,8 @@ export function mapRowsToTemplate(
         value = toYesNo(value);
       }
       const fallback = applyDefaults ? (defaultFor(key) ?? '') : '';
-      setOwn(out, key, isBlank(value) ? fallback : value);
+      const fixed = applyDefaults ? getOwn(REWAA_FIXED_VALUES, normalizeHeader(key)) : undefined;
+      setOwn(out, key, fixed !== undefined ? fixed : isBlank(value) ? fallback : value);
     }
     if (variantNameKey && isBlank(getOwn(out, variantNameKey))) {
       setOwn(out, variantNameKey, buildVariantName(out, templateHeaders));
@@ -227,6 +229,20 @@ export function mapRowsToTemplate(
     return out;
   });
 }
+
+/**
+ * Columns a Rewaa export ALWAYS gets, whatever the extraction said — unlike
+ * TEMPLATE_DEFAULTS, which only fill a blank.
+ *
+ * `Enable stock management` is `no` on every Rewaa template: the approved
+ * Rewaa-template behaviour (product owner, reaffirmed 2026-09-29). The OCR
+ * prompt asks the model for this column, so a `yes` could arrive and, as a
+ * mere default, used to pass straight through into the export. Rewaa
+ * templates only: a non-Rewaa template keeps the extracted value.
+ */
+const REWAA_FIXED_VALUES: Readonly<Record<string, string>> = {
+  'enable stock management': 'no',
+};
 
 /**
  * Rewaa columns whose spec row says `list yes no` — the importer accepts only
