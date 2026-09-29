@@ -5,6 +5,7 @@ import { ProcessingStatus, LogEntry } from '../types';
 import { saveWorkbook } from '../services/excelService';
 import { aiService } from '../services/aiServiceFactory';
 import { TRANSLATIONS, Language } from '../utils/translations';
+import { readableAiError } from '../utils/aiErrors';
 import ProgressBar from './ProgressBar';
 import { Globe, Download, Search, AlertCircle, Table, ExternalLink, Zap, RefreshCw, CheckSquare } from 'lucide-react';
 
@@ -190,12 +191,20 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
       // on a weaker model because the Pro id was retired looked identical to one
       // that did not — and the user is about to export this as if it were the
       // best the app can do.
-      const result = await aiService.extractStructuredData(
-        finalCleanText,
-        queryInstruction,
-        'quality',
-        (msg) => addLog(msg, 'warning'),
-      );
+      // Only the AI call's error is converted: the catch below also reports
+      // this tab's own messages (fetch failures, "Content too short"), which
+      // are already readable and must not become "unexpected error".
+      let result: any[];
+      try {
+        result = await aiService.extractStructuredData(
+          finalCleanText,
+          queryInstruction,
+          'quality',
+          (msg) => addLog(msg, 'warning'),
+        );
+      } catch (aiErr) {
+        throw readableAiError(aiErr, language, 'Web Scraper');
+      }
 
       if (!result || result.length === 0) {
         throw new Error("AI analyzed the page but found no data matching your description. This usually happens if the website is a dynamic Single Page Application (SPA) that hides its data, or if it blocks automated scrapers. Tip: Try taking screenshots of the menu and using the 'OCR / Image Extraction' tab instead!");

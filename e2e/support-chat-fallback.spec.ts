@@ -16,6 +16,7 @@
  * changes the following answer is worse than no notice.
  */
 import { test, expect } from './fixtures';
+import { TRANSLATIONS } from '../utils/translations';
 
 const RETIRED = JSON.stringify({
   error: { code: 404, message: 'This model is no longer available.', status: 'NOT_FOUND' },
@@ -131,6 +132,10 @@ test.describe('Support Chat — model fallback', () => {
     await input.fill('First question');
     await input.press('Enter');
     await expect(page.getByText(/^Error:/)).toBeVisible({ timeout: 30_000 });
+    // TD-051: the transcript shows the readable sentence, not the provider's
+    // raw JSON (which is kept in the console for debugging).
+    await expect(page.getByText(`Error: ${TRANSLATIONS.en.aiErrors['invalid-key']}`)).toBeVisible();
+    await expect(page.getByText(/API key not valid|"error"|\{"/)).toHaveCount(0);
 
     await input.fill('Second question');
     await input.press('Enter');

@@ -199,11 +199,11 @@ The loaded workbook only (no uploader of its own).
 | `Batch returned N results for M items — cannot tell which is which, so the whole batch was discarded…` | *(English only)* | Length mismatch between request and reply |
 | `Batch reply was not a list of translations at all — …` | *(English only)* | Reply was not an array |
 | `N item(s) in this batch came back empty — left untranslated.` | *(English only)* | Blank results inside an accepted batch |
-| `Batch failed, stopping here: <message>` | *(English only)* | A batch threw (quota, network) |
-| `Model "<a>" is unavailable; continuing on "<b>". Output quality may differ.` | *(English only)* | Model retired mid-run |
+| `Batch failed, stopping here: <reason>` | *reason* in Arabic too (`aiErrors`) | A batch threw. Since 2026-09-29 (TD-051) *reason* is one readable, localised sentence — also written into the `PARTIAL_` workbook's "Stopped because" line — never the provider's raw JSON, which goes to the console |
+| `Model "<a>" is unavailable / has no quota on this API key / is overloaded right now; continuing on "<b>". Output quality may differ.` | *(English only)* | Model fallback (TD-051) |
 
 #### Error handling / ماذا يحدث عند الخطأ؟
-**EN:** A failing batch **breaks the loop but keeps every completed batch** — the export still happens, prefixed `PARTIAL_`, with the reason in the Summary sheet and the status set to ERROR. A length mismatch discards that whole batch rather than risk filing translations against the wrong rows. Rate limits rotate to the next key if several are configured, otherwise sleep and retry.
+**EN:** A failing batch **breaks the loop but keeps every completed batch** — the export still happens, prefixed `PARTIAL_`, with the reason in the Summary sheet and the status set to ERROR. A length mismatch discards that whole batch rather than risk filing translations against the wrong rows. Rate limits rotate to the next key if several are configured, otherwise sleep and retry. **A model that is retired, has no quota on this key (429 `limit: 0`) or is overloaded (503) is abandoned after ONE request** and the next candidate is tried, without spending the retry budget — the same rule as OCR (TD-051).
 **AR:** فشل دفعة يوقف الحلقة لكن يحفظ كل ما تمّ — ويُصدَّر الملف بادئته `PARTIAL_` مع ذكر السبب. وعدم تطابق الأعداد يُلغي الدفعة كاملة تجنباً لإسناد ترجمات لصفوف خاطئة. وحدود المعدل تُدوّر المفاتيح إن وُجدت.
 
 #### Edge cases / ما الحالات الخاصة؟
@@ -216,7 +216,7 @@ No resume of a partial run, no per-cell retry, no offline translation, no langua
 `components/TranslateTab.tsx` · `utils/translationBatch.ts` (`alignBatchResults`) · `services/geminiService.ts` (`translateBatch`, `'quality'` tier).
 
 #### Tests / أين الاختبارات؟
-`tests/unit/translationBatch.test.ts` (15) — the alignment guard that prevents silent row-shifting, numeric results, blanks, non-arrays. `tests/unit/geminiModels.test.ts` (41) — model fallback, per-key retirement, `onNotice` delivery.
+`tests/unit/translationBatch.test.ts` (15) — the alignment guard that prevents silent row-shifting, numeric results, blanks, non-arrays. `tests/unit/geminiModels.test.ts` (41) — model fallback, per-key retirement, `onNotice` delivery. `tests/unit/geminiFallback.test.ts` — no-quota / overloaded fallback for `translateBatch`. `e2e/ai-tools.spec.ts` — a no-quota failure is one readable sentence in the log and in the `PARTIAL_` workbook, after one request per candidate.
 
 ---
 
@@ -268,8 +268,8 @@ No resume of a partial run, no per-cell retry, no offline translation, no langua
 #### Errors · Error handling
 | Error (EN) | Trigger |
 |---|---|
-| `Model "<a>" is unavailable; continuing on "<b>". Output quality may differ.` | AI model retired during analysis |
-| `<message>` from the AI service | Key/quota/network failure — the comparison itself still stands |
+| `Model "<a>" is unavailable / has no quota on this API key / is overloaded right now; continuing on "<b>". …` | Model fallback during analysis (a retired, no-quota or overloaded model moves to the next candidate — TD-051) |
+| `AI Analysis Failed: <reason>` | Key/quota/network failure — *reason* is one readable, localised sentence (TD-051); the comparison itself still stands |
 
 **EN:** The spreadsheet comparison is local and always completes; only the optional AI narrative can fail, and it fails without losing the diff.
 **AR:** المقارنة نفسها محلية وتكتمل دائماً؛ التحليل الذكي وحده قد يفشل دون فقدان نتيجة المقارنة.
@@ -432,11 +432,12 @@ No local/offline OCR (no Tesseract), no bounding boxes or coordinates, no page-r
 
 - **Input / المدخل:** a URL and a description. **Page text is truncated at 500,000 characters** (`WebScraperTab.tsx:167`). Uses the `quality` tier. Requires a Gemini key.
 - **Output:** XLSX of extracted rows.
-- **Errors:** `Please enter a valid URL.` · `Please describe what data to extract or select fields.` · `<model fallback notice>` · `خطأ: <message>` via `t.common.error` — the first three English-only.
+- **Errors:** `Please enter a valid URL.` · `Please describe what data to extract or select fields.` · `<model fallback notice>` · `Error: <message>` / `خطأ: <message>` via `t.common.error` — the first three English-only. Since 2026-09-29 (TD-051) an **AI** failure's *message* is one readable, localised sentence (`aiErrors`); the tab's own messages — fetch failures, `Content too short.`, the no-data SPA tip — are shown as before. A retired, no-quota or overloaded model moves to the next candidate after one request.
 - **Error handling:** a scrape that finds nothing raises a specific message naming the likely cause: a JS-rendered SPA or an anti-scraping block, and suggests OCR instead.
 - **Edge cases:** SPAs that render client-side yield no data — a documented, expected failure, not a bug. Pages over 500k characters are silently truncated.
 - **Unsupported:** no JS execution/headless rendering, no pagination, no authentication, no proxy/CORS workaround.
-- **Code:** `components/WebScraperTab.tsx` (378 lines). **Tests:** none for the module; AI layer covered by `geminiModels.test.ts`.
+- **Page fetch:** `r.jina.ai` first (returns the rendered page as markdown), then CORS proxies. For client-rendered menus Jina is what makes it work: `https://kelah.yallaqrcodes.com/branch/1/` serves ~7 KB of empty SPA shell, while Jina returns the full menu — 26 sections with prices (verified 2026-09-29).
+- **Code:** `components/WebScraperTab.tsx`. **Tests:** `e2e/ai-tools.spec.ts` — that menu's real Jina content (fixture `tests/fixtures/kelah-menu.jina.md`) reaches the model and the answer reaches the download; no-quota and overloaded failures are one readable sentence (EN and AR); the tab's own errors are not rewritten. One test fetches the **real site** and runs only with `E2E_NETWORK=1`.
 
 ---
 
@@ -523,10 +524,10 @@ No local/offline OCR (no Tesseract), no bounding boxes or coordinates, no page-r
 
 - **Input:** typed question; the loaded sheet is converted to CSV and **truncated to 15,000 characters** (`SupportChat.tsx:404`). Last 6 messages are sent as history. Uses the **`fast` tier** — Flash-first, by explicit request (see ADR-0006).
 - **Output:** chat text, an optional parsed markdown table, and a `python` code block.
-- **Errors:** `Error: <message>` and `Model changed: <notice>` — both posted **into the transcript**, because this widget has no log panel.
+- **Errors:** `Error: <reason>` and `Model changed: <notice>` — both posted **into the transcript**, because this widget has no log panel. Since 2026-09-29 (TD-051) *reason* for an AI failure is one readable, localised sentence, and a retired, no-quota or overloaded model moves to the next candidate.
 - **Error handling:** both are flagged `isNotice`, which keeps them **out of the next prompt's history** — otherwise the model would be told it had said "Error: 429 quota exceeded" and would answer accordingly.
 - **Edge cases:** only the first ~15k characters of a large sheet are visible to the model, so answers about later rows are unreliable **by design**.
-- **Code:** `components/SupportChat.tsx`. **Tests:** `e2e/support-chat-fallback.spec.ts` (2) — the fallback notice reaches the user, and neither notices nor errors leak into the next prompt.
+- **Code:** `components/SupportChat.tsx`. **Tests:** `e2e/support-chat-fallback.spec.ts` (2) — the fallback notice reaches the user, an error is the readable sentence rather than the provider's raw text, and neither notices nor errors leak into the next prompt.
 
 ---
 

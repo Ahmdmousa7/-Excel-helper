@@ -317,36 +317,6 @@ export const modelUnavailableError = (tier: AiTier): Error =>
   );
 
 /**
- * Strike the current model off, announce the move, and return the next one.
- *
- * Exists for two reasons. The block it replaces was copy-pasted at five call
- * sites, which the local review flagged — and the copies had already drifted:
- * one said "trying OCR on", one said "is retired", `translateBatch`'s said
- * "is unavailable" and carried the consequence, and only the OCR one told the
- * caller at all.
- *
- * That drift is the real cost. `translateBatch` grew an `onNotice` callback so a
- * quality-tier run that lands on Flash says so in the log and in the exported
- * workbook, and nothing carried it to the other four — so the same event was
- * user-visible in Translate and invisible in OCR, Compare and Web Scraper
- * (TD-041). Centralising means the next feature to use a tier gets the notice
- * without anyone remembering to add it.
- *
- * Throws `modelUnavailableError` when the tier is exhausted, which is what every
- * copy did, so callers keep using it as `model = advancePastRetiredModel(...)`.
- */
-const advancePastRetiredModel = (tier: AiTier, model: string, onNotice?: ModelNotice): string => {
-  const next = retireModel(tier, model);
-  if (!next) throw modelUnavailableError(tier);
-  // "Output", not "Translation": one message for five callers, and only one of
-  // them translates. Still matches the `/quality may differ/i` the tests pin.
-  const notice = `Model "${model}" is unavailable; continuing on "${next}". Output quality may differ.`;
-  console.warn(notice);
-  onNotice?.(notice);
-  return next;
-};
-
-/**
  * The model to try next after `model` failed with `kind`, for THIS call.
  *
  * `retired` and `no-quota` are facts about the current key, so they go in the
@@ -451,6 +421,7 @@ export const translateBatch = async (
     const tier: AiTier = 'quality';
     // Resolved from the candidate list, and re-resolved if one is retired mid-run.
     let model = resolveModel(tier);
+    const skipped = new Set<string>(); // overloaded models, this call only
     while (attempts < maxRetries) {
         try {
             const client = getAiClient();
@@ -499,12 +470,11 @@ export const translateBatch = async (
                 return items.map(() => "");
             }
         } catch (error: any) {
-            // A retired model id first: retrying is pointless and rotating keys
-            // cannot help, since the model is gone for every key. Strike it off
-            // and move to the next candidate. Does NOT count against `attempts`
-            // — walking the list is not a retry of the same failing thing.
-            if (isModelUnavailable(error)) {
-                model = advancePastRetiredModel(tier, model, options.onNotice);
+            // Retired, no quota on this key, or overloaded: next candidate now,
+            // without spending the retry budget (TD-051 — same rule as OCR).
+            const failure = classifyModelFailure(error);
+            if (failure !== 'transient') {
+                model = advanceModel(tier, model, failure, skipped, options.onNotice);
                 continue;
             }
 
@@ -523,7 +493,7 @@ export const translateBatch = async (
                     // prevent. Re-resolving costs at most one request if the new key
                     // cannot use the preferred id either, and that gets recorded in
                     // the new key's own bucket.
-                    model = resolveModel(tier);
+                    model = firstUsable(tier, skipped);
                     await new Promise(r => setTimeout(r, 1000));
                     continue; 
                 }
@@ -646,10 +616,12 @@ export const processGeneralFile = async (
   parts.push({ text: instruction });
 
   // No attempt/quota retry loop here — this is a single call. The loop below
-  // exists only to walk past retired ids, so it is bounded by the candidate list
-  // rather than by a retry count, and any other error propagates immediately.
+  // only walks past retired, no-quota and overloaded ids, so it is bounded by
+  // the candidate list rather than by a retry count, and any other error
+  // propagates immediately.
   const tier: AiTier = 'quality';
   let model = resolveModel(tier);
+  const skipped = new Set<string>(); // overloaded models, this call only
 
   for (;;) {
     try {
@@ -659,9 +631,11 @@ export const processGeneralFile = async (
       });
       return response.text || "";
     } catch (error: any) {
-      if (!isModelUnavailable(error)) throw error;
-
-      model = advancePastRetiredModel(tier, model, onNotice);
+      // Retired, no quota on this key, or overloaded: next candidate (TD-051).
+      // Anything else propagates immediately, as before.
+      const failure = classifyModelFailure(error);
+      if (failure === 'transient') throw error;
+      model = advanceModel(tier, model, failure, skipped, onNotice);
     }
   }
 };
@@ -673,7 +647,8 @@ export const processGeneralFile = async (
  * directly with a hardcoded model. That made it the only feature with no
  * fallback: when `gemini-3-pro-preview` was retired it broke while everything
  * else degraded. Same shape as `processGeneralFile`'s loop — bounded by the
- * candidate list, and any non-model error propagates immediately.
+ * candidate list (a retired, no-quota or overloaded model moves to the next
+ * one), and any other error propagates immediately.
  */
 export const generateText = async (
   prompt: string,
@@ -682,6 +657,7 @@ export const generateText = async (
 ): Promise<string> => {
   const client = getAiClient();
   let model = resolveModel(tier);
+  const skipped = new Set<string>(); // overloaded models, this call only
 
   for (;;) {
     try {
@@ -691,9 +667,10 @@ export const generateText = async (
       });
       return response.text || "";
     } catch (error: any) {
-      if (!isModelUnavailable(error)) throw error;
-
-      model = advancePastRetiredModel(tier, model, onNotice);
+      // Retired, no quota on this key, or overloaded: next candidate (TD-051).
+      const failure = classifyModelFailure(error);
+      if (failure === 'transient') throw error;
+      model = advanceModel(tier, model, failure, skipped, onNotice);
     }
   }
 };

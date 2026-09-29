@@ -39,3 +39,21 @@ export const classifyAiError = (error: unknown): AiErrorCategory => {
 /** The one sentence the user sees for this error. Never contains the raw message. */
 export const friendlyAiError = (error: unknown, language: Language = 'en'): string =>
   (TRANSLATIONS[language] ?? TRANSLATIONS.en).aiErrors[classifyAiError(error)];
+
+/**
+ * For a tab whose catch also handles its OWN errors (a failed page fetch, an
+ * unreadable file): convert only the AI call's error, at the call, and let the
+ * tab's existing message wrap it. The raw provider error goes to the console
+ * here, so no caller can forget to keep it for debugging.
+ *
+ *   try { result = await aiService.x(...) }
+ *   catch (e) { throw readableAiError(e, language, 'Web Scraper') }
+ */
+export const readableAiError = (
+  error: unknown,
+  language: Language = 'en',
+  context = 'AI call',
+): Error & { aiCategory: AiErrorCategory } => {
+  console.error(`[${context}] AI request failed:`, error);
+  return Object.assign(new Error(friendlyAiError(error, language)), { aiCategory: classifyAiError(error) });
+};

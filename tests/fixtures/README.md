@@ -101,3 +101,18 @@ If a barcode was already written **into a file** as scientific text by some
 earlier export, the digits are gone at rest. No code can recover them — the fix
 prevents new corruption, it cannot undo old corruption. Recover those from the
 original source.
+
+---
+
+## `kelah-menu.jina.md` — Web Scraper (TD-051)
+
+What `r.jina.ai` returned for the public menu page
+`https://kelah.yallaqrcodes.com/branch/1/` on 2026-09-29, **trimmed**: the
+title, the first four sections and the party packages; contact links and image
+URLs removed. The page itself is a client-rendered app whose HTML holds no
+menu, so this markdown is exactly the text the Web Scraper sends to the model.
+
+`e2e/ai-tools.spec.ts` answers Jina with it, so the scraper tests run offline
+and deterministically. The same spec has one test that fetches the live page
+instead; it runs only with `E2E_NETWORK=1`.
+

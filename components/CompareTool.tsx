@@ -4,6 +4,7 @@ import { getSheetData, createWorkbook, appendSheet, saveWorkbook, readExcelFile 
 import { compareDatasets, DiffRow, CompareSummary } from '../utils/compareUtils';
 import { ArrowLeftRight, FileSpreadsheet, Play, Download, AlertTriangle, FileText, CheckCircle2, XCircle, Activity } from 'lucide-react';
 import { aiService } from '../services/aiServiceFactory';
+import { readableAiError } from '../utils/aiErrors';
 
 interface Props {
   fileData?: FileData | null;
@@ -167,7 +168,8 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
           setAiAnalysis(response);
           addLog("AI Analysis generated.", "success");
       } catch (err: any) {
-          addLog(`AI Analysis Failed: ${err.message}`, 'error');
+          // Only the AI call can throw here; show its readable, localised form.
+          addLog(`AI Analysis Failed: ${readableAiError(err, language === 'ar' ? 'ar' : 'en', 'Compare').message}`, 'error');
       } finally {
           setIsAiLoading(false);
       }

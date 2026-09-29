@@ -7,6 +7,7 @@ import { aiService } from '../services/aiServiceFactory';
 import { initGoogleAuth, updateSheetColumn } from '../services/googleSheetSync';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { alignBatchResults } from '../utils/translationBatch';
+import { readableAiError } from '../utils/aiErrors';
 import ProgressBar from './ProgressBar';
 import { Play, RotateCcw, Zap, WifiOff, Split, Merge, ArrowRight, Layout, AlertCircle, ArrowDown, BrainCircuit, Globe, Book, Copy, Check, CloudUpload, User, PenTool, Columns, Table, FileOutput, ChevronDown, ChevronUp, Settings2, Plus, Combine, Replace, MousePointer2 } from 'lucide-react';
 
@@ -367,8 +368,10 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
               // which is the honest representation of "no translation for this
               // row". Every marker below exists so a partial file cannot be
               // mistaken for a finished one.
-              console.error(e);
-              batchError = e?.message || String(e);
+              // Readable and localised: this text goes into the log AND into the
+              // PARTIAL workbook's "Stopped because" line. The raw provider error
+              // (JSON inside JSON) goes to the console inside readableAiError.
+              batchError = readableAiError(e, language, 'Translator').message;
               addLog(`Batch failed, stopping here: ${batchError}`, 'error');
               break;
           }

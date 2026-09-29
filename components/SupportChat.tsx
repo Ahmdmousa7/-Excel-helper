@@ -4,6 +4,7 @@ import { MessageCircle, X, Send, Paperclip, CheckCircle, RefreshCw, BookOpen, Se
 import { Language } from '../utils/translations';
 import { aiService } from '../services/aiServiceFactory';
 import { getStoredApiKey } from '../services/geminiService';
+import { readableAiError } from '../utils/aiErrors';
 // excelService statically imports xlsx + xlsx-js-style, so importing it here
 // puts the spreadsheet engine on the first-paint path — this widget renders on
 // every page load (TD-004). `saveWorkbook` is imported dynamically in the one
@@ -470,9 +471,15 @@ const SupportChat: React.FC<Props> = ({ language = 'en', fileData }) => {
       // turns and would have no way to know one of them came from a different
       // model.
       const modelNotices: string[] = [];
-      const responseText = await aiService.generateText(prompt, 'fast', (msg) => {
-        if (!modelNotices.includes(msg)) modelNotices.push(msg);
-      });
+      let responseText: string;
+      try {
+        responseText = await aiService.generateText(prompt, 'fast', (msg) => {
+          if (!modelNotices.includes(msg)) modelNotices.push(msg);
+        });
+      } catch (aiErr) {
+        // Readable and localised in the transcript; raw error to the console.
+        throw readableAiError(aiErr, language, 'Support Chat');
+      }
 
       if (modelNotices.length > 0) {
         setAnalystMessages(prev => [

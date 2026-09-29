@@ -490,7 +490,7 @@ export const TRANSLATIONS = {
       quota: 'The AI usage limit for this key has been reached. Wait a minute and try again, or use another key.',
       'bad-output': 'The AI returned a response that could not be read. Please try again.',
       network: 'Could not reach the AI service. Check your internet connection and try again.',
-      unknown: 'Something went wrong during extraction. Please try again.'
+      unknown: 'The AI request failed unexpectedly. Please try again.'
     }
   },
   
@@ -918,7 +918,7 @@ export const TRANSLATIONS = {
       quota: 'تم بلوغ حد الاستخدام لهذا المفتاح. انتظر دقيقة ثم حاول مرة أخرى، أو استخدم مفتاحاً آخر.',
       'bad-output': 'أعاد الذكاء الاصطناعي استجابة تعذرت قراءتها. حاول مرة أخرى.',
       network: 'تعذر الاتصال بخدمة الذكاء الاصطناعي. تحقق من اتصال الإنترنت وحاول مرة أخرى.',
-      unknown: 'حدث خطأ أثناء الاستخراج. حاول مرة أخرى.'
+      unknown: 'فشل طلب الذكاء الاصطناعي بشكل غير متوقع. حاول مرة أخرى.'
     }
   }
 };

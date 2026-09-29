@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { classifyAiError, friendlyAiError, AI_ERROR_CATEGORIES } from '../../utils/aiErrors';
+import { describe, it, expect, vi } from 'vitest';
+import { classifyAiError, friendlyAiError, readableAiError, AI_ERROR_CATEGORIES } from '../../utils/aiErrors';
 import { TRANSLATIONS } from '../../utils/translations';
 
 /** The SDK's ApiError message: the HTTP body, JSON-encoded inside a JSON envelope. */
@@ -64,6 +64,35 @@ describe('friendlyAiError', () => {
     for (const lang of ['en', 'ar'] as const) {
       expect(TRANSLATIONS[lang].aiErrors.fileFailed).toContain('{file}');
       expect(TRANSLATIONS[lang].aiErrors.textFailed).toBeTruthy();
+    }
+  });
+});
+
+describe('readableAiError — for tabs whose catch also reports their own errors (TD-051)', () => {
+  const raw = sdkError(503, { code: 503, message: 'This model is currently experiencing high demand.', status: 'UNAVAILABLE' });
+
+  it('returns an Error carrying ONLY the localised sentence, plus its category', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const en = readableAiError(raw, 'en', 'Web Scraper');
+    const ar = readableAiError(raw, 'ar', 'Web Scraper');
+    expect(en).toBeInstanceOf(Error);
+    expect(en.message).toBe(TRANSLATIONS.en.aiErrors.busy);
+    expect(ar.message).toBe(TRANSLATIONS.ar.aiErrors.busy);
+    expect(en.aiCategory).toBe('busy');
+    expect(en.message).not.toMatch(/[{}"]|UNAVAILABLE|503/);
+    spy.mockRestore();
+  });
+
+  it('keeps the RAW error for debugging, in the console, tagged with the tool', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    readableAiError(raw, 'en', 'Translator');
+    expect(spy).toHaveBeenCalledWith('[Translator] AI request failed:', raw);
+    spy.mockRestore();
+  });
+
+  it('the fallback sentence names no single tool — it is shown by all of them', () => {
+    for (const lang of ['en', 'ar'] as const) {
+      expect(TRANSLATIONS[lang].aiErrors.unknown).not.toMatch(/extract|استخراج|translat|ترجم/i);
     }
   });
 });

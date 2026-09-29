@@ -77,6 +77,7 @@ vi.mock('@google/genai', () => ({
 import {
   MODEL_CANDIDATES, resolveModel, resetRetiredModels,
   extractFromMedia, extractStructuredData, classifyModelFailure,
+  translateBatch, processGeneralFile, generateText,
 } from '../../services/geminiService';
 
 const Q = MODEL_CANDIDATES.quality;
@@ -231,5 +232,85 @@ describe('extractStructuredData (spreadsheet / Word / pasted text OCR)', () => {
     const out = await extractStructuredData('Tea 13', 'menu');
     expect(out[0]['Product Name']).toBe(`from ${F[1]}`);
     expect(resolveModel('fast')).toBe(F[0]); // not retired
+  });
+});
+
+// --- TD-051: the same fallback for every other AI tool ----------------------
+
+const TRANSLATE_OPTS = { sourceLang: 'ar', targetLang: 'en', domain: 'retail', glossary: [] as string[] };
+
+describe('translateBatch (Translator) — TD-051', () => {
+  it('REPRODUCTION: every Pro has no quota → moves on to Flash after one request each', async () => {
+    for (const m of PROS) state.behaviour[m] = 'no-quota';
+    const out = await translateBatch([{ text: 'شاي' }], TRANSLATE_OPTS);
+    expect(out).toEqual([{ 'Product Name': `from ${FLASHES[0]}` }]);
+    expect(state.tried).toEqual([...PROS, FLASHES[0]]);
+  });
+
+  it('an overloaded model is skipped for the call, not retired', async () => {
+    state.behaviour[PROS[0]] = 'overloaded';
+    await translateBatch([{ text: 'شاي' }], TRANSLATE_OPTS);
+    expect(state.tried).toEqual([PROS[0], PROS[1]]);
+    expect(resolveModel('quality')).toBe(PROS[0]);
+  });
+
+  it('every candidate unusable → a classified error after one request each', async () => {
+    for (const m of Q) state.behaviour[m] = 'no-quota';
+    const err = await translateBatch([{ text: 'x' }], TRANSLATE_OPTS).then(() => null, (e) => e);
+    expect(err.aiKind).toBe('no-model');
+    expect(state.tried).toEqual([...Q]);
+  });
+
+  it('announces the switch on onNotice', async () => {
+    state.behaviour[PROS[0]] = 'no-quota';
+    const notices: string[] = [];
+    await translateBatch([{ text: 'x' }], { ...TRANSLATE_OPTS, onNotice: (n) => notices.push(n) });
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatch(/no quota on this API key.*quality may differ/i);
+  });
+
+  it('a GENUINE rate limit still retries the same model', async () => {
+    vi.useFakeTimers();
+    state.behaviour[PROS[0]] = 'rate-limited';
+    state.rateLimitedRemaining = 1;
+    const pending = translateBatch([{ text: 'x' }], TRANSLATE_OPTS);
+    await vi.advanceTimersByTimeAsync(61_000);
+    await pending;
+    expect(state.tried).toEqual([PROS[0], PROS[0]]);
+  });
+});
+
+describe('processGeneralFile (Compare AI analysis) — TD-051', () => {
+  it('moves past no-quota and overloaded models instead of failing on the first', async () => {
+    state.behaviour[PROS[0]] = 'no-quota';
+    state.behaviour[PROS[1]] = 'overloaded';
+    const out = await processGeneralFile({ text: 'a,b' }, 'summarise');
+    expect(out).toBe(`[{"Product Name":"from ${PROS[2]}"}]`);
+    expect(state.tried).toEqual([PROS[0], PROS[1], PROS[2]]);
+  });
+
+  it('other errors still propagate at once (no retry loop was ever here)', async () => {
+    state.behaviour[PROS[0]] = 'bad-key';
+    await expect(processGeneralFile({ text: 'a' }, 'x')).rejects.toThrow(/API key not valid/);
+    expect(state.tried).toEqual([PROS[0]]);
+  });
+});
+
+describe('generateText (Support Chat) — TD-051', () => {
+  it('moves past no-quota and overloaded models (fast tier)', async () => {
+    const F = MODEL_CANDIDATES.fast;
+    state.behaviour[F[0]] = 'overloaded';
+    state.behaviour[F[1]] = 'no-quota';
+    const out = await generateText('hello');
+    expect(out).toBe(`[{"Product Name":"from ${F[2]}"}]`);
+    expect(state.tried).toEqual([F[0], F[1], F[2]]);
+  });
+
+  it('every candidate unusable → a classified "busy" error, one request each', async () => {
+    const F = MODEL_CANDIDATES.fast;
+    for (const m of F) state.behaviour[m] = 'overloaded';
+    const err = await generateText('hello').then(() => null, (e) => e);
+    expect(err.aiKind).toBe('all-models-busy');
+    expect(state.tried).toEqual([...F]);
   });
 });
