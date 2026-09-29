@@ -96,6 +96,33 @@ describe('yallaMenuText — the items the page listed without a price', () => {
   });
 });
 
+describe('yallaMenuText — review findings (2f16972)', () => {
+  const item = (over: Record<string, unknown>) => ({ id: 900, category: CATS[0].id, price: 0, available: true, is_deleted: false, sort_order: 99, name_ar: 'صنف تجريبي', ...over });
+  const sizes = (options: Record<string, unknown>[]) =>
+    new Map<number, YallaDetail>([[900, { modifiers: [{ name_ar: 'صنف تجريبي - الحجم', min_options: 1, max_options: 1, options }] }]]);
+  const linesOf = (items: any[], details: Map<number, YallaDetail>) =>
+    yallaMenuText(CATS, items, details).text.split(/\r?\n/).filter((l) => l.includes('صنف تجريبي'));
+
+  it('an item whose required options are ALL unavailable is still listed, not dropped', () => {
+    const out = linesOf([item({ price: 12 })], sizes([{ name_ar: 'صغير', price: 10, available: false }, { name_ar: 'كبير', price: 14, is_deleted: true }]));
+    expect(out).toEqual([expect.stringMatching(/^- صنف تجريبي \| Price: 12\.00/)]);
+  });
+
+  it('a variant with no price on the option OR the item is marked, never "0.00"', () => {
+    const out = linesOf([item({ price: 0 })], sizes([{ name_ar: 'حار', price: 0 }, { name_ar: 'بارد', price: 0 }]));
+    expect(out).toHaveLength(2);
+    expect(out.every((l) => l.includes('Price: (no price listed on the menu)'))).toBe(true);
+    expect(out.join(' ')).not.toContain('0.00');
+    expect(yallaMenuText(CATS, [item({ price: 0 })], sizes([{ name_ar: 'حار', price: 0 }])).stats.noPrice).toBe(1);
+  });
+
+  it('an item whose section is missing from the section list is kept, under its own heading', () => {
+    const text = yallaMenuText(CATS, [item({ category: 424242, price: 9 })], new Map()).text;
+    expect(text).toContain('## (no section)');
+    expect(text).toContain('- صنف تجريبي | Price: 9.00');
+  });
+});
+
 describe('fetchYallaMenu', () => {
   const fakeFetch = (fail: (url: string) => boolean = () => false) => {
     const calls: { url: string; branch?: string }[] = [];

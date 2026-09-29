@@ -76,6 +76,10 @@ const isVariantModifier = (m: YallaModifier) => (m.min_options ?? 0) >= 1 && liv
  */
 const variantPrice = (opt: YallaOption, base: number) => ((opt.price ?? 0) > 0 ? opt.price! : base);
 
+const NO_PRICE = '(no price listed on the menu)';
+/** `4.00`, or the no-price marker — never `0.00` for a price the menu does not give. */
+const priceText = (n: number) => (n > 0 ? money(n) : NO_PRICE);
+
 export interface YallaMenuStats { items: number; withVariants: number; variantRows: number; noPrice: number }
 
 /**
@@ -101,7 +105,12 @@ export function yallaMenuText(
     'Each line is one sellable row. A VARIANT line is one option of a product that must be chosen when ordering; give it its own row with Option 1 = the option name and Option 1 Value = the value.',
     '',
   ];
-  const cats = [...live(categories)].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const cats: YallaCategory[] = [...live(categories)].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  // Items whose section is not in the section list are kept, under their own
+  // heading at the end, rather than silently dropped.
+  const known = new Set(cats.map((c) => c.id));
+  const orphans = [...byCat.keys()].filter((id) => !known.has(id));
+  for (const id of orphans) cats.push({ id, name_ar: '(no section)', sort_order: Number.MAX_SAFE_INTEGER });
   for (const cat of cats) {
     const its = (byCat.get(cat.id) ?? []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     if (its.length === 0) continue;
@@ -119,24 +128,30 @@ export function yallaMenuText(
       const addOnText = addOns.length
         ? ` | Add-ons (optional, not separate rows): ${addOns.map((m) => `${dimension(m, n)}: ${live(m.options).map((o) => `${name(o)} +${money(o.price ?? 0)}`).join(', ')}`).join('; ')}`
         : '';
-      if (variantMods.length === 0) {
-        if (base > 0) lines.push(`- ${n} | Price: ${money(base)}${tail}${addOnText}`);
-        else { stats.noPrice++; lines.push(`- ${n} | Price: (no price listed on the menu)${tail}${addOnText}`); }
-        continue;
-      }
-      stats.withVariants++;
       // The first required choice is the variant dimension. Any further
       // required choice is listed on each row rather than multiplied out: the
       // platform gives no combined price, and inventing one would be a guess.
       const [dim, ...others] = variantMods;
+      const choices = dim ? live(dim.options).filter((o) => o.available !== false) : [];
+      // No usable choice (none required, or every option unavailable): the item
+      // is one plain row, so it never disappears from the output.
+      if (choices.length === 0) {
+        if (base <= 0) stats.noPrice++;
+        lines.push(`- ${n} | Price: ${priceText(base)}${tail}${addOnText}`);
+        continue;
+      }
+      stats.withVariants++;
       const otherText = others.length
         ? ` | Also required: ${others.map((m) => `${dimension(m, n)} (${live(m.options).map(name).join(' / ')})`).join('; ')}`
         : '';
-      for (const opt of live(dim.options)) {
-        if (opt.available === false) continue;
+      let unpriced = false;
+      for (const opt of choices) {
         stats.variantRows++;
-        lines.push(`- VARIANT ${n} | Option 1: ${dimension(dim, n)} | Option 1 Value: ${name(opt)} | Price: ${money(variantPrice(opt, base))}${tail}${otherText}${addOnText}`);
+        const price = variantPrice(opt, base);
+        if (price <= 0) unpriced = true;
+        lines.push(`- VARIANT ${n} | Option 1: ${dimension(dim, n)} | Option 1 Value: ${name(opt)} | Price: ${priceText(price)}${tail}${otherText}${addOnText}`);
       }
+      if (unpriced) stats.noPrice++;
     }
     lines.push('');
   }
