@@ -70,6 +70,11 @@ export const MODEL_CANDIDATES: Record<AiTier, readonly string[]> = {
     // rows beats losing a 500-row run.
     'gemini-3.6-flash',
     'gemini-flash-latest',
+    // Last resort for image OCR (D11). Verified on the real key on 2026-09-29:
+    // it answered the live `ocr.jpg` image request with HTTP 200 when every Pro
+    // had no quota and both Flash ids above were overloaded — the one model that
+    // worked. Already verified for the fast tier on 2026-08-13.
+    'gemini-3-flash-preview',
   ],
   fast: [
     'gemini-3.6-flash',

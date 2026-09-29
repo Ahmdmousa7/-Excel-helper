@@ -173,6 +173,18 @@ describe('extractFromMedia (image OCR) — the live-run failure', () => {
     expect(state.tried).toEqual([...Q]); // exactly one request per candidate, no retry storm
   });
 
+  it('D11 / LIVE RUN: Pros no-quota, both Flash ids overloaded → the verified last resort answers', async () => {
+    // The exact state of 2026-09-29: the only model that answered the real
+    // image request was gemini-3-flash-preview, now the LAST quality candidate.
+    expect(Q[Q.length - 1]).toBe('gemini-3-flash-preview');
+    for (const m of PROS) state.behaviour[m] = 'no-quota';
+    state.behaviour['gemini-3.6-flash'] = 'overloaded';
+    state.behaviour['gemini-flash-latest'] = 'overloaded';
+    const out = await extractFromMedia(IMAGE, 'menu');
+    expect(out).toEqual([{ 'Product Name': 'from gemini-3-flash-preview' }]);
+    expect(state.tried).toEqual([...Q]); // one request each, in order, no retries
+  });
+
   it('announces each switch on onNotice, naming both models', async () => {
     for (const m of PROS) state.behaviour[m] = 'no-quota';
     const notices: string[] = [];

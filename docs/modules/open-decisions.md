@@ -245,3 +245,19 @@ Not changed unilaterally, because it removes behaviour users may rely on. `e2e/o
 Files Validation resolves a duplicate barcode by appending `-1`, `-2` (and a barcode equal to an SKU the same way). The result — `6287013210006-1` — is no longer a valid EAN/GTIN and will not scan at a till, so it will not match the code printed on the product.
 
 The product owner chose to keep this behaviour. It is not hidden: every rename is listed in the export's Change Log and in the `Fix_Resolved Duplicate Barcode` / `Fix_Resolved Barcode = SKU` sheets, which are the places to review a resolved barcode before import.
+
+---
+
+## D11 — `gemini-3-flash-preview` as the last image-OCR fallback / آخر نموذج احتياطي لاستخراج الصور
+
+**Decided 2026-09-29 (product owner): add it, on the condition that it is verified on the actual key.**
+
+**The problem (TD-052).** In the live OCR run of 2026-09-29, every Pro model in the `quality` list had no quota on the free-tier key (429, `limit: 0`), and `gemini-3.6-flash` and `gemini-flash-latest` were overloaded (503). The only model that answered was `gemini-3-flash-preview` — which was in the `fast` list, not the `quality` list image OCR uses. So image OCR could not succeed on that key.
+
+**The evidence it is verified, not guessed.** The same run sent the real `ocr.jpg` image (streamed, image inline) to `gemini-3-flash-preview` on that key: **HTTP 200**, 76 items extracted. The id was also confirmed to exist by `scripts/list-gemini-models.mjs` on 2026-08-13. No other id was added.
+
+**The change.** `gemini-3-flash-preview` is appended as the **last** entry of `MODEL_CANDIDATES.quality`. Nothing ahead of it moves, so it is only reached when every other quality candidate is retired, has no quota on the key, or is overloaded. The `quality` tier is shared (Translate, Web Scraper, Compare also use it), so it is their last resort too — the same trade the tier already makes by ending on Flash.
+
+**If it is ever retired:** the existing fallback strikes it off on the first 404, per key, and the call fails with the readable "no model available" message. Re-verify with `scripts/list-gemini-models.mjs` before changing the list.
+
+**AR:** أُضيف `gemini-3-flash-preview` كآخر خيار احتياطي لاستخراج الصور، بعد التحقق منه على المفتاح الفعلي (استجابة 200 لصورة حقيقية). لا يُستخدم إلا إذا تعذّرت كل النماذج الأخرى.
