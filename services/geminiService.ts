@@ -261,6 +261,40 @@ export const isModelUnavailable = (error: unknown): boolean => {
 };
 
 /**
+ * Why a model call failed, as far as FALLBACK is concerned.
+ *
+ * - `retired`    — the model id is gone (NOT_FOUND). Permanent.
+ * - `no-quota`   — a 429 whose own message says `limit: 0` for this model: the
+ *                  key's plan has no quota for it at all. Measured 2026-09-29 on
+ *                  a free-tier key, which gets `limit: 0` for gemini-3.1-pro.
+ *                  Waiting never helps, so retrying it only burns the budget.
+ * - `overloaded` — 503 UNAVAILABLE / "high demand". Temporary, but it affects
+ *                  everyone on that model, so another model is the best bet NOW.
+ * - `transient`  — everything else, including a genuine rate limit (a 429 with a
+ *                  non-zero limit) and an invalid key. Keeps the existing
+ *                  retry / backoff / key-rotation behaviour; switching models
+ *                  would not help with either.
+ */
+export type ModelFailure = 'retired' | 'no-quota' | 'overloaded' | 'transient';
+
+export const classifyModelFailure = (error: unknown): ModelFailure => {
+  if (isModelUnavailable(error)) return 'retired';
+  const msg = String((error as { message?: unknown })?.message ?? error ?? '').toLowerCase();
+  const isQuota = msg.includes('429') || msg.includes('resource_exhausted') || msg.includes('quota');
+  // `limit: 0` and nothing numeric after it — so `limit: 0.5` or `limit: 05`
+  // are not mistaken for "no quota at all".
+  if (isQuota && /limit:\s*0(?![\d.])/.test(msg)) return 'no-quota';
+  if (msg.includes('503') || msg.includes('high demand') || msg.includes('overloaded')
+      || /"status":\s*"unavailable"/.test(msg) || msg.includes('\\"unavailable\\"')) return 'overloaded';
+  return 'transient';
+};
+
+/** An Error carrying a machine-readable kind, for the UI to turn into a readable message. */
+export type AiErrorKind = 'no-model' | 'all-models-busy';
+const aiError = (kind: AiErrorKind, message: string): Error & { aiKind: AiErrorKind } =>
+  Object.assign(new Error(message), { aiKind: kind });
+
+/**
  * A readable error for when a tier has no working model left, replacing the raw
  * JSON the SDK throws. Names what was tried and the command that finds the truth.
  */
@@ -305,6 +339,49 @@ const advancePastRetiredModel = (tier: AiTier, model: string, onNotice?: ModelNo
   console.warn(notice);
   onNotice?.(notice);
   return next;
+};
+
+/**
+ * The model to try next after `model` failed with `kind`, for THIS call.
+ *
+ * `retired` and `no-quota` are facts about the current key, so they go in the
+ * per-key registry and later calls skip them too. `overloaded` is a fact about
+ * this moment, not the key, so it is only added to `skipped` — this call's own
+ * list — and the next call tries the model again.
+ *
+ * Only ids already in MODEL_CANDIDATES are ever returned; nothing is guessed.
+ * Throws a readable `aiError` once the list is exhausted.
+ */
+const advanceModel = (
+  tier: AiTier,
+  model: string,
+  kind: Exclude<ModelFailure, 'transient'>,
+  skipped: Set<string>,
+  onNotice?: ModelNotice,
+): string => {
+  if (kind === 'overloaded') skipped.add(model);
+  else retiredFor(keyBucket()).add(model);
+
+  const retired = retiredFor(keyBucket());
+  const next = MODEL_CANDIDATES[tier].find((m) => !retired.has(m) && !skipped.has(m));
+  if (!next) {
+    throw skipped.size > 0
+      ? aiError('all-models-busy', `Every "${tier}" model is unavailable for this key or overloaded right now (tried ${MODEL_CANDIDATES[tier].join(', ')}).`)
+      : aiError('no-model', modelUnavailableError(tier).message);
+  }
+  const why = kind === 'no-quota' ? 'has no quota on this API key'
+    : kind === 'overloaded' ? 'is overloaded right now'
+    : 'is unavailable';
+  const notice = `Model "${model}" ${why}; continuing on "${next}". Output quality may differ.`;
+  console.warn(notice);
+  onNotice?.(notice);
+  return next;
+};
+
+/** First candidate not retired for this key and not skipped in this call. */
+const firstUsable = (tier: AiTier, skipped: ReadonlySet<string>): string => {
+  const retired = retiredFor(keyBucket());
+  return MODEL_CANDIDATES[tier].find((m) => !retired.has(m) && !skipped.has(m)) ?? resolveModel(tier);
 };
 
 // Error handling helpers
@@ -481,6 +558,7 @@ export const extractStructuredData = async (
     let model = resolveModel(tier);
     let attempts = 0;
     const maxRetries = getMaxRetries();
+    const skipped = new Set<string>(); // overloaded models, this call only
     while (attempts < maxRetries) {
         try {
             const client = getAiClient();
@@ -506,12 +584,11 @@ export const extractStructuredData = async (
                 return [];
             }
         } catch (error: any) {
-            // A retired model id first: retrying is pointless and rotating keys
-            // cannot help, since the model is gone for every key. Strike it off
-            // and move to the next candidate. Does NOT count against `attempts`
-            // — walking the list is not a retry of the same failing thing.
-            if (isModelUnavailable(error)) {
-                model = advancePastRetiredModel(tier, model, onNotice);
+            // Retired, no quota on this key, or overloaded: next candidate now.
+            // Same rule as extractFromMedia — none of these is helped by waiting.
+            const failure = classifyModelFailure(error);
+            if (failure !== 'transient') {
+                model = advanceModel(tier, model, failure, skipped, onNotice);
                 continue;
             }
 
@@ -530,7 +607,7 @@ export const extractStructuredData = async (
                     // prevent. Re-resolving costs at most one request if the new key
                     // cannot use the preferred id either, and that gets recorded in
                     // the new key's own bucket.
-                    model = resolveModel(tier);
+                    model = firstUsable(tier, skipped);
                     await new Promise(r => setTimeout(r, 1000));
                     continue; 
                 }
@@ -652,7 +729,7 @@ export const extractFromMedia = async (
     
     3. **Variable Product Detection (Aggressive Splitting)**:
        - **CRITICAL**: If an item line contains multiple choices/sizes (e.g. "Spicy / Regular", "Small / Large", "Sandwich / Meal"), you must **SPLIT** this into separate JSON objects.
-       - **CRITICAL (PRICE RANGES)**: If a price is written as a range (e.g. "20 - 30", "20/30", "15-25"), it means it is a VARIABLE product with multiple prices. You MUST create two (or more) separate JSON objects entries. If no specific size name is provided in the text, use "Small | صغير" for the lower price and "Large | كبير" for the higher price, and put them under 'Option 1': "Size".
+       - **CRITICAL (PRICE RANGES)**: A price written as a range (e.g. "20 - 30", "600–900") is NOT a set of variants. Keep it as ONE object and copy the range text exactly as written into 'Retail Price' (e.g. "Retail Price": "20 - 30"). Never split a range into one object per price, and never invent size names such as "Small" / "Large" for it. The app turns the range into Price 0 with the range in the Description.
        - **Do NOT** put all options in one cell. Create a new row for each option combination.
        - **Fields**:
          - 'Product Name': The main item name (Apply Rule 2).
@@ -671,12 +748,18 @@ export const extractFromMedia = async (
            {"Product Name": "Brost | بروست", "Option 1": "Flavor", "Option 1 Value": "Regular | عادي", "Retail Price": 18, "Type": "Variable"}
          ]
 
-       - **Example 1.5 (Price Range Dimension)**: 
+       - **Example 1.5 (Price Range — ONE row)**: 
          Image text: "Chicken Burger .... 20 - 30"
          Output JSON:
          [
-           {"Product Name": "Chicken Burger | برجر دجاج", "Option 1": "Size", "Option 1 Value": "Small | صغير", "Retail Price": 20, "Type": "Variable"},
-           {"Product Name": "Chicken Burger | برجر دجاج", "Option 1": "Size", "Option 1 Value": "Large | كبير", "Retail Price": 30, "Type": "Variable"}
+           {"Product Name": "Chicken Burger | برجر دجاج", "Retail Price": "20 - 30", "Type": "Simple"}
+         ]
+         Image text: "Hair Dye: Short 400 / Medium 500 / Long 600–900"
+         Output JSON (the range stays on the ONE "Long" row):
+         [
+           {"Product Name": "Hair Dye | صبغة شعر", "Option 1": "Length", "Option 1 Value": "Short | قصير", "Retail Price": 400, "Type": "Variable"},
+           {"Product Name": "Hair Dye | صبغة شعر", "Option 1": "Length", "Option 1 Value": "Medium | وسط", "Retail Price": 500, "Type": "Variable"},
+           {"Product Name": "Hair Dye | صبغة شعر", "Option 1": "Length", "Option 1 Value": "Long | طويل", "Retail Price": "600–900", "Type": "Variable"}
          ]
          
        - **Example 2 (Multiple Variant Dimensions)**:
@@ -701,6 +784,8 @@ export const extractFromMedia = async (
 
   let attempts = 0;
   const maxRetries = getMaxRetries();
+  // Models skipped in THIS call because they were overloaded (see advanceModel).
+  const skipped = new Set<string>();
   while (true) {
     try {
       const client = getAiClient();
@@ -759,20 +844,15 @@ export const extractFromMedia = async (
       throw new Error("AI output format unrecognized (not array or object).");
 
     } catch (error: any) {
-      // A retired model id, before anything else. Retrying it is pointless and
-      // rotating keys cannot help — the model is gone for every key. Strike it
-      // off and walk to the next candidate so OCR keeps working, degraded,
-      // instead of failing outright. Does NOT count against `attempts`.
-      if (isModelUnavailable(error)) {
-        // `onNotice` ONLY, not `onProgress` as well.
-        //
-        // This used to go out on `onProgress`, which was the only reason OCR
-        // showed a fallback at all — but OcrTab logs progress as 'success', so a
-        // quality downgrade arrived as a green line. Sending it down both
-        // channels now would log it twice, once green and once as a warning.
-        // `onNotice` is the channel that means "the output changed"; progress
-        // means "how far along we are". They are different facts.
-        model = advancePastRetiredModel(tier, model, onNotice);
+      // A model problem — retired, no quota on this key, or overloaded — moves
+      // to the next candidate at once. None of these is helped by waiting, so
+      // none may consume the retry budget. (The live run of 2026-09-29 spent
+      // four 429s and three minutes on a model its free key had NO quota for.)
+      // Fallback notices go on `onNotice` only, never `onProgress`: OcrTab logs
+      // progress as success, and a quality downgrade is not success.
+      const failure = classifyModelFailure(error);
+      if (failure !== 'transient') {
+        model = advanceModel(tier, model, failure, skipped, onNotice);
         continue;
       }
 
@@ -786,7 +866,7 @@ export const extractFromMedia = async (
         if (rotated) {
           // Re-resolve for the same reason as the other rotate sites: retirements
           // are per key, and `keyBucket()` now answers for a different one.
-          model = resolveModel(tier);
+          model = firstUsable(tier, skipped);
           await new Promise(r => setTimeout(r, 1000));
           continue;
         }

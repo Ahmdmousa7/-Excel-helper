@@ -2,8 +2,8 @@
 
 | Layer | Tool | Count | Command |
 |---|---|---:|---|
-| Unit | Vitest | 536 | `npm run test` |
-| E2E | Playwright | 119 | `npm run e2e` |
+| Unit | Vitest | 623 | `npm run test` |
+| E2E | Playwright | 122 | `npm run e2e` |
 
 `npm run verify` runs lint → typecheck → unit → build, i.e. everything the `quality` CI job runs.
 
@@ -17,7 +17,7 @@ Components are not unit-tested. They do I/O directly and would each need a DOM p
 
 ## E2E tests
 
-`e2e/**` — **20 spec files, 119 tests** (verified 2026-09-28). The first nine below were the original risk areas; the rest were added as specific defects were fixed, and each one exists because something broke.
+`e2e/**` — **21 spec files, 122 tests** (verified 2026-09-29). The first nine below were the original risk areas; the rest were added as specific defects were fixed, and each one exists because something broke.
 
 | Suite | What it pins |
 |---|---|
@@ -38,6 +38,7 @@ Components are not unit-tested. They do I/O directly and would each need a DOM p
 | `composite-quantity-rules` | Quantity must be > 0: zero and negative flagged in both languages, with the right cell reference. |
 | `support-chat-fallback` | A model fallback reaches the user, and neither notices nor errors leak into the next prompt. |
 | `ocr-text-input` | Spreadsheet and Word input to OCR Extraction through the whole pipeline, with the model call intercepted: the file's content reaches the model as text inside the tab's prompt, and the answer reaches the downloaded export. Legacy `.doc` is refused. |
+| `ocr-rewaa-export` | OCR into the **real Rewaa templates** with the live run's data shape (model intercepted): variant columns that first appear after a simple row are mapped into Mapped Variable (`Option 1`, `Option 1 Value`, `Variant Name`); a price range is ONE row at Price `0` with `Price range: X to Y` in the Description; the live run's split Long pair is merged back; `00123` stays distinct from `123`; nothing downloads before Export. Also: a no-quota provider failure is one readable sentence in English and in Arabic, with no raw JSON, after one request per candidate model. |
 | `csv-arabic` | TD-050: a BOM-less Arabic CSV uploaded through the shared reader and through Files Validation's own reader keeps its Arabic in the downloaded file. Reverting either reader fails exactly its own test. |
 | `files-validation` | Duplicate rules and the per-error / per-fix sheets through a real upload → validate → download, in both the single-file and chunked-ZIP paths. The module's first browser coverage. |
 | `exporter-date-format` | **A reproduction, not a guard** (TD-049): a dated column exported through Remove Blanks keeps its value but loses its number format. Uses `test.fail()`, so it passes while the defect exists and **fails when someone fixes it**. |

@@ -477,6 +477,20 @@ export const TRANSLATIONS = {
     fileValidation: {
       desc: 'Validate product files against Rewaa rules (Symbols, SKU, Barcode, Prices).',
       instr: 'Upload file, map columns to standard fields (SKU, Barcode, etc.), run validation to auto-fix issues and identify errors.'
+    },
+    // Readable AI failures (utils/aiErrors.ts). Shown instead of the provider's
+    // raw error, which is JSON inside JSON; the raw error goes to the console.
+    aiErrors: {
+      fileFailed: 'Could not process {file}:',
+      textFailed: 'Could not process the text:',
+      'no-key': 'No AI API key is set. Add your key in Settings.',
+      'invalid-key': 'The AI API key was rejected. Check the key in Settings.',
+      'no-model': 'None of the AI models are available for this API key. Try another key.',
+      busy: 'The AI models are busy or unavailable for this key right now. Please try again in a few minutes.',
+      quota: 'The AI usage limit for this key has been reached. Wait a minute and try again, or use another key.',
+      'bad-output': 'The AI returned a response that could not be read. Please try again.',
+      network: 'Could not reach the AI service. Check your internet connection and try again.',
+      unknown: 'Something went wrong during extraction. Please try again.'
     }
   },
   
@@ -893,6 +907,18 @@ export const TRANSLATIONS = {
     fileValidation: {
       desc: 'التحقق من صحة ملفات المنتجات مقابل قواعد رواء (الرموز، SKU، الباركود، الأسعار).',
       instr: 'قم بتحميل الملف، وتعيين الأعمدة إلى الحقول القياسية (SKU، الباركود، إلخ)، وتشغيل التحقق لإصلاح المشكلات تلقائياً وتحديد الأخطاء.'
+    },
+    aiErrors: {
+      fileFailed: 'تعذرت معالجة {file}:',
+      textFailed: 'تعذرت معالجة النص:',
+      'no-key': 'لم يتم إعداد مفتاح API للذكاء الاصطناعي. أضف المفتاح من الإعدادات.',
+      'invalid-key': 'تم رفض مفتاح API. تحقق من المفتاح في الإعدادات.',
+      'no-model': 'لا يتوفر أي من نماذج الذكاء الاصطناعي لهذا المفتاح. جرّب مفتاحاً آخر.',
+      busy: 'نماذج الذكاء الاصطناعي مشغولة أو غير متاحة لهذا المفتاح حالياً. حاول مرة أخرى بعد بضع دقائق.',
+      quota: 'تم بلوغ حد الاستخدام لهذا المفتاح. انتظر دقيقة ثم حاول مرة أخرى، أو استخدم مفتاحاً آخر.',
+      'bad-output': 'أعاد الذكاء الاصطناعي استجابة تعذرت قراءتها. حاول مرة أخرى.',
+      network: 'تعذر الاتصال بخدمة الذكاء الاصطناعي. تحقق من اتصال الإنترنت وحاول مرة أخرى.',
+      unknown: 'حدث خطأ أثناء الاستخراج. حاول مرة أخرى.'
     }
   }
 };

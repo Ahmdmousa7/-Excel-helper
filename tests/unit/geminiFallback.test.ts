@@ -1,0 +1,223 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+/**
+ * Model fallback for OCR, driven by the EXACT error shapes Google returned in
+ * the live run of 2026-09-29 against a free-tier key:
+ *
+ *   - 429 RESOURCE_EXHAUSTED with `limit: 0` for gemini-3.1-pro — the free tier
+ *     has no quota for that model at all. Not a rate limit: waiting never helps.
+ *   - 503 UNAVAILABLE, "This model is currently experiencing high demand" — the
+ *     model is overloaded right now, for everyone.
+ *
+ * Before the fix both were retried ON THE SAME MODEL until the retry budget ran
+ * out: four 429s over ~3 minutes, never reaching the Flash models that sit
+ * further down the very same candidate list.
+ */
+
+type Behaviour = 'ok' | 'no-quota' | 'overloaded' | 'rate-limited' | 'retired' | 'bad-key';
+
+const state = vi.hoisted(() => ({
+  tried: [] as string[],
+  behaviour: {} as Record<string, string>,
+  /** For 'rate-limited': fail this many times, then succeed. */
+  rateLimitedRemaining: 0,
+}));
+
+/** The SDK's ApiError message: the HTTP body, JSON-encoded inside a JSON envelope. */
+const sdkError = (code: number, body: object) =>
+  new Error(JSON.stringify({ error: { message: JSON.stringify({ error: body }, null, 1), code, status: '' } }));
+
+const NO_QUOTA = (model: string) => sdkError(429, {
+  code: 429,
+  message: `You exceeded your current quota, please check your plan and billing details. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: ${model}\nPlease retry in 17.3s.`,
+  status: 'RESOURCE_EXHAUSTED',
+});
+const RATE_LIMITED = (model: string) => sdkError(429, {
+  code: 429,
+  message: `You exceeded your current quota. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15, model: ${model}\nPlease retry in 4s.`,
+  status: 'RESOURCE_EXHAUSTED',
+});
+const OVERLOADED = () => sdkError(503, {
+  code: 503,
+  message: 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.',
+  status: 'UNAVAILABLE',
+});
+const BAD_KEY = () => sdkError(400, { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT' });
+const RETIRED = () => new Error('models/x is not found for API version v1beta. status: NOT_FOUND');
+
+function fail(model: string): void {
+  state.tried.push(model);
+  const b = state.behaviour[model] ?? 'ok';
+  if (b === 'no-quota') throw NO_QUOTA(model);
+  if (b === 'overloaded') throw OVERLOADED();
+  if (b === 'retired') throw RETIRED();
+  if (b === 'bad-key') throw BAD_KEY();
+  if (b === 'rate-limited' && state.rateLimitedRemaining > 0) {
+    state.rateLimitedRemaining--;
+    throw RATE_LIMITED(model);
+  }
+}
+
+vi.mock('@google/genai', () => ({
+  GoogleGenAI: class {
+    models = {
+      generateContent: async ({ model }: { model: string }) => {
+        fail(model);
+        return { text: `[{"Product Name":"from ${model}"}]` };
+      },
+      generateContentStream: async ({ model }: { model: string }) => {
+        fail(model);
+        return (async function* () { yield { text: `[{"Product Name":"from ${model}"}]` }; })();
+      },
+    };
+  },
+  Type: {},
+}));
+
+import {
+  MODEL_CANDIDATES, resolveModel, resetRetiredModels,
+  extractFromMedia, extractStructuredData, classifyModelFailure,
+} from '../../services/geminiService';
+
+const Q = MODEL_CANDIDATES.quality;
+const PROS = Q.filter((m) => m.includes('pro'));
+const FLASHES = Q.filter((m) => m.includes('flash'));
+const IMAGE = { data: 'AAAA', mimeType: 'image/jpeg' };
+
+let storedKey = 'AIzaKEY-A';
+const originalLocalStorage = (globalThis as any).localStorage;
+
+beforeEach(() => {
+  state.tried.length = 0;
+  state.behaviour = {};
+  state.rateLimitedRemaining = 0;
+  storedKey = 'AIzaKEY-A';
+  resetRetiredModels();
+  (globalThis as any).localStorage = {
+    getItem: (k: string) => (k === 'gemini_api_key' ? storedKey : ''),
+    setItem: () => {},
+  };
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  (globalThis as any).localStorage = originalLocalStorage;
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+describe('the candidate list is what the tests assume', () => {
+  it('quality tier: Pro models first, Flash models after', () => {
+    // If this changes, re-read the tests below: they rely on the order.
+    expect(PROS.length).toBeGreaterThan(0);
+    expect(FLASHES.length).toBeGreaterThan(0);
+    expect(Q.indexOf(FLASHES[0])).toBeGreaterThan(Q.indexOf(PROS[PROS.length - 1]));
+  });
+});
+
+describe('classifyModelFailure — on the real error shapes', () => {
+  it('a 429 with `limit: 0` means this key has NO quota for the model', () => {
+    expect(classifyModelFailure(NO_QUOTA('gemini-3.1-pro'))).toBe('no-quota');
+  });
+  it('a 429 with a non-zero limit is a genuine, temporary rate limit', () => {
+    expect(classifyModelFailure(RATE_LIMITED('gemini-3.1-pro'))).toBe('transient');
+  });
+  it('a 503 "high demand" means the model is overloaded', () => {
+    expect(classifyModelFailure(OVERLOADED())).toBe('overloaded');
+  });
+  it('NOT_FOUND means the model is retired', () => {
+    expect(classifyModelFailure(RETIRED())).toBe('retired');
+  });
+  it('an invalid key is NOT a model problem — switching models would not help', () => {
+    expect(classifyModelFailure(BAD_KEY())).toBe('transient');
+  });
+  it('`limit: 0.5` or `limit: 05` is not read as zero', () => {
+    expect(classifyModelFailure(new Error('429 quota exceeded, limit: 0.5'))).not.toBe('no-quota');
+  });
+});
+
+describe('extractFromMedia (image OCR) — the live-run failure', () => {
+  it('REPRODUCTION: every Pro has no quota → it moves on to Flash and succeeds', async () => {
+    for (const m of PROS) state.behaviour[m] = 'no-quota';
+    const out = await extractFromMedia(IMAGE, 'menu');
+    expect(out).toEqual([{ 'Product Name': `from ${FLASHES[0]}` }]);
+    // Each Pro tried ONCE — none consumed the retry budget — then the first Flash.
+    expect(state.tried).toEqual([...PROS, FLASHES[0]]);
+  });
+
+  it('no-quota is remembered PER KEY: the next call on the same key skips Pro', async () => {
+    for (const m of PROS) state.behaviour[m] = 'no-quota';
+    await extractFromMedia(IMAGE, 'menu');
+    expect(resolveModel('quality')).toBe(FLASHES[0]);
+    storedKey = 'AIzaKEY-B'; // a different key's project may well have Pro quota
+    expect(resolveModel('quality')).toBe(PROS[0]);
+  });
+
+  it('an overloaded model is skipped for THIS call, but not retired', async () => {
+    for (const m of PROS) state.behaviour[m] = 'no-quota';
+    state.behaviour[FLASHES[0]] = 'overloaded';
+    const out = await extractFromMedia(IMAGE, 'menu');
+    expect(out[0]['Product Name']).toBe(`from ${FLASHES[1]}`);
+    expect(state.tried.filter((m) => m === FLASHES[0])).toHaveLength(1); // not hammered
+    // Overload is temporary and global: the next call tries FLASHES[0] again.
+    expect(resolveModel('quality')).toBe(FLASHES[0]);
+  });
+
+  it('when EVERY candidate is unusable it stops after one request each, with a readable error', async () => {
+    for (const m of PROS) state.behaviour[m] = 'no-quota';
+    for (const m of FLASHES) state.behaviour[m] = 'overloaded';
+    const err = await extractFromMedia(IMAGE, 'menu').then(() => null, (e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.aiKind).toBe('all-models-busy');
+    expect(state.tried).toEqual([...Q]); // exactly one request per candidate, no retry storm
+  });
+
+  it('announces each switch on onNotice, naming both models', async () => {
+    for (const m of PROS) state.behaviour[m] = 'no-quota';
+    const notices: string[] = [];
+    await extractFromMedia(IMAGE, 'menu', undefined, (n) => notices.push(n));
+    expect(notices).toHaveLength(PROS.length);
+    expect(notices[0]).toContain(PROS[0]);
+    expect(notices[notices.length - 1]).toContain(FLASHES[0]);
+  });
+
+  it('a GENUINE rate limit keeps the existing retry-with-backoff on the same model', async () => {
+    vi.useFakeTimers();
+    state.behaviour[PROS[0]] = 'rate-limited';
+    state.rateLimitedRemaining = 1;
+    const pending = extractFromMedia(IMAGE, 'menu');
+    await vi.advanceTimersByTimeAsync(61_000);
+    const out = await pending;
+    expect(out[0]['Product Name']).toBe(`from ${PROS[0]}`);
+    expect(state.tried).toEqual([PROS[0], PROS[0]]); // retried, not switched
+  });
+
+  it('an invalid key does not walk the model list', async () => {
+    vi.useFakeTimers();
+    for (const m of Q) state.behaviour[m] = 'bad-key';
+    const pending = extractFromMedia(IMAGE, 'menu').then(() => null, (e) => e);
+    await vi.advanceTimersByTimeAsync(10 * 61_000);
+    const err = await pending;
+    expect(err).toBeInstanceOf(Error);
+    expect(new Set(state.tried)).toEqual(new Set([PROS[0]])); // only ever the first model
+  });
+});
+
+describe('extractStructuredData (spreadsheet / Word / pasted text OCR)', () => {
+  it('moves past a model with no quota instead of retrying it', async () => {
+    const F = MODEL_CANDIDATES.fast;
+    state.behaviour[F[0]] = 'no-quota';
+    const out = await extractStructuredData('Tea 13', 'menu');
+    expect(out).toEqual([{ 'Product Name': `from ${F[1]}` }]);
+    expect(state.tried).toEqual([F[0], F[1]]);
+  });
+
+  it('moves past an overloaded model within the same call', async () => {
+    const F = MODEL_CANDIDATES.fast;
+    state.behaviour[F[0]] = 'overloaded';
+    const out = await extractStructuredData('Tea 13', 'menu');
+    expect(out[0]['Product Name']).toBe(`from ${F[1]}`);
+    expect(resolveModel('fast')).toBe(F[0]); // not retired
+  });
+});

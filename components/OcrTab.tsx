@@ -6,6 +6,8 @@ import { aiService } from '../services/aiServiceFactory';
 import { MAX_EXTRACTION_TEXT } from '../services/geminiService';
 import { readWorkbookBytes } from '../services/workbookBytes';
 import { textInputKind, workbookToText, extractDocxText } from '../utils/ocrTextInput';
+import { collectHeaders, applyPriceRanges } from '../utils/ocrPostProcess';
+import { friendlyAiError } from '../utils/aiErrors';
 import {
   autoMap, refreshMapping, mapRowsToTemplate, cleanTemplateHeaders, isCsvFile, parseCsvTemplate,
   isRewaaTemplate, isVariableRow, stripForSimple, stripForVariable, matchesTemplate,
@@ -343,12 +345,17 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
     
     // Feature Injections
     if (enableTranslate) prompt += " Translate ALL text fields (Product Name, Description, Option 1 Value, Option 2 Value, Option 3 Value): Arabic->English (concat using ' | ') or English->Arabic (concat using ' | '). If already bilingual, keep as is.";
-    if (enableSplit) prompt += " DETECT VARIANTS: If an item has options (Size, Flavor, Type) like 'Spicy/Regular' or 'Small/Large', YOU MUST split it into separate rows. **CRITICAL: If the price is a range like '20 - 30', split it into TWO separate rows.** For price ranges where sizes aren't named, use 'Small | صغير' for the lower price and 'Large | كبير' for the higher price, under 'Option 1'. Set Type='Variable' and fill Option 1/Option 1 Value. If there are multiple variant dimensions (e.g. Size AND Color), use Option 2/Option 2 Value for the additional variants.";
+    if (enableSplit) prompt += " DETECT VARIANTS: If an item has options (Size, Flavor, Type) like 'Spicy/Regular' or 'Small/Large', YOU MUST split it into separate rows. **CRITICAL: A price RANGE like '20 - 30' is NOT two variants. Keep it as ONE row and copy the range text exactly as written into 'Retail Price' (e.g. '20 - 30'). Never split a range into one row per price and never invent size names for it.** For real variants, set Type='Variable' and fill Option 1/Option 1 Value. If there are multiple variant dimensions (e.g. Size AND Color), use Option 2/Option 2 Value for the additional variants.";
     
     // Enhanced Prompt for SKU, Stock, and Category
     prompt += " MANDATORY COLUMNS: 1. 'Product SKU' (if Simple) or 'Variant SKU' (if Variable): Extract code/ID if visible, otherwise leave empty. 2. 'Category': Extract category. 3. 'Enable stock management': 'yes' or 'no' (default 'no'). 4. 'Type': 'Simple' or 'Variable'.";
 
     return prompt;
+  };
+
+  const logPriceRanges = ({ ranges, mergedAway }: { ranges: number; mergedAway: number }) => {
+      if (ranges > 0) addLog(`${ranges} price range(s) kept as one row each: Price set to 0, range written to Description.`, 'info');
+      if (mergedAway > 0) addLog(`${mergedAway} duplicate variant row(s) from a split price range merged back.`, 'info');
   };
 
   const handleProcess = async () => {
@@ -387,7 +394,12 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                   undefined,
                   (msg) => addLog(msg, 'warning'),
               );
-              const resultArray = Array.isArray(result) ? result : [result];
+              const extracted = Array.isArray(result) ? result : [result];
+              // Price ranges -> one row, Price 0, range in Description. Before
+              // random SKUs, so a merged-away duplicate never gets one.
+              const ranged = applyPriceRanges(extracted.filter((r: any) => r && typeof r === 'object'));
+              logPriceRanges(ranged);
+              const resultArray: any[] = ranged.rows;
               
               if (resultArray.length > 0) {
                   // Post-Process: Generate Random SKUs
@@ -409,7 +421,8 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                   
                   allResults.push(...resultArray);
                   setMasterData(resultArray);
-                  setRawHeaders(Object.keys(resultArray[0]));
+                  // Every row's columns, not the first row's: variant columns often first appear later.
+                  setRawHeaders(collectHeaders(resultArray));
                   
                   resultArray.forEach((r: any) => {
                       const itemName = r['Product Name'] || r.Item || r.Name || r.name || r.item || r.Description || 'Unknown Item';
@@ -417,7 +430,10 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                   });
               }
           } catch (e: any) {
-              addLog(`Error processing text: ${e.message}`, 'error');
+              // Readable, localised sentence for the user; the raw provider error
+              // (JSON inside JSON) only in the console.
+              console.error('[OCR] text extraction failed:', e);
+              addLog(`${t.aiErrors.textFailed} ${friendlyAiError(e, language)}`, 'error');
           }
           clearInterval(progressInterval);
           setProgress(100);
@@ -429,7 +445,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
               const file = files[i];
               addLog(`Processing file ${i + 1} of ${files.length}: ${file.file.name}...`, 'info');
               try {
-                  const result: any = file.text !== undefined
+                  const raw: any = file.text !== undefined
                       // Spreadsheet / Word input: the very call text mode uses, same prompt.
                       ? await aiService.extractStructuredData(file.text, fullPrompt, undefined, (msg) => addLog(msg, 'warning'))
                       : await aiService.extractFromMedia(
@@ -442,8 +458,14 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                       // NOT read as everything going fine.
                       (msg) => addLog(msg, 'warning'),
                   );
+                  let result: any[] = [];
+                  if (Array.isArray(raw)) {
+                      const ranged = applyPriceRanges(raw.filter((r: any) => r && typeof r === 'object'));
+                      logPriceRanges(ranged);
+                      result = ranged.rows;
+                  }
                   
-                  if (Array.isArray(result) && result.length > 0) {
+                  if (result.length > 0) {
                       allResults.push(...result);
                       
                       // Post-Process: Generate Random SKUs if keyword present or flag set (Per batch)
@@ -474,16 +496,14 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                           return newData;
                       });
                       
-                      // Update headers if not set yet
-                      setRawHeaders(prev => {
-                          if (prev.length === 0 && result.length > 0) {
-                              return Object.keys(result[0]);
-                          }
-                          return prev;
-                      });
+                      // Add every column this batch brought, from ANY row. It used to
+                      // take the first row of the first batch only, so variant columns
+                      // that appeared later could not be mapped.
+                      setRawHeaders(prev => collectHeaders(result, prev));
                   }
               } catch (e: any) {
-                  addLog(`Error processing ${file.file.name}: ${e.message}`, 'error');
+                  console.error(`[OCR] extraction failed for ${file.file.name}:`, e);
+                  addLog(`${t.aiErrors.fileFailed.replace('{file}', file.file.name)} ${friendlyAiError(e, language)}`, 'error');
               }
               setProgress(Math.round(((i + 1) / files.length) * 100));
           }

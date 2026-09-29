@@ -392,17 +392,24 @@ No three-way compare, no cell-level colour diff export. `components/CompareTool.
 #### Output / ماذا يخرج؟
 XLSX of the extracted rows, produced when the user clicks **Export** — there is no automatic download since 2026-09-28 (D9), because a download firing long after the click that started it is treated as unsolicited and can be blocked. Progress is reported per file, and per extracted item name as the stream arrives.
 
+**Price ranges (business rule, 2026-09-29).** A price written as a range — `600-900`, `600–900`, `600—900`, with or without Arabic text around it (`من 600 - 900 ريال`) — is **one row**, **Price `0`**, and **`Price range: 600 to 900`** in the Description (appended after `; ` when a description already exists). It is never split into one row per endpoint and never guessed as either end. A single price (`600`) is untouched. The prompts ask the model to return the range text as written; `utils/ocrPostProcess.ts` then applies the rule before random SKUs are generated. **Duplicate-variant protection:** if the model still splits a range, rows with the same product, category and option values but different prices are merged back into one (Price 0, `Price range: min to max`); an option dimension the model named `Range` / `المدى` / `نطاق` for the split is ignored when comparing and cleared on the merged row. Equal prices, different option values, different categories and simple rows are never merged. Only `-`, `–` and `—` are range separators; `20/30` is not recognised.
+**AR:** السعر المكتوب كنطاق (مثل `600–900`) يبقى **صفاً واحداً** بسعر **`0`** ويُكتب النطاق في الوصف: `Price range: 600 to 900`. لا يُقسَّم إلى صفين، والسعر المفرد يبقى كما هو.
+
+**Mapping columns.** The mapping panel offers every column that appears in **any** extracted row (first-seen order). It used to offer only the first row's, so a menu opening with a simple item hid `Option 1`, `Option 1 Value` and the other variant columns, and the Variable sheet exported them blank.
+
 #### Errors / ما الأخطاء التي تظهر؟
 | Error (EN) | Arabic | Trigger |
 |---|---|---|
-| `Error processing <filename>: <message>` | *(English only)* | Per-file failure — API, quota, unreadable media |
-| `Error processing text: <message>` | *(English only)* | Text-path failure |
+| `Could not process <filename>: <reason>` | `تعذرت معالجة <filename>: <reason>` | Per-file failure |
+| `Could not process the text: <reason>` | `تعذرت معالجة النص: <reason>` | Text-path failure |
+| *reason* — one of: no key set · key rejected · no model available for this key · models busy · usage limit reached · unreadable AI response · cannot reach the AI service · unexpected error | Arabic for each, in `utils/translations.ts` → `aiErrors` | Classified by `utils/aiErrors.ts` from the provider error. The raw error (JSON inside JSON) is **never shown**; it goes to the browser console via `console.error` |
 | `Template Error: <message>` | *(English only)* | The `.xlsx` template could not be read |
 | `No data extracted.` | *(English only)* | The model returned nothing usable |
-| `Model "<a>" is unavailable; continuing on "<b>". Output quality may differ.` | *(English only)* | Model retired mid-run — logged as a **warning**, not as green progress |
+| `Model "<a>" is unavailable / has no quota on this API key / is overloaded right now; continuing on "<b>". Output quality may differ.` | *(English only)* | Model fallback — logged as a **warning**, not as green progress |
+| `<n> price range(s) kept as one row each: …` · `<n> duplicate variant row(s) from a split price range merged back.` | *(English only)* | Info: the price-range rule was applied |
 
 #### Error handling / ماذا يحدث عند الخطأ؟
-**EN:** Failures are **per file**: one bad image is reported by name and the batch continues. A model retirement walks down the candidate list and says so.
+**EN:** Failures are **per file**: one bad image is reported by name and the batch continues. **Model fallback (2026-09-29):** a model that is retired (404), has **no quota on this key** (429 with `limit: 0`), or is **overloaded** (503 / high demand) is abandoned after ONE request and the next candidate in the tier's ordered list is tried — none of these consumes the retry budget. Retired and no-quota models are remembered **per API key**; an overloaded one is skipped only for the current call. A genuine rate limit (429 with a non-zero limit) keeps the existing wait-and-retry on the same model; an invalid key does not walk the list. When every candidate is unusable, the call stops with a readable error instead of retrying. Applies to OCR's two calls (`extractFromMedia`, `extractStructuredData`) only.
 **AR:** الأخطاء لكل ملف على حدة: يُذكر اسم الملف الفاشل وتستمر الدفعة. وتغيّر الموديل يُسجَّل تنبيهاً.
 
 #### Edge cases / ما الحالات الخاصة؟
@@ -412,7 +419,7 @@ Streamed replies are parsed incrementally, so partial JSON is normal mid-run. Ar
 No local/offline OCR (no Tesseract), no bounding boxes or coordinates, no page-range selection for PDFs, no handwriting guarantee.
 
 #### Code / أين الكود؟ · Tests / أين الاختبارات؟
-`components/OcrTab.tsx` (880 lines) · `services/geminiService.ts` (`extractFromMedia`, `extractStructuredData`). **No module test.** The AI plumbing it depends on is covered by `tests/unit/geminiModels.test.ts` — including that `extractFromMedia` reports a fallback through `onNotice` and *not* through the progress channel.
+`components/OcrTab.tsx` · `services/geminiService.ts` (`extractFromMedia`, `extractStructuredData`, `classifyModelFailure`) · `utils/ocrPostProcess.ts` (`collectHeaders`, `applyPriceRanges`) · `utils/aiErrors.ts`. Tests: `tests/unit/geminiFallback.test.ts` (fallback on the live-run error shapes), `tests/unit/ocrPostProcess.test.ts` (mapping columns, price ranges), `tests/unit/aiErrors.test.ts` (readable EN/AR errors), `tests/unit/geminiModels.test.ts` (notices on `onNotice`, not progress), `e2e/ocr-text-input.spec.ts`, and `e2e/ocr-rewaa-export.spec.ts` — real Rewaa templates, real-run data shape, checks the exported Mapped Simple / Mapped Variable cells.
 
 ---
 
@@ -704,7 +711,7 @@ and every row is marked `Translated`, `Already bilingual`, or `NOT TRANSLATED`.
 
 **Input** — 3 photographed invoices (`.jpg`) + an optional `.xlsx` template whose headers define the wanted fields.
 **User selects** → the images, the template, then Run.
-**Module does** → for each file, `extractFromMedia` on the `quality` tier, streaming; if the Pro id is retired it drops to the next candidate and logs a **warning**.
+**Module does** → for each file, `extractFromMedia` on the `quality` tier, streaming; if a model is retired, has no quota on this key, or is overloaded, it moves to the next candidate after one request and logs a **warning**.
 **Output** — one XLSX of all extracted rows; a file that fails is named in the log and the other two still complete.
 
 ---
