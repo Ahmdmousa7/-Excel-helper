@@ -18,7 +18,8 @@ import { AiTier, ApiKeyStatus, IAiService, ModelNotice } from "../types/ai.types
  * The service walks its tier's list and uses the first id that answers. An id
  * that comes back "no longer available" is struck off for the session and the
  * next one is tried, so a retirement costs one wasted request rather than a
- * broken feature. `resolveModel()` and `retireModel()` below do the walking.
+ * broken feature. `resolveModel()` picks the id; `advanceModel()` moves past one
+ * that is retired, has no quota on the key, or is overloaded.
  *
  * Ordering is the only judgement here:
  *   quality — newest Pro first, older Pro ids behind it, Flash last so the tier
@@ -153,6 +154,11 @@ export const resolveModel = (tier: AiTier): string => {
 /**
  * Strike an id off for the current key, for this session. Returns the next one
  * to try, or null.
+ *
+ * No production caller since TD-051: every AI call now goes through
+ * `advanceModel`, which also handles no-quota and overload. Kept, and exported,
+ * as the registry's direct handle — `tests/unit/geminiModels.test.ts` uses it to
+ * seed per-key retirements and pin how `resolveModel` reads them.
  */
 export const retireModel = (tier: AiTier, model: string): string | null => {
   const retired = retiredFor(keyBucket());
