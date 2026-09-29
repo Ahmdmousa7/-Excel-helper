@@ -1,8 +1,8 @@
 {
-  "attestation_id": "sha256:2fdcb848aa87cafa51023f8a3cc1bbf63fd9d3fe96735576754c22d94ccd861e",
+  "attestation_id": "sha256:f070985e6746c7c94843f558e6ed80a7a37c6711f6b567fab50bc25e3efa4447",
   "files": [
     {
-      "oid": "6929155e3db3824e593d5aa04d3a625216e7a22e",
+      "oid": "3e79970194f33c8d0a6098213217831e0703f637",
       "path": "README.md"
     },
     {
@@ -22,15 +22,15 @@
       "path": "components/WebScraperTab.tsx"
     },
     {
-      "oid": "4a96e0c397092ec8a864c925b3c9701c7fa3365b",
+      "oid": "b9283d01abe8d51fe2d2fcfe240d57d3835a64b0",
       "path": "docs/TESTING.md"
     },
     {
-      "oid": "f3150c6ca4f7f262e6b7ab536134c6807ec80ad8",
+      "oid": "0f0e4edd634e4bd79a501de7a177627fb5225035",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "1f5d8e825ea92f970e061eff2407678c26952896",
+      "oid": "cf21eba20c767e92ccebdcc1d6b1e162fb31d5d7",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
@@ -42,7 +42,7 @@
       "path": "e2e/support-chat-fallback.spec.ts"
     },
     {
-      "oid": "7a7bcf81faa8c509d25627ce57c54b0cc13ad29f",
+      "oid": "c2313b378e7356de02f61feb0f86677f815ea74a",
       "path": "services/geminiService.ts"
     },
     {
@@ -58,7 +58,7 @@
       "path": "tests/unit/aiErrors.test.ts"
     },
     {
-      "oid": "5cdce1f307b97c81711911bd2eaf75ecf06369d6",
+      "oid": "82046281182baf059c08be7d8accd270dfacdcc8",
       "path": "tests/unit/geminiFallback.test.ts"
     },
     {
@@ -74,12 +74,12 @@
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
-    "medium": 1
+    "low": 4,
+    "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "275f20978c0695c8fbba688deec08339f66ccfda",
+  "reviewed_at_commit": "bddbb4377928f0b2463c0e9a9d1b5d7c552928a0",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

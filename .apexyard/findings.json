@@ -1,42 +1,60 @@
 {
-  "attestation_id": "sha256:2fdcb848aa87cafa51023f8a3cc1bbf63fd9d3fe96735576754c22d94ccd861e",
+  "attestation_id": "sha256:f070985e6746c7c94843f558e6ed80a7a37c6711f6b567fab50bc25e3efa4447",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
-    "medium": 1
+    "low": 4,
+    "medium": 0
   },
   "findings": [
     {
-      "category": "architecture",
-      "detail": "Before this change a 429 `limit: 0` was not `isModelUnavailable`, so it fell into the `isKeyIssue` branch and called `rotateKey()` — a user with two keys configured would move to key B, whose project may well have quota. Now `classifyModelFailure` returns `no-quota`, `advanceModel` walks the candidate list on key A, and when the list is exhausted it *throws* from inside the catch, so `rotateKey()` is never reached. Concrete failure: a user pastes a dud/unbilled key first and a working one second; Translator (and Compare / Support Chat, same shape at :638 and :673) now fails with \"No usable Gemini model…\" after one request per candidate instead of succeeding on key 2. The common case is improved — falling to Flash on the same key is far better than four 60s waits — which is why this is medium and not high; the regression only bites when *every* candidate is no-quota on the current key. The same pattern already shipped for OCR, so this PR extends it rather than introducing it, but it is now the behaviour of every AI tool. It would be high if a free-tier key commonly returned `limit: 0` for Flash as well as Pro; the live-run evidence in the tech-debt register says it does not.",
-      "file": "services/geminiService.ts",
-      "line": 477,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "no-quota errors no longer fall through to API-key rotation"
-    },
-    {
       "category": "code-smell",
-      "detail": "The `try` at :287 wraps the AI call *and* all of the post-processing — `alignBatchResults`, the `translationMap.set` loop, `addLog`, `setProgress`. Every error in that span is now run through `readableAiError`, so a `TypeError` from the alignment/apply code surfaces to the user as \"The AI request failed unexpectedly\" and is written into the PARTIAL workbook's \"Stopped because\" line under that wording. Before the change the real message was passed through. This is exactly the failure mode the same PR deliberately avoids in WebScraperTab.tsx:194-207 and documents in the comment there, so the two tabs now disagree on the rule. Low rather than medium because the post-AI code is pure and index-safe, and `readableAiError` still console.errors the original, so debuggability survives.",
-      "file": "components/TranslateTab.tsx",
-      "line": 374,
+      "detail": "The stored key string is now parsed in four places with three different expressions: getStoredApiKey (line 183, `split('\\n').map(trim).filter`), rotateKey (line 399, `split('\\n').filter(trim)`), getMaxRetries (line 414, `split('\\n').filter(trim)`) and the new storedKeyCount (line 410, `split(/\\r?\\n/).filter(trim)`). I checked the divergence and it is currently harmless — for any CRLF or LF input the two forms produce the same non-empty count, so advanceModel's `storedKeyCount() > 1` and rotateKey's `allKeys.length <= 1` cannot disagree. The cost is future-facing: the no-quota rotation loop in advanceModel is correct only while those two agree, and nothing in the file says so. If someone later 'fixes' rotateKey to also strip \\r, or switches one of them to a different split, advanceModel can enter its rotation loop while rotateKey refuses to rotate — producing keyCount-1 useless identical requests per model.",
+      "file": "services/geminiService.ts",
+      "line": 410,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Translator's batch catch relabels its own errors as AI errors"
+      "summary": "storedKeyCount is a fourth copy of the key-splitting logic, with a different separator"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "The rewritten OCR paragraph inserts \"Applies to every AI call (TD-051).\" but leaves the pre-existing closing sentence \"Applies to OCR's two calls (`extractFromMedia`, `extractStructuredData`) only.\" untouched a few clauses later. The whole point of this PR is that the second sentence is no longer true, and MODULE_GUIDE.md is the document a reader consults precisely to answer \"does this tab get fallback?\". Leaving both claims in one paragraph means the next reader has to go read geminiService.ts to find out which one is current — which is the cost the guide exists to remove.",
+      "file": "docs/modules/MODULE_GUIDE.md",
+      "line": 415,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "OCR error-handling paragraph now contradicts itself in the same sentence run"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "This PR removes advancePastRetiredModel, which was retireModel's sole production caller. Grepping the tree, retireModel is now referenced only by its own tests (tests/unit/geminiModels.test.ts:418, 429, 438, 451, 550, 559, 567, 574, 585) and by two comments that still describe it as live (services/geminiService.ts:21 'resolveModel() and retireModel() below do the walking', and :204 'never calls retireModel'). An exported function kept alive only by its own tests is dead code that reads as API: the next person to change the per-key retirement registry will assume retireModel is a supported entry point and keep it consistent with advanceModel for no benefit.",
+      "file": "services/geminiService.ts",
+      "line": 157,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "retireModel is now an unused export — its only production caller was deleted"
     },
     {
       "category": "typescript",
-      "detail": "`let result: any[];` is a new bare `any[]` in the diff with no justification comment, which is the shape `handbooks/language/typescript/type-safety.md` flags. Noting it for completeness rather than as a request: `IAiService.extractStructuredData` is already declared `Promise<any[]>` (types/ai.types.ts:71), so the annotation introduces no looseness that was not already there, and the hoisted `let` is required by the new try/catch. The actionable fix is at the interface, not here.",
+      "detail": "CompareTool declares `language?: string` (line 13), so the new readableAiError call site at line 172 has to hand-narrow with `language === 'ar' ? 'ar' : 'en'` to satisfy readableAiError's `Language` parameter. The behaviour is correct today, but the narrowing silently swallows any future third locale: adding 'fr' to the Language union would make every other tab localise while Compare's AI error quietly falls back to English, with no compiler error to point at. The union type already exists and is imported throughout the codebase (utils/translations.ts `Language`), and the sibling tabs touched in this same PR — TranslateTab.tsx:374 and WebScraperTab.tsx:206 — pass `language` straight through because their props are typed.",
+      "file": "components/CompareTool.tsx",
+      "line": 172,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "`language === 'ar' ? 'ar' : 'en'` narrows a prop that should be typed Language"
+    },
+    {
+      "category": "typescript",
+      "detail": "The try/catch split around the AI call requires hoisting the binding, which introduces `let result: any[];`. The type is inherited from `aiService.extractStructuredData`'s declared `Promise<any[]>` and matches the file's neighbours (OcrTab.tsx:461 uses the same shape), so this is not new looseness — but the type-safety handbook asks for a same-line reason on any `any[]` added in a diff, and this one reads as an unexplained choice to someone who does not know the service signature. Flagging for the record only; the fix is a comment, not a redesign.",
       "file": "components/WebScraperTab.tsx",
       "line": 197,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "New `any[]` annotation, though it only mirrors the service's declared type"
+      "summary": "New `let result: any[]` declaration carries no justification comment"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 5
 }

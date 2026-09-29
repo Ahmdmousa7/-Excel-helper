@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:2fdcb848aa87cafa51023f8a3cc1bbf63fd9d3fe96735576754c22d94ccd861e` |
+| Attestation id | `sha256:f070985e6746c7c94843f558e6ed80a7a37c6711f6b567fab50bc25e3efa4447` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `275f20978c06` |
+| Reviewed at commit | `bddbb4377928` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 1 |
-| low | 1 |
+| medium | 0 |
+| low | 4 |
 | info | 1 |
 
-TD-051 extends the OCR model-fallback logic (classifyModelFailure + advanceModel) to translateBatch, processGeneralFile and generateText, deletes the now-unused advancePastRetiredModel, and routes the AI call's error in Translator / Web Scraper / Compare / Support Chat through a new readableAiError helper that shows one localised sentence and logs the raw provider error to the console. The refactor is clean — every caller of the removed helper was migrated, no dangling references remain, and the change is backed by 12 new unit tests pinning the real 429 `limit: 0` / 503 error shapes plus a new offline-fixture e2e spec. No blocking-handbook violations and nothing high or critical; three non-blocking notes below, the main one being that no-quota errors no longer reach the multi-key rotation path.
+TD-051 extends OCR's model-fallback behaviour (retired / no-quota / overloaded models advance to the next candidate after one request, without spending the retry budget) to translateBatch, processGeneralFile and generateText, and routes AI-call failures in Translator, Web Scraper, Compare and Support Chat through a new readableAiError helper that yields one localised sentence to the user and the raw provider error to the console. It also adds a no-quota key-rotation step in advanceModel so a key without Pro quota tries the same model on the next key before downgrading. I traced the rotation logic against rotateKey/keyBucket/retiredFor and the per-attempt getAiClient() calls — the (key, model) walk is bounded, each pair costs at most one request, the full-cycle restore rotation count is correct for 2/3/4 keys, and duplicate keys collapse to one bucket rather than wasting a request. Unit and e2e coverage is genuinely behavioural (asserts the exact request sequence per key, the absence of raw JSON in both languages, and that each tab's own errors survive unrewritten). No blocking-handbook violations and no high/critical defects; five low/info housekeeping items below.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ TD-051 extends the OCR model-fallback logic (classifyModelFailure + advanceModel
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 569 warning(s) |
-| Vitest | pass | 638/638 passed, lines 99.34% |
+| Vitest | pass | 644/644 passed, lines 99.34% |
 | Playwright | pass | 127/128 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 118 source files, 32216 lines
+- 118 source files, 32320 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -67,8 +67,8 @@ reports zero failures for a tool that never executed.
 | `components/SupportChat.tsx` | 964 |
 | `components/OcrTab.tsx` | 956 |
 | `components/TranslateTab.tsx` | 956 |
+| `services/geminiService.ts` | 940 |
 | `utils/translations.ts` | 925 |
-| `services/geminiService.ts` | 912 |
 | `components/ProjectSummaryTab.tsx` | 841 |
 | `components/ZidTab.tsx` | 841 |
 
