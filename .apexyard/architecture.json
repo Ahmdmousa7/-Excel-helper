@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:0f82d6f1c64088146c420d212fb820c1b4dda273f4529d77fe303338ffdf1ae7",
+  "attestation_id": "sha256:2fdcb848aa87cafa51023f8a3cc1bbf63fd9d3fe96735576754c22d94ccd861e",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,11 +8,11 @@
     },
     "components": {
       "files": 36,
-      "loc": 17721
+      "loc": 17742
     },
     "e2e": {
-      "files": 27,
-      "loc": 3499
+      "files": 28,
+      "loc": 3689
     },
     "hooks": {
       "files": 2,
@@ -20,11 +20,11 @@
     },
     "services": {
       "files": 6,
-      "loc": 1366
+      "loc": 1343
     },
     "tests": {
       "files": 22,
-      "loc": 5269
+      "loc": 5379
     },
     "types": {
       "files": 1,
@@ -32,7 +32,7 @@
     },
     "utils": {
       "files": 15,
-      "loc": 2872
+      "loc": 2890
     }
   },
   "layering": {
@@ -58,7 +58,7 @@
       },
       {
         "file": "components/SupportChat.tsx",
-        "loc": 957
+        "loc": 964
       },
       {
         "file": "components/OcrTab.tsx",
@@ -66,15 +66,15 @@
       },
       {
         "file": "components/TranslateTab.tsx",
-        "loc": 953
-      },
-      {
-        "file": "services/geminiService.ts",
-        "loc": 935
+        "loc": 956
       },
       {
         "file": "utils/translations.ts",
         "loc": 925
+      },
+      {
+        "file": "services/geminiService.ts",
+        "loc": 912
       },
       {
         "file": "components/ProjectSummaryTab.tsx",
@@ -96,6 +96,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 117,
-  "total_loc": 31900
+  "source_files": 118,
+  "total_loc": 32216
 }

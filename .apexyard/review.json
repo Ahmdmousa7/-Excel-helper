@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:0f82d6f1c64088146c420d212fb820c1b4dda273f4529d77fe303338ffdf1ae7",
+  "attestation_id": "sha256:2fdcb848aa87cafa51023f8a3cc1bbf63fd9d3fe96735576754c22d94ccd861e",
   "available": true,
-  "files_reviewed": 16,
+  "files_reviewed": 17,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
-    "medium": 0
+    "low": 1,
+    "medium": 1
   },
   "findings_total": 3,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR hardens OCR Extraction on three fronts: model fallback in geminiService now classifies a failure as retired / no-quota / overloaded / transient and walks the candidate list after ONE request instead of burning the retry budget (plus gemini-3-flash-preview appended as the last quality candidate, documented as D11); a new pure utils/ocrPostProcess.ts applies the price-range business rule and collects mapping columns from every extracted row; and utils/aiErrors.ts replaces raw JSON-in-JSON provider errors with one localised sentence (EN/AR). Layering, secrets and injection surfaces are clean — no blocking-handbook violations. I ran the four touched unit suites locally (177 tests, all green) and read the new e2e spec, which pins the real-run data shape end to end; the remaining findings are advisory polish, nothing that should hold the merge.",
+  "summary": "TD-051 extends the OCR model-fallback logic (classifyModelFailure + advanceModel) to translateBatch, processGeneralFile and generateText, deletes the now-unused advancePastRetiredModel, and routes the AI call's error in Translator / Web Scraper / Compare / Support Chat through a new readableAiError helper that shows one localised sentence and logs the raw provider error to the console. The refactor is clean — every caller of the removed helper was migrated, no dangling references remain, and the change is backed by 12 new unit tests pinning the real 429 `limit: 0` / 503 error shapes plus a new offline-fixture e2e spec. No blocking-handbook violations and nothing high or critical; three non-blocking notes below, the main one being that no-quota errors no longer reach the multi-key rotation path.",
   "verdict": "approved"
 }

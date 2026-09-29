@@ -1,40 +1,40 @@
 {
-  "attestation_id": "sha256:0f82d6f1c64088146c420d212fb820c1b4dda273f4529d77fe303338ffdf1ae7",
+  "attestation_id": "sha256:2fdcb848aa87cafa51023f8a3cc1bbf63fd9d3fe96735576754c22d94ccd861e",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
-    "medium": 0
+    "low": 1,
+    "medium": 1
   },
   "findings": [
     {
+      "category": "architecture",
+      "detail": "Before this change a 429 `limit: 0` was not `isModelUnavailable`, so it fell into the `isKeyIssue` branch and called `rotateKey()` — a user with two keys configured would move to key B, whose project may well have quota. Now `classifyModelFailure` returns `no-quota`, `advanceModel` walks the candidate list on key A, and when the list is exhausted it *throws* from inside the catch, so `rotateKey()` is never reached. Concrete failure: a user pastes a dud/unbilled key first and a working one second; Translator (and Compare / Support Chat, same shape at :638 and :673) now fails with \"No usable Gemini model…\" after one request per candidate instead of succeeding on key 2. The common case is improved — falling to Flash on the same key is far better than four 60s waits — which is why this is medium and not high; the regression only bites when *every* candidate is no-quota on the current key. The same pattern already shipped for OCR, so this PR extends it rather than introducing it, but it is now the behaviour of every AI tool. It would be high if a free-tier key commonly returned `limit: 0` for Flash as well as Pro; the live-run evidence in the tech-debt register says it does not.",
+      "file": "services/geminiService.ts",
+      "line": 477,
+      "severity": "medium",
+      "suggested_fix": null,
+      "summary": "no-quota errors no longer fall through to API-key rotation"
+    },
+    {
       "category": "code-smell",
-      "detail": "`PRICE_HEADERS` flattens `'retail price'` and its synonyms (`regular price`, `selling price`, `price`) into one unordered Set, and `findKey` returns the FIRST row key that matches in `Object.keys` order. `resolveSourceKey` in templateMapping.ts deliberately tries the exact header first and only then the synonyms in listed order, precisely so a row carrying both `Price` and `Retail Price` maps the latter — and the module header states the whole point of templateMapping is that the mapper and the exporter 'can never disagree about which extracted column feeds which template column'. A row where the model emits `Price` before `Retail Price` now has the range rule applied to `Price` (which the HEADER_SYNONYMS comment itself notes is usually the purchase cost on an invoice extraction) while `Retail Price` keeps the range text and exports unchanged. Narrow trigger — the OCR prompt asks for `Retail Price` by name — which is why this is low rather than medium; it would rise if invoice extractions routinely returned both columns. The same applies to `DESCRIPTION_HEADERS` at line 42.",
-      "file": "utils/ocrPostProcess.ts",
-      "line": 71,
+      "detail": "The `try` at :287 wraps the AI call *and* all of the post-processing — `alignBatchResults`, the `translationMap.set` loop, `addLog`, `setProgress`. Every error in that span is now run through `readableAiError`, so a `TypeError` from the alignment/apply code surfaces to the user as \"The AI request failed unexpectedly\" and is written into the PARTIAL workbook's \"Stopped because\" line under that wording. Before the change the real message was passed through. This is exactly the failure mode the same PR deliberately avoids in WebScraperTab.tsx:194-207 and documents in the comment there, so the two tabs now disagree on the rule. Low rather than medium because the post-AI code is pure and index-safe, and `readableAiError` still console.errors the original, so debuggability survives.",
+      "file": "components/TranslateTab.tsx",
+      "line": 374,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "findKey uses a flat synonym Set, losing templateMapping's exact-before-synonym precedence"
+      "summary": "Translator's batch catch relabels its own errors as AI errors"
     },
     {
       "category": "typescript",
-      "detail": "`applyPriceRanges` returns a well-typed `PriceRangeResult` whose `rows` is `Record<string, unknown>[]`, but the new lines re-widen it: `const resultArray: any[] = ranged.rows` (402), `let result: any[] = []` (461), and the two `(r: any) =>` predicates at 400/463. The file is pervasively `any` already, so this is idiomatic here rather than a regression — but it discards type information the PR itself just created, which is the one case the strict-mode handbook asks a reviewer to push back on. None of the four carries an inline justification comment.",
-      "file": "components/OcrTab.tsx",
-      "line": 402,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "New `any` annotations added where the source type is now known"
-    },
-    {
-      "category": "typescript",
-      "detail": "`const key = findKey(rows[idx[0]], PRICE_HEADERS)!` asserts away a `.find()` that can return undefined. It is provably safe — the grouping loop at 179-186 only pushes an index when `findKey` returned a key for that same row — so this is an observation, not a defect. It is called out only because it is exactly the shape the type-safety handbook lists, and the proof lives ten lines away where a future reader will not look.",
-      "file": "utils/ocrPostProcess.ts",
-      "line": 190,
+      "detail": "`let result: any[];` is a new bare `any[]` in the diff with no justification comment, which is the shape `handbooks/language/typescript/type-safety.md` flags. Noting it for completeness rather than as a request: `IAiService.extractStructuredData` is already declared `Promise<any[]>` (types/ai.types.ts:71), so the annotation introduces no looseness that was not already there, and the hoisted `let` is required by the new try/catch. The actionable fix is at the interface, not here.",
+      "file": "components/WebScraperTab.tsx",
+      "line": 197,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Non-null assertion on a `.find()` result in the merge loop"
+      "summary": "New `any[]` annotation, though it only mirrors the service's declared type"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:0f82d6f1c64088146c420d212fb820c1b4dda273f4529d77fe303338ffdf1ae7` |
+| Attestation id | `sha256:2fdcb848aa87cafa51023f8a3cc1bbf63fd9d3fe96735576754c22d94ccd861e` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `897a52f8cadf` |
+| Reviewed at commit | `275f20978c06` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 16 |
+| Files reviewed | 17 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
-| low | 2 |
+| medium | 1 |
+| low | 1 |
 | info | 1 |
 
-This PR hardens OCR Extraction on three fronts: model fallback in geminiService now classifies a failure as retired / no-quota / overloaded / transient and walks the candidate list after ONE request instead of burning the retry budget (plus gemini-3-flash-preview appended as the last quality candidate, documented as D11); a new pure utils/ocrPostProcess.ts applies the price-range business rule and collects mapping columns from every extracted row; and utils/aiErrors.ts replaces raw JSON-in-JSON provider errors with one localised sentence (EN/AR). Layering, secrets and injection surfaces are clean — no blocking-handbook violations. I ran the four touched unit suites locally (177 tests, all green) and read the new e2e spec, which pins the real-run data shape end to end; the remaining findings are advisory polish, nothing that should hold the merge.
+TD-051 extends the OCR model-fallback logic (classifyModelFailure + advanceModel) to translateBatch, processGeneralFile and generateText, deletes the now-unused advancePastRetiredModel, and routes the AI call's error in Translator / Web Scraper / Compare / Support Chat through a new readableAiError helper that shows one localised sentence and logs the raw provider error to the console. The refactor is clean — every caller of the removed helper was migrated, no dangling references remain, and the change is backed by 12 new unit tests pinning the real 429 `limit: 0` / 503 error shapes plus a new offline-fixture e2e spec. No blocking-handbook violations and nothing high or critical; three non-blocking notes below, the main one being that no-quota errors no longer reach the multi-key rotation path.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ This PR hardens OCR Extraction on three fronts: model fallback in geminiService 
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 569 warning(s) |
-| Vitest | pass | 626/626 passed, lines 99.33% |
-| Playwright | pass | 122/122 passed |
+| Vitest | pass | 638/638 passed, lines 99.34% |
+| Playwright | pass | 127/128 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 117 source files, 31900 lines
+- 118 source files, 32216 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -64,11 +64,11 @@ reports zero failures for a tool that never executed.
 | `components/CompositeTab.tsx` | 1404 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1124 |
-| `components/SupportChat.tsx` | 957 |
+| `components/SupportChat.tsx` | 964 |
 | `components/OcrTab.tsx` | 956 |
-| `components/TranslateTab.tsx` | 953 |
-| `services/geminiService.ts` | 935 |
+| `components/TranslateTab.tsx` | 956 |
 | `utils/translations.ts` | 925 |
+| `services/geminiService.ts` | 912 |
 | `components/ProjectSummaryTab.tsx` | 841 |
 | `components/ZidTab.tsx` | 841 |
 

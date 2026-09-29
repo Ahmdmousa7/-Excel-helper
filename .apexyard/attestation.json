@@ -1,68 +1,72 @@
 {
-  "attestation_id": "sha256:0f82d6f1c64088146c420d212fb820c1b4dda273f4529d77fe303338ffdf1ae7",
+  "attestation_id": "sha256:2fdcb848aa87cafa51023f8a3cc1bbf63fd9d3fe96735576754c22d94ccd861e",
   "files": [
     {
-      "oid": "9965af661f8ba29f12e2a18fe13f6f46ee009942",
+      "oid": "6929155e3db3824e593d5aa04d3a625216e7a22e",
       "path": "README.md"
     },
     {
-      "oid": "b12274275879ebd3063dafcbe479b1967be83c39",
-      "path": "components/OcrTab.tsx"
+      "oid": "fc338df417e3188aef06b11ef67578195109c844",
+      "path": "components/CompareTool.tsx"
     },
     {
-      "oid": "6d6b2ee634d561b74019239f51aaaceed1d3309f",
+      "oid": "ec23f078b5d5bd5ac768c663892b200d3759addb",
+      "path": "components/SupportChat.tsx"
+    },
+    {
+      "oid": "e88f10552e9dc32f1a4cb2fc6675007f577db07d",
+      "path": "components/TranslateTab.tsx"
+    },
+    {
+      "oid": "6aa5588b2007a71826ba892ddbba2afe0245fc3a",
+      "path": "components/WebScraperTab.tsx"
+    },
+    {
+      "oid": "4a96e0c397092ec8a864c925b3c9701c7fa3365b",
       "path": "docs/TESTING.md"
     },
     {
-      "oid": "894db1f268d96fa62b7afd0075d12c3de1e32d43",
+      "oid": "f3150c6ca4f7f262e6b7ab536134c6807ec80ad8",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "c5bb1b2875712bc3ffb8830e07845c8d1be6e0f8",
-      "path": "docs/modules/open-decisions.md"
-    },
-    {
-      "oid": "d574ff9696b6a4f0e9f5a74900e7f86633bd11e8",
+      "oid": "1f5d8e825ea92f970e061eff2407678c26952896",
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "82a8f3eb3967c3a2f00e19ef6c009ea0057dab92",
-      "path": "e2e/ocr-rewaa-export.spec.ts"
+      "oid": "b0a099037ed0b2c2546953624c711fe89868be27",
+      "path": "e2e/ai-tools.spec.ts"
     },
     {
-      "oid": "9f3f71d059d1ce58cacd32a30e233dbb0d45fc72",
+      "oid": "05320b17dc56acf59b2c9294adec739e365fcc96",
+      "path": "e2e/support-chat-fallback.spec.ts"
+    },
+    {
+      "oid": "7a7bcf81faa8c509d25627ce57c54b0cc13ad29f",
       "path": "services/geminiService.ts"
     },
     {
-      "oid": "cd39c4f51daf8b8cf48b9d22a278efea63792582",
+      "oid": "153e89ece80a3b7d6c001bc8ed3a8e715da0c851",
+      "path": "tests/fixtures/README.md"
+    },
+    {
+      "oid": "092f0dd8ed592cb80c48b4680ac228b3d3b8eb6e",
+      "path": "tests/fixtures/kelah-menu.jina.md"
+    },
+    {
+      "oid": "85f22a40966aa93cffa53cc3543ef4baca30ed96",
       "path": "tests/unit/aiErrors.test.ts"
     },
     {
-      "oid": "4b51fad62afd857b41714c5de0d222eaa5e32483",
+      "oid": "5cdce1f307b97c81711911bd2eaf75ecf06369d6",
       "path": "tests/unit/geminiFallback.test.ts"
     },
     {
-      "oid": "ab19ce7ff27299f7f2cb0910fc5519f90c31a153",
-      "path": "tests/unit/ocrPostProcess.test.ts"
-    },
-    {
-      "oid": "0b8075e23867867af4419f8d28b61a6058a5c6f6",
-      "path": "tests/unit/templateMapping.test.ts"
-    },
-    {
-      "oid": "f2825c6e5aef4fbb574b75582117b9eceeb22653",
+      "oid": "6629844e2f77d1d8207d707473caaad485bcdf9c",
       "path": "utils/aiErrors.ts"
     },
     {
-      "oid": "0cdf289a12bed731fd30dc8755aeb8136972df58",
-      "path": "utils/ocrPostProcess.ts"
-    },
-    {
-      "oid": "16d6c3b4f84b81036fe484268d4eef7ca77edf62",
-      "path": "utils/templateMapping.ts"
-    },
-    {
-      "oid": "65918c8cd04c169ae9975dd2137278debada83ad",
+      "oid": "fecd25a0e49fc8ac6572a0dcad0a25d5eece35b8",
       "path": "utils/translations.ts"
     }
   ],
@@ -70,12 +74,12 @@
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
-    "medium": 0
+    "low": 1,
+    "medium": 1
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "897a52f8cadfa71e94b79f387f58e77dd64f958e",
+  "reviewed_at_commit": "275f20978c0695c8fbba688deec08339f66ccfda",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"
