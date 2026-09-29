@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:ce08e005921d36430ff8fde59510966e8dae01f5dd76c7c375ae1a66a96a5c4b` |
+| Attestation id | `sha256:011036d8ea135fb727b2fc655e20c9d78a62ff84bcdeff05383515518187c987` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `d92016555d87` |
+| Reviewed at commit | `90cbd92065c8` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 2 |
+| Files reviewed | 4 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
+| medium | 1 |
 | low | 0 |
-| info | 0 |
+| info | 1 |
 
-Documentation- and comment-only change with no behavioural effect. It replaces a self-contradicting paragraph in MODULE_GUIDE.md (which claimed the model-fallback both 'applies to every AI call' and 'applies to OCR's two calls only') with a single statement naming all five call sites, and updates two JSDoc blocks in geminiService.ts so the file header names advanceModel as the walker and retireModel documents why it survives with no production caller. I verified every factual claim against the source: advanceModel is called from exactly the five exported entry points named (translateBatch, extractStructuredData, processGeneralFile, generateText, extractFromMedia), retireModel is referenced only from tests/unit/geminiModels.test.ts, and the feature-to-function mapping in the doc (Translator/Compare/Support Chat) matches TranslateTab.tsx, CompareTool.tsx and SupportChat.tsx. No findings.
+This PR adds `X-No-Cache: true` to the Web Scraper's Jina requests so a scrape gets the live page instead of Jina's cached copy, which for the client-rendered kelah menu was a 243-byte empty app shell. The change is small, well-motivated, documented in both TESTING.md and MODULE_GUIDE.md, and covered by a new assertion in `e2e/ai-tools.spec.ts` that fails if the header is removed. One medium concern: the same custom-header object is now also passed to the `corsproxy.io` fallback, which previously sent a header-free simple request — that path is untested and the header addition changes its CORS characteristics.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 118 source files, 32326 lines
+- 118 source files, 32337 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

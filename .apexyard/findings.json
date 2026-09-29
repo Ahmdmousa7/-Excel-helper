@@ -1,14 +1,33 @@
 {
-  "attestation_id": "sha256:ce08e005921d36430ff8fde59510966e8dae01f5dd76c7c375ae1a66a96a5c4b",
+  "attestation_id": "sha256:011036d8ea135fb727b2fc655e20c9d78a62ff84bcdeff05383515518187c987",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 0,
-    "medium": 0
+    "medium": 1
   },
-  "findings": [],
+  "findings": [
+    {
+      "category": "code-smell",
+      "detail": "Before this PR the corsproxy fallback was `fetch('https://corsproxy.io/?…')` with no init — a CORS *simple* request, so the browser issued no preflight. It now carries `jinaHeaders`, which includes three non-simple headers (`X-Return-Format`, `X-Timeout`, `X-No-Cache`), so the browser must first send an `OPTIONS` preflight to corsproxy.io and see those names echoed in `Access-Control-Allow-Headers`. If corsproxy.io does not allow them, the fetch rejects, the outer `catch` at line 73 swallows it into a `console.warn`, and control falls through to the raw-HTML proxy loop at line 113 — which fetches `targetUrl` directly and, for exactly the client-rendered SPA this PR is fixing, returns the empty shell. The net effect would be losing the Jina fallback silently for users whose direct fetch to r.jina.ai is blocked. Separately, even when the preflight passes, it is unverified that corsproxy.io forwards `X-No-Cache` upstream to Jina, so the header may simply be a no-op on this path. No test exercises the corsproxy branch (the spec only routes `https://r.jina.ai/**`), so neither outcome would be caught. Kept at medium rather than high because it only affects an already-degraded fallback and the primary direct path — the one the new test asserts — is unaffected. It would be high if the direct path were commonly blocked in production, or if a reproduction showed corsproxy.io rejecting the preflight.",
+      "file": "components/WebScraperTab.tsx",
+      "line": 66,
+      "severity": "medium",
+      "suggested_fix": null,
+      "summary": "corsproxy fallback now sends custom headers, turning a simple request into a preflighted one"
+    },
+    {
+      "category": "architecture",
+      "detail": "`handbooks/architecture/frontend-boundaries.md` § rule 2 flags `fetch(` inside `components/**`, and `fetchContent` makes five of them. Recording this as an observation only: every one of those calls predates this PR, and the diff adds no new I/O — it extracts the existing header literal into a `const` and passes it to two existing `fetch` calls. Per the diff-scoped judgement the handbook itself applies (\"judge the diff, not the file it lands in\"), asking a 22-line header change to first extract `services/scrapeService.ts` is not actionable review feedback, so this is not scored as a violation and does not affect the verdict. Worth noting because the untestability it causes is visible right here: the corsproxy branch in the finding above can only be covered by a Playwright route intercept, not a unit test.",
+      "file": "components/WebScraperTab.tsx",
+      "line": 54,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "Network I/O lives in the component, but this PR does not introduce it"
+    }
+  ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 0
+  "total": 2
 }

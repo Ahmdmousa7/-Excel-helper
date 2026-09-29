@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:ce08e005921d36430ff8fde59510966e8dae01f5dd76c7c375ae1a66a96a5c4b",
+  "attestation_id": "sha256:011036d8ea135fb727b2fc655e20c9d78a62ff84bcdeff05383515518187c987",
   "available": true,
-  "files_reviewed": 2,
+  "files_reviewed": 4,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 0,
-    "medium": 0
+    "medium": 1
   },
-  "findings_total": 0,
+  "findings_total": 2,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Documentation- and comment-only change with no behavioural effect. It replaces a self-contradicting paragraph in MODULE_GUIDE.md (which claimed the model-fallback both 'applies to every AI call' and 'applies to OCR's two calls only') with a single statement naming all five call sites, and updates two JSDoc blocks in geminiService.ts so the file header names advanceModel as the walker and retireModel documents why it survives with no production caller. I verified every factual claim against the source: advanceModel is called from exactly the five exported entry points named (translateBatch, extractStructuredData, processGeneralFile, generateText, extractFromMedia), retireModel is referenced only from tests/unit/geminiModels.test.ts, and the feature-to-function mapping in the doc (Translator/Compare/Support Chat) matches TranslateTab.tsx, CompareTool.tsx and SupportChat.tsx. No findings.",
+  "summary": "This PR adds `X-No-Cache: true` to the Web Scraper's Jina requests so a scrape gets the live page instead of Jina's cached copy, which for the client-rendered kelah menu was a 243-byte empty app shell. The change is small, well-motivated, documented in both TESTING.md and MODULE_GUIDE.md, and covered by a new assertion in `e2e/ai-tools.spec.ts` that fails if the header is removed. One medium concern: the same custom-header object is now also passed to the `corsproxy.io` fallback, which previously sent a header-free simple request — that path is untested and the header addition changes its CORS characteristics.",
   "verdict": "approved"
 }
