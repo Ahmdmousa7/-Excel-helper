@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:b1bb95960a2b2d1dd5e0f79b48bd46fec0c921578ac2610af8e1d2fa8b7196dd` |
+| Attestation id | `sha256:fd0c0a5e536cc38992995488f77e0fcc307aee5109b97c0db9e56ea84e56ba82` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `23020f56703c` |
+| Reviewed at commit | `4d95979945a6` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 9 |
+| Files reviewed | 11 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 2 |
-| low | 3 |
+| medium | 0 |
+| low | 2 |
 | info | 1 |
 
-Adds `utils/yallaMenu.ts`, which reads Yalla QR Codes menus from the platform's own JSON API (`/api/categories/`, `/api/items-light/`, `/api/items/<id>/`) and renders them as one text line per sellable row, so items whose prices live behind a required size choice stop being dropped by the page-text scrape. `WebScraperTab` tries this route first and falls back to the existing Jina/page-text path on any failure, with a user-visible warning. The change is well-scoped and unusually well covered — 162 lines of unit tests over a real captured fixture plus two new e2e tests (menu-data path and fallback path), with docs and fixture READMEs updated. No blocking findings; the notes below are a missing request timeout that defeats the documented fallback on a hung API, layer placement of the new I/O module, and two small typing nits.
+This PR teaches Web Scraper to read Yalla QR Codes menus from the platform's own JSON API instead of the Jina page text, so items whose prices only exist behind a required size choice become one VARIANT row per option with its real price. The split is clean — `utils/yallaMenu.ts` is pure (URL recognition + JSON→text), `services/yallaMenuService.ts` owns the network read with an 8 s per-request and 30 s whole-read bound, and every failure path falls back to the page text with a user-visible warning. Coverage is strong and behavioural: 32 new unit tests over a real captured fixture (676/676 pass locally, matching the README/TESTING counts exactly) plus three e2e tests covering the happy path, an unreachable API, and a hung API that must time out without hanging the scrape. Three low/info notes below; nothing blocking.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ Adds `utils/yallaMenu.ts`, which reads Yalla QR Codes menus from the platform's 
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 569 warning(s) |
-| Vitest | pass | 670/670 passed, lines 99.31% |
-| Playwright | pass | 129/130 passed |
+| Vitest | pass | 676/676 passed, lines 99.3% |
+| Playwright | pass | 130/131 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 120 source files, 32793 lines
+- 122 source files, 33018 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

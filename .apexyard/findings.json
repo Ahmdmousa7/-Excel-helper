@@ -1,69 +1,42 @@
 {
-  "attestation_id": "sha256:b1bb95960a2b2d1dd5e0f79b48bd46fec0c921578ac2610af8e1d2fa8b7196dd",
+  "attestation_id": "sha256:fd0c0a5e536cc38992995488f77e0fcc307aee5109b97c0db9e56ea84e56ba82",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 3,
-    "medium": 2
+    "low": 2,
+    "medium": 0
   },
   "findings": [
     {
       "category": "architecture",
-      "detail": "`handbooks/architecture/frontend-boundaries.md` maps the layers as `services/` = I/O and `utils/` = pure logic, with rule 2 placing direct `fetch` in `services/`. `fetchYallaMenu` is a network orchestrator in `utils/` (the module header acknowledges it: \"Pure except `fetchYallaMenu`\"), and `components/WebScraperTab.tsx:55` supplies the browser `fetch` directly. I am NOT treating this as a blocking violation: the rule's stated rationale is testability, and this PR satisfies it better than the code around it — the I/O is dependency-injected and `tests/unit/yallaMenu.test.ts` exercises the whole fetch path with no network and no DOM, which none of the eight pre-existing `fetch(` calls in this same function can claim. What would make it blocking is I/O *logic* (retry, header, or endpoint decisions) living in the component rather than a one-line fetch adapter. Flagging it so the layer map stays honest as this module grows.",
-      "file": "utils/yallaMenu.ts",
-      "line": 169,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "Network I/O lives in `utils/`, and the raw `fetch` reference is in the component"
-    },
-    {
-      "category": "performance",
-      "detail": "`get()` calls `fetchFn` with no `AbortSignal` and no deadline. `fetch` has no default timeout, so if `kelah.yallaqrcodes.com/api/categories/` accepts the connection and then stalls (captive portal, overloaded origin, DNS-level blackhole), `fetchYallaMenu` never settles: the `catch` in `WebScraperTab.tsx:59` never runs, the documented page-text fallback never fires, and the tab sits at 5% with the last log line `Processing <url>...` and no way to cancel. This is the one failure mode the try/catch design does not actually cover — every other path (non-2xx, CORS refusal, malformed JSON) is handled correctly. The Jina route next to it already guards this server-side with `X-Timeout: 30`.",
-      "file": "utils/yallaMenu.ts",
-      "line": 171,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "No timeout on the menu API calls — a hung request never falls back"
-    },
-    {
-      "category": "performance",
-      "detail": "Every non-deleted item gets its own `/api/items/<id>/` request (correctly so — the comment explains `options_count` is unreliable), six at a time. The real kelah menu is 26 sections, so a few hundred round trips before anything is shown is plausible. `setProgress(40)` only runs after `fetchContent` returns, so the bar stays at 5% and the log stays silent for the entire fetch; a user on a slow connection cannot distinguish \"reading 300 items\" from \"hung\". Low rather than medium because the work completes and the success log afterwards is genuinely informative — it would rise if a menu ever pushes this past ~30s.",
-      "file": "utils/yallaMenu.ts",
-      "line": 182,
+      "detail": "`fetchYallaMenu(yalla, targetUrl, (u, init) => fetch(u, init))` keeps a literal `fetch(` token inside `components/`, which is the pattern `handbooks/architecture/frontend-boundaries.md` § rule 2 flags. I am deliberately NOT treating this as a rule-2 violation (hence non-blocking): the thing rule 2 exists to prevent — endpoint choice, headers, concurrency, timeouts living in the component — is exactly what this PR moved into `services/yallaMenuService.ts`, and the injected argument is a test seam, not I/O policy. It is still worth removing so the next reader does not read it as precedent for the surrounding legacy `fetch` calls at lines 83–135.",
+      "file": "components/WebScraperTab.tsx",
+      "line": 58,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Per-item detail fan-out gives no progress signal while it runs"
+      "summary": "Component still names `fetch` to inject it into the service"
     },
     {
       "category": "typescript",
-      "detail": "`yallaMenuSource` and `yallaMenuText` both declare their return types; `fetchYallaMenu` relies on inference for `{ text, stats, failedDetails }`. `handbooks/language/typescript/type-safety.md` rule 6 asks exported functions to carry explicit return types so a public signature cannot change silently — here, adding or renaming a returned field would propagate into `WebScraperTab.tsx:55`'s destructure without the compiler flagging the contract change.",
-      "file": "utils/yallaMenu.ts",
-      "line": 169,
+      "detail": "`categories as YallaCategory[]` and `items as YallaItem[]` are asserted after a check that only proves the values are non-empty arrays — nothing validates the elements. If the platform ever returns `[null, …]` or `[{…}, \"x\"]` in `data`, `live()` at `utils/yallaMenu.ts:51` throws `TypeError: Cannot read properties of null (reading 'is_deleted')`. I confirmed the blast radius is contained: the throw escapes `fetchYallaMenu` (the `finally` only clears the timer) into the component's `catch` at `components/WebScraperTab.tsx:62`, so the user gets the page-text fallback and a warning rather than a crash. That containment is why this is low rather than medium — without the caller's try/catch it would be a user-facing failure. `handbooks/language/typescript/type-safety.md` § rule 4 is the relevant rule: external data is `unknown` until validated.",
+      "file": "services/yallaMenuService.ts",
+      "line": 133,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Exported `fetchYallaMenu` has no explicit return type"
-    },
-    {
-      "category": "typescript",
-      "detail": "`Array.isArray(categories)` / `Array.isArray(items)` validates the container, not the elements, and the result is then asserted into typed arrays. If the platform ever returns `data: [null, …]` or an object per element, `live(items)` / `i.is_deleted` throws a `TypeError` inside `fetchYallaMenu`. The blast radius is genuinely contained — the throw lands in the component's `catch` and the page-text fallback runs with a warning — which is why this is low, not medium. Per `handbooks/language/typescript/type-safety.md` rule 4, external data stays `unknown` until validated.",
-      "file": "utils/yallaMenu.ts",
-      "line": 187,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Third-party JSON cast to `YallaCategory[]` / `YallaItem[]` after an `Array.isArray` check only"
+      "summary": "`Array.isArray` guard does not justify the element-shape assertion"
     },
     {
       "category": "code-smell",
-      "detail": "`variantPrice` treats a required option's `price` as the FULL price (well-evidenced: ديناميت دجاج 22 → صغير 18 / كبير 22, and pinned by a test), while the add-on line renders the same field as `+${money(o.price ?? 0)}` — a surcharge. Both readings come from one platform field distinguished only by `min_options`. If an optional modifier ever carries full prices the way required ones do, the add-on text hands the model `عسل +37.00` and that wrong figure reaches the Description column of the export. No action needed if the capture confirms the split — recording it so the assumption is visible rather than implicit.",
+      "detail": "Each unknown `category` id gets its own synthetic category, all named `(no section)`. With more than one id missing from `/api/categories/`, the output contains repeated `## (no section)` blocks. The items are still all present — the fix in cb2adf7 (never drop an item) holds — so this is cosmetic in the text the model receives, not a data-loss path. Noting it only because the unit test at `tests/unit/yallaMenu.test.ts` covers the single-orphan case and would not catch the duplication if someone later relied on the heading being unique.",
       "file": "utils/yallaMenu.ts",
-      "line": 128,
+      "line": 114,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "`option.price` is read as a full price for required choices and as a surcharge for add-ons"
+      "summary": "Two orphan sections emit two identical `## (no section)` headings"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 6
+  "total": 3
 }

@@ -1,28 +1,32 @@
 {
-  "attestation_id": "sha256:b1bb95960a2b2d1dd5e0f79b48bd46fec0c921578ac2610af8e1d2fa8b7196dd",
+  "attestation_id": "sha256:fd0c0a5e536cc38992995488f77e0fcc307aee5109b97c0db9e56ea84e56ba82",
   "files": [
     {
-      "oid": "fc0db8cb2d3ac83e58675f1944a0d03ed279b403",
+      "oid": "fcccd7f9013c11034659b4629b29d30987d2e7cb",
       "path": "README.md"
     },
     {
-      "oid": "bf9769f6ddd066fc0313426f1df24ea6a9d08762",
+      "oid": "618d16a75aec05ea6f85dfc9efc7125d324b11c1",
       "path": "components/WebScraperTab.tsx"
     },
     {
-      "oid": "3c9ccff64232c062401d8b5e397de1d9e196f9ef",
+      "oid": "d13c84581f08f635512d3aa49827b00b3821d973",
       "path": "docs/TESTING.md"
     },
     {
-      "oid": "d75db446c8cf9359453637cc671a3edb41d2d2ca",
+      "oid": "95f3ad434eb4415ac44c30c5fa581e480bea271f",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "30891d253d125bff42639e0bf0f923c2244ac59c",
+      "oid": "2351fbb767c40457e609d41abea7067914957f48",
       "path": "e2e/ai-tools.spec.ts"
     },
     {
-      "oid": "5c0f484308d6981bca777328f1a47da25b8f35ef",
+      "oid": "9273dee7344d0e02bc168031d85c48fe0515d114",
+      "path": "services/yallaMenuService.ts"
+    },
+    {
+      "oid": "f82cd362c098dc51a3793f63529b434a9e572443",
       "path": "tests/fixtures/README.md"
     },
     {
@@ -30,11 +34,15 @@
       "path": "tests/fixtures/yalla-kelah.json"
     },
     {
-      "oid": "ef45c216885201c445918a18fd4444fb79001ae9",
+      "oid": "499c952512f0138b7e59fe0a45a839db29d0e1df",
       "path": "tests/unit/yallaMenu.test.ts"
     },
     {
-      "oid": "a52cce737ce4639f4fd4f7b921a1555e9508ab05",
+      "oid": "b9420a2e5f18a1e5c35802f49ae1ccd4af625662",
+      "path": "tests/unit/yallaMenuService.test.ts"
+    },
+    {
+      "oid": "0ea777abc9dab7e310c973ffcdd2deaf5044f444",
       "path": "utils/yallaMenu.ts"
     }
   ],
@@ -42,12 +50,12 @@
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 3,
-    "medium": 2
+    "low": 2,
+    "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "23020f56703cc1653129ba3cfebad26f504058f8",
+  "reviewed_at_commit": "4d95979945a6cb0c41b2ac86603d2a96c4748437",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"
