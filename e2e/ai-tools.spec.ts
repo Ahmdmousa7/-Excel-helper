@@ -60,11 +60,13 @@ async function modelFails(page: Page, kind: 'no-quota' | 'busy') {
 /** Answer r.jina.ai from the fixture — the real page's content, offline. */
 async function jinaFromFixture(page: Page) {
   const asked: string[] = [];
+  const noCache: (string | undefined)[] = [];
   await page.route('https://r.jina.ai/**', async (route) => {
     asked.push(route.request().url());
+    noCache.push(route.request().headers()['x-no-cache']);
     await route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: { 'access-control-allow-origin': '*' }, body: MENU });
   });
-  return asked;
+  return { asked, noCache };
 }
 
 const RAW = /RESOURCE_EXHAUSTED|UNAVAILABLE|"error"|\{"|googleapis|limit: 0/;
@@ -78,13 +80,16 @@ async function openScraper(app: any, page: Page) {
 test.describe('Web Scraper — kelah.yallaqrcodes.com menu', () => {
   test('the page content reaches the model and the answer reaches the download', async ({ app, page }) => {
     test.setTimeout(90_000);
-    const asked = await jinaFromFixture(page);
+    const { asked, noCache } = await jinaFromFixture(page);
     const calls = await modelAnswers(page, ANSWER);
     await openScraper(app, page);
     await page.getByRole('button', { name: TRANSLATIONS.en.common.start }).click();
     await expect(page.getByText(`${TRANSLATIONS.en.scraper.preview} (4)`)).toBeVisible({ timeout: 60_000 });
 
     expect(asked).toEqual([`https://r.jina.ai/${SITE}`]);
+    // Fresh, not Jina's cached copy: for this very page the cache held an empty
+    // app shell (243 bytes, no menu) while the fresh fetch had all 26 sections.
+    expect(noCache).toEqual(['true']);
     expect(calls).toHaveLength(1);
     expect(calls[0].model).toBe(MODEL_CANDIDATES.quality[0]);
     // The menu itself is in the prompt — Arabic, prices and all.

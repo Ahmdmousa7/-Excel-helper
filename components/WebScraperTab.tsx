@@ -37,15 +37,21 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
   const fetchContent = async (targetUrl: string): Promise<{ text: string; source: 'html' | 'markdown' | 'json' }> => {
      try {
         const jinaUrl = `https://r.jina.ai/${targetUrl}`;
+        // `X-No-Cache`: Jina otherwise serves its CACHED copy of a page, and for
+        // a client-rendered menu that copy can be the empty app shell captured
+        // before the menu loaded. Measured 2026-09-29 on
+        // kelah.yallaqrcodes.com/branch/1/: cached = 243 bytes, no menu; fresh =
+        // the full menu, 26 sections. A scrape is a request for the page as it
+        // is now, so always ask for it fresh.
+        const jinaHeaders = {
+           'Accept': 'text/event-stream, text/plain, */*',
+           'X-Return-Format': 'markdown',
+           'X-Timeout': '30',
+           'X-No-Cache': 'true',
+        };
         // Try direct fetch first, Jina AI often supports CORS
         try {
-           const directRes = await fetch(jinaUrl, {
-              headers: {
-                 'Accept': 'text/event-stream, text/plain, */*',
-                 'X-Return-Format': 'markdown',
-                 'X-Timeout': '30'
-              }
-           });
+           const directRes = await fetch(jinaUrl, { headers: jinaHeaders });
            if (directRes.ok) {
               const text = await directRes.text();
               if (text.length > 100 && !text.includes("Jina AI - Access Denied") && !text.includes("403 Forbidden")) {
@@ -57,7 +63,7 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
         }
 
         // Fallback to corsproxy if direct fails
-        const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(jinaUrl)}`);
+        const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(jinaUrl)}`, { headers: jinaHeaders });
         if (res.ok) {
            const text = await res.text();
            if (text.length > 100 && !text.includes("Jina AI - Access Denied") && !text.includes("403 Forbidden")) {
