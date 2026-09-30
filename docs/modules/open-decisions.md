@@ -183,6 +183,8 @@ Normalization strips marks. It does **not** touch digits. And in every case the 
 
 ### 4. No unsolicited downloads
 
+> **SUPERSEDED for OCR → Rewaa by D12 (2026-09-30).** The product owner reversed this rule for that one workflow: a clean OCR → Rewaa run downloads its workbook by itself, and the explicit buttons stay. Every other module still follows the rule below.
+
 Do not auto-trigger a browser download when processing finishes. Browsers block unprompted downloads and the behaviour varies by security settings, so a "it just downloads" design fails silently for some users. Use an explicit user action:
 
 ```
@@ -218,6 +220,8 @@ Recommendation is **A**, but it changes what the validator reports, so it is not
 ---
 
 ## D9 — OCR Extraction already auto-downloads / الاستخراج يُنزّل الملف تلقائياً
+
+> **SUPERSEDED 2026-09-30 by D12 for the OCR → Rewaa workflow.** Do not remove its automatic download again because of the text below. D9 still holds for invoice, receipt and custom-schema extractions, which keep the Export button and no automatic download.
 
 **DECIDED 2026-09-28 — option A: the auto-download is removed.** The product owner agreed. Extraction now finishes and the workbook is produced only when the user clicks **Export**.
 
@@ -261,3 +265,35 @@ The product owner chose to keep this behaviour. It is not hidden: every rename i
 **If it is ever retired:** the existing fallback strikes it off on the first 404, per key, and the call fails with the readable "no model available" message. Re-verify with `scripts/list-gemini-models.mjs` before changing the list.
 
 **AR:** أُضيف `gemini-3-flash-preview` كآخر خيار احتياطي لاستخراج الصور، بعد التحقق منه على المفتاح الفعلي (استجابة 200 لصورة حقيقية). لا يُستخدم إلا إذا تعذّرت كل النماذج الأخرى.
+
+---
+
+## D12 — OCR → Rewaa: the supplied correct file is the output contract / الملف الصحيح هو المرجع
+
+**DECIDED 2026-09-30 (product owner).**
+
+**Why.** The product owner ran OCR on a real menu (`tests/fixtures/ocr-rewaa/source.xlsx`) and got `wrong-output.xlsx`: three generic sheets, Arabic-first names, no Rewaa sheets. They supplied `correct-output.xlsx` as the exact expected output. Root cause: the OCR tab only produced Rewaa-shaped sheets when the user uploaded templates in the "Advanced" mapping panel. The six-sheet workbook of `ocr-rewaa-plan.md` §4-A was never built, because the plan was marked superseded on 2026-09-28.
+
+**The rules** (implemented in `utils/ocrRewaaExport.ts`, and compared cell by cell with the contract in `tests/unit/ocrRewaaExport.test.ts`):
+
+| # | Rule |
+|---|---|
+| 1 | **Scope.** The OCR → Rewaa workflow is the Free Form and Restaurant Menu templates with no custom schema. Invoice, Receipt and custom-schema extractions are unchanged. |
+| 2 | The workbook has six sheets: `Generic All Data`, `Generic Simple`, `Generic Variable`, `Rewaa Simple Products`, `Rewaa Variable Products`, `Source Files & Audit`. It needs no template upload. |
+| 3 | Bilingual text is written `English \| Arabic`. The prompt asks for this order, and `englishFirst` enforces it for exactly-two-part Arabic/Latin values. |
+| 4 | Two Simple rows with the same name and category, no options and two different prices become `Size \| الحجم` variants, `Small \| صغير` (cheaper) and `Large \| كبير`. **Pairs only.** A group of three or more is left alone and reported in the log. |
+| 5 | Rewaa prices are numbers. A missing price is `0` on the Rewaa sheets, blank on the Generic sheets, and the row is flagged `Rewaa Data Identical = FALSE`. This overrides the earlier "blank, never 0" rule for this workbook only. |
+| 6 | Rewaa defaults follow the contract: Pack columns and Tax Code blank, DEF Quantity `0`. The uploaded-template path (`Mapped Simple` / `Mapped Variable`, `utils/templateMapping.ts`) keeps its own defaults. |
+| 7 | `Enable stock management` is always `no`. The brief for this change said "yes"; the product owner confirmed `no`, as on 2026-09-29. |
+| 8 | **Automatic download (reverses D9 for this workflow).** A run downloads its workbook by itself only when every input extracted and the workbook was built. A failed OCR, zero rows, or a failed build downloads nothing. A partial failure is held: no automatic download, but the buttons work. There is one automatic download per run. A browser can block it without telling the page, so the result panel always keeps **Download Excel**. |
+| 9 | **Download ZIP**: `<base>.xlsx` (the same workbook), `source/<each original file>` byte for byte (pasted text as `pasted-text.txt`), and `summary.json` (counts, per-file status, rows needing review, the rules above). The name is `OCR-Rewaa-<first source>[-and-N-more]-<YYYYMMDD-HHMMSS>.zip`. It is built only from the run's rows and file metadata, never from storage, so no key or token can reach it (the e2e suite checks this against the seeded key). |
+
+**Approved deviations from the contract** (asked and answered 2026-09-30):
+
+- Rewaa Variable `Option 1` carries the real option name, not the fixture's literal `Option 1`.
+- The audit `File Size` is the real size (the fixture said `0.0 KB`).
+- The audit `Verification Notes` report how many rows differ.
+
+**Known limits.** Translations come from the model and vary between runs; only the order is enforced. Size inference sees only exact name and category matches. A blocked browser download cannot be detected.
+
+**AR:** الملف `correct-output.xlsx` هو المرجع الملزم لمخرجات استخراج OCR إلى رواء: ست أوراق، والنص بترتيب «إنجليزي | عربي»، ويتحوّل المنتج المكرر بسعرين إلى مقاسَي صغير/كبير، والسعر المفقود يُكتب 0 في أوراق رواء مع وسم الصف بأنه غير مطابق، وإدارة المخزون دائماً `no`. يُنزَّل الملف تلقائياً بعد نجاح الاستخراج فقط (عكس D9 لهذا المسار)، ويتوفر زر «تنزيل ZIP» يضم الملف الأصلي وملف رواء وملخصاً.

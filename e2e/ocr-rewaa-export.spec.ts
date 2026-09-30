@@ -20,6 +20,8 @@ const EN_DASH = String.fromCharCode(0x2013);
 const EM_DASH = String.fromCharCode(0x2014);
 
 const DYE = 'صبغات شعر لون واحد | Hair color single tone';
+/** What the export writes: English first, whatever order the model used. */
+const EN = (arFirst: string) => arFirst.split(' | ').reverse().join(' | ');
 const TWO_TONE = 'صبغات شعر لونين ارضية وتخصيل | Two-tone hair color background and highlights';
 const COLOR = 'قسم الصبغات | Hair Coloring Section';
 
@@ -112,15 +114,23 @@ test.describe('OCR Extraction — Rewaa export on real-run data', () => {
     const models = await interceptModel(page, ANSWER);
     await openOcrWithImage(app, page);
 
-    let unsolicited = 0;
-    const count = () => { unsolicited++; };
-    page.on('download', count);
+    // OCR → Rewaa: a clean run downloads its workbook BY ITSELF, once.
+    const auto = page.waitForEvent('download', { timeout: 60_000 });
     await page.getByRole('button', { name: /Start Extraction/i }).click();
+    const first = await auto;
+    expect(first.suggestedFilename()).toMatch(/^OCR-Rewaa-price-list-\d{8}-\d{6}\.xlsx$/);
+    let extra = 0;
+    const count = () => { extra++; };
+    page.on('download', count);
     await page.getByRole('button', { name: /Show Logs/i }).click();
-    await expect(page.getByText('Click Export to download the results.')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/Downloaded OCR-Rewaa-price-list-.*\.xlsx automatically/)).toBeVisible();
     // 2 written as ranges + 1 split pair merged back = 3 ranges.
     await expect(page.getByText(/3 price range\(s\) kept as one row each/)).toBeVisible();
     await expect(page.getByText(/1 duplicate variant row\(s\) from a split price range merged back/)).toBeVisible();
+    const autoWb = XLSX.read(readFileSync((await first.path())!), { type: 'buffer' });
+    expect(autoWb.SheetNames).toEqual([
+      'Generic All Data', 'Generic Simple', 'Generic Variable', 'Rewaa Simple Products', 'Rewaa Variable Products', 'Source Files & Audit',
+    ]);
 
     // The REAL Rewaa templates, through the mapping panel — after extraction,
     // as a user would, so auto-mapping sees every extracted column.
@@ -130,10 +140,11 @@ test.describe('OCR Extraction — Rewaa export on real-run data', () => {
     await templateInput(page).setInputFiles({ name: 'rewaa-variable-template.csv', mimeType: 'text/csv', buffer: fixture('rewaa-variable-template.csv') });
     await expect(page.getByText('Loaded Variable Template: rewaa-variable-template.csv')).toBeVisible();
 
-    await page.waitForTimeout(1_000); // D9: still nothing downloaded on its own
+    await page.waitForTimeout(1_000);
     page.off('download', count);
-    expect(unsolicited, 'a download started without the user clicking Export').toBe(0);
+    expect(extra, 'the run downloaded more than once').toBe(0);
 
+    // Export again, now with templates loaded: the same workbook plus the mapped sheets.
     const pending = page.waitForEvent('download', { timeout: 30_000 });
     await page.getByRole('button', { name: 'Export', exact: true }).click();
     const wb = XLSX.read(readFileSync((await (await pending).path())!), { type: 'buffer' });
@@ -142,12 +153,12 @@ test.describe('OCR Extraction — Rewaa export on real-run data', () => {
     // --- Mapped Variable -----------------------------------------------------
     const v = sheet(wb, 'Mapped Variable');
     expect(v.map((r) => [r['Product Name'], r['Option 1 Value'], r['Retail Price']])).toEqual([
-      [DYE, 'Short | القصير', 400],
-      [DYE, 'Medium | الوسط', 500],
-      [DYE, 'Long | الطويل', 0],          // ONE Long row, not 600 and 900
-      [TWO_TONE, 'Short | القصير', 650],
-      [TWO_TONE, 'Medium | الوسط', 800],
-      [TWO_TONE, 'Long | الطويل', 0],
+      [EN(DYE), 'Short | القصير', 400],
+      [EN(DYE), 'Medium | الوسط', 500],
+      [EN(DYE), 'Long | الطويل', 0],          // ONE Long row, not 600 and 900
+      [EN(TWO_TONE), 'Short | القصير', 650],
+      [EN(TWO_TONE), 'Medium | الوسط', 800],
+      [EN(TWO_TONE), 'Long | الطويل', 0],
     ]);
     expect(v.every((r) => r['Option 1'] === 'Size | الحجم')).toBe(true);
     expect(v.every((r) => String(r['Variant Name']).trim() !== ''), 'Variant Name left blank').toBe(true);
@@ -169,19 +180,26 @@ test.describe('OCR Extraction — Rewaa export on real-run data', () => {
     expect(s[0]['Product SKU']).not.toBe(s[1]['Product SKU']); // 00123 is not 123
     expect(s.map((r) => r['Enable stock management'])).toEqual(['no', 'no', 'no']);
 
-    // --- All Extracted Data --------------------------------------------------
-    const all = sheet(wb, 'All Extracted Data');
+    // --- Generic All Data ----------------------------------------------------
+    const all = sheet(wb, 'Generic All Data');
     expect(all).toHaveLength(9); // 10 extracted, one split duplicate merged back
-    // Traceability: the unmapped sheet keeps what the model returned — the `yes`
-    // that the Rewaa sheets above overrode to `no` is still visible here.
+    // Traceability: the Generic sheet keeps what the model returned — the `yes`
+    // that the Rewaa sheets overrode to `no` is still visible here.
     const raw = (name: string, opt?: string) => all.find((r) => r['Product Name'] === name
       && (opt === undefined || r['Option 1 Value'] === opt))!['Enable stock management'];
-    expect(raw('استشوار شعر قصير | Short hair blow-dry')).toBe('yes');
-    expect(raw(DYE, 'Short | القصير')).toBe('yes');
-    expect(raw('مساج إسترخاء | Relaxing massage')).toBe('no');
-    expect(all.filter((r) => r['Product Name'] === DYE && r['Option 1 Value'] === 'Long | الطويل')).toHaveLength(1);
-    expect(all.every((r) => r['In Rewaa Simple'] === true || r['In Rewaa Variable'] === true),
-      'a row did not arrive intact in its Rewaa sheet').toBe(true);
+    expect(raw(EN('استشوار شعر قصير | Short hair blow-dry'))).toBe('yes');
+    expect(raw(EN(DYE), 'Short | القصير')).toBe('yes');
+    expect(raw(EN('مساج إسترخاء | Relaxing massage'))).toBe('no');
+    expect(all.filter((r) => r['Product Name'] === EN(DYE) && r['Option 1 Value'] === 'Long | الطويل')).toHaveLength(1);
+    expect(all.every((r) => r['Rewaa Data Identical'] === true), 'a row did not arrive intact in its Rewaa sheet').toBe(true);
+
+    // --- Built-in Rewaa sheets ------------------------------------------------
+    const rs = sheet(wb, 'Rewaa Simple Products');
+    expect(rs.map((r) => r['Product SKU'])).toEqual(['00123', '123', expect.stringMatching(/^GEN-/)]);
+    expect(rs.map((r) => r['Enable stock management'])).toEqual(['no', 'no', 'no']);
+    const rv = sheet(wb, 'Rewaa Variable Products');
+    expect(rv[0]['Variant SKU']).toBe('00456');
+    expect(rv.every((r) => r['Option 1'] === 'Size | الحجم' && r['Enable stock management'] === 'no')).toBe(true);
   });
 
   test('English: a provider failure is ONE readable sentence, no raw JSON', async ({ app, page }) => {

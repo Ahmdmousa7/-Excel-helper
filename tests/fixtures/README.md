@@ -130,3 +130,12 @@ cover every case in `utils/yallaMenu.ts` — sizes on an item with no base price
 the options, plain priced items, and an item with no price anywhere
 (`وجبة كاري`). Used by `tests/unit/yallaMenu.test.ts`, `tests/unit/yallaMenuService.test.ts` and `e2e/ai-tools.spec.ts`.
 
+
+---
+
+## `ocr-rewaa/` — the OCR → Rewaa output contract (D12)
+
+The product owner's three files (source, wrong output, **correct output = the
+contract**) and the model answer derived from them. The bytes are the point
+here too: the contract is compared cell by cell, including cell types and which
+blanks are empty text versus no cell at all. See `ocr-rewaa/README.md`.

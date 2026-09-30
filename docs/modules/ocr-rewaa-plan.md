@@ -2,6 +2,8 @@
 
 **Written:** 2026-09-28 · **Status:** superseded in part — read this box first.
 
+> **UPDATE 2026-09-30.** §4-A's six-sheet workbook **has now been built** (`utils/ocrRewaaExport.ts`), to the product owner's reference file rather than to this plan. See **D12** in `open-decisions.md`, which is authoritative where it differs from this plan. The differences: the sheet names are `Rewaa Simple Products` / `Rewaa Variable Products` / `Source Files & Audit`, the parity columns are `Same in Rewaa Simple` / `Same in Rewaa Variable` / `Rewaa Data Identical`, and the **"auto-download must be dropped" point in §3 and §5 is reversed** for this workflow.
+
 > **CORRECTION, same day.** This plan was written before measuring the live app, and it assumed the Rewaa mapping had to be built. **It did not.** `components/OcrTab.tsx` already exported `All Extracted Data` / `Simple Products` / `Variable Products`, mapped into an uploaded template, handled `Option 1–3`, split variants and price ranges, and excluded the spec row. `grep rewaa` found nothing only because the code never uses that word.
 >
 > A search of this machine also found two more copies of the app — `Desktop\The-Greatest-Helper` (last commit 2026-01-23) and `D:\POS APP\Ai apps\uploader` (2026-03-10). Neither contains the AI Studio Rewaa work. The live repository is the most complete of all of them.

@@ -68,32 +68,27 @@ async function openOcr(app: any, page: Page) {
 }
 
 /**
- * Extract, confirm NOTHING downloads on its own (D9), then export by clicking.
- *
- * The tab used to auto-download on completion — long after the click that
- * started it, so browsers treated it as unsolicited and could block it. The
- * absence check needs a short bounded wait: there is no event for "a download
- * did not happen", and the old auto-export fired within a moment of the
- * completion log this waits for.
+ * Extract, and take the workbook the OCR → Rewaa run downloads BY ITSELF
+ * (D9 reversed for this workflow, 2026-09-30). Then confirm it downloaded
+ * exactly once: there is no event for "no second download", so the absence
+ * check is a short bounded wait after the first.
  */
-async function extractAndDownload(page: Page): Promise<XLSX.WorkBook> {
-  let unsolicited = 0;
-  const count = () => { unsolicited++; };
-  page.on('download', count);
+async function extractAndDownload(page: Page, stem: string): Promise<XLSX.WorkBook> {
+  const auto = page.waitForEvent('download', { timeout: 60_000 });
   await page.getByRole('button', { name: /Start Extraction/i }).click();
-  await page.getByRole('button', { name: /Show Logs/i }).click();
-  await expect(page.getByText('Click Export to download the results.')).toBeVisible({ timeout: 60_000 });
+  const download = await auto;
+  expect(download.suggestedFilename()).toMatch(/^OCR-Rewaa-.+-\d{8}-\d{6}\.xlsx$/);
+  expect(download.suggestedFilename().startsWith(`OCR-Rewaa-${stem}-`)).toBe(true);
+  let extra = 0;
+  page.on('download', () => { extra++; });
+  await expect(page.getByTestId('ocr-rewaa-result')).toContainText('File downloaded automatically');
   await page.waitForTimeout(1_500);
-  page.off('download', count);
-  expect(unsolicited, 'a download started without the user clicking Export').toBe(0);
-
-  const pending = page.waitForEvent('download', { timeout: 30_000 });
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
-  return XLSX.read(readFileSync((await (await pending).path())!), { type: 'buffer' });
+  expect(extra, 'the run downloaded more than once').toBe(0);
+  return XLSX.read(readFileSync((await download.path())!), { type: 'buffer' });
 }
 
 const namesIn = (wb: XLSX.WorkBook) =>
-  (XLSX.utils.sheet_to_json(wb.Sheets['All Extracted Data']) as Record<string, unknown>[]).map((r) => r['Product Name']);
+  (XLSX.utils.sheet_to_json(wb.Sheets['Generic All Data']) as Record<string, unknown>[]).map((r) => r['Product Name']);
 
 test.describe('OCR Extraction — spreadsheet and Word input', () => {
   test('.xlsx: its cells reach the model, and the answer reaches the export', async ({ app, page }) => {
@@ -105,13 +100,14 @@ test.describe('OCR Extraction — spreadsheet and Word input', () => {
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
 
-    const wb = await extractAndDownload(page);
+    const wb = await extractAndDownload(page, 'menu');
 
     expect(sent, 'the file was never sent to the model').toHaveLength(1);
     expect(sent[0]).toContain('Hibiscus Tea');   // the spreadsheet's content …
     expect(sent[0]).toContain('كركديه');          // … Arabic included
     expect(sent[0]).not.toContain('inlineData');  // sent as TEXT, not as an opaque media blob
-    expect(namesIn(wb)).toEqual(['شاي | Tea', 'قهوة | Coffee']);
+    // English first on every bilingual cell, whatever order the model used.
+    expect(namesIn(wb)).toEqual(['Tea | شاي', 'Coffee | قهوة']);
   });
 
   test('.docx: paragraphs and table cells reach the model as text', async ({ app, page }) => {
@@ -123,7 +119,7 @@ test.describe('OCR Extraction — spreadsheet and Word input', () => {
       mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     });
 
-    const wb = await extractAndDownload(page);
+    const wb = await extractAndDownload(page, 'menu');
 
     expect(sent).toHaveLength(1);
     expect(sent[0]).toContain('Summer Menu');

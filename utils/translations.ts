@@ -375,7 +375,21 @@ export const TRANSLATIONS = {
       selectRow: 'Select a row to see source image',
       colName: 'Col Name',
       descType: 'Description / Type',
-      templateName: 'Template Name...'
+      templateName: 'Template Name...',
+      // OCR → Rewaa result panel (utils/ocrRewaaExport.ts).
+      rewaa: {
+        complete: 'OCR complete',
+        completeWithErrors: 'OCR finished with errors',
+        generated: 'Rewaa file generated: {file}',
+        autoDownloaded: 'File downloaded automatically. If your browser blocked it, use Download Excel.',
+        held: '{n} of {total} file(s) failed, so nothing was downloaded automatically. Review the results, then download.',
+        buildFailed: 'The Rewaa file could not be generated: {msg}. Nothing was downloaded.',
+        downloadExcel: 'Download Excel',
+        downloadZip: 'Download ZIP',
+        zipBusy: 'Preparing ZIP…',
+        zipFailed: 'The ZIP could not be created: {msg}',
+        review: '{n} row(s) differ between the Generic and Rewaa sheets — see Rewaa Data Identical.',
+      }
     },
     scraper: {
       url: 'Target URL',
@@ -805,7 +819,20 @@ export const TRANSLATIONS = {
       selectRow: 'حدد صفاً لرؤية الصورة المصدر',
       colName: 'اسم العمود',
       descType: 'الوصف / النوع',
-      templateName: 'اسم القالب...'
+      templateName: 'اسم القالب...',
+      rewaa: {
+        complete: 'اكتمل الاستخراج',
+        completeWithErrors: 'انتهى الاستخراج مع أخطاء',
+        generated: 'تم إنشاء ملف رواء: {file}',
+        autoDownloaded: 'تم تنزيل الملف تلقائياً. إذا منعه المتصفح، استخدم «تنزيل Excel».',
+        held: 'فشل {n} من {total} ملف، لذلك لم يُنزَّل شيء تلقائياً. راجع النتائج ثم نزّل الملف.',
+        buildFailed: 'تعذّر إنشاء ملف رواء: {msg}. لم يُنزَّل أي ملف.',
+        downloadExcel: 'تنزيل Excel',
+        downloadZip: 'تنزيل ZIP',
+        zipBusy: 'جارٍ تجهيز ملف ZIP…',
+        zipFailed: 'تعذّر إنشاء ملف ZIP: {msg}',
+        review: '{n} صف مختلف بين الأوراق العامة وأوراق رواء — راجع عمود Rewaa Data Identical.',
+      }
     },
     scraper: {
       url: 'الرابط المستهدف',

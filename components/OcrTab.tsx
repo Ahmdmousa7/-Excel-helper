@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FileData, LogEntry, ProcessingStatus } from '../types';
 import { TRANSLATIONS, Language } from '../utils/translations';
-import { readExcelFile, getSheetData, saveWorkbook } from '../services/excelService';
+import { readExcelFile, getSheetData, saveWorkbook, writeWorkbookBuffer } from '../services/excelService';
+import { downloadBytes, XLSX_MIME, ZIP_MIME } from '../services/download';
 import { aiService } from '../services/aiServiceFactory';
 import { MAX_EXTRACTION_TEXT } from '../services/geminiService';
 import { readWorkbookBytes } from '../services/workbookBytes';
@@ -12,6 +13,11 @@ import {
   autoMap, refreshMapping, mapRowsToTemplate, cleanTemplateHeaders, isCsvFile, parseCsvTemplate,
   isRewaaTemplate, isVariableRow, stripForSimple, stripForVariable, matchesTemplate,
 } from '../utils/templateMapping';
+import {
+  prepareRewaaBatch, fillRandomSkus, resolveDuplicateNames, buildRewaaExport, sheetsToWorkbook,
+  buildBundle, exportBaseName, autoExportDecision, type SourceInfo, type Row,
+} from '../utils/ocrRewaaExport';
+import JSZip from 'jszip';
 import ProgressBar from './ProgressBar';
 import { 
   ScanText, UploadCloud, FileText, Zap, TableProperties, Edit3, 
@@ -42,6 +48,26 @@ interface MediaFile {
    */
   text?: string;
 }
+
+/**
+ * One finished OCR → Rewaa run: what the Download Excel / Download ZIP buttons
+ * rebuild from. `completedAt` fixes the file name and audit timestamp, so a
+ * manual download is the same file as the automatic one. `inputs` are the
+ * user's own File objects (or the pasted text) — references, not copies.
+ */
+interface RewaaRun {
+  completedAt: Date;
+  sources: SourceInfo[];
+  inputs: { name: string; data: Blob | string }[];
+  failed: number;
+  outcome: 'downloaded' | 'held' | 'build-failed';
+  fileName: string;
+  notIdentical: number;
+  error?: string;
+}
+
+/** The label a pasted-text run carries, in the workbook and inside the ZIP. */
+const PASTED_TEXT = 'pasted-text.txt';
 
 const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   const t = TRANSLATIONS[language];
@@ -107,6 +133,16 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   
   // --- RESULT TABS STATE ---
   const [resultTab, setResultTab] = useState<'all' | 'simple' | 'variable'>('all');
+
+  // --- OCR → REWAA ---
+  // Product extraction (Free Form / Restaurant Menu, no custom schema) is the
+  // OCR → Rewaa workflow: six-sheet Rewaa workbook, automatic download on a
+  // clean run, ZIP bundle. Invoice, receipt and custom-schema extractions are
+  // not product catalogues and keep the plain export and the Export button.
+  const isRewaaWorkflow = !useSchema && (activeTemplate === 'free' || activeTemplate === 'menu');
+  const [rewaaRun, setRewaaRun] = useState<RewaaRun | null>(null);
+  const [zipBusy, setZipBusy] = useState(false);
+  const [zipError, setZipError] = useState<string | null>(null);
 
   // Initialize Templates
   useEffect(() => {
@@ -344,7 +380,8 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
     if (instruction) prompt += `\n\nUser Notes: ${instruction}`;
     
     // Feature Injections
-    if (enableTranslate) prompt += " Translate ALL text fields (Product Name, Description, Option 1 Value, Option 2 Value, Option 3 Value): Arabic->English (concat using ' | ') or English->Arabic (concat using ' | '). If already bilingual, keep as is.";
+    if (enableTranslate && isRewaaWorkflow) prompt += " Translate ALL text fields (Product Name, Category, Description, Option 1, Option 1 Value, Option 2, Option 2 Value, Option 3, Option 3 Value) into BOTH English and Arabic, written as 'English | Arabic' — English FIRST, then ' | ', then Arabic (e.g. 'Red Tea | شاي أحمر'). If a field is already bilingual, keep both parts with English first.";
+    else if (enableTranslate) prompt += " Translate ALL text fields (Product Name, Description, Option 1 Value, Option 2 Value, Option 3 Value): Arabic->English (concat using ' | ') or English->Arabic (concat using ' | '). If already bilingual, keep as is.";
     if (enableSplit) prompt += " DETECT VARIANTS: If an item has options (Size, Flavor, Type) like 'Spicy/Regular' or 'Small/Large', YOU MUST split it into separate rows. **CRITICAL: A price RANGE like '20 - 30' is NOT two variants. Keep it as ONE row and copy the range text exactly as written into 'Retail Price' (e.g. '20 - 30'). Never split a range into one row per price and never invent size names for it.** For real variants, set Type='Variable' and fill Option 1/Option 1 Value. If there are multiple variant dimensions (e.g. Size AND Color), use Option 2/Option 2 Value for the additional variants.";
     
     // Enhanced Prompt for SKU, Stock, and Category
@@ -366,9 +403,36 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       setProgress(0);
       setMasterData([]);
       setRawHeaders([]);
+      setRewaaRun(null);
+      setZipError(null);
       addLog(t.common.processing, 'info');
 
       const fullPrompt = constructPrompt();
+      // Fixed for the whole run, whatever the user clicks while it works.
+      const rewaa = isRewaaWorkflow;
+      const enableRandomSku = generateRandomSkus || instruction.toLowerCase().includes("random sku") || instruction.toLowerCase().includes("generate sku");
+      const usedSkus = new Set<string>(); // SKUs unique across every file of the run
+      const sources: SourceInfo[] = [];
+      let failed = 0;
+      const inputs: RewaaRun['inputs'] = inputType === 'text'
+          ? [{ name: PASTED_TEXT, data: textInput }]
+          : files.map((f) => ({ name: f.file.name, data: f.file }));
+
+      // The model's answer for one input → rows. Rewaa runs take the pipeline in
+      // utils/ocrRewaaExport.ts (the one the regression test runs); other
+      // extractions keep the price-range rule and random SKUs only.
+      const processBatch = (answer: unknown[], sourceName: string): any[] => {
+          if (rewaa) {
+              const b = prepareRewaaBatch(answer, { sourceFile: sourceName, usedSkus, randomSkus: enableRandomSku });
+              logPriceRanges(b);
+              if (b.sizePairs > 0) addLog(`${b.sizePairs} product(s) listed twice at two prices became Small / Large size variants.`, 'info');
+              if (b.sizeGroupsSkipped > 0) addLog(`${b.sizeGroupsSkipped} product(s) appear three or more times at different prices and were left as separate rows. Name their sizes to make them variants.`, 'warning');
+              return b.rows;
+          }
+          const ranged = applyPriceRanges(answer.filter((r): r is Row => !!r && typeof r === 'object'));
+          logPriceRanges(ranged);
+          return enableRandomSku ? fillRandomSkus(ranged.rows, usedSkus) : ranged.rows;
+      };
       // We'll also accumulate in `allResults` for post-process check, but UI updates via state setters
       const allResults: any[] = []; 
 
@@ -395,30 +459,12 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                   (msg) => addLog(msg, 'warning'),
               );
               const extracted = Array.isArray(result) ? result : [result];
-              // Price ranges -> one row, Price 0, range in Description. Before
+              // Price ranges -> one row, Price 0, range in Description — before
               // random SKUs, so a merged-away duplicate never gets one.
-              const ranged = applyPriceRanges(extracted.filter((r: any) => r && typeof r === 'object'));
-              logPriceRanges(ranged);
-              const resultArray: any[] = ranged.rows;
-              
+              const resultArray: any[] = processBatch(extracted, PASTED_TEXT);
+              sources.push({ name: PASTED_TEXT, type: 'text/plain', size: new Blob([textInput]).size, status: resultArray.length ? 'Extracted' : 'No data' });
+
               if (resultArray.length > 0) {
-                  // Post-Process: Generate Random SKUs
-                  const enableRandomSku = generateRandomSkus || instruction.toLowerCase().includes("random sku") || instruction.toLowerCase().includes("generate sku");
-                  if (enableRandomSku) {
-                      resultArray.forEach((r: any) => {
-                          const isVar = String(r.Type || '').toLowerCase() === 'variable';
-                          if (isVar) {
-                              if (!r['Variant SKU'] || String(r['Variant SKU']).trim() === '') {
-                                  r['Variant SKU'] = `GEN-${Math.floor(Math.random() * 1000000)}`;
-                              }
-                          } else {
-                              if (!r['Product SKU'] || String(r['Product SKU']).trim() === '') {
-                                  r['Product SKU'] = `GEN-${Math.floor(Math.random() * 1000000)}`;
-                              }
-                          }
-                      });
-                  }
-                  
                   allResults.push(...resultArray);
                   setMasterData(resultArray);
                   // Every row's columns, not the first row's: variant columns often first appear later.
@@ -433,6 +479,8 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
               // Readable, localised sentence for the user; the raw provider error
               // (JSON inside JSON) only in the console.
               console.error('[OCR] text extraction failed:', e);
+              failed++;
+              sources.push({ name: PASTED_TEXT, type: 'text/plain', size: new Blob([textInput]).size, status: 'Failed', note: friendlyAiError(e, 'en') });
               addLog(`${t.aiErrors.textFailed} ${friendlyAiError(e, language)}`, 'error');
           }
           clearInterval(progressInterval);
@@ -458,32 +506,11 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                       // NOT read as everything going fine.
                       (msg) => addLog(msg, 'warning'),
                   );
-                  let result: any[] = [];
-                  if (Array.isArray(raw)) {
-                      const ranged = applyPriceRanges(raw.filter((r: any) => r && typeof r === 'object'));
-                      logPriceRanges(ranged);
-                      result = ranged.rows;
-                  }
-                  
+                  const result: any[] = processBatch(Array.isArray(raw) ? raw : [], file.file.name);
+                  sources.push({ name: file.file.name, type: file.mimeType || file.file.type, size: file.file.size, status: result.length ? 'Extracted' : 'No data' });
+
                   if (result.length > 0) {
                       allResults.push(...result);
-                      
-                      // Post-Process: Generate Random SKUs if keyword present or flag set (Per batch)
-                      const enableRandomSku = generateRandomSkus || instruction.toLowerCase().includes("random sku") || instruction.toLowerCase().includes("generate sku");
-                      if (enableRandomSku) {
-                          result.forEach((r: any) => {
-                              const isVar = String(r.Type || '').toLowerCase() === 'variable';
-                              if (isVar) {
-                                  if (!r['Variant SKU'] || String(r['Variant SKU']).trim() === '') {
-                                      r['Variant SKU'] = `GEN-${Math.floor(Math.random() * 1000000)}`;
-                                  }
-                              } else {
-                                  if (!r['Product SKU'] || String(r['Product SKU']).trim() === '') {
-                                      r['Product SKU'] = `GEN-${Math.floor(Math.random() * 1000000)}`;
-                                  }
-                              }
-                          });
-                      }
 
                       result.forEach((r: any) => {
                           const itemName = r['Product Name'] || r.Item || r.Name || r.name || r.item || r.Description || 'Unknown Item';
@@ -503,6 +530,8 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                   }
               } catch (e: any) {
                   console.error(`[OCR] extraction failed for ${file.file.name}:`, e);
+                  failed++;
+                  sources.push({ name: file.file.name, type: file.mimeType || file.file.type, size: file.file.size, status: 'Failed', note: friendlyAiError(e, 'en') });
                   addLog(`${t.aiErrors.fileFailed.replace('{file}', file.file.name)} ${friendlyAiError(e, language)}`, 'error');
               }
               setProgress(Math.round(((i + 1) / files.length) * 100));
@@ -510,65 +539,26 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
           clearInterval(progressInterval);
       }
 
-      // Post-Process: Ensure unique names across categories
+      // Post-Process: the same name in two categories gets a letter per
+      // category (utils/ocrRewaaExport.ts, unchanged from the inline version).
+      let finalRows: any[] = allResults;
       if (allResults.length > 0) {
-          const nameKey = Object.keys(allResults[0]).find(k => k.toLowerCase() === 'product name' || k.toLowerCase() === 'name' || k.toLowerCase() === 'item' || k.toLowerCase() === 'description');
-          const catKey = Object.keys(allResults[0]).find(k => k.toLowerCase() === 'category' || k.toLowerCase() === 'group' || k.toLowerCase() === 'section');
-
-          if (nameKey && catKey) {
-              const nameToCats = new Map<string, Set<string>>();
-              allResults.forEach(r => {
-                  const name = String(r[nameKey] || '').trim();
-                  const cat = String(r[catKey] || '').trim();
-                  if (name && cat) {
-                      if (!nameToCats.has(name)) nameToCats.set(name, new Set());
-                      nameToCats.get(name)!.add(cat);
-                  }
-              });
-
-              const nameCatToSuffix = new Map<string, Map<string, string>>();
-              nameToCats.forEach((cats, name) => {
-                  if (cats.size > 1) {
-                      const catMap = new Map<string, string>();
-                      let counter = 0;
-                      Array.from(cats).sort().forEach(cat => {
-                          const letter = String.fromCharCode(65 + (counter % 26));
-                          const suffix = counter >= 26 ? ` ${letter}${Math.floor(counter/26)}` : ` ${letter}`;
-                          catMap.set(cat, suffix);
-                          counter++;
-                      });
-                      nameCatToSuffix.set(name, catMap);
-                  }
-              });
-
-              let modifiedCount = 0;
-              allResults.forEach(r => {
-                  const name = String(r[nameKey] || '').trim();
-                  const cat = String(r[catKey] || '').trim();
-                  if (name && cat && nameCatToSuffix.has(name)) {
-                      const suffix = nameCatToSuffix.get(name)!.get(cat);
-                      if (suffix) {
-                          r[nameKey] = `${name}${suffix}`;
-                          modifiedCount++;
-                      }
-                  }
-              });
-              
-              if (modifiedCount > 0) {
-                  addLog(`Auto-resolved ${modifiedCount} duplicate item names across different categories.`, 'info');
-                  setMasterData([...allResults]);
-              }
-          }
+          const named = resolveDuplicateNames(allResults);
+          finalRows = named.rows;
+          if (named.modified > 0) addLog(`Auto-resolved ${named.modified} duplicate item names across different categories.`, 'info');
+          setMasterData(finalRows);
       }
 
-      // Check if anything was extracted
-      if (allResults.length > 0) {
-          addLog(`${t.common.completed} ${allResults.length} items extracted.`, 'success');
+      if (finalRows.length > 0) {
+          addLog(`${t.common.completed} ${finalRows.length} items extracted.`, 'success');
           setShowConfig(false); // Auto collapse config to show results
-          // No automatic download (D9). It fired long after the click that started
-          // the extraction, so browsers treated it as unsolicited and could block
-          // it silently. The results bar's Export button produces the same file.
-          addLog(`Click Export to download the results.`, 'info');
+          if (rewaa) {
+              finishRewaaRun(finalRows, sources, inputs, failed);
+          } else {
+              // Not a product extraction: no automatic download (D9 still holds
+              // here). The results bar's Export button produces the file.
+              addLog(`Click Export to download the results.`, 'info');
+          }
       } else {
           addLog("No data extracted.", 'warning');
       }
@@ -580,6 +570,93 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   // never Retail Price). See utils/templateMapping.ts.
   const mapDataToTemplate = (rows: any[], mapping: Record<string, string>, templateHeaders: string[]) =>
       mapRowsToTemplate(rows, mapping, templateHeaders);
+
+  /** `Mapped Simple` / `Mapped Variable` for templates loaded in the mapping panel. */
+  const appendMappedSheets = (wb: XLSX.WorkBook, rows: Row[]) => {
+      if (simpleTemplateFile && simpleHeaders.length > 0) {
+          const out = rows.filter((r) => !isVariableRow(r)).map((r) => mapDataToTemplate([stripForSimple(r)], simpleMapping, simpleHeaders)[0]);
+          if (out.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out), "Mapped Simple");
+      }
+      if (varTemplateFile && varHeaders.length > 0) {
+          const out = rows.filter((r) => isVariableRow(r)).map((r) => mapDataToTemplate([stripForVariable(r)], varMapping, varHeaders)[0]);
+          if (out.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out), "Mapped Variable");
+      }
+  };
+
+  /**
+   * The Rewaa workbook: the six contract sheets, plus the mapped sheets when
+   * the user loaded templates in the mapping panel.
+   */
+  const buildRewaaFile = (rows: Row[], sources: SourceInfo[], at: Date) => {
+      const exported = buildRewaaExport(rows, sources, at);
+      const wb = sheetsToWorkbook(XLSX, exported.sheets);
+      appendMappedSheets(wb, rows);
+      return { exported, bytes: new Uint8Array(writeWorkbookBuffer(wb)), baseName: exportBaseName(sources.map((s) => s.name), at) };
+  };
+
+  /**
+   * End of an OCR → Rewaa run that extracted rows. Downloads by itself only
+   * when every input extracted and the workbook built (D9 reversed for this
+   * workflow, 2026-09-30). Called once, from the end of `handleProcess`, which
+   * cannot run twice at a time — so a run makes at most one automatic download.
+   */
+  const finishRewaaRun = (rows: Row[], sources: SourceInfo[], inputs: RewaaRun['inputs'], failed: number) => {
+      const completedAt = new Date();
+      let built: ReturnType<typeof buildRewaaFile> | null = null;
+      let error: string | undefined;
+      try {
+          built = buildRewaaFile(rows, sources, completedAt);
+      } catch (e: unknown) {
+          console.error('[OCR] Rewaa workbook failed:', e);
+          error = e instanceof Error ? e.message : String(e);
+          addLog(`Rewaa file could not be generated: ${error}`, 'error');
+      }
+      const decision = autoExportDecision({ rows: rows.length, failedInputs: failed, built: built !== null });
+      if (decision === 'download' && built) {
+          downloadBytes(built.bytes, `${built.baseName}.xlsx`, XLSX_MIME);
+          addLog(`Downloaded ${built.baseName}.xlsx automatically.`, 'success');
+      } else if (decision === 'hold') {
+          addLog(`${failed} file(s) failed: not downloaded automatically. Use Download Excel after reviewing.`, 'warning');
+      }
+      setRewaaRun({
+          completedAt, sources, inputs, failed, error,
+          outcome: !built ? 'build-failed' : decision === 'download' ? 'downloaded' : 'held',
+          fileName: built ? `${built.baseName}.xlsx` : '',
+          notIdentical: built?.exported.counts.notIdentical ?? 0,
+      });
+  };
+
+  const downloadRewaaExcel = () => {
+      if (!rewaaRun || masterData.length === 0) return;
+      try {
+          const built = buildRewaaFile(masterData, rewaaRun.sources, rewaaRun.completedAt);
+          downloadBytes(built.bytes, `${built.baseName}.xlsx`, XLSX_MIME);
+          addLog(`Exported ${built.baseName}.xlsx.`, 'success');
+      } catch (e: unknown) {
+          addLog(`Rewaa file could not be generated: ${e instanceof Error ? e.message : String(e)}`, 'error');
+      }
+  };
+
+  const downloadRewaaZip = async () => {
+      if (!rewaaRun || masterData.length === 0 || zipBusy) return;
+      setZipBusy(true);
+      setZipError(null);
+      try {
+          const built = buildRewaaFile(masterData, rewaaRun.sources, rewaaRun.completedAt);
+          const zip = await buildBundle(JSZip, {
+              baseName: built.baseName, workbook: built.bytes, exported: built.exported,
+              sources: rewaaRun.inputs, sourceInfo: rewaaRun.sources, extractedAt: rewaaRun.completedAt,
+          });
+          downloadBytes(zip, `${built.baseName}.zip`, ZIP_MIME);
+          addLog(`Exported ${built.baseName}.zip.`, 'success');
+      } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          setZipError(msg);
+          addLog(`ZIP could not be created: ${msg}`, 'error');
+      } finally {
+          setZipBusy(false);
+      }
+  };
 
   const exportData = (dataToExport: any[]) => {
       if (dataToExport.length === 0) return;
@@ -634,7 +711,9 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   };
 
   const handleExport = () => {
-      exportData(masterData);
+      // A Rewaa run exports its Rewaa workbook; anything else the plain one.
+      if (rewaaRun) downloadRewaaExcel();
+      else exportData(masterData);
   };
 
   return (
@@ -795,6 +874,45 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
           </div>
 
           {status === ProcessingStatus.PROCESSING && <ProgressBar progress={progress} label={t.common.processing} />}
+
+          {/* OCR → REWAA RESULT */}
+          {rewaaRun && status === ProcessingStatus.COMPLETED && (
+              <div
+                role="status"
+                aria-live="polite"
+                data-testid="ocr-rewaa-result"
+                className={`rounded-lg border p-4 shadow-sm ${rewaaRun.outcome === 'downloaded' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}
+              >
+                  <p className="font-bold text-slate-800 flex items-center gap-2">
+                      <CheckCircle size={18} className={rewaaRun.outcome === 'downloaded' ? 'text-emerald-600' : 'text-amber-600'}/>
+                      {rewaaRun.failed > 0 ? t.ocr.rewaa.completeWithErrors : t.ocr.rewaa.complete}
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                      {rewaaRun.outcome === 'build-failed' ? (
+                          <li>✗ {t.ocr.rewaa.buildFailed.replace('{msg}', rewaaRun.error ?? '')}</li>
+                      ) : (
+                          <>
+                              <li>✓ {t.ocr.rewaa.generated.replace('{file}', rewaaRun.fileName)}</li>
+                              {rewaaRun.outcome === 'downloaded'
+                                  ? <li>✓ {t.ocr.rewaa.autoDownloaded}</li>
+                                  : <li>⚠ {t.ocr.rewaa.held.replace('{n}', String(rewaaRun.failed)).replace('{total}', String(rewaaRun.sources.length))}</li>}
+                              {rewaaRun.notIdentical > 0 && <li>⚠ {t.ocr.rewaa.review.replace('{n}', String(rewaaRun.notIdentical))}</li>}
+                          </>
+                      )}
+                  </ul>
+                  {rewaaRun.outcome !== 'build-failed' && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                          <button onClick={downloadRewaaExcel} className="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-green-700 flex items-center gap-2 shadow-sm">
+                              <Download size={16}/> {t.ocr.rewaa.downloadExcel}
+                          </button>
+                          <button onClick={downloadRewaaZip} disabled={zipBusy} className="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-indigo-700 flex items-center gap-2 shadow-sm disabled:opacity-60">
+                              <Download size={16}/> {zipBusy ? t.ocr.rewaa.zipBusy : t.ocr.rewaa.downloadZip}
+                          </button>
+                      </div>
+                  )}
+                  {zipError && <p className="mt-2 text-sm text-red-700">{t.ocr.rewaa.zipFailed.replace('{msg}', zipError)}</p>}
+              </div>
+          )}
 
           {/* RESULTS AREA */}
           {masterData.length > 0 && (
