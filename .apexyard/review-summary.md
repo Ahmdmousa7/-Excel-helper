@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:c015f16be1bd847950a41eec5ab03272b40e18ee681d497807c5ec101d695cc2` |
+| Attestation id | `sha256:0e319d1301eb0d61e9852a2a2aa846d717397b2596328c2b55ae7452dc442a18` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `ffa34c62ba47` |
+| Reviewed at commit | `26b879ce0a58` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
+| low | 0 |
 | info | 0 |
 
-Documentation-only PR that records an already-approved product decision in two places: `open-decisions.md` D12 rule 7 now spells out that `Enable stock management` is forced to `no` on both Rewaa sheets while the Generic sheets keep the model's value, and that this transformation is deliberately excluded from the `Rewaa Data Identical` comparison; `tech-debt-register.md` adds TD-055 capturing four deferred low findings from the `ocr-rewaa-parity` review. Every factual claim in the diff was verified against the code: `REWAA_FIXED = { 'enable stock management': 'no' }` (utils/ocrRewaaExport.ts:276) is applied unconditionally in `rewaaRow`, `identical()` (utils/ocrRewaaExport.ts:336-348) compares exactly name, category, retail price, SKU, option keys and Variant Name and does not touch the stock column, and `e2e/ocr-rewaa-export.spec.ts:172,181,199,202` asserts the behaviour. The three code claims in TD-055 that were checkable also hold (`processBatch` returns `any[]` at components/OcrTab.tsx:424; the bare `no-control-regex` disable at utils/ocrRewaaExport.ts:488; `resolveDuplicateNames` reading keys from `rows[0]` at utils/ocrRewaaExport.ts:163). No code, dependency, or security surface changes. One low navigability nit.
+Documentation-only change: `docs/modules/open-decisions.md` gains an explicit `<a id="d12-rule-7"></a>` anchor on D12 rule 7 (a table row, which has no heading-derived anchor), and `docs/quality/tech-debt-register.md` updates TD-055's cross-reference to target `#d12-rule-7` instead of the top of the document. I verified the anchor id is unique across the repo's markdown and that the relative path `../modules/open-decisions.md` resolves correctly from `docs/quality/`. No code, config, dependency, or security surface is touched; no material technical decision is introduced, so no AgDR is required.
 
 ## Quality gates
 

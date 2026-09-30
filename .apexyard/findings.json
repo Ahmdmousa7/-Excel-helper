@@ -1,24 +1,14 @@
 {
-  "attestation_id": "sha256:c015f16be1bd847950a41eec5ab03272b40e18ee681d497807c5ec101d695cc2",
+  "attestation_id": "sha256:0e319d1301eb0d61e9852a2a2aa846d717397b2596328c2b55ae7452dc442a18",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 1,
+    "low": 0,
     "medium": 0
   },
-  "findings": [
-    {
-      "category": "technical-debt",
-      "detail": "TD-055's closing note points the reader at the canonical record with `[`open-decisions.md` D12 rule 7](../modules/open-decisions.md)`. The relative path resolves correctly (docs/quality → docs/modules/open-decisions.md), but with no fragment the reader lands at line 1 of a file whose D12 section starts at line 271, and must then locate rule 7 inside D12's table by eye. Since the whole point of this row is to say \"the permanent record lives there, not here,\" the link is the load-bearing part of the entry — a reader who doesn't follow it through to rule 7 is exactly the reader who re-files the stock-management transformation as a defect. This is low, not medium, because the link is not broken and it matches the existing convention in TD-052 ('See [`open-decisions.md` D11](../modules/open-decisions.md)'); it would rise to medium only if the path itself were wrong.",
-      "file": "docs/quality/tech-debt-register.md",
-      "line": 13,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "D12 cross-link has no anchor — lands at the top of a 300-line document"
-    }
-  ],
+  "findings": [],
   "schema": "apexyard.evidence.findings/1",
-  "total": 1
+  "total": 0
 }
