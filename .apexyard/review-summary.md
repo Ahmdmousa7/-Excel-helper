@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:f576e2c0580c2e0d48e134aa87bdf538f0e6e8b88d8810720cd3a916dab6f3d4` |
+| Attestation id | `sha256:9d79d29f3637e61c524aaa038d6a2ea835cdb7b3f49f5db34fb0c37b5eacbbe7` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `9495be514adb` |
+| Reviewed at commit | `5ffe5d133f0a` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 1 |
+| Files reviewed | 2 |
 
 ## What this is, and what it is not
 
@@ -31,9 +31,9 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | high | 0 |
 | medium | 0 |
 | low | 1 |
-| info | 0 |
+| info | 2 |
 
-Docs-only change: one new row (TD-055) added to the Open table of docs/quality/tech-debt-register.md, recording four Low findings deferred from the OCR → Rewaa review plus a product-owner-approved-behaviour note about `Rewaa Data Identical` excluding the forced `Enable stock management = no`. No source, config, or dependency files are touched, so the blocking frontend-boundaries and security-baseline handbooks have nothing to act on. I verified the row's factual claims against the repo: the table row has exactly 9 cells matching the header (the 10th-cell bug from commit 9495be5 is genuinely fixed), `D12 rule 7` exists at docs/modules/open-decisions.md:287, and e2e/ocr-rewaa-export.spec.ts:194 does assert `Rewaa Data Identical === true` for fixture rows whose extracted `Enable stock management` is `yes` — so the documented behaviour is real and test-pinned. One low, non-blocking note on where the approved-behaviour record is stored.
+Docs-only change across two files: `open-decisions.md` D12 rule 7 now carries the permanent record of the approved `Enable stock management = no` business transformation (including that it is deliberately excluded from the `Rewaa Data Identical` comparison), and the TD-055 row in the tech-debt register is trimmed to point at that record instead of duplicating it, with its `Blocked by` cell cleared. I verified the substantive claims against the code: `identical()` in `utils/ocrRewaaExport.ts:336-348` compares exactly name, category, price, SKU, option keys and Variant Name and does not compare the stock column, and `e2e/ocr-rewaa-export.spec.ts:181-202` asserts `no` on all four Rewaa/Mapped sheets while `:190-194` asserts the Generic sheet keeps the extracted `yes` with `Rewaa Data Identical === true`. No code, no dependencies, no security surface — approving, with two accuracy nits in the register row.
 
 ## Quality gates
 

@@ -1,24 +1,42 @@
 {
-  "attestation_id": "sha256:f576e2c0580c2e0d48e134aa87bdf538f0e6e8b88d8810720cd3a916dab6f3d4",
+  "attestation_id": "sha256:9d79d29f3637e61c524aaa038d6a2ea835cdb7b3f49f5db34fb0c37b5eacbbe7",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 2,
     "low": 1,
     "medium": 0
   },
   "findings": [
     {
       "category": "technical-debt",
-      "detail": "The `Also recorded here: approved behaviour, not a defect` block lives inside the Fix recommendation cell of TD-055, whose status is `open` and whose content is four unrelated Low code findings. This document's own convention (line 3: \"closed items move to the bottom\") moves a closed entry into the `## Closed` table, which has only four columns — ID, Description, Closed, Fixed by (line 54-55). The Fix recommendation cell is not carried across that move. So the moment the four Lows are fixed and TD-055 closes, the standing instruction `Do not \"fix\" it without a new product decision` silently disappears from the register — which is precisely the audience (a future reader re-deriving why the flag stays TRUE) the note was written for. The note is accurate and its cross-reference resolves; only its storage location is fragile. This stays low rather than medium because the canonical decision record already exists independently at docs/modules/open-decisions.md:287 (D12 rule 7), so nothing is lost outright — what is lost is the pointer from the register to it.",
+      "detail": "The row's bold lead still reads \"the OCR → Rewaa branch (`ocr-rewaa-parity`, `d82c459`, not yet merged)\" while the `Blocked by` cell this PR rewrote now says \"`ocr-rewaa-parity` was merged and deployed on 2026-09-30 (`8c28064`) and the branch deleted.\" Both statements are in the same table row. A reader triaging TD-055 cannot tell from this row whether the prerequisite branch is still in flight — which is exactly the question the `Blocked by` edit was made to answer. The register is the artifact people consult instead of git, so a stale clause inside it re-creates the archaeology it exists to prevent.",
       "file": "docs/quality/tech-debt-register.md",
-      "line": 13,
+      "line": 14,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Approved-behaviour record is stored in a row that will be archived when TD-055 closes"
+      "summary": "TD-055 row contradicts itself on whether ocr-rewaa-parity was merged"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "`git log -1 8c28064` is `evidence: gate green for 3ef252f (11/11, AI review APPROVED, 1 medium open)` — an evidence record dated 2026-09-30 on `main`. The commit that actually landed the OCR → Rewaa work is its parent `3ef252f` (\"OCR → Rewaa: output matches the supplied correct file; auto-download and ZIP\"). Citing the evidence commit as the thing that was \"merged and deployed\" sends anyone who follows the SHA to a gate receipt rather than to the change. Both commits are on `main`, so nothing is wrong — only imprecise.",
+      "file": "docs/quality/tech-debt-register.md",
+      "line": 14,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "`8c28064` is the evidence commit, not the branch's work commit"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "The new pointer `[\\`open-decisions.md\\` D12 rule 7](../modules/open-decisions.md)` resolves correctly to `docs/modules/open-decisions.md`, but with no fragment the reader arrives at line 1 and has to scan to the D12 heading at line 271 and then to row 7 of its table. The whole point of the restructure is that TD-055 delegates to D12 rule 7, so the handoff is worth making one click rather than one search. The D12 heading is bilingual with em-dashes, which makes a generated anchor fragile — an explicit anchor is the stable fix.",
+      "file": "docs/quality/tech-debt-register.md",
+      "line": 14,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "Link to D12 rule 7 has no anchor and lands at the top of a ~300-line doc"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 1
+  "total": 3
 }
