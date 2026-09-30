@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:fd0c0a5e536cc38992995488f77e0fcc307aee5109b97c0db9e56ea84e56ba82` |
+| Attestation id | `sha256:ac3da0698770e47d4ed8e66d35d1c1b212357aa68f478ebe72af6dac98f3efe8` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `4d95979945a6` |
+| Reviewed at commit | `c875184d0360` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **APPROVED** |
-| Files reviewed | 11 |
+| Verdict | **COMMENT** |
+| Files reviewed | 1 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 2 |
-| info | 1 |
+| low | 0 |
+| info | 0 |
 
-This PR teaches Web Scraper to read Yalla QR Codes menus from the platform's own JSON API instead of the Jina page text, so items whose prices only exist behind a required size choice become one VARIANT row per option with its real price. The split is clean — `utils/yallaMenu.ts` is pure (URL recognition + JSON→text), `services/yallaMenuService.ts` owns the network read with an 8 s per-request and 30 s whole-read bound, and every failure path falls back to the page text with a user-visible warning. Coverage is strong and behavioural: 32 new unit tests over a real captured fixture (676/676 pass locally, matching the README/TESTING counts exactly) plus three e2e tests covering the happy path, an unreachable API, and a hung API that must time out without hanging the scrape. Three low/info notes below; nothing blocking.
+No reviewable files in the diff.
 
 ## Quality gates
 

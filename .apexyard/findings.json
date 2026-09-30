@@ -1,42 +1,14 @@
 {
-  "attestation_id": "sha256:fd0c0a5e536cc38992995488f77e0fcc307aee5109b97c0db9e56ea84e56ba82",
+  "attestation_id": "sha256:ac3da0698770e47d4ed8e66d35d1c1b212357aa68f478ebe72af6dac98f3efe8",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 0,
+    "low": 0,
     "medium": 0
   },
-  "findings": [
-    {
-      "category": "architecture",
-      "detail": "`fetchYallaMenu(yalla, targetUrl, (u, init) => fetch(u, init))` keeps a literal `fetch(` token inside `components/`, which is the pattern `handbooks/architecture/frontend-boundaries.md` § rule 2 flags. I am deliberately NOT treating this as a rule-2 violation (hence non-blocking): the thing rule 2 exists to prevent — endpoint choice, headers, concurrency, timeouts living in the component — is exactly what this PR moved into `services/yallaMenuService.ts`, and the injected argument is a test seam, not I/O policy. It is still worth removing so the next reader does not read it as precedent for the surrounding legacy `fetch` calls at lines 83–135.",
-      "file": "components/WebScraperTab.tsx",
-      "line": 58,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Component still names `fetch` to inject it into the service"
-    },
-    {
-      "category": "typescript",
-      "detail": "`categories as YallaCategory[]` and `items as YallaItem[]` are asserted after a check that only proves the values are non-empty arrays — nothing validates the elements. If the platform ever returns `[null, …]` or `[{…}, \"x\"]` in `data`, `live()` at `utils/yallaMenu.ts:51` throws `TypeError: Cannot read properties of null (reading 'is_deleted')`. I confirmed the blast radius is contained: the throw escapes `fetchYallaMenu` (the `finally` only clears the timer) into the component's `catch` at `components/WebScraperTab.tsx:62`, so the user gets the page-text fallback and a warning rather than a crash. That containment is why this is low rather than medium — without the caller's try/catch it would be a user-facing failure. `handbooks/language/typescript/type-safety.md` § rule 4 is the relevant rule: external data is `unknown` until validated.",
-      "file": "services/yallaMenuService.ts",
-      "line": 133,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "`Array.isArray` guard does not justify the element-shape assertion"
-    },
-    {
-      "category": "code-smell",
-      "detail": "Each unknown `category` id gets its own synthetic category, all named `(no section)`. With more than one id missing from `/api/categories/`, the output contains repeated `## (no section)` blocks. The items are still all present — the fix in cb2adf7 (never drop an item) holds — so this is cosmetic in the text the model receives, not a data-loss path. Noting it only because the unit test at `tests/unit/yallaMenu.test.ts` covers the single-orphan case and would not catch the duplication if someone later relied on the heading being unique.",
-      "file": "utils/yallaMenu.ts",
-      "line": 114,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "Two orphan sections emit two identical `## (no section)` headings"
-    }
-  ],
+  "findings": [],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 0
 }

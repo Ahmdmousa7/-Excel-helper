@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:fd0c0a5e536cc38992995488f77e0fcc307aee5109b97c0db9e56ea84e56ba82",
+  "attestation_id": "sha256:ac3da0698770e47d4ed8e66d35d1c1b212357aa68f478ebe72af6dac98f3efe8",
   "available": true,
-  "files_reviewed": 11,
+  "files_reviewed": 0,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 0,
+    "low": 0,
     "medium": 0
   },
-  "findings_total": 3,
+  "findings_total": 0,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR teaches Web Scraper to read Yalla QR Codes menus from the platform's own JSON API instead of the Jina page text, so items whose prices only exist behind a required size choice become one VARIANT row per option with its real price. The split is clean — `utils/yallaMenu.ts` is pure (URL recognition + JSON→text), `services/yallaMenuService.ts` owns the network read with an 8 s per-request and 30 s whole-read bound, and every failure path falls back to the page text with a user-visible warning. Coverage is strong and behavioural: 32 new unit tests over a real captured fixture (676/676 pass locally, matching the README/TESTING counts exactly) plus three e2e tests covering the happy path, an unreachable API, and a hung API that must time out without hanging the scrape. Three low/info notes below; nothing blocking.",
-  "verdict": "approved"
+  "summary": "No reviewable files in the diff.",
+  "verdict": "comment"
 }

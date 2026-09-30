@@ -1,62 +1,22 @@
 {
-  "attestation_id": "sha256:fd0c0a5e536cc38992995488f77e0fcc307aee5109b97c0db9e56ea84e56ba82",
+  "attestation_id": "sha256:ac3da0698770e47d4ed8e66d35d1c1b212357aa68f478ebe72af6dac98f3efe8",
   "files": [
     {
-      "oid": "fcccd7f9013c11034659b4629b29d30987d2e7cb",
-      "path": "README.md"
-    },
-    {
-      "oid": "618d16a75aec05ea6f85dfc9efc7125d324b11c1",
-      "path": "components/WebScraperTab.tsx"
-    },
-    {
-      "oid": "d13c84581f08f635512d3aa49827b00b3821d973",
-      "path": "docs/TESTING.md"
-    },
-    {
-      "oid": "95f3ad434eb4415ac44c30c5fa581e480bea271f",
-      "path": "docs/modules/MODULE_GUIDE.md"
-    },
-    {
-      "oid": "2351fbb767c40457e609d41abea7067914957f48",
-      "path": "e2e/ai-tools.spec.ts"
-    },
-    {
-      "oid": "9273dee7344d0e02bc168031d85c48fe0515d114",
-      "path": "services/yallaMenuService.ts"
-    },
-    {
-      "oid": "f82cd362c098dc51a3793f63529b434a9e572443",
-      "path": "tests/fixtures/README.md"
-    },
-    {
-      "oid": "7eaa9fe224b4d9fc39bcc903bf7846c684d352f3",
-      "path": "tests/fixtures/yalla-kelah.json"
-    },
-    {
-      "oid": "499c952512f0138b7e59fe0a45a839db29d0e1df",
-      "path": "tests/unit/yallaMenu.test.ts"
-    },
-    {
-      "oid": "b9420a2e5f18a1e5c35802f49ae1ccd4af625662",
-      "path": "tests/unit/yallaMenuService.test.ts"
-    },
-    {
-      "oid": "0ea777abc9dab7e310c973ffcdd2deaf5044f444",
-      "path": "utils/yallaMenu.ts"
+      "oid": "7ada6808b44d25a5cae3a5fac529fe31be2b03f9",
+      "path": "package-lock.json"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 0,
+    "low": 0,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "4d95979945a6cb0c41b2ac86603d2a96c4748437",
+  "reviewed_at_commit": "c875184d0360620a7f4f91cb2dbb33dc88a9eea1",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
-  "verdict": "APPROVED"
+  "verdict": "COMMENT"
 }
