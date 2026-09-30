@@ -390,11 +390,23 @@ describe('names, ZIP bundle, auto-export decision', () => {
     expect(everything).not.toMatch(/AIza[0-9A-Za-z_-]{20,}|api[_-]?key|apiKey|token|Bearer /i);
   });
 
-  it('the ZIP is deterministic for the same run', async () => {
+  it('the ZIP is byte-for-byte deterministic for the same run, directory entries included', async () => {
     const { exported, bytes } = runPipeline();
     const make = () => buildBundle(JSZip, { baseName: 'b', workbook: bytes, exported, extractedAt: EXTRACTED_AT, sourceInfo: [], sources: [{ name: 'p.txt', data: 'hello' }] });
-    expect(Buffer.from(await make()).equals(Buffer.from(await make()))).toBe(true);
-  });
+    const first = await make();
+    // More than 2 s apart: a ZIP stores times in 2-second steps, so two builds
+    // closer together can match by luck even when an entry carries the wall
+    // clock. The `source/` folder entry used to, and this test passed on it
+    // most of the time.
+    await new Promise((resolve) => setTimeout(resolve, 2_100));
+    const second = await make();
+    expect(Buffer.from(first).equals(Buffer.from(second)), 'ZIP bytes differ between two builds of the same run').toBe(true);
+    // Every entry, the folder too, carries the run's timestamp.
+    const zip = await JSZip.loadAsync(first);
+    expect(zip.files['source/']?.dir).toBe(true);
+    expect(Object.values(zip.files).map((f) => [f.name, f.date.getTime()]))
+      .toEqual(Object.values(zip.files).map((f) => [f.name, EXTRACTED_AT.getTime()]));
+  }, 15_000);
 
   it('downloads on its own only after a clean, successful run', () => {
     expect(autoExportDecision({ rows: 180, failedInputs: 0, built: true })).toBe('download');

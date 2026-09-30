@@ -539,6 +539,12 @@ export async function buildBundle(JSZip: typeof JSZipNS, input: BundleInput): Pr
   const zip = new JSZip();
   const date = input.extractedAt;
   zip.file(`${input.baseName}.xlsx`, input.workbook, { date, binary: true });
+  // The folder entry is created here, with the run's date. Left to JSZip, it
+  // is created implicitly by the first `source/…` file and stamped with the
+  // wall clock, so two builds of the same run differed once more than 2 s
+  // (a ZIP's time resolution) passed between them. JSZip keeps an existing
+  // folder entry rather than recreating it.
+  if (input.sources.length > 0) zip.file('source/', null, { dir: true, date });
   const taken = new Set<string>();
   for (const s of input.sources) {
     let entry = safeEntryName(s.name);
