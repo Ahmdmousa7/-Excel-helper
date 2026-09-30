@@ -1,25 +1,85 @@
 {
-  "attestation_id": "sha256:0e319d1301eb0d61e9852a2a2aa846d717397b2596328c2b55ae7452dc442a18",
+  "attestation_id": "sha256:0200e84f5fb2b51734d6abe7eafd56f2d78d3fe3d8e0d6f1fb1078199f1ee1ce",
   "files": [
     {
-      "oid": "e79f923451c290616c86b0f45757a2c5b52fa48e",
+      "oid": "98c27583d2ad63f3e63962af17784798b91c8759",
+      "path": "components/CleanTool.tsx"
+    },
+    {
+      "oid": "691590eaf3feaf6a0a20bb237098192f97901ade",
+      "path": "components/CompareTool.tsx"
+    },
+    {
+      "oid": "2b32d46fd14a5a8ecaeb7fa4ed0c67611e1cb177",
+      "path": "components/DeduplicateTool.tsx"
+    },
+    {
+      "oid": "2a8be70482b16957a992e702b81cbebdd5f54bcf",
+      "path": "components/MergeTool.tsx"
+    },
+    {
+      "oid": "76578dbdf081d5d3de5fdc5a8f370f39efe9e51c",
+      "path": "components/SplitterTool.tsx"
+    },
+    {
+      "oid": "7f68500ac4c79af060948dbd2056a64e6316eef3",
+      "path": "docs/modules/MODULE_GUIDE.md"
+    },
+    {
+      "oid": "ed0e8594e8ff262f25f4bfc1c0f5f19aada3e4ff",
       "path": "docs/modules/open-decisions.md"
     },
     {
-      "oid": "f378fa776e96d7432eab4161142f9faa97c94364",
+      "oid": "fbeac8ee096dfb24b1bc981b42446d49416f6ab1",
       "path": "docs/quality/tech-debt-register.md"
+    },
+    {
+      "oid": "05310a794a8d353bf64bc359344253b3a1a945fa",
+      "path": "e2e/reference-fixes.spec.ts"
+    },
+    {
+      "oid": "59a103311d06c48d555616f6281ac06b4c959749",
+      "path": "services/workbookBytes.ts"
+    },
+    {
+      "oid": "06d7c46ee1222d75a7c0130ee518e7bc74f54de0",
+      "path": "tests/unit/compareRules.test.ts"
+    },
+    {
+      "oid": "40df8fe50b986d8239da3cf8b79a00d3f4c3977f",
+      "path": "tests/unit/dedupe.test.ts"
+    },
+    {
+      "oid": "4b6db27ce682c7494fc13f4ebb6a8ae82c530815",
+      "path": "tests/unit/sheetNames.test.ts"
+    },
+    {
+      "oid": "472f09e21521b70259eba225795324c86de4bbfe",
+      "path": "tests/unit/workbookBytesUtf16.test.ts"
+    },
+    {
+      "oid": "c48e856962d9da37e3e0c637033a4c9fafb8dde1",
+      "path": "utils/compareUtils.ts"
+    },
+    {
+      "oid": "b979bde5f6706bd440b0f7ee2492f179b8cbaaa2",
+      "path": "utils/dedupe.ts"
+    },
+    {
+      "oid": "a2740f2145b46cedce739a1d137727a56b409dbd",
+      "path": "utils/excelUtils.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 0,
+    "low": 2,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "26b879ce0a58bbb16f5b9559607de66d164fa95b",
+  "reviewed_at_commit": "e6d12db043d064f97289ea50678a7a6e244eacb4",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

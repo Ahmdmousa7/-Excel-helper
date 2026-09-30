@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:0e319d1301eb0d61e9852a2a2aa846d717397b2596328c2b55ae7452dc442a18",
+  "attestation_id": "sha256:0200e84f5fb2b51734d6abe7eafd56f2d78d3fe3d8e0d6f1fb1078199f1ee1ce",
   "available": true,
-  "files_reviewed": 2,
+  "files_reviewed": 17,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 0,
+    "low": 2,
     "medium": 0
   },
-  "findings_total": 0,
+  "findings_total": 2,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Documentation-only change: `docs/modules/open-decisions.md` gains an explicit `<a id=\"d12-rule-7\"></a>` anchor on D12 rule 7 (a table row, which has no heading-derived anchor), and `docs/quality/tech-debt-register.md` updates TD-055's cross-reference to target `#d12-rule-7` instead of the top of the document. I verified the anchor id is unique across the repo's markdown and that the relative path `../modules/open-decisions.md` resolves correctly from `docs/quality/`. No code, config, dependency, or security surface is touched; no material technical decision is introduced, so no AgDR is required.",
+  "summary": "Reviewed commit e6d12db043d064f97289ea50678a7a6e244eacb4: a targeted bug-fix pass adopting behaviours from the ExcelDiff AI reference package across five tools. The substantive fixes are correct and each is backed by a test that fails on the old code — fuzzy-match no longer equates two barcodes differing by one digit, decimal tolerance no longer treats a blank cell as 0, compare/dedupe keys strip invisible characters via the existing `identifierKey` (preserving leading zeros per D7), the `cleanEmptyColumns` out-of-range start row no longer nukes every column, Merge keys per-file state by object identity instead of filename, `safeSheetName`/`uniqueNames` stop silent overwrites and SheetJS crashes, and the UTF-16 BOM branch in `decodeTextBytes` restores Excel 'Unicode Text' files. Architecture and security are clean: no new `utils/`→`services/` edges, no I/O moved into components (downloads were moved the other way, into `services/download.ts`), no secrets, no HTML injection. Two low, non-blocking findings.",
   "verdict": "approved"
 }

@@ -1,14 +1,33 @@
 {
-  "attestation_id": "sha256:0e319d1301eb0d61e9852a2a2aa846d717397b2596328c2b55ae7452dc442a18",
+  "attestation_id": "sha256:0200e84f5fb2b51734d6abe7eafd56f2d78d3fe3d8e0d6f1fb1078199f1ee1ce",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 0,
+    "low": 2,
     "medium": 0
   },
-  "findings": [],
+  "findings": [
+    {
+      "category": "accessibility",
+      "detail": "The new `disabled={… || mappedCount === 0 …}` guard is the right fix for the silent 'perfect match' bug, but the only explanation is `title={mappedCount === 0 ? 'Map at least one column to compare' : undefined}`. A disabled `<button>` is removed from the tab order and does not fire hover in several browsers, so a keyboard or screen-reader user sees a greyed-out control with no reason given — the `addLog` warning at the top of `handleCompare` is now unreachable, because the click can never land. Raise this to medium if the compare screen is ever the only path to the feature for an assistive-tech user; today the mapping UI directly above gives some context.",
+      "file": "components/CompareTool.tsx",
+      "line": 356,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Disabled Run button explains itself only via `title`"
+    },
+    {
+      "category": "typescript",
+      "detail": "`openWith(app: any, page: Page, …)` introduces an unjustified `any` in a file the PR adds. The concrete type is already exported from the module this spec imports from — `e2e/fixtures.ts:7` re-exports `AppShell`, and `Fixtures['app']` is declared as `AppShell` at `e2e/fixtures.ts:65`. Two sibling specs (`exporter-date-format.spec.ts:49`, `files-validation.spec.ts:46`) already use the typed form, so this is drift rather than a missing type. Concretely: a rename or signature change to `AppShell.openTool`/`goto` will not fail type-check in this spec, and the failure will surface only as a runtime Playwright error.",
+      "file": "e2e/reference-fixes.spec.ts",
+      "line": 24,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "New helper annotates the `app` fixture as bare `any`"
+    }
+  ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 0
+  "total": 2
 }
