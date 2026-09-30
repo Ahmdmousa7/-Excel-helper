@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FileData, ProcessingStatus } from '../types';
 import { getSheetData, readExcelFile } from '../services/excelService';
-import { cleanEmptyColumns, exportToExcelSingleSheet } from '../utils/excelUtils';
+import { cleanEmptyColumns, exportToExcelSingleSheet, uniqueNames } from '../utils/excelUtils';
+import { downloadBytes, XLSX_MIME, ZIP_MIME } from '../services/download';
 import { Download, Trash2, Wand2, Activity, ShieldCheck, Upload, XCircle, FileSpreadsheet } from 'lucide-react';
 import JSZip from 'jszip';
 
@@ -19,6 +20,14 @@ export const CleanTool: React.FC<Props> = ({ fileData, addLog }) => {
 
   const allFiles = fileData ? [fileData, ...extraFiles] : extraFiles;
 
+  // A result belongs to the inputs it was made from. Changing the start row or
+  // the files used to leave the OLD result downloadable.
+  const clearResults = () => {
+      setResults(null);
+      setStatus(ProcessingStatus.IDLE);
+  };
+  useEffect(clearResults, [fileData]);
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files || files.length === 0) return;
@@ -35,6 +44,7 @@ export const CleanTool: React.FC<Props> = ({ fileData, addLog }) => {
       }
       if (newFiles.length > 0) {
           setExtraFiles(prev => [...prev, ...newFiles]);
+          clearResults();
           addLog(`Added ${newFiles.length} file(s).`, 'success');
       }
       if (fileInputRef.current) {
@@ -44,6 +54,7 @@ export const CleanTool: React.FC<Props> = ({ fileData, addLog }) => {
 
   const removeExtraFile = (index: number) => {
       setExtraFiles(prev => prev.filter((_, i) => i !== index));
+      clearResults();
   };
 
   const handleClean = async () => {
@@ -63,6 +74,9 @@ export const CleanTool: React.FC<Props> = ({ fileData, addLog }) => {
             allFiles.forEach(fData => {
                 fData.sheets.forEach(sheetName => {
                     const rawData = getSheetData(fData.workbook, sheetName, true);
+                    if (startRow >= rawData.length && rawData.length > 0) {
+                        addLog(`${fData.name} / ${sheetName}: start row ${startRow} is past the last row (${rawData.length}); every row was checked instead.`, 'warning');
+                    }
                     const { cleanedData, droppedCount, retainedCount } = cleanEmptyColumns(rawData, startRow);
                     const buffer = exportToExcelSingleSheet(cleanedData, sheetName);
                     arr.push({ fileName: fData.name, sheetName, dropped: droppedCount, retained: retainedCount, buffer });
@@ -79,46 +93,31 @@ export const CleanTool: React.FC<Props> = ({ fileData, addLog }) => {
     }, 100);
   };
 
+  /** `Cleaned_<file>_<sheet>`, made unique — two inputs can share a file and sheet name. */
+  const entryNames = (list: NonNullable<typeof results>) => uniqueNames(list.map((res) => {
+      const extSplit = res.fileName.lastIndexOf('.');
+      const baseName = extSplit === -1 ? res.fileName : res.fileName.substring(0, extSplit);
+      return `Cleaned_${baseName}_${res.sheetName}`;
+  }));
+
   const downloadAll = async () => {
       if (!results) return;
+      const names = entryNames(results);
       if (results.length === 1) {
-          const res = results[0];
-          const extSplit = res.fileName.lastIndexOf('.');
-          const baseName = extSplit === -1 ? res.fileName : res.fileName.substring(0, extSplit);
-          const blob = new Blob([res.buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `Cleaned_${baseName}_${res.sheetName}.xlsx`;
-          a.click();
-          URL.revokeObjectURL(url);
+          downloadBytes(new Uint8Array(results[0].buffer), `${names[0]}.xlsx`, XLSX_MIME);
       } else {
           const zip = new JSZip();
-          results.forEach((res) => {
-              const extSplit = res.fileName.lastIndexOf('.');
-              const baseName = extSplit === -1 ? res.fileName : res.fileName.substring(0, extSplit);
-              zip.file(`Cleaned_${baseName}_${res.sheetName}.xlsx`, res.buffer);
+          results.forEach((res, i) => {
+              zip.file(`${names[i]}.xlsx`, res.buffer);
           });
           const blob = await zip.generateAsync({ type: 'blob' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `Cleaned_Archive_${allFiles.length}_Files.zip`;
-          a.click();
-          URL.revokeObjectURL(url);
+          downloadBytes(blob, `Cleaned_Archive_${allFiles.length}_Files.zip`, ZIP_MIME);
       }
   };
 
-  const downloadSingle = (res: any) => {
-    const extSplit = res.fileName.lastIndexOf('.');
-    const baseName = extSplit === -1 ? res.fileName : res.fileName.substring(0, extSplit);
-    const blob = new Blob([res.buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Cleaned_${baseName}_${res.sheetName}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadSingle = (index: number) => {
+    if (!results) return;
+    downloadBytes(new Uint8Array(results[index].buffer), `${entryNames(results)[index]}.xlsx`, XLSX_MIME);
   };
 
   return (
@@ -172,7 +171,7 @@ export const CleanTool: React.FC<Props> = ({ fileData, addLog }) => {
                         type="number" 
                         min="0"
                         value={startRow} 
-                        onChange={(e) => setStartRow(Math.max(0, parseInt(e.target.value) || 0))}
+                        onChange={(e) => { setStartRow(Math.max(0, parseInt(e.target.value) || 0)); clearResults(); }}
                         className="w-full max-w-[200px] p-2 border border-blue-200 rounded shadow-sm outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
                     />
                 </div>
@@ -215,7 +214,7 @@ export const CleanTool: React.FC<Props> = ({ fileData, addLog }) => {
                                         <span className="text-green-600 font-semibold">{res.retained} Retained</span>
                                     </div>
                                     <button 
-                                        onClick={() => downloadSingle(res)}
+                                        onClick={() => downloadSingle(i)}
                                         className="mt-auto w-full py-1.5 border border-slate-200 rounded text-xs font-semibold hover:bg-slate-50 flex items-center justify-center gap-1 text-slate-600"
                                     >
                                         <Download size={12} /> Download

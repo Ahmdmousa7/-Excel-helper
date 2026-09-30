@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileData, ProcessingStatus } from '../types';
 import { getSheetData, createWorkbook, appendSheet, saveWorkbook } from '../services/excelService';
 import { CopyX, Download, Activity, AlertTriangle, Info } from 'lucide-react';
+import { dedupeRows } from '../utils/dedupe';
 
 interface Props {
   fileData?: FileData | null;
@@ -51,41 +52,10 @@ export const DeduplicateTool: React.FC<Props> = ({ fileData, addLog }) => {
 
              const headerRow = rawData[0];
              const dataRows = rawData.slice(1);
-             const occurrences = new Map<string, number[]>();
-
-             // Map phase: Find all duplicates
-             dataRows.forEach((row, rowIdx) => {
-                 const keyParts: string[] = [];
-                 selectedCols.forEach(cIdx => {
-                     keyParts.push(String(row[cIdx] ?? '').trim().toLowerCase());
-                 });
-                 const key = keyParts.join('|||');
-                 if (!occurrences.has(key)) occurrences.set(key, []);
-                 occurrences.get(key)!.push(rowIdx);
-             });
-
-             const validIndices = new Set<number>();
-             let dupesFound = 0;
-
-             // Reduce phase: filter based on keepFirst mode
-             occurrences.forEach((rowIndices, _) => {
-                 if (rowIndices.length > 1) {
-                     dupesFound += (rowIndices.length - 1);
-                     if (keepFirst) {
-                         validIndices.add(rowIndices[0]);
-                     }
-                     // if keepFirst is false, we keep NONE of them (eradicate outright)
-                 } else {
-                     validIndices.add(rowIndices[0]);
-                 }
-             });
-
-             const cleanedData = [headerRow];
-             dataRows.forEach((row, rowIdx) => {
-                 if (validIndices.has(rowIdx)) {
-                     cleanedData.push(row);
-                 }
-             });
+             // utils/dedupe.ts: which row survives, and how many rows went.
+             const { kept, removed } = dedupeRows(dataRows, selectedCols, keepFirst);
+             const cleanedData = [headerRow, ...kept];
+             const dupesFound = removed;
 
              setResult({ cleanedData, origCount: dataRows.length, dupesFound });
              setStatus(ProcessingStatus.COMPLETED);
@@ -124,8 +94,8 @@ export const DeduplicateTool: React.FC<Props> = ({ fileData, addLog }) => {
         <div className="p-6 flex flex-col lg:flex-row gap-6 bg-white overflow-y-auto">
              <div className="w-full lg:w-1/3 flex flex-col gap-4">
                  <div>
-                     <label className="block text-xs font-bold text-slate-700 mb-1">Target Sheet</label>
-                     <select className="w-full p-2 border rounded text-sm bg-white" value={targetSheet} onChange={e => setTargetSheet(e.target.value)}>
+                     <label htmlFor="dedupe-target-sheet" className="block text-xs font-bold text-slate-700 mb-1">Target Sheet</label>
+                     <select id="dedupe-target-sheet" className="w-full p-2 border rounded text-sm bg-white" value={targetSheet} onChange={e => setTargetSheet(e.target.value)}>
                          {fileData?.sheets.map(s => <option key={s} value={s}>{s}</option>)}
                      </select>
                  </div>
@@ -140,7 +110,18 @@ export const DeduplicateTool: React.FC<Props> = ({ fileData, addLog }) => {
                  <div className="border border-slate-200 rounded-lg overflow-hidden flex-1 flex flex-col">
                      <div className="bg-slate-100 p-2 border-b border-slate-200 text-xs font-bold text-slate-700 flex justify-between">
                          <span>Hash Columns</span>
-                         <span className="text-slate-500">{selectedCols.length} Selected</span>
+                         <span className="flex items-center gap-2">
+                             <span className="text-slate-500">{selectedCols.length} Selected</span>
+                             {headers.length > 0 && (
+                                 <button
+                                     type="button"
+                                     onClick={() => setSelectedCols(selectedCols.length === headers.length ? [] : headers.map((_, i) => i))}
+                                     className="text-rose-700 hover:underline font-bold"
+                                 >
+                                     {selectedCols.length === headers.length ? 'Unselect All' : 'Select All'}
+                                 </button>
+                             )}
+                         </span>
                      </div>
                      <div className="p-2 overflow-auto flex-1 max-h-[250px] space-y-1">
                          {headers.map((h, i) => (
@@ -158,14 +139,14 @@ export const DeduplicateTool: React.FC<Props> = ({ fileData, addLog }) => {
                     <h3 className="font-bold text-slate-800 border-b pb-2">Resolution Action</h3>
                     <div className="flex flex-col sm:flex-row gap-3">
                         <label className={`flex-1 flex px-4 py-3 border-2 rounded-lg cursor-pointer transition-colors ${keepFirst ? 'border-rose-600 bg-rose-50' : 'border-slate-200 bg-white hover:border-rose-300'}`}>
-                            <input type="radio" checked={keepFirst} onChange={() => setKeepFirst(true)} className="mt-1 mr-3 text-rose-600" />
+                            <input type="radio" name="dedupe-mode" checked={keepFirst} onChange={() => setKeepFirst(true)} className="mt-1 mr-3 text-rose-600" />
                             <div>
                                 <h4 className="font-bold text-sm text-slate-800">Keep First Occurrence</h4>
                                 <p className="text-[10px] text-slate-500 mt-0.5">Retains the very first row encountered; deletes subsequent matches.</p>
                             </div>
                         </label>
                         <label className={`flex-1 flex px-4 py-3 border-2 rounded-lg cursor-pointer transition-colors ${!keepFirst ? 'border-rose-600 bg-rose-50' : 'border-slate-200 bg-white hover:border-rose-300'}`}>
-                            <input type="radio" checked={!keepFirst} onChange={() => setKeepFirst(false)} className="mt-1 mr-3 text-rose-600" />
+                            <input type="radio" name="dedupe-mode" checked={!keepFirst} onChange={() => setKeepFirst(false)} className="mt-1 mr-3 text-rose-600" />
                             <div>
                                 <h4 className="font-bold text-sm text-slate-800">Remove All Duplicates</h4>
                                 <p className="text-[10px] text-slate-500 mt-0.5">Eradicates the group entirely. Only pure unique rows survive.</p>

@@ -57,12 +57,25 @@ export const isDelimitedTextName = (fileName: string): boolean => /\.(csv|tsv)$/
  * - A UTF-8 byte-order mark is consumed by the decoder, so it never reaches the
  *   first header.
  *
+ * - A UTF-16 byte-order mark (`FF FE` little-endian, `FE FF` big-endian) is
+ *   honoured. Excel's "Unicode Text" export is UTF-16; before this check such a
+ *   file failed UTF-8, fell through to 1256, and every letter came out with a
+ *   NUL beside it — a regression from the TD-050 fix, since SheetJS alone had
+ *   read it correctly. Found through the reference package's `test.tsv`.
+ *
  * Known limit: a non-Arabic legacy CSV (Latin-1 French, say) that is not valid
  * UTF-8 is decoded as 1256. That code page keeps the common accented Latin
  * letters, so French survives; other scripts would not. No code path handled
- * those before either.
+ * those before either. A UTF-16 file WITHOUT a byte-order mark is not
+ * detected either.
  */
 export function decodeTextBytes(bytes: Uint8Array): string {
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(bytes); // the decoder drops the BOM
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(bytes);
+  }
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {

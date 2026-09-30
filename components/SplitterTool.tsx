@@ -4,6 +4,7 @@ import { getSheetData } from '../services/excelService';
 import { extractSheets, exportToExcelSingleSheet } from '../utils/excelUtils';
 import { Download, FileSpreadsheet, Spline, SplitSquareHorizontal, Layers, Activity } from 'lucide-react';
 import JSZip from 'jszip';
+import { downloadBytes, ZIP_MIME } from '../services/download';
 
 interface Props {
   fileData?: FileData | null;
@@ -36,12 +37,10 @@ export const SplitterTool: React.FC<Props> = ({ fileData, addLog }) => {
                 zip.file(`${sheetName}.xlsx`, buffer);
             });
             const blob = await zip.generateAsync({ type: 'blob' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Separated_Sheets_${fileData.name}.zip`;
-            a.click();
-            URL.revokeObjectURL(url);
+            // Without the workbook's own extension: `Separated_Sheets_Book.zip`,
+            // not `Separated_Sheets_Book.xlsx.zip`.
+            const baseName = fileData.name.replace(/\.[^/.]+$/, '');
+            downloadBytes(blob, `Separated_Sheets_${baseName}.zip`, ZIP_MIME);
             setStatus(ProcessingStatus.COMPLETED);
             addLog(`Successfully generated ZIP with ${fileData.sheets.length} files.`, 'success');
         } catch (e: any) {
@@ -52,7 +51,13 @@ export const SplitterTool: React.FC<Props> = ({ fileData, addLog }) => {
   };
 
   const handleSplitRows = async () => {
-      if (!fileData || !targetSheet || maxRows < 1) return;
+      if (!fileData || !targetSheet) return;
+      // A blank, zero, negative or fractional size used to do nothing, or turn
+      // silently into 1000. Say so instead.
+      if (!Number.isInteger(maxRows) || maxRows < 1) {
+          addLog('Maximum rows per file must be a whole number of 1 or more.', 'warning');
+          return;
+      }
       setStatus(ProcessingStatus.PROCESSING);
       addLog(`Splitting sheet '${targetSheet}' into chunks of ${maxRows} max rows...`, 'info');
 
@@ -79,12 +84,7 @@ export const SplitterTool: React.FC<Props> = ({ fileData, addLog }) => {
               }
 
               const blob = await zip.generateAsync({ type: 'blob' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `Chunked_Rows_${targetSheet}.zip`;
-              a.click();
-              URL.revokeObjectURL(url);
+              downloadBytes(blob, `Chunked_Rows_${targetSheet}.zip`, ZIP_MIME);
               
               setStatus(ProcessingStatus.COMPLETED);
               addLog(`Successfully generated ZIP with ${part - 1} chunked files.`, 'success');
@@ -169,8 +169,8 @@ export const SplitterTool: React.FC<Props> = ({ fileData, addLog }) => {
                                <input 
                                   type="number"
                                   min="1"
-                                  value={maxRows}
-                                  onChange={(e) => setMaxRows(parseInt(e.target.value) || 1000)}
+                                  value={Number.isNaN(maxRows) ? '' : maxRows}
+                                  onChange={(e) => setMaxRows(Number(e.target.value === '' ? NaN : e.target.value))}
                                   className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                                />
                                <p className="text-[10px] text-slate-500 mt-1">Files exceeding this length will overflow into _Pt2, _Pt3 etc.</p>

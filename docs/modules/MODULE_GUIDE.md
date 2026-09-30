@@ -275,7 +275,14 @@ No resume of a partial run, no per-cell retry, no offline translation, no langua
 **AR:** المقارنة نفسها محلية وتكتمل دائماً؛ التحليل الذكي وحده قد يفشل دون فقدان نتيجة المقارنة.
 
 #### Unsupported · Code · Tests
-No three-way compare, no cell-level colour diff export. `components/CompareTool.tsx`, `utils/compareUtils.ts`. Tests: `tests/unit/compareUtils.test.ts`; e2e opens this tool in 6 places (`TOOL.compareFiles`).
+No three-way compare, no cell-level colour diff export. `components/CompareTool.tsx`, `utils/compareUtils.ts`. Tests: `tests/unit/compareUtils.test.ts`, `tests/unit/compareRules.test.ts`, `e2e/reference-fixes.spec.ts`; e2e opens this tool in 6 places (`TOOL.compareFiles`).
+
+**Adopted from the ExcelDiff AI reference package, 2026-09-30 (D13):**
+- **Fuzzy match skips numbers.** Two numeric values are compared exactly, so barcodes `6287013210006` and `6287013210007` are a mismatch; before, they were 92% similar and counted as a match.
+- **Decimal tolerance applies to two numbers only.** An empty cell no longer equals `0` or `0.03`.
+- **Keys ignore invisible characters** — zero-width spaces, direction marks, a trailing kasra — through `identifierKey` (D7 rule 3). Leading zeros still count: `00123` is not `123` (D7 rule 2).
+- **Run is disabled while no column is mapped**; before, every shared key came back as a perfect match.
+- **Exports:** the Excel report keeps numbers and dates as real cells, not text; the CSV is a Blob, so a `#` in any cell no longer cuts the file short; the AI Insights sheet has one line per row.
 
 ---
 
@@ -286,8 +293,9 @@ No three-way compare, no cell-level colour diff export. `components/CompareTool.
 - **Input / المدخل:** `.xlsx .xls .csv`, two sheets, join algorithm selected. **Output:** `Merged_Output.xlsx`, plus a separate `Schema_Mismatch_Report.xlsx` when the two sheets' columns do not line up.
 - **Errors:** configuration warnings plus `<message>` on throw; the join itself is local so there are no API failures.
 - **Edge cases:** duplicate keys and blank cells behave per `utils/mergeUtils.ts`; verify there before relying on either.
+- **Adopted from the ExcelDiff AI reference package, 2026-09-30 (D13):** each uploaded file keeps its own settings even when two share a name (two `export.xlsx` used to collapse into the first one twice); sheet names in Multiple Sheets mode are valid and unique (`safeSheetName` — `Sales.csv` + `Sales.xlsx` give `Sales` and `Sales (2)`; before, the download crashed silently); separate-files ZIP entry names are unique; a result is cleared when any file, sheet, column or mode changes; the Add Files input is reachable by keyboard; a failed download is logged. **Append still stacks by column position** — aligning by header name is a pending decision (D13).
 - **Unsupported:** no fuzzy join, no multi-key UI beyond what the mapping offers.
-- **Code:** `components/MergeTool.tsx`, `utils/mergeUtils.ts`. **Tests:** `tests/unit/mergeUtils.test.ts`; e2e opens it 3×.
+- **Code:** `components/MergeTool.tsx`, `utils/mergeUtils.ts`, `utils/excelUtils.ts` (`safeSheetName`, `uniqueNames`). **Tests:** `tests/unit/mergeUtils.test.ts`, `tests/unit/sheetNames.test.ts`, `e2e/reference-fixes.spec.ts`; e2e opens it 3×.
 
 ---
 
@@ -298,7 +306,8 @@ No three-way compare, no cell-level colour diff export. `components/CompareTool.
 - **Input:** `.xlsx .xls .csv`, **multiple files at once**, plus a start row. **Output:** `Cleaned_<base>_<sheet>.xlsx`, or `Cleaned_Archive_N_Files.zip` for several — written by `exportToExcelSingleSheet` in `utils/excelUtils.ts`.
 - **Errors:** `Failed to parse file: <message>` (unreadable file, per file), `No files to clean.` (run with none added). Both English-only in code.
 - **Error handling:** a file that fails to parse is reported and skipped; the others still process.
-- **Code:** `components/CleanTool.tsx`. **Tests:** no unit test; **the most-exercised tool in e2e** — 15 references via `TOOL.removeBlanks`, which makes it the de-facto smoke path for upload → process → download.
+- **Adopted from the ExcelDiff AI reference package, 2026-09-30 (D13):** a start row past the last row checks every row instead of dropping every column (and says so in the log); two inputs with the same file and sheet name get unique ZIP entries (`Cleaned_a_Sheet1`, `Cleaned_a_Sheet1-2`) instead of one overwriting the other; results are cleared when the start row or the files change.
+- **Code:** `components/CleanTool.tsx`, `utils/excelUtils.ts` (`cleanEmptyColumns`, `uniqueNames`). **Tests:** `tests/unit/excelUtils.test.ts` (7 `cleanEmptyColumns` tests — this line used to say "no unit test"), `tests/unit/sheetNames.test.ts`, `e2e/reference-fixes.spec.ts`; **the most-exercised tool in e2e** — 15 references via `TOOL.removeBlanks`, which makes it the de-facto smoke path for upload → process → download.
 
 ---
 
@@ -309,7 +318,8 @@ No three-way compare, no cell-level colour diff export. `components/CompareTool.
 - **Input:** loaded workbook; target sheet and max rows, or "split by sheet". **Output:** single XLSX or a ZIP.
 - **Errors:** `No data rows found to split.`, `Error exporting split sheets: <message>` — English-only.
 - **Edge cases:** a sheet with only a header row yields the "no data rows" warning rather than an empty file.
-- **Code:** `components/SplitterTool.tsx`. **Tests:** no unit test; 9 e2e references (`TOOL.separator`).
+- **Adopted from the ExcelDiff AI reference package, 2026-09-30 (D13):** an invalid rows-per-file value (blank, 0, negative, fractional) is reported instead of silently doing nothing or becoming 1000; the sheets ZIP is `Separated_Sheets_<name>.zip`, without the workbook's own extension.
+- **Code:** `components/SplitterTool.tsx`. **Tests:** no unit test; 9 e2e references (`TOOL.separator`), plus `e2e/reference-fixes.spec.ts`.
 
 ---
 
@@ -320,7 +330,8 @@ No three-way compare, no cell-level colour diff export. `components/CompareTool.
 - **Input:** loaded workbook, ≥1 column. **Output:** `Scrubbed_<name>.xlsx`, single sheet `Scrubbed_Data`.
 - **Errors:** `Not enough data rows.`, `Deduplication error: <message>` — English-only.
 - **Unsupported:** no fuzzy/near-duplicate detection, no highlight-only mode, no auto-rename of duplicates.
-- **Code:** `components/DeduplicateTool.tsx` (210 lines). **Tests:** 1 e2e reference — reachability only, no behavioural coverage.
+- **Adopted from the ExcelDiff AI reference package, 2026-09-30 (D13):** the matching moved to `utils/dedupe.ts`; keys ignore invisible characters (`identifierKey`, D7 rule 3; leading zeros still count); "Discovered Duplicates" is the number of rows actually removed (in Remove All mode it used to be one short per group); a Select All / Unselect All button; the two modes are one keyboard radio group.
+- **Code:** `components/DeduplicateTool.tsx`, `utils/dedupe.ts`. **Tests:** `tests/unit/dedupe.test.ts` (which row survives, counts, D7), `e2e/reference-fixes.spec.ts`.
 
 ---
 

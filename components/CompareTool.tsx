@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FileData, ProcessingStatus } from '../types';
 import { getSheetData, createWorkbook, appendSheet, saveWorkbook, readExcelFile } from '../services/excelService';
-import { compareDatasets, DiffRow, CompareSummary } from '../utils/compareUtils';
+import { compareDatasets, DiffRow, CompareSummary, buildCompareExport, toCsv, aiInsightsRows } from '../utils/compareUtils';
+import { downloadBytes } from '../services/download';
 import { ArrowLeftRight, FileSpreadsheet, Play, Download, AlertTriangle, FileText, CheckCircle2, XCircle, Activity } from 'lucide-react';
 import { aiService } from '../services/aiServiceFactory';
 import { readableAiError } from '../utils/aiErrors';
@@ -101,8 +102,16 @@ export const CompareTool: React.FC<Props> = ({ fileData, addLog, geminiKey, lang
       input.value = '';
   };
 
+  // Columns actually compared. With none, every shared key would come back as
+  // a "perfect match", which reads as a clean result when nothing was checked.
+  const mappedCount = Object.values(columnMapping).filter((v) => v !== -1).length;
+
   const handleCompare = () => {
       if (!fileData) return;
+      if (mappedCount === 0) {
+          addLog('Map at least one column to compare.', 'warning');
+          return;
+      }
       setStatus(ProcessingStatus.PROCESSING);
       setAiAnalysis(null);
       addLog(`Comparing sheets...`, 'info');
@@ -175,53 +184,8 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
       }
   };
 
-  const buildExportData = () => {
-      if (!results) return [];
-      const exportData: any[][] = [
-          ['Status', 'Key', 'Differences', 'Differences Description', ...headers1.map(h => `File1_${h}`), ...headers2.map(h => `File2_${h}`)]
-      ];
-      
-      results.diffs.forEach(diff => {
-          let diffNames = '';
-          let diffDesc = '';
-          const statusText = diff.status.toUpperCase();
-          
-          if (diff.status === 'missing_in_1') {
-              diffDesc = 'Row missing in File 1';
-          } else if (diff.status === 'missing_in_2') {
-              diffDesc = 'Row missing in File 2';
-          } else if (diff.status === 'match') {
-              diffDesc = 'Rows perfectly match';
-          } else if (diff.status === 'mismatch') {
-              const cols = (diff.mismatchedColumns || [])
-                  .map(c => headers1[c] || `Col ${c}`)
-                  .filter(Boolean)
-                  .join(' , ');
-              diffNames = cols;
-              
-              const detailDesc = (diff.mismatchedColumns || []).map(c1 => {
-                  const c2 = columnMapping[c1];
-                  const colName = headers1[c1] || `Col ${c1}`;
-                  const val1 = diff.data1 ? String(diff.data1[c1] ?? '') : '';
-                  const val2 = (diff.data2 && c2 !== undefined && c2 !== -1) ? String(diff.data2[c2] ?? '') : '';
-                  return `${colName}: ${val1} > ${val2}`;
-              }).join(' - ');
-              
-              diffDesc = detailDesc || `Mismatched values in: ${cols}`;
-          }
-
-          const row = [
-              statusText,
-              diff.key, 
-              diffNames,
-              diffDesc,
-              ...(diff.data1 || new Array(headers1.length).fill('')).map(c => String(c ?? '')),
-              ...(diff.data2 || new Array(headers2.length).fill('')).map(c => String(c ?? ''))
-          ];
-          exportData.push(row);
-      });
-      return exportData;
-  };
+  const buildExportData = () =>
+      results ? buildCompareExport(results.diffs, headers1, headers2, columnMapping) : [];
 
   const exportToExcel = () => {
       if (!results) return;
@@ -232,11 +196,7 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
           appendSheet(wb, exportData, 'Comparison_Report');
           
           if (aiAnalysis) {
-              const analysisData = [
-                  ['AI Insights'],
-                  [aiAnalysis]
-              ];
-              appendSheet(wb, analysisData, 'AI Insights');
+              appendSheet(wb, aiInsightsRows(aiAnalysis), 'AI Insights');
           }
 
           saveWorkbook(wb, `Comparison_${fileData?.name || 'Report'}.xlsx`);
@@ -251,17 +211,12 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
       try {
           const exportData = buildExportData();
 
-          const csvContent = "data:text/csv;charset=utf-8," 
-              + exportData.map(e => e.map(x => `"${String(x).replace(/"/g, '""')}"`).join(",")).join("\n");
-          
-          const encodedUri = encodeURI(csvContent);
-          const link = document.createElement("a");
-          link.setAttribute("href", encodedUri);
-          link.setAttribute("download", `Comparison_${fileData?.name || 'Report'}.csv`);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
+          downloadBytes(
+              new Blob([toCsv(exportData)], { type: 'text/csv;charset=utf-8' }),
+              `Comparison_${fileData?.name || 'Report'}.csv`,
+              'text/csv;charset=utf-8',
+          );
+
           addLog("Exported comparison to CSV.", "success");
       } catch(e: any) {
           addLog(`Export Error: ${e.message}`, "error");
@@ -398,7 +353,8 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
                      
                      <button 
                          onClick={handleCompare}
-                         disabled={!fileData || status === ProcessingStatus.PROCESSING}
+                         disabled={!fileData || mappedCount === 0 || status === ProcessingStatus.PROCESSING}
+                         title={mappedCount === 0 ? 'Map at least one column to compare' : undefined}
                          className="w-full bg-slate-800 text-white font-bold mt-2 py-2.5 rounded shadow-sm hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
                      >
                          {status === ProcessingStatus.PROCESSING ? <Activity className="animate-spin" size={16}/> : <Play size={16}/>}

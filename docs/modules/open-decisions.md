@@ -297,3 +297,32 @@ The product owner chose to keep this behaviour. It is not hidden: every rename i
 **Known limits.** Translations come from the model and vary between runs; only the order is enforced. Size inference sees only exact name and category matches. A blocked browser download cannot be detected.
 
 **AR:** الملف `correct-output.xlsx` هو المرجع الملزم لمخرجات استخراج OCR إلى رواء: ست أوراق، والنص بترتيب «إنجليزي | عربي»، ويتحوّل المنتج المكرر بسعرين إلى مقاسَي صغير/كبير، والسعر المفقود يُكتب 0 في أوراق رواء مع وسم الصف بأنه غير مطابق، وإدارة المخزون دائماً `no`. يُنزَّل الملف تلقائياً بعد نجاح الاستخراج فقط (عكس D9 لهذا المسار)، ويتوفر زر «تنزيل ZIP» يضم الملف الأصلي وملف رواء وملخصاً.
+
+---
+
+## D13 — the ExcelDiff AI reference package (2026-09-30) / الحزمة المرجعية ExcelDiff AI
+
+**What it is.** `exceldiff-ai.zip`, supplied 2026-09-30, has the same content as `latest.zip` (2026-09-28): the AI Studio app "ExcelDiff AI" (`cc7f98af…`, v`0.0.0`) — Clean, Compare, Deduplicate, Format, Merge and Splitter, a shared workspace layer, and dev scratch scripts. No secrets or `.env` files. It was compared with this app module by module; the current app is the source of truth (D6), and nothing was copied wholesale.
+
+**Adopted** (each documented in its MODULE_GUIDE section, and each with a test that fails on the old code): Compare — fuzzy match skips numbers, tolerance never equates a blank with a number, keys ignore invisible characters, Run needs a mapped column, typed Excel export, Blob CSV, AI Insights one line per row; Remove Blanks — start row past the data, unique ZIP entries, results cleared on change; Deduplicator — invisible characters, correct counts, Select All, one radio group; Merge — files keyed by upload, valid unique sheet names, unique separate-files entries, results cleared on change, keyboard-reachable Add Files; Separator — invalid chunk size reported, ZIP name without the extension; Clean, Merge and Separator downloads through `services/download.ts`; UTF-16 files with a byte-order mark decode again (found through the package's `test.tsv`).
+
+**Not adopted — contradicts a recorded decision or is broken in the reference:** "Ignore formatting" (strips leading zeros and dots — D7 rule 2; also makes `1.5` equal `15`); numeric normalisation of keys (D7); matching scientific notation against long numbers (TD-038); display-text reads and the "fullwide" scientific repair (TD-038, TD-049); the Format tool (removed module); a key baked into the bundle and an Express error logger (ADR-0005); retired model ids (ADR-0006); CDN import maps with `xlsx@0.18.5` (TD-001); Dedupe "Clear values" (writes blank SKUs); ASCII-only ZIP entry names (Arabic names collide); the row-object data model (exports `__EMPTY` headers); the loose scripts (`wipe*.ts`, `server.*`, puppeteer checks, `app_output.txt`).
+
+**Awaiting a product decision — not built:**
+
+| # | Proposal | Why it needs a decision |
+|---|---|---|
+| 1 | Merge Append aligns columns by header NAME (the reference does) instead of by position | Files with the same column order but different header wording (Arabic vs English headers) would widen instead of stacking |
+| 2 | UTF-8 byte-order mark on the Compare CSV | Lets Excel show Arabic correctly; changes the file's bytes beyond what the reference does |
+| 3 | Send the AI labelled differences (`{key, column: [old, new]}`) instead of raw rows | Changes the prompt; quality needs a real-model check |
+| 4 | Remove Blanks start row counted from 1 over data rows, default skipping the header | Changes today's numbering and default |
+| 5 | Sheet picker; several sheets of one workbook in Merge | New UI |
+| 6 | "Send to another tool" (the reference's version has dead targets) | App-wide architecture |
+| 7 | `Source_File` column in Merge; skip fully blank rows; `(File 2)` suffix for a same-named join column | Output schema changes |
+| 8 | Charts in Compare (needs `recharts`), image input in Compare, Arabic-Indic digit folding, case-insensitive and numeric value equality, automatic key detection | New dependency or new matching semantics |
+| 9 | Dedupe case toggle and result preview; Separator sheets-mode output and keeping sheet formatting (TD-049) | New options |
+| 10 | Manual encoding / delimiter override on upload | New UI on every upload |
+
+**Shared defects** — present in both apps, so not justified by the reference — are tracked as **TD-056**.
+
+**AR:** الحزمة `exceldiff-ai.zip` هي نفس `latest.zip`. قُورنت بالتطبيق وحدةً وحدة، واعتُمد منها ما يُصلح خللاً فعلياً دون مخالفة القرارات المسجلة، مع اختبار لكل تغيير. ما يخالف القرارات (مثل حذف الأصفار البادئة) لم يُنقل، وما يحتاج قراراً من صاحب المنتج مُدرج أعلاه.

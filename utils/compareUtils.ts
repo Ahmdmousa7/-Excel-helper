@@ -1,3 +1,5 @@
+import { identifierKey } from './identifiers';
+
 export interface CompareSummary {
   matches: number;
   mismatches: number;
@@ -53,6 +55,21 @@ const editDistance = (s1: string, s2: string): number => {
 };
 
 /**
+ * A plain number as written in a cell — `10`, `-3.5`, `6287013210006`.
+ * Blank is NOT a number: `Number('')` is 0, which would make an empty price
+ * equal a price of 0.
+ */
+const isNumeric = (v: string): boolean => v !== '' && Number.isFinite(Number(v));
+
+/**
+ * The key two rows are matched on: the cell as text, with invisible
+ * characters removed (zero-width spaces, direction marks, a trailing kasra —
+ * `identifierKey`, decision D7 rule 3), then trimmed and lower-cased as
+ * before. Leading zeros and punctuation are kept: `00123` is not `123`.
+ */
+const compareKey = (v: unknown): string => identifierKey(v).toLowerCase();
+
+/**
  * Compares two datasets based on a primary key and mapped columns.
  */
 export const compareDatasets = (
@@ -72,13 +89,13 @@ export const compareDatasets = (
   for(let i=1; i<data1.length; i++) {
      const row = data1[i];
      if (!row || row[keyCol1] === undefined) continue;
-     map1.set(String(row[keyCol1]).trim().toLowerCase(), row);
+     map1.set(compareKey(row[keyCol1]), row);
   }
 
   for(let i=1; i<data2.length; i++) {
     const row = data2[i];
     if (!row || row[keyCol2] === undefined) continue;
-    map2.set(String(row[keyCol2]).trim().toLowerCase(), row);
+    map2.set(compareKey(row[keyCol2]), row);
   }
 
   let matches = 0;
@@ -100,10 +117,12 @@ export const compareDatasets = (
            const val1 = String(row1[col1] ?? '').trim();
            const val2 = String(row2[col2] ?? '').trim();
            
+           // Tolerance applies to two numbers only — never to a blank, which
+           // `Number('')` would otherwise read as 0.
            if (decimalTolerance) {
                const n1 = Number(val1);
                const n2 = Number(val2);
-               if (!isNaN(n1) && !isNaN(n2)) {
+               if (isNumeric(val1) && isNumeric(val2)) {
                    if (Math.abs(n1 - n2) > 0.05) {
                        isMismatch = true;
                        mismatchedCols.push(col1);
@@ -112,7 +131,10 @@ export const compareDatasets = (
                }
            }
            
-           if (fuzzyMatch) {
+           // Fuzzy similarity is for text. Two numbers are compared exactly:
+           // barcodes `6287013210006` and `6287013210007` are 92% similar,
+           // and a fuzzy match would report two different products as equal.
+           if (fuzzyMatch && !(isNumeric(val1) && isNumeric(val2))) {
                if (calculateSimilarity(val1, val2) < 0.85) {
                    isMismatch = true;
                    mismatchedCols.push(col1);
@@ -150,3 +172,58 @@ export const compareDatasets = (
       summary: { matches, mismatches, missingIn1, missingIn2 }
   };
 };
+
+/**
+ * The comparison report as rows: a header, then one row per diff.
+ *
+ * The File1_/File2_ cells keep the value AS READ — a number stays a number,
+ * a date stays a date — so the exported workbook can be summed and filtered.
+ * They used to be converted to text, which Excel flags on every cell and
+ * which turned dates into strings such as `Mon Sep 29 2026 …`.
+ */
+export const buildCompareExport = (
+  diffs: readonly DiffRow[],
+  headers1: readonly unknown[],
+  headers2: readonly unknown[],
+  columnMapping: Readonly<Record<number, number>>,
+): unknown[][] => {
+  const out: unknown[][] = [
+    ['Status', 'Key', 'Differences', 'Differences Description', ...headers1.map((h) => `File1_${h}`), ...headers2.map((h) => `File2_${h}`)],
+  ];
+  for (const diff of diffs) {
+    let diffNames = '';
+    let diffDesc = '';
+    if (diff.status === 'missing_in_1') diffDesc = 'Row missing in File 1';
+    else if (diff.status === 'missing_in_2') diffDesc = 'Row missing in File 2';
+    else if (diff.status === 'match') diffDesc = 'Rows perfectly match';
+    else {
+      const cols = (diff.mismatchedColumns || []).map((c) => headers1[c] || `Col ${c}`).filter(Boolean).join(' , ');
+      diffNames = cols;
+      const detail = (diff.mismatchedColumns || []).map((c1) => {
+        const c2 = columnMapping[c1];
+        const colName = headers1[c1] || `Col ${c1}`;
+        const val1 = diff.data1 ? String(diff.data1[c1] ?? '') : '';
+        const val2 = (diff.data2 && c2 !== undefined && c2 !== -1) ? String(diff.data2[c2] ?? '') : '';
+        return `${colName}: ${val1} > ${val2}`;
+      }).join(' - ');
+      diffDesc = detail || `Mismatched values in: ${cols}`;
+    }
+    out.push([
+      diff.status.toUpperCase(),
+      diff.key,
+      diffNames,
+      diffDesc,
+      ...(diff.data1 || new Array(headers1.length).fill('')).map((c) => c ?? ''),
+      ...(diff.data2 || new Array(headers2.length).fill('')).map((c) => c ?? ''),
+    ]);
+  }
+  return out;
+};
+
+/** RFC 4180-style CSV: every cell quoted, quotes doubled. `#`, commas and Arabic pass through. */
+export const toCsv = (rows: readonly (readonly unknown[])[]): string =>
+  rows.map((r) => r.map((x) => `"${String(x ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+
+/** The AI Insights sheet: one line of the analysis per row, not the whole text in one cell. */
+export const aiInsightsRows = (analysis: string): string[][] =>
+  [['AI Insights'], ...analysis.split(/\r?\n/).map((line) => [line])];

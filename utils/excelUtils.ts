@@ -13,10 +13,16 @@ export const cleanEmptyColumns = (data: any[][], starting_row_index: number): { 
     if (data[i] && data[i].length > colCount) colCount = data[i].length;
   }
 
+  // A start row past the last row used to leave nothing to check, so every
+  // column counted as empty and the whole sheet was dropped. Check every row
+  // instead, as the reference implementation does: a column that is empty
+  // everywhere still goes, and nothing with data is lost.
+  const firstRow = starting_row_index < rowCount ? starting_row_index : 0;
+
   const colsToDrop = new Set<number>();
   for (let c = 0; c < colCount; c++) {
     let isEmpty = true;
-    for (let r = starting_row_index; r < rowCount; r++) {
+    for (let r = firstRow; r < rowCount; r++) {
       if (!data[r]) continue;
       const val = data[r][c];
       if (val !== null && val !== undefined && String(val).trim() !== '') {
@@ -78,3 +84,46 @@ export const exportToExcelSingleSheet = (data: any[][], sheetName: string): Arra
   const buffer = XLSX_STYLE.write(wb, { bookType: 'xlsx', type: 'array' });
   return buffer;
 };
+
+/**
+ * The same names, made unique for use as file names in one ZIP: the first
+ * `Cleaned_a_Sheet1` stays as it is, the next becomes `Cleaned_a_Sheet1-2`,
+ * and so on. Compared case-insensitively, as Windows and macOS file systems
+ * do. Without this, a second entry with the same name silently REPLACED the
+ * first inside the archive.
+ */
+export function uniqueNames(names: readonly string[]): string[] {
+  const taken = new Set<string>();
+  return names.map((name) => {
+    let candidate = name;
+    for (let n = 2; taken.has(candidate.toLowerCase()); n++) candidate = `${name}-${n}`;
+    taken.add(candidate.toLowerCase());
+    return candidate;
+  });
+}
+
+/**
+ * A worksheet name Excel accepts, unique within `taken` (which it updates).
+ *
+ * Excel rejects `: \ / ? * [ ]`, a leading or trailing apostrophe, names over
+ * 31 characters, and two sheets whose names differ only in case — SheetJS
+ * throws on each, which is how `Sales.csv` + `Sales.xlsx` crashed Merge's
+ * download. Clashes get ` (2)`, ` (3)` …, still within 31 characters. Arabic and
+ * other text is kept as it is.
+ */
+export function safeSheetName(raw: unknown, taken: Set<string>): string {
+  const cleaned = String(raw ?? '')
+    .replace(/[:\\/?*[\]]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^'+|'+$/g, '')
+    .trim();
+  const base = (cleaned || 'Sheet').slice(0, 31);
+  let name = base;
+  for (let n = 2; taken.has(name.toLowerCase()); n++) {
+    const suffix = ` (${n})`;
+    name = `${base.slice(0, 31 - suffix.length).trimEnd()}${suffix}`;
+  }
+  taken.add(name.toLowerCase());
+  return name;
+}

@@ -4,7 +4,8 @@ import { getSheetData, createWorkbook, appendSheet, saveWorkbook, readExcelFile 
 import { mergeDatasets } from '../utils/mergeUtils';
 import { Layers, Combine, Download, Activity, FileSpreadsheet, XCircle, Search, FileUp, Settings2, Trash2, ArrowUp, ArrowDown, ShieldCheck, FileArchive, ListChecks, FileOutput, UploadCloud, DatabaseZap, Play } from 'lucide-react';
 import JSZip from 'jszip';
-import { exportToExcelSingleSheet } from '../utils/excelUtils';
+import { exportToExcelSingleSheet, safeSheetName, uniqueNames } from '../utils/excelUtils';
+import { downloadBytes, ZIP_MIME } from '../services/download';
 
 interface Props {
   fileData?: FileData | null;
@@ -21,6 +22,21 @@ interface ColDef {
 export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
   const [extraFiles, setExtraFiles] = useState<FileData[]>([]);
   const allFiles = fileData ? [fileData, ...extraFiles] : extraFiles;
+
+  // Every per-file setting (sheet, columns) is keyed by the FILE, not its name.
+  // Keyed by name, two uploads called `export.xlsx` shared one entry, and the
+  // second was silently replaced by the first. The id is attached to the
+  // FileData object itself, so nothing about the file changes.
+  const fileIds = useRef(new WeakMap<FileData, string>());
+  const nextFileId = useRef(0);
+  const keyOf = (f: FileData): string => {
+      let id = fileIds.current.get(f);
+      if (!id) {
+          id = `file-${++nextFileId.current}`;
+          fileIds.current.set(f, id);
+      }
+      return id;
+  };
 
   const [activeTab, setActiveTab] = useState<'upload' | 'structure' | 'merge'>('upload');
   const [selectedSheets, setSelectedSheets] = useState<Record<string, string>>({});
@@ -43,8 +59,8 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
      const newSheets = { ...selectedSheets };
      let changed = false;
      allFiles.forEach(f => {
-         if (!newSheets[f.name] && f.sheets.length > 0) {
-             newSheets[f.name] = f.sheets[0];
+         if (!newSheets[keyOf(f)] && f.sheets.length > 0) {
+             newSheets[keyOf(f)] = f.sheets[0];
              changed = true;
          }
      });
@@ -56,12 +72,12 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
       const newCols = { ...fileColumns };
       let changed = false;
       allFiles.forEach(f => {
-          const sheet = selectedSheets[f.name];
+          const sheet = selectedSheets[keyOf(f)];
           if (sheet) {
-              if (!newCols[f.name]) {
+              if (!newCols[keyOf(f)]) {
                   const data = getSheetData(f.workbook, sheet, true);
                   const headers = data.length > 0 ? data[0] : [];
-                  newCols[f.name] = headers.map((h: any, idx: number) => ({
+                  newCols[keyOf(f)] = headers.map((h: any, idx: number) => ({
                       originalIndex: idx,
                       originalName: String(h),
                       currentName: String(h),
@@ -91,7 +107,7 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
   };
 
   const removeFile = (name: string) => {
-      setExtraFiles(prev => prev.filter(f => f.name !== name));
+      setExtraFiles(prev => prev.filter(f => keyOf(f) !== name));
       setFileColumns(prev => {
           const copy = { ...prev };
           delete copy[name];
@@ -126,7 +142,7 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
 
   const getProcessedDataForFile = (fileName: string) => {
       const sheetName = selectedSheets[fileName];
-      const file = allFiles.find(f => f.name === fileName);
+      const file = allFiles.find(f => keyOf(f) === fileName);
       if (!file || !sheetName) return [];
       
       const rawData = getSheetData(file.workbook, sheetName, true);
@@ -160,15 +176,17 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
               if (outputMode === 'separate') {
                   addLog("Processing separated files output...", 'info');
                   const zip = new JSZip();
-                  
-                  allFiles.forEach(f => {
-                      const data = getProcessedDataForFile(f.name);
+                  const entryNames = uniqueNames(allFiles.map(f => {
                       const extSplit = f.name.lastIndexOf('.');
-                      const baseName = extSplit === -1 ? f.name : f.name.substring(0, extSplit);
-                      const sheetName = selectedSheets[f.name] || 'Sheet1';
-                      
+                      return `Processed_${extSplit === -1 ? f.name : f.name.substring(0, extSplit)}`;
+                  }));
+
+                  allFiles.forEach((f, i) => {
+                      const data = getProcessedDataForFile(keyOf(f));
+                      const sheetName = selectedSheets[keyOf(f)] || 'Sheet1';
+
                       const buffer = exportToExcelSingleSheet(data, sheetName);
-                      zip.file(`Processed_${baseName}.xlsx`, buffer);
+                      zip.file(`${entryNames[i]}.xlsx`, buffer);
                   });
                   
                   const content = await zip.generateAsync({ type: 'blob' });
@@ -176,24 +194,21 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                   addLog(`Processed ${allFiles.length} separate files successfully.`, 'success');
               } else if (outputMode === 'sheets') {
                   addLog("Processing to multiple sheets...", 'info');
+                  const taken = new Set<string>();
                   const targetDatasets = allFiles.map(f => {
-                      let sheetName = f.name;
-                      const extSplit = sheetName.lastIndexOf('.');
-                      if (extSplit !== -1) sheetName = sheetName.substring(0, extSplit);
-                      if (sheetName.length > 31) sheetName = sheetName.substring(0, 31);
-                      // Characters Excel rejects in a sheet name. Escapes inside a
-                      // character class are only needed for ] and \ — the rest were noise.
-                      sheetName = sheetName.replace(/[[\]*\\/?]/g, '');
+                      const extSplit = f.name.lastIndexOf('.');
+                      // Valid for Excel and unique: `Sales.csv` + `Sales.xlsx`
+                      // used to produce two sheets called `Sales` and crash.
                       return {
-                          name: sheetName || 'Sheet',
-                          data: getProcessedDataForFile(f.name)
+                          name: safeSheetName(extSplit !== -1 ? f.name.substring(0, extSplit) : f.name, taken),
+                          data: getProcessedDataForFile(keyOf(f))
                       };
                   });
                   setMergedData({ sheets: targetDatasets });
                   addLog(`Successfully processed into ${targetDatasets.length} separated sheets.`, 'success');
               } else {
                   addLog("Processing merge to single file...", 'info');
-                  const datasets = allFiles.map(f => getProcessedDataForFile(f.name));
+                  const datasets = allFiles.map(f => getProcessedDataForFile(keyOf(f)));
                   
                   if (datasets.length === 0) throw new Error("No data found.");
                   
@@ -216,6 +231,7 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                   setMergedData(result);
                   addLog(`Successfully merged. Result rows: ${result.length}`, 'success');
               }
+              lastRunSettings.current = settingsKey;
               setStatus(ProcessingStatus.COMPLETED);
               setActiveTab('merge');
           } catch(err: any) {
@@ -226,37 +242,54 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
   };
 
   const downloadResult = () => {
-       if (outputMode === 'separate' && separateZips) {
-            const url = URL.createObjectURL(separateZips);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Processed_Separated_${allFiles.length}_Files.zip`;
-            a.click();
-            URL.revokeObjectURL(url);
-       } else if (mergedData) {
-            const wb = createWorkbook();
-            if (Array.isArray(mergedData)) {
-                appendSheet(wb, mergedData, 'Merged_Data');
-            } else if ('sheets' in mergedData) {
-                mergedData.sheets.forEach(sheet => {
-                    appendSheet(wb, sheet.data, sheet.name);
-                });
-            }
-            saveWorkbook(wb, `Merged_Output.xlsx`);
+       try {
+           if (outputMode === 'separate' && separateZips) {
+                downloadBytes(separateZips, `Processed_Separated_${allFiles.length}_Files.zip`, ZIP_MIME);
+           } else if (mergedData) {
+                const wb = createWorkbook();
+                if (Array.isArray(mergedData)) {
+                    appendSheet(wb, mergedData, 'Merged_Data');
+                } else if ('sheets' in mergedData) {
+                    mergedData.sheets.forEach(sheet => {
+                        appendSheet(wb, sheet.data, sheet.name);
+                    });
+                }
+                saveWorkbook(wb, `Merged_Output.xlsx`);
+           }
+       } catch (err: unknown) {
+           // A failed download used to throw into the click handler: no file,
+           // no message.
+           addLog(`Download failed: ${err instanceof Error ? err.message : String(err)}`, 'error');
        }
   };
+
+  // --- Item 17: a result belongs to the settings it was made with. -----------
+  // Changing a file, sheet, column, mode or key after a run used to leave the
+  // OLD result downloadable under the new settings.
+  const settingsKey = JSON.stringify([
+      allFiles.map(keyOf), selectedSheets, fileColumns, mergeType, joinType, keyCol1, keyCol2, outputMode,
+  ]);
+  const lastRunSettings = useRef<string | null>(null);
+  useEffect(() => {
+      if (lastRunSettings.current !== null && lastRunSettings.current !== settingsKey) {
+          lastRunSettings.current = null;
+          setMergedData(null);
+          setSeparateZips(null);
+          setStatus(ProcessingStatus.IDLE);
+      }
+  }, [settingsKey]);
 
   const getStructureReport = () => {
       if (allFiles.length < 2) return { allEqual: true, report: [] };
       const baseName = allFiles[0].name;
-      const baseCols = (fileColumns[baseName] || []).filter(c=>c.keep).map(c => c.currentName);
+      const baseCols = (fileColumns[keyOf(allFiles[0])] || []).filter(c=>c.keep).map(c => c.currentName);
       const baseHeaders = baseCols.join('|||');
       
       const report: {file: string, baseName: string, missing: string[], extra: string[]}[] = [];
       let allEqual = true;
       for (let i = 1; i < allFiles.length; i++) {
           const fName = allFiles[i].name;
-          const cols = (fileColumns[fName] || []).filter(c=>c.keep).map(c => c.currentName);
+          const cols = (fileColumns[keyOf(allFiles[i])] || []).filter(c=>c.keep).map(c => c.currentName);
           const headers = cols.join('|||');
           if (baseHeaders !== headers) {
               allEqual = false;
@@ -313,9 +346,10 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                             <h3 className="font-bold text-slate-800 text-lg">Source Files</h3>
                             <p className="text-slate-500 text-sm">Upload multiple files to merge or normalize.</p>
                         </div>
-                        <label className="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-4 py-2 rounded-lg cursor-pointer font-bold flex items-center gap-2 transition-colors">
+                        <label className="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-4 py-2 rounded-lg cursor-pointer font-bold flex items-center gap-2 transition-colors focus-within:ring-2 focus-within:ring-emerald-500">
                             <UploadCloud size={18}/> Add Files
-                            <input type="file" multiple accept=".xlsx, .xls, .csv" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+                            {/* sr-only, not hidden: `display:none` cannot take keyboard focus. */}
+                            <input type="file" multiple accept=".xlsx, .xls, .csv" className="sr-only" ref={fileInputRef} onChange={handleFileUpload} />
                         </label>
                     </div>
 
@@ -328,8 +362,8 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                                         <span className="font-bold truncate" title={f.name}>{f.name}</span>
                                         {i === 0 && <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded uppercase border border-emerald-200">Base</span>}
                                     </div>
-                                    {f.name !== fileData?.name && (
-                                        <button onClick={() => removeFile(f.name)} className="text-slate-400 hover:text-red-500">
+                                    {f !== fileData && (
+                                        <button onClick={() => removeFile(keyOf(f))} className="text-slate-400 hover:text-red-500">
                                             <XCircle size={16}/>
                                         </button>
                                     )}
@@ -338,12 +372,12 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                                     <label className="block text-xs font-semibold text-slate-500 mb-1">Target Sheet</label>
                                     <select 
                                         className="w-full border-slate-200 rounded p-1.5 text-sm bg-slate-50"
-                                        value={selectedSheets[f.name] || ''}
+                                        value={selectedSheets[keyOf(f)] || ''}
                                         onChange={(e) => {
-                                             setSelectedSheets(prev => ({...prev, [f.name]: e.target.value}));
+                                             setSelectedSheets(prev => ({...prev, [keyOf(f)]: e.target.value}));
                                              setFileColumns(prev => {
                                                  const c = {...prev};
-                                                 delete c[f.name];
+                                                 delete c[keyOf(f)];
                                                  return c;
                                              });
                                         }}
@@ -423,12 +457,12 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
 
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
                         {allFiles.map(f => {
-                            const cols = fileColumns[f.name] || [];
+                            const cols = fileColumns[keyOf(f)] || [];
                             return (
-                                <div key={f.name} className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col">
+                                <div key={keyOf(f)} className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col">
                                     <div className="bg-slate-50 border-b border-slate-200 p-3 font-bold text-slate-700 flex justify-between items-center">
                                        <span className="truncate pr-4">{f.name}</span>
-                                       <span className="bg-white text-[10px] uppercase border px-2 py-0.5 rounded text-slate-500">{selectedSheets[f.name]}</span>
+                                       <span className="bg-white text-[10px] uppercase border px-2 py-0.5 rounded text-slate-500">{selectedSheets[keyOf(f)]}</span>
                                     </div>
                                     <div className="p-0 overflow-auto max-h-[400px]">
                                         <table className="w-full text-left text-sm">
@@ -444,28 +478,28 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                                                 {cols.map((col, idx) => (
                                                     <tr key={idx} className={col.keep ? '' : 'bg-slate-50 opacity-50'}>
                                                         <td className="p-2 text-center">
-                                                            <input type="checkbox" checked={col.keep} onChange={(e) => updateCol(f.name, idx, 'keep', e.target.checked)} className="cursor-pointer" />
+                                                            <input type="checkbox" checked={col.keep} onChange={(e) => updateCol(keyOf(f), idx, 'keep', e.target.checked)} className="cursor-pointer" />
                                                         </td>
                                                         <td className="p-2 text-slate-500 break-all">{col.originalName || '(Empty)'}</td>
                                                         <td className="p-2">
                                                             <input 
                                                                 type="text" 
                                                                 value={col.currentName}
-                                                                onChange={(e) => updateCol(f.name, idx, 'currentName', e.target.value)}
+                                                                onChange={(e) => updateCol(keyOf(f), idx, 'currentName', e.target.value)}
                                                                 disabled={!col.keep}
                                                                 className="w-full border border-slate-200 rounded p-1 text-sm bg-white focus:border-emerald-500 disabled:bg-slate-100"
                                                             />
                                                         </td>
                                                         <td className="p-2 flex items-center justify-center gap-1">
                                                             <button 
-                                                                 onClick={() => moveCol(f.name, idx, 'up')} 
+                                                                 onClick={() => moveCol(keyOf(f), idx, 'up')} 
                                                                  disabled={idx === 0 || !col.keep} 
                                                                  className="text-slate-400 hover:text-slate-700 disabled:opacity-30"
                                                             >
                                                                 <ArrowUp size={14}/>
                                                             </button>
                                                             <button 
-                                                                 onClick={() => moveCol(f.name, idx, 'down')} 
+                                                                 onClick={() => moveCol(keyOf(f), idx, 'down')} 
                                                                  disabled={idx === cols.length - 1 || !col.keep} 
                                                                  className="text-slate-400 hover:text-slate-700 disabled:opacity-30"
                                                             >
@@ -551,13 +585,13 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                                         <div>
                                             <label className="block text-xs font-bold text-slate-600 mb-1">Primary Key ({allFiles[0].name})</label>
                                             <select className="w-full p-2 border border-slate-300 rounded text-sm" value={keyCol1} onChange={e => setKeyCol1(Number(e.target.value))}>
-                                                {(fileColumns[allFiles[0].name]||[]).filter(c=>c.keep).map((h, i) => <option key={i} value={i}>{h.currentName}</option>)}
+                                                {(fileColumns[keyOf(allFiles[0])]||[]).filter(c=>c.keep).map((h, i) => <option key={i} value={i}>{h.currentName}</option>)}
                                             </select>
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-slate-600 mb-1">Primary Key ({allFiles[1].name})</label>
                                             <select className="w-full p-2 border border-slate-300 rounded text-sm" value={keyCol2} onChange={e => setKeyCol2(Number(e.target.value))}>
-                                                {(fileColumns[allFiles[1].name]||[]).filter(c=>c.keep).map((h, i) => <option key={i} value={i}>{h.currentName}</option>)}
+                                                {(fileColumns[keyOf(allFiles[1])]||[]).filter(c=>c.keep).map((h, i) => <option key={i} value={i}>{h.currentName}</option>)}
                                             </select>
                                         </div>
                                         <div className="col-span-full">
