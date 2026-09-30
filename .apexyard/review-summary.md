@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:5125ea96120710bf27c69b4de6d2e8a8db463bcc2f55517f1003e797dcba5cc2` |
+| Attestation id | `sha256:acf38a8e2b54b13916e266e71df1b46528bdd0b469b27cef7f7772b3bc13ef05` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `3ef252ff9d59` |
+| Reviewed at commit | `2325eb36f202` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 19 |
+| Files reviewed | 2 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 1 |
-| low | 3 |
-| info | 0 |
+| medium | 0 |
+| low | 1 |
+| info | 1 |
 
-Adds the OCR → Rewaa export: a pure `utils/ocrRewaaExport.ts` that turns a model answer into the six-sheet contract workbook plus a ZIP bundle, a small `services/download.ts` for the browser hand-off, and the OcrTab wiring that auto-downloads only on a fully clean run. The separation is clean (pure utils, DOM in services, no I/O in the component), the libraries are injected, and the regression suite compares every cell against the product owner's supplied `correct-output.xlsx` with the three deviations documented in D12 — this is unusually well-evidenced work. No blocking-handbook violations and no security issues: the ZIP is built only from run data and the e2e asserts no key shape leaks into it. One real correctness gap: the `Rewaa Data Identical` / `Same in Rewaa *` columns never compare `Enable stock management`, so a row the export deliberately rewrote from `yes` to `no` is still reported as identical — the e2e at `ocr-rewaa-export.spec.ts:192` currently enshrines that. Remaining findings are advisory nits.
+This PR makes the OCR → Rewaa ZIP bundle byte-for-byte reproducible by explicitly creating the `source/` directory entry with the run's timestamp instead of letting JSZip create it implicitly with the wall clock, and strengthens the determinism test to prove it. The production change is one guarded line plus an accurate explanatory comment; I verified against `node_modules/jszip` that `file(path, null, {dir: true})` is a supported overload (index.d.ts:237) and that `folderAdd` keeps a pre-existing folder entry (`if (!this.files[name])`), so the comment's claim holds and the implicit creation is correctly suppressed. Entry order, the empty-`sources` case, and the existing 2-second DOS-time resolution all behave as before. No blocking-handbook violations; two minor test-hygiene notes only.
 
 ## Quality gates
 
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 126 source files, 34397 lines
+- 126 source files, 34415 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

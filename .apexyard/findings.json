@@ -1,51 +1,33 @@
 {
-  "attestation_id": "sha256:5125ea96120710bf27c69b4de6d2e8a8db463bcc2f55517f1003e797dcba5cc2",
+  "attestation_id": "sha256:acf38a8e2b54b13916e266e71df1b46528bdd0b469b27cef7f7772b3bc13ef05",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 3,
-    "medium": 1
+    "info": 1,
+    "low": 1,
+    "medium": 0
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "`identical()` compares only Product Name, Category, Retail Price, the SKU, and (for variable rows) the option columns and Variant Name. It never compares `Enable stock management`, which `REWAA_FIXED` forces to `no` on the Rewaa sheets regardless of what was extracted — while `genericValue`'s default branch writes the extracted value verbatim onto `Generic All Data`. So for a row the model returned as `yes`, the workbook shows `yes` on the Generic sheet, `no` on the Rewaa sheet, and `Rewaa Data Identical = TRUE`, and the audit sheet's Verification Notes then say \"Extracted successfully with verified parity\". This is not hypothetical: `e2e/ocr-rewaa-export.spec.ts:192` asserts `raw(EN(DYE), 'Short | القصير') === 'yes'` and, three lines later, that every row has `Rewaa Data Identical === true`. The column exists precisely so a reviewer can see what the export changed, and this is the one field the export changes unconditionally (D12 rule 7), so it is the field most likely to be checked. The overwrite itself is the approved behaviour — only the parity claim is wrong. It would be medium-plus if the flag also missed a value-bearing field; it stays medium because the divergence is a single documented global rule that a reviewer can learn once. Relatedly, `summary.json`'s rule text at line 559 says a missing price is \"marked Rewaa Data Identical = FALSE\", which is true only for `Retail Price` — `Cost`, `Buy Price`, `Wholesale Price` and `DEF Quantity` also default to 0 with no flag, though they are absent from the Generic sheets so no visible contradiction results.",
-      "file": "utils/ocrRewaaExport.ts",
-      "line": 336,
-      "severity": "medium",
-      "suggested_fix": null,
-      "summary": "`Rewaa Data Identical` reports TRUE for rows whose stock flag was overwritten"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`perSource` is keyed on `text(row['Source File'])`, and `Source File` is set from `file.file.name` in `OcrTab.tsx:509`. Two uploaded files with the same base name (easy to hit — `menu.xlsx` from two folders, added in two picker rounds) produce two audit rows that each report the *combined* `Extracted Products Count` and the same differ-count, so the audit sheet double-counts and the `Source File` column cannot disambiguate the rows either. The ZIP already solves the same collision correctly via the `taken` set in `buildBundle` (line ~545), so the two layers disagree: the ZIP has `menu.xlsx` and `menu (2).xlsx`, the audit sheet has two identical `menu.xlsx` rows. Low because it needs duplicate names to trigger and misreports a count rather than corrupting exported product data.",
-      "file": "utils/ocrRewaaExport.ts",
-      "line": 433,
+      "category": "testing",
+      "detail": "The `await new Promise(r => setTimeout(r, 2_100))` exists to push the two builds past the ZIP's 2-second time resolution so a wall-clock-stamped entry shows up as a byte difference. But the assertion added three lines later — `Object.values(zip.files).map(f => [f.name, f.date.getTime()])` equals every entry paired with `EXTRACTED_AT.getTime()` — already catches exactly that bug deterministically and instantly: an implicitly-created `source/` folder carries `new Date()`, which fails the date assertion regardless of how fast the two builds run. So the sleep buys no additional coverage of the regression this PR fixes, while adding 2.1 s of pure wall clock to every `npm test` run and to every CI job. It does still guard a broader class (any other wall-clock-derived nondeterminism in `generateAsync`), which is why this is `low` rather than a request — if you want to keep that broader guard, keeping the sleep is a defensible trade, but it should be a conscious one.",
+      "file": "tests/unit/ocrRewaaExport.test.ts",
+      "line": 401,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Audit per-source counts key on file name, so same-named inputs merge"
+      "summary": "The 2.1 s sleep is redundant with the per-entry date assertion below it"
     },
     {
-      "category": "technical-debt",
-      "detail": "`handbooks/general/technical-debt.md` § rule 5 asks for a one-line reason on any added check suppression, so a future reader can tell a deliberate exception from a silenced warning. Here the reason is genuinely good — the control-character range is the point of a filename sanitiser — but it is not written down, so the next person to see the line has to reconstruct it.",
-      "file": "utils/ocrRewaaExport.ts",
-      "line": 488,
-      "severity": "low",
+      "category": "testing",
+      "detail": "`f.date.getTime()` is read back from the ZIP's DOS timestamp, which stores seconds in 2-second steps and has no millisecond field. The assertion is exact, so it only passes because `EXTRACTED_AT` (line 32) happens to be `2026-09-29T18:15:08.000Z` — even second, zero milliseconds. `EXTRACTED_AT` is shared by six other tests in this file; anyone changing it to an odd second or a non-zero millisecond to serve one of those will break this assertion with a confusing off-by-one-second diff that points at `buildBundle` rather than at the constant. Not a defect in this PR — recording it so the coupling is visible.",
+      "file": "tests/unit/ocrRewaaExport.test.ts",
+      "line": 408,
+      "severity": "info",
       "suggested_fix": null,
-      "summary": "`eslint-disable-next-line no-control-regex` carries no stated reason"
-    },
-    {
-      "category": "typescript",
-      "detail": "`processBatch(...): any[]` (line 424), `const result: any[]` (509) and `let finalRows: any[]` (544) are new annotations, and the PR already imports `type Row` from `utils/ocrRewaaExport`. Everything these values flow into — `resolveDuplicateNames`, `finishRewaaRun`, `buildRewaaFile` — is typed `Row[]`, so the `any` is thrown away one call later and buys nothing. The surrounding file is legacy `any`-heavy, which is why this is low rather than medium: it does not make anything worse, it just misses a free improvement in code that is being written fresh. `handbooks/language/typescript/type-safety.md` asks for a same-line reason on a new `any`.",
-      "file": "components/OcrTab.tsx",
-      "line": 424,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "New `any[]` annotations where the imported `Row` type already fits"
+      "summary": "New assertion silently depends on EXTRACTED_AT having an even, ms-zero second"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 4
+  "total": 2
 }
