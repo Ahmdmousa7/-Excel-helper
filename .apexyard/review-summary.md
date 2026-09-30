@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:acf38a8e2b54b13916e266e71df1b46528bdd0b469b27cef7f7772b3bc13ef05` |
+| Attestation id | `sha256:f576e2c0580c2e0d48e134aa87bdf538f0e6e8b88d8810720cd3a916dab6f3d4` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `2325eb36f202` |
+| Reviewed at commit | `9495be514adb` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 2 |
+| Files reviewed | 1 |
 
 ## What this is, and what it is not
 
@@ -31,9 +31,9 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | high | 0 |
 | medium | 0 |
 | low | 1 |
-| info | 1 |
+| info | 0 |
 
-This PR makes the OCR → Rewaa ZIP bundle byte-for-byte reproducible by explicitly creating the `source/` directory entry with the run's timestamp instead of letting JSZip create it implicitly with the wall clock, and strengthens the determinism test to prove it. The production change is one guarded line plus an accurate explanatory comment; I verified against `node_modules/jszip` that `file(path, null, {dir: true})` is a supported overload (index.d.ts:237) and that `folderAdd` keeps a pre-existing folder entry (`if (!this.files[name])`), so the comment's claim holds and the implicit creation is correctly suppressed. Entry order, the empty-`sources` case, and the existing 2-second DOS-time resolution all behave as before. No blocking-handbook violations; two minor test-hygiene notes only.
+Docs-only change: one new row (TD-055) added to the Open table of docs/quality/tech-debt-register.md, recording four Low findings deferred from the OCR → Rewaa review plus a product-owner-approved-behaviour note about `Rewaa Data Identical` excluding the forced `Enable stock management = no`. No source, config, or dependency files are touched, so the blocking frontend-boundaries and security-baseline handbooks have nothing to act on. I verified the row's factual claims against the repo: the table row has exactly 9 cells matching the header (the 10th-cell bug from commit 9495be5 is genuinely fixed), `D12 rule 7` exists at docs/modules/open-decisions.md:287, and e2e/ocr-rewaa-export.spec.ts:194 does assert `Rewaa Data Identical === true` for fixture rows whose extracted `Enable stock management` is `yes` — so the documented behaviour is real and test-pinned. One low, non-blocking note on where the approved-behaviour record is stored.
 
 ## Quality gates
 

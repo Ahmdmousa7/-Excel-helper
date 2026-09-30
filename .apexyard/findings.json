@@ -1,33 +1,24 @@
 {
-  "attestation_id": "sha256:acf38a8e2b54b13916e266e71df1b46528bdd0b469b27cef7f7772b3bc13ef05",
+  "attestation_id": "sha256:f576e2c0580c2e0d48e134aa87bdf538f0e6e8b88d8810720cd3a916dab6f3d4",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
+    "info": 0,
     "low": 1,
     "medium": 0
   },
   "findings": [
     {
-      "category": "testing",
-      "detail": "The `await new Promise(r => setTimeout(r, 2_100))` exists to push the two builds past the ZIP's 2-second time resolution so a wall-clock-stamped entry shows up as a byte difference. But the assertion added three lines later — `Object.values(zip.files).map(f => [f.name, f.date.getTime()])` equals every entry paired with `EXTRACTED_AT.getTime()` — already catches exactly that bug deterministically and instantly: an implicitly-created `source/` folder carries `new Date()`, which fails the date assertion regardless of how fast the two builds run. So the sleep buys no additional coverage of the regression this PR fixes, while adding 2.1 s of pure wall clock to every `npm test` run and to every CI job. It does still guard a broader class (any other wall-clock-derived nondeterminism in `generateAsync`), which is why this is `low` rather than a request — if you want to keep that broader guard, keeping the sleep is a defensible trade, but it should be a conscious one.",
-      "file": "tests/unit/ocrRewaaExport.test.ts",
-      "line": 401,
+      "category": "technical-debt",
+      "detail": "The `Also recorded here: approved behaviour, not a defect` block lives inside the Fix recommendation cell of TD-055, whose status is `open` and whose content is four unrelated Low code findings. This document's own convention (line 3: \"closed items move to the bottom\") moves a closed entry into the `## Closed` table, which has only four columns — ID, Description, Closed, Fixed by (line 54-55). The Fix recommendation cell is not carried across that move. So the moment the four Lows are fixed and TD-055 closes, the standing instruction `Do not \"fix\" it without a new product decision` silently disappears from the register — which is precisely the audience (a future reader re-deriving why the flag stays TRUE) the note was written for. The note is accurate and its cross-reference resolves; only its storage location is fragile. This stays low rather than medium because the canonical decision record already exists independently at docs/modules/open-decisions.md:287 (D12 rule 7), so nothing is lost outright — what is lost is the pointer from the register to it.",
+      "file": "docs/quality/tech-debt-register.md",
+      "line": 13,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "The 2.1 s sleep is redundant with the per-entry date assertion below it"
-    },
-    {
-      "category": "testing",
-      "detail": "`f.date.getTime()` is read back from the ZIP's DOS timestamp, which stores seconds in 2-second steps and has no millisecond field. The assertion is exact, so it only passes because `EXTRACTED_AT` (line 32) happens to be `2026-09-29T18:15:08.000Z` — even second, zero milliseconds. `EXTRACTED_AT` is shared by six other tests in this file; anyone changing it to an odd second or a non-zero millisecond to serve one of those will break this assertion with a confusing off-by-one-second diff that points at `buildBundle` rather than at the constant. Not a defect in this PR — recording it so the coupling is visible.",
-      "file": "tests/unit/ocrRewaaExport.test.ts",
-      "line": 408,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "New assertion silently depends on EXTRACTED_AT having an even, ms-zero second"
+      "summary": "Approved-behaviour record is stored in a row that will be archived when TD-055 closes"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 1
 }
