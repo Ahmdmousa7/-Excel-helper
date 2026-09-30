@@ -1,25 +1,25 @@
 {
-  "attestation_id": "sha256:9d79d29f3637e61c524aaa038d6a2ea835cdb7b3f49f5db34fb0c37b5eacbbe7",
+  "attestation_id": "sha256:c015f16be1bd847950a41eec5ab03272b40e18ee681d497807c5ec101d695cc2",
   "files": [
     {
       "oid": "fad99b2e58433eaa1d80062ab4d5c0cd067f0ede",
       "path": "docs/modules/open-decisions.md"
     },
     {
-      "oid": "698e931c02122689a3b35b6ba649336ffe7ec953",
+      "oid": "6491aaf2cc156e3eab1137e28800189be24283e8",
       "path": "docs/quality/tech-debt-register.md"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
+    "info": 0,
     "low": 1,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "5ffe5d133f0ab600a995402fe23100e050280dcf",
+  "reviewed_at_commit": "ffa34c62ba474bc73d25e5183efac92449dc4972",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

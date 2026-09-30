@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:9d79d29f3637e61c524aaa038d6a2ea835cdb7b3f49f5db34fb0c37b5eacbbe7",
+  "attestation_id": "sha256:c015f16be1bd847950a41eec5ab03272b40e18ee681d497807c5ec101d695cc2",
   "available": true,
   "files_reviewed": 2,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
+    "info": 0,
     "low": 1,
     "medium": 0
   },
-  "findings_total": 3,
+  "findings_total": 1,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Docs-only change across two files: `open-decisions.md` D12 rule 7 now carries the permanent record of the approved `Enable stock management = no` business transformation (including that it is deliberately excluded from the `Rewaa Data Identical` comparison), and the TD-055 row in the tech-debt register is trimmed to point at that record instead of duplicating it, with its `Blocked by` cell cleared. I verified the substantive claims against the code: `identical()` in `utils/ocrRewaaExport.ts:336-348` compares exactly name, category, price, SKU, option keys and Variant Name and does not compare the stock column, and `e2e/ocr-rewaa-export.spec.ts:181-202` asserts `no` on all four Rewaa/Mapped sheets while `:190-194` asserts the Generic sheet keeps the extracted `yes` with `Rewaa Data Identical === true`. No code, no dependencies, no security surface — approving, with two accuracy nits in the register row.",
+  "summary": "Documentation-only PR that records an already-approved product decision in two places: `open-decisions.md` D12 rule 7 now spells out that `Enable stock management` is forced to `no` on both Rewaa sheets while the Generic sheets keep the model's value, and that this transformation is deliberately excluded from the `Rewaa Data Identical` comparison; `tech-debt-register.md` adds TD-055 capturing four deferred low findings from the `ocr-rewaa-parity` review. Every factual claim in the diff was verified against the code: `REWAA_FIXED = { 'enable stock management': 'no' }` (utils/ocrRewaaExport.ts:276) is applied unconditionally in `rewaaRow`, `identical()` (utils/ocrRewaaExport.ts:336-348) compares exactly name, category, retail price, SKU, option keys and Variant Name and does not touch the stock column, and `e2e/ocr-rewaa-export.spec.ts:172,181,199,202` asserts the behaviour. The three code claims in TD-055 that were checkable also hold (`processBatch` returns `any[]` at components/OcrTab.tsx:424; the bare `no-control-regex` disable at utils/ocrRewaaExport.ts:488; `resolveDuplicateNames` reading keys from `rows[0]` at utils/ocrRewaaExport.ts:163). No code, dependency, or security surface changes. One low navigability nit.",
   "verdict": "approved"
 }
