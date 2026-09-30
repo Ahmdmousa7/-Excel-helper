@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:ac3da0698770e47d4ed8e66d35d1c1b212357aa68f478ebe72af6dac98f3efe8",
+  "attestation_id": "sha256:5125ea96120710bf27c69b4de6d2e8a8db463bcc2f55517f1003e797dcba5cc2",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,31 +8,31 @@
     },
     "components": {
       "files": 36,
-      "loc": 17779
+      "loc": 17897
     },
     "e2e": {
-      "files": 28,
-      "loc": 3793
+      "files": 29,
+      "loc": 4013
     },
     "hooks": {
       "files": 2,
       "loc": 169
     },
     "services": {
-      "files": 7,
-      "loc": 1516
+      "files": 8,
+      "loc": 1547
     },
     "tests": {
-      "files": 24,
-      "loc": 5706
+      "files": 25,
+      "loc": 6113
     },
     "types": {
       "files": 1,
       "loc": 105
     },
     "utils": {
-      "files": 16,
-      "loc": 3051
+      "files": 17,
+      "loc": 3654
     }
   },
   "layering": {
@@ -57,24 +57,24 @@
         "loc": 1124
       },
       {
-        "file": "components/SupportChat.tsx",
-        "loc": 964
+        "file": "components/OcrTab.tsx",
+        "loc": 1074
       },
       {
-        "file": "components/OcrTab.tsx",
-        "loc": 956
+        "file": "components/SupportChat.tsx",
+        "loc": 964
       },
       {
         "file": "components/TranslateTab.tsx",
         "loc": 956
       },
       {
-        "file": "services/geminiService.ts",
-        "loc": 946
+        "file": "utils/translations.ts",
+        "loc": 952
       },
       {
-        "file": "utils/translations.ts",
-        "loc": 925
+        "file": "services/geminiService.ts",
+        "loc": 946
       },
       {
         "file": "components/ProjectSummaryTab.tsx",
@@ -96,6 +96,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 122,
-  "total_loc": 33018
+  "source_files": 126,
+  "total_loc": 34397
 }

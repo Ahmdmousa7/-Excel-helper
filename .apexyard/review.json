@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:ac3da0698770e47d4ed8e66d35d1c1b212357aa68f478ebe72af6dac98f3efe8",
+  "attestation_id": "sha256:5125ea96120710bf27c69b4de6d2e8a8db463bcc2f55517f1003e797dcba5cc2",
   "available": true,
-  "files_reviewed": 0,
+  "files_reviewed": 15,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 0,
-    "medium": 0
+    "low": 3,
+    "medium": 1
   },
-  "findings_total": 0,
+  "findings_total": 4,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "No reviewable files in the diff.",
-  "verdict": "comment"
+  "summary": "Adds the OCR → Rewaa export: a pure `utils/ocrRewaaExport.ts` that turns a model answer into the six-sheet contract workbook plus a ZIP bundle, a small `services/download.ts` for the browser hand-off, and the OcrTab wiring that auto-downloads only on a fully clean run. The separation is clean (pure utils, DOM in services, no I/O in the component), the libraries are injected, and the regression suite compares every cell against the product owner's supplied `correct-output.xlsx` with the three deviations documented in D12 — this is unusually well-evidenced work. No blocking-handbook violations and no security issues: the ZIP is built only from run data and the e2e asserts no key shape leaks into it. One real correctness gap: the `Rewaa Data Identical` / `Same in Rewaa *` columns never compare `Enable stock management`, so a row the export deliberately rewrote from `yes` to `no` is still reported as identical — the e2e at `ocr-rewaa-export.spec.ts:192` currently enshrines that. Remaining findings are advisory nits.",
+  "verdict": "approved"
 }

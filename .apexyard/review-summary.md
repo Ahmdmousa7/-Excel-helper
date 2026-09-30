@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:ac3da0698770e47d4ed8e66d35d1c1b212357aa68f478ebe72af6dac98f3efe8` |
+| Attestation id | `sha256:5125ea96120710bf27c69b4de6d2e8a8db463bcc2f55517f1003e797dcba5cc2` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `c875184d0360` |
+| Reviewed at commit | `3ef252ff9d59` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **COMMENT** |
-| Files reviewed | 1 |
+| Verdict | **APPROVED** |
+| Files reviewed | 19 |
 
 ## What this is, and what it is not
 
@@ -29,20 +29,20 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
-| low | 0 |
+| medium | 1 |
+| low | 3 |
 | info | 0 |
 
-No reviewable files in the diff.
+Adds the OCR → Rewaa export: a pure `utils/ocrRewaaExport.ts` that turns a model answer into the six-sheet contract workbook plus a ZIP bundle, a small `services/download.ts` for the browser hand-off, and the OcrTab wiring that auto-downloads only on a fully clean run. The separation is clean (pure utils, DOM in services, no I/O in the component), the libraries are injected, and the regression suite compares every cell against the product owner's supplied `correct-output.xlsx` with the three deviations documented in D12 — this is unusually well-evidenced work. No blocking-handbook violations and no security issues: the ZIP is built only from run data and the e2e asserts no key shape leaks into it. One real correctness gap: the `Rewaa Data Identical` / `Same in Rewaa *` columns never compare `Enable stock management`, so a row the export deliberately rewrote from `yes` to `no` is still reported as identical — the e2e at `ocr-rewaa-export.spec.ts:192` currently enshrines that. Remaining findings are advisory nits.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 569 warning(s) |
-| Vitest | pass | 676/676 passed, lines 99.3% |
-| Playwright | pass | 130/131 passed |
+| ESLint | pass | 0 error(s), 566 warning(s) |
+| Vitest | pass | 714/714 passed, lines 99.33% |
+| Playwright | pass | 134/135 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 122 source files, 33018 lines
+- 126 source files, 34397 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -64,11 +64,11 @@ reports zero failures for a tool that never executed.
 | `components/CompositeTab.tsx` | 1404 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1124 |
+| `components/OcrTab.tsx` | 1074 |
 | `components/SupportChat.tsx` | 964 |
-| `components/OcrTab.tsx` | 956 |
 | `components/TranslateTab.tsx` | 956 |
+| `utils/translations.ts` | 952 |
 | `services/geminiService.ts` | 946 |
-| `utils/translations.ts` | 925 |
 | `components/ProjectSummaryTab.tsx` | 841 |
 | `components/ZidTab.tsx` | 841 |
 
