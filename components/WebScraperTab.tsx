@@ -174,7 +174,11 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
        queryInstruction = `Extract a list of items with the following exact fields: ${combinedFields.join(', ')}. ${instruction ? '\nAdditional instructions: ' + instruction : ''}`;
     }
 
-    if (!queryInstruction) {
+    // A Fresha link is read from its venue data with fixed columns, so the
+    // field selection and instruction do not apply to it and must not block
+    // it. Every other link keeps this check exactly as before.
+    const freshaVenue = freshaVenueUrl(url);
+    if (!queryInstruction && !freshaVenue) {
       addLog("Please describe what data to extract or select fields.", 'warning');
       return;
     }
@@ -190,7 +194,6 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
       // into rows directly — no model reading prices off text. The booking
       // flow's text shows only its first category. Any failure falls through
       // to the page-text route below, unchanged.
-      const freshaVenue = freshaVenueUrl(url);
       if (freshaVenue) {
         try {
           const fresha = await fetchFreshaVenue(freshaVenue, (u, init) => fetch(u, init));
@@ -206,6 +209,8 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
         } catch (e) {
           console.warn('Fresha venue data unavailable, using the page text instead.', e);
           addLog("Could not read Fresha's venue data; using the page text instead (only part of the menu may be found).", 'warning');
+          // The page-text route DOES need fields or an instruction.
+          if (!queryInstruction) throw new Error("Please describe what data to extract or select fields.");
         }
       }
 

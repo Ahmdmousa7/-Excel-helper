@@ -159,6 +159,62 @@ test.describe('Web Scraper — Fresha venue data', () => {
     await expect(page.getByText(/1 services in 1 categories, 1 with a starting price, 1 with options/)).toBeVisible();
   });
 
+  test.describe('with every field unchecked and no instruction', () => {
+    const NEED_FIELDS = 'Please describe what data to extract or select fields.';
+
+    async function openEmpty(app: AppShell, page: Page, link: string) {
+      await app.goto();
+      await app.openToolMatching(/Web Scraper|كاشط الويب|استخراج الويب/);
+      await page.getByPlaceholder('https://example.com/products').fill(link);
+      const boxes = page.getByRole('checkbox');
+      for (let i = 0; i < await boxes.count(); i++) if (await boxes.nth(i).isChecked()) await boxes.nth(i).uncheck();
+      await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(0);
+      await expect(page.locator('textarea')).toHaveValue('');
+    }
+
+    test('a Fresha link still scrapes from its venue data', async ({ app, page }) => {
+      test.setTimeout(90_000);
+      const asked = await jina(page, VENUE_HTML);
+      const calls = await models(page, FALLBACK_ANSWER);
+      await noFresha(page);
+      await openEmpty(app, page, BOOKING);
+      await page.getByRole('button', { name: en.common.start }).click();
+      // Before: blocked here by "Please describe what data to extract…".
+      await expect(page.getByText(`${en.scraper.preview} (67)`)).toBeVisible({ timeout: 60_000 });
+      expect(asked).toEqual([{ url: `https://r.jina.ai/${VENUE}`, format: 'html' }]);
+      expect(calls).toHaveLength(0);
+      const wb = await download(page);
+      expect(wb.SheetNames).toEqual(['Scraped Data', 'Not on venue page']);
+      expect(XLSX.utils.sheet_to_json(wb.Sheets['Scraped Data'])).toHaveLength(67);
+    });
+
+    test('a non-Fresha link is still blocked, exactly as before', async ({ app, page }) => {
+      test.setTimeout(60_000);
+      const asked = await jina(page, VENUE_HTML);
+      const calls = await models(page, FALLBACK_ANSWER);
+      await openEmpty(app, page, 'https://example.com/menu');
+      await page.getByRole('button', { name: en.common.start }).click();
+      await page.getByRole('button', { name: en.actions.showLogs }).click();
+      await expect(page.getByText(NEED_FIELDS)).toBeVisible();
+      await page.waitForTimeout(1_000);
+      expect(asked).toEqual([]);   // nothing fetched
+      expect(calls).toHaveLength(0);
+    });
+
+    test('a Fresha link whose venue data is unavailable stops instead of asking the model with nothing', async ({ app, page }) => {
+      test.setTimeout(90_000);
+      const asked = await jina(page, '<html><body>no data</body></html>');
+      const calls = await models(page, FALLBACK_ANSWER);
+      await noFresha(page);
+      await openEmpty(app, page, BOOKING);
+      await page.getByRole('button', { name: en.common.start }).click();
+      await page.getByRole('button', { name: en.actions.showLogs }).click();
+      await expect(page.getByText(`${en.common.error}: ${NEED_FIELDS}`)).toBeVisible({ timeout: 60_000 });
+      expect(asked).toEqual([{ url: `https://r.jina.ai/${VENUE}`, format: 'html' }]); // no page-text fetch
+      expect(calls).toHaveLength(0);
+    });
+  });
+
   test('a non-Fresha link never takes the Fresha route', async ({ app, page }) => {
     test.setTimeout(90_000);
     const asked: string[] = [];
