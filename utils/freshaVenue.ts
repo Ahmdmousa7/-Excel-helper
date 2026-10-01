@@ -132,6 +132,15 @@ const priceFromFormatted = (formatted: unknown): string => {
 
 export interface FreshaStats { categories: number; services: number; rows: number; startingPrices: number; withOptions: number; noPrice: number }
 
+/** The Web Scraper log line for a venue read; a count of 0 is left out. */
+export function freshaSummary(venueUrl: string, s: FreshaStats): string {
+  const parts = [`${s.services} services in ${s.categories} categories`];
+  if (s.startingPrices) parts.push(`${s.startingPrices} with a starting price`);
+  if (s.withOptions) parts.push(`${s.withOptions} with options`);
+  if (s.noPrice) parts.push(`${s.noPrice} with no price`);
+  return `Read Fresha's venue data from ${venueUrl}: ${parts.join(', ')}. The field selection does not apply: Fresha data has fixed columns.`;
+}
+
 /**
  * One row per service, in the venue's own order. A service only becomes
  * option rows when Fresha lists two or more distinct, named variants for it —

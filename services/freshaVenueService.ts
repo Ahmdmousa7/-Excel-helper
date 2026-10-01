@@ -33,13 +33,21 @@ export interface FreshaVenueResult {
   stats: FreshaStats;
 }
 
+/** `fetch` rejects an aborted request with the signal's reason, an `AbortError`. */
+const isAbort = (e: unknown, signal: AbortSignal): boolean =>
+  e === signal.reason || (e instanceof Error && e.name === 'AbortError');
+
 export async function fetchFreshaVenue(
   venueUrl: string,
   fetchFn: FetchTextLike,
   timeoutMs: number = FRESHA_TIMEOUT_MS,
 ): Promise<FreshaVenueResult> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   try {
     const res = await fetchFn(`https://r.jina.ai/${venueUrl}`, {
       headers: {
@@ -56,7 +64,12 @@ export async function fetchFreshaVenue(
     const { rows, stats } = freshaRows(venue);
     return { venue: venue.name, rows, stats };
   } catch (e) {
-    if (controller.signal.aborted) throw new FreshaVenueError(`The venue page did not answer within ${Math.round(timeoutMs / 1000)} s.`);
+    // A timeout only when OUR timer fired and this error is the abort it
+    // caused. Anything else — a network error, an error status, a page without
+    // the data — is reported as itself, even when it lands after the limit.
+    if (timedOut && isAbort(e, controller.signal)) {
+      throw new FreshaVenueError(`The venue page did not answer within ${Math.round(timeoutMs / 1000)} s.`);
+    }
     throw e;
   } finally {
     clearTimeout(timer);

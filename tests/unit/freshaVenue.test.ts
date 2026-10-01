@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  freshaVenueUrl, parseFreshaVenueHtml, freshaRows, FRESHA_COLUMNS, STARTING_PRICE_NOTE, BOOKING_ONLY_NOTE,
-  type FreshaVenue,
+  freshaVenueUrl, parseFreshaVenueHtml, freshaRows, freshaSummary, FRESHA_COLUMNS, STARTING_PRICE_NOTE, BOOKING_ONLY_NOTE,
+  type FreshaVenue, type FreshaStats,
 } from '../../utils/freshaVenue';
-import { fetchFreshaVenue, FreshaVenueError } from '../../services/freshaVenueService';
+import { fetchFreshaVenue, FreshaVenueError, FRESHA_TIMEOUT_MS, type FetchTextLike } from '../../services/freshaVenueService';
 
 /**
  * Fresha venue menus for Web Scraper, against the real capture of Little Palm
@@ -297,9 +297,127 @@ describe('fetchFreshaVenue', () => {
   it('throws — so the scraper falls back — on an error status, a page without the data, or a timeout', async () => {
     await expect(fetchFreshaVenue(VENUE, async () => ({ ok: false, status: 451, text: async () => '' }))).rejects.toBeInstanceOf(FreshaVenueError);
     await expect(fetchFreshaVenue(VENUE, ok('<html>Select services</html>'))).rejects.toThrow(/menu data/);
+    // As `fetch` does: an aborted request rejects with the signal's reason.
     const hang = (_u: string, init?: { signal?: AbortSignal }) => new Promise<never>((_, reject) => {
-      init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+      init?.signal?.addEventListener('abort', () => reject(init.signal!.reason));
     });
     await expect(fetchFreshaVenue(VENUE, hang, 50)).rejects.toThrow(/did not answer within/);
+  });
+
+  describe('timeout vs other failures (fake clock, no real waiting)', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    /** A fetch the test settles by hand; it never reacts to the signal itself. */
+    function deferredFetch() {
+      let settle!: { resolve: (r: Awaited<ReturnType<FetchTextLike>>) => void; reject: (e: unknown) => void };
+      let signal: AbortSignal | undefined;
+      const fn: FetchTextLike = (_u, init) => {
+        signal = init?.signal;
+        return new Promise((resolve, reject) => { settle = { resolve, reject }; });
+      };
+      return { fn, settle: () => settle, signal: () => signal };
+    }
+    /** Attach the expectation first, so the rejection is never unhandled. */
+    const outcome = (p: Promise<unknown>) => p.then(() => 'resolved', (e: unknown) => e);
+
+    it('a request still pending at 45 s is aborted and reported as a timeout', async () => {
+      const hang = (_u: string, init?: { signal?: AbortSignal }) => new Promise<never>((_, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal!.reason));
+      });
+      const result = outcome(fetchFreshaVenue(VENUE, hang)); // the default limit
+      await vi.advanceTimersByTimeAsync(FRESHA_TIMEOUT_MS - 1);
+      let settled = false;
+      void result.then(() => { settled = true; });
+      await Promise.resolve();
+      expect(settled).toBe(false); // not before 45 s
+      await vi.advanceTimersByTimeAsync(1);
+      const e = await result;
+      expect(e).toBeInstanceOf(FreshaVenueError);
+      expect((e as Error).message).toBe('The venue page did not answer within 45 s.');
+    });
+
+    it('an immediate network failure is reported as itself, not as a timeout', async () => {
+      const failure = new TypeError('Failed to fetch');
+      const e = await outcome(fetchFreshaVenue(VENUE, async () => { throw failure; }));
+      expect(e).toBe(failure);
+    });
+
+    it('a network failure landing after the limit is still the network failure', async () => {
+      const f = deferredFetch();
+      const result = outcome(fetchFreshaVenue(VENUE, f.fn));
+      await vi.advanceTimersByTimeAsync(FRESHA_TIMEOUT_MS + 1);
+      expect(f.signal()?.aborted).toBe(true); // the timer did fire
+      const failure = new TypeError('Failed to fetch');
+      f.settle().reject(failure);
+      expect(await result).toBe(failure);
+    });
+
+    it('an error status landing after the limit is still the error status', async () => {
+      const f = deferredFetch();
+      const result = outcome(fetchFreshaVenue(VENUE, f.fn));
+      await vi.advanceTimersByTimeAsync(FRESHA_TIMEOUT_MS + 1);
+      f.settle().resolve({ ok: false, status: 502, text: async () => '' });
+      const e = await result;
+      expect(e).toBeInstanceOf(FreshaVenueError);
+      expect((e as Error).message).toBe('The venue page answered 502.');
+    });
+
+    it('a page without the data, read after the limit, is still "no menu data"', async () => {
+      const f = deferredFetch();
+      const result = outcome(fetchFreshaVenue(VENUE, f.fn));
+      await vi.advanceTimersByTimeAsync(FRESHA_TIMEOUT_MS + 1);
+      f.settle().resolve({ ok: true, status: 200, text: async () => '<html>Select services</html>' });
+      expect(((await result) as Error).message).toBe('The venue page did not contain its menu data.');
+    });
+
+    it('a body read aborted by the timer is a timeout', async () => {
+      let signal: AbortSignal | undefined;
+      const slowBody: FetchTextLike = async (_u, init) => {
+        signal = init?.signal;
+        return { ok: true, status: 200, text: () => new Promise<string>((_, reject) => signal!.addEventListener('abort', () => reject(signal!.reason))) };
+      };
+      const result = outcome(fetchFreshaVenue(VENUE, slowBody));
+      await vi.advanceTimersByTimeAsync(FRESHA_TIMEOUT_MS);
+      expect(((await result) as Error).message).toBe('The venue page did not answer within 45 s.');
+    });
+
+    it('an abort that is not the timer\'s is not called a timeout', async () => {
+      const other = new DOMException('The user aborted a request.', 'AbortError');
+      const e = await outcome(fetchFreshaVenue(VENUE, async () => { throw other; }));
+      expect(e).toBe(other);
+    });
+  });
+});
+
+describe('freshaSummary', () => {
+  /** The inline template WebScraperTab used before this helper, verbatim. */
+  const before = (freshaVenue: string, s: FreshaStats) =>
+    `Read Fresha's venue data from ${freshaVenue}: ${s.services} services in ${s.categories} categories${s.startingPrices ? `, ${s.startingPrices} with a starting price` : ''}${s.withOptions ? `, ${s.withOptions} with options` : ''}${s.noPrice ? `, ${s.noPrice} with no price` : ''}. The field selection does not apply: Fresha data has fixed columns.`;
+
+  it('the real venue: the exact line the scraper logs', () => {
+    const { stats } = freshaRows(parseFreshaVenueHtml(VENUE_HTML)!);
+    expect(freshaSummary(VENUE, stats)).toBe(
+      `Read Fresha's venue data from ${VENUE}: 67 services in 9 categories, 10 with a starting price. The field selection does not apply: Fresha data has fixed columns.`,
+    );
+  });
+
+  it('one service with three "from" options counts once for each', () => {
+    expect(freshaSummary(VENUE, { categories: 1, services: 1, rows: 3, startingPrices: 1, withOptions: 1, noPrice: 0 }))
+      .toContain(': 1 services in 1 categories, 1 with a starting price, 1 with options.');
+  });
+
+  it('every optional part, alone and together, in a fixed order', () => {
+    const base = { categories: 2, services: 5, rows: 7 };
+    expect(freshaSummary(VENUE, { ...base, startingPrices: 0, withOptions: 0, noPrice: 0 })).toContain(': 5 services in 2 categories. The field');
+    expect(freshaSummary(VENUE, { ...base, startingPrices: 0, withOptions: 0, noPrice: 4 })).toContain(': 5 services in 2 categories, 4 with no price. The field');
+    expect(freshaSummary(VENUE, { ...base, startingPrices: 3, withOptions: 2, noPrice: 4 }))
+      .toContain(': 5 services in 2 categories, 3 with a starting price, 2 with options, 4 with no price. The field');
+  });
+
+  it.each(
+    Array.from({ length: 8 }, (_, i) => ({ categories: 3, services: 9, rows: 11, startingPrices: i & 1 ? 2 : 0, withOptions: i & 2 ? 1 : 0, noPrice: i & 4 ? 5 : 0 })),
+  )('matches the old inline template for %j', (stats) => {
+    expect(freshaSummary(VENUE, stats)).toBe(before(VENUE, stats));
   });
 });

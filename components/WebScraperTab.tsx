@@ -8,7 +8,7 @@ import { TRANSLATIONS, Language } from '../utils/translations';
 import { readableAiError } from '../utils/aiErrors';
 import { yallaMenuSource } from '../utils/yallaMenu';
 import { fetchYallaMenu } from '../services/yallaMenuService';
-import { freshaVenueUrl, FRESHA_COLUMNS, BOOKING_ONLY_NOTE } from '../utils/freshaVenue';
+import { freshaVenueUrl, freshaSummary, FRESHA_COLUMNS, BOOKING_ONLY_NOTE } from '../utils/freshaVenue';
 import { fetchFreshaVenue } from '../services/freshaVenueService';
 import ProgressBar from './ProgressBar';
 import { Globe, Download, Search, AlertCircle, Table, ExternalLink, Zap, RefreshCw, CheckSquare } from 'lucide-react';
@@ -197,8 +197,7 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
       if (freshaVenue) {
         try {
           const fresha = await fetchFreshaVenue(freshaVenue, (u, init) => fetch(u, init));
-          const s = fresha.stats;
-          addLog(`Read Fresha's venue data from ${freshaVenue}: ${s.services} services in ${s.categories} categories${s.startingPrices ? `, ${s.startingPrices} with a starting price` : ''}${s.withOptions ? `, ${s.withOptions} with options` : ''}${s.noPrice ? `, ${s.noPrice} with no price` : ''}. The field selection does not apply: Fresha data has fixed columns.`, 'info');
+          addLog(freshaSummary(freshaVenue, fresha.stats), 'info');
           addLog("Services offered only inside Fresha's booking flow (add-ons) are not on the venue page and cannot be read; the export explains this on a \"Not on venue page\" sheet.", 'warning');
           setScrapedData(fresha.rows);
           setPreviewHeaders([...FRESHA_COLUMNS]);
