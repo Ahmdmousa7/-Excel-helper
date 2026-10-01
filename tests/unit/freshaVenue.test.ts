@@ -166,6 +166,31 @@ describe('freshaRows rules on synthetic data', () => {
     expect(stats).toMatchObject({ services: 1, rows: 3, withOptions: 1, startingPrices: 1 });
   });
 
+  it('"no price" is counted per SERVICE, not per option row; the rows are unchanged', () => {
+    const { rows, stats } = freshaRows(venue([{
+      name: 'Consultation', caption: '30 mins', retailPrice: null, formattedRetailPrice: 'Price on request',
+      variants: [
+        { name: 'Online', caption: '15 mins', formattedRetailPrice: 'Price on request' },
+        { name: 'In salon', caption: '30 mins', formattedRetailPrice: 'Price on request' },
+        { name: 'At home', caption: '45 mins', formattedRetailPrice: 'Price on request' },
+      ],
+    }]));
+    // Three option rows, each with an empty price — exactly as before.
+    expect(rows.map((r) => [r.Type, r['Option 1 Value'], r.Price])).toEqual([
+      ['Variable', 'Online', ''], ['Variable', 'In salon', ''], ['Variable', 'At home', ''],
+    ]);
+    // …but ONE service without a price (before: 3).
+    expect(stats).toMatchObject({ services: 1, rows: 3, withOptions: 1, noPrice: 1 });
+  });
+
+  it('a service counts once without a price when only some of its options lack one', () => {
+    const { stats } = freshaRows(venue([
+      { name: 'A', variants: [{ name: 'x', formattedRetailPrice: 'SAR 9' }, { name: 'y', formattedRetailPrice: 'Price on request' }, { name: 'z', formattedRetailPrice: 'Price on request' }] },
+      { name: 'B', variants: [{ name: 'x', formattedRetailPrice: 'SAR 5' }, { name: 'y', formattedRetailPrice: 'SAR 7' }] },
+    ]));
+    expect(stats).toMatchObject({ services: 2, rows: 5, noPrice: 1 });
+  });
+
   it('a service counts once when only some of its options are starting prices', () => {
     const { stats } = freshaRows(venue([
       { name: 'A', retailPrice: { value: 9 }, variants: [{ name: 'x', formattedRetailPrice: 'from SAR 9' }, { name: 'y', formattedRetailPrice: 'SAR 12' }] },
