@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:274d6ec011e44110ddbc5f0498584e5023176889e2446c5be33912587136a29c",
+  "attestation_id": "sha256:29c1849c64b5eaad76f9a4cdb03a891bbf886eda3c234a8abbd5a6f4ba17ff5c",
   "available": true,
   "files_reviewed": 9,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 3,
-    "low": 2,
+    "info": 1,
+    "low": 1,
     "medium": 0
   },
-  "findings_total": 5,
+  "findings_total": 2,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Adds a Fresha-venue path to the Web Scraper: `utils/freshaVenue.ts` (pure link detection + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (one Jina HTML-mode request, bounded by a 45 s abort), and the wiring in `WebScraperTab.tsx` that bypasses the field/instruction gate for Fresha links and adds a `Not on venue page` note sheet to the export. Layering is correct (components → services → utils, parsing stays pure and network-free), external data is treated as `unknown` and validated before use, failures fall back to the existing page-text route rather than being swallowed, and `docs/modules/MODULE_GUIDE.md` is updated with the rationale. I ran `npx vitest run tests/unit/freshaVenue.test.ts`: 41/41 pass. No blocking issues; findings are low/info polish only.",
+  "summary": "Adds a structured read path for Fresha venue menus to Web Scraper: a pure URL/parse/row-builder module (`utils/freshaVenue.ts`), an I/O-only service that fetches the public venue page through Jina in HTML mode (`services/freshaVenueService.ts`), and wiring in `WebScraperTab.tsx` that bypasses the field/instruction gate for Fresha links, renders fixed columns, and appends a `Not on venue page` note sheet on export. The parsing treats the scraped `__NEXT_DATA__` as untrusted (`unknown` + guards, no `any`, no HTML injection), the failure path falls back to the existing page-text route, and coverage is strong — a real captured fixture, synthetic rule cases, and an offline Playwright suite that asserts fresha.com is never contacted directly and no model call happens on the structured path. No blocking-handbook violations found; two non-blocking observations below.",
   "verdict": "approved"
 }

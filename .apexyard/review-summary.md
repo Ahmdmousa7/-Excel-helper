@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:274d6ec011e44110ddbc5f0498584e5023176889e2446c5be33912587136a29c` |
+| Attestation id | `sha256:29c1849c64b5eaad76f9a4cdb03a891bbf886eda3c234a8abbd5a6f4ba17ff5c` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `b4aca589495e` |
+| Reviewed at commit | `f1e1e0786274` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 2 |
-| info | 3 |
+| low | 1 |
+| info | 1 |
 
-Adds a Fresha-venue path to the Web Scraper: `utils/freshaVenue.ts` (pure link detection + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (one Jina HTML-mode request, bounded by a 45 s abort), and the wiring in `WebScraperTab.tsx` that bypasses the field/instruction gate for Fresha links and adds a `Not on venue page` note sheet to the export. Layering is correct (components → services → utils, parsing stays pure and network-free), external data is treated as `unknown` and validated before use, failures fall back to the existing page-text route rather than being swallowed, and `docs/modules/MODULE_GUIDE.md` is updated with the rationale. I ran `npx vitest run tests/unit/freshaVenue.test.ts`: 41/41 pass. No blocking issues; findings are low/info polish only.
+Adds a structured read path for Fresha venue menus to Web Scraper: a pure URL/parse/row-builder module (`utils/freshaVenue.ts`), an I/O-only service that fetches the public venue page through Jina in HTML mode (`services/freshaVenueService.ts`), and wiring in `WebScraperTab.tsx` that bypasses the field/instruction gate for Fresha links, renders fixed columns, and appends a `Not on venue page` note sheet on export. The parsing treats the scraped `__NEXT_DATA__` as untrusted (`unknown` + guards, no `any`, no HTML injection), the failure path falls back to the existing page-text route, and coverage is strong — a real captured fixture, synthetic rule cases, and an offline Playwright suite that asserts fresha.com is never contacted directly and no model call happens on the structured path. No blocking-handbook violations found; two non-blocking observations below.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ Adds a Fresha-venue path to the Web Scraper: `utils/freshaVenue.ts` (pure link d
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
-| Vitest | pass | 809/809 passed, lines 99.42% |
+| Vitest | pass | 864/864 passed, lines 99.42% |
 | Playwright | pass | 157/158 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 136 source files, 35997 lines
+- 136 source files, 36051 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

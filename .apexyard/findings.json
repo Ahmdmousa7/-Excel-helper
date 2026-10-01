@@ -1,60 +1,33 @@
 {
-  "attestation_id": "sha256:274d6ec011e44110ddbc5f0498584e5023176889e2446c5be33912587136a29c",
+  "attestation_id": "sha256:29c1849c64b5eaad76f9a4cdb03a891bbf886eda3c234a8abbd5a6f4ba17ff5c",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 3,
-    "low": 2,
+    "info": 1,
+    "low": 1,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "The same English literal now appears twice — as the pre-scrape warning at line 182 and as the thrown fallback error at line 213. The two must stay in sync (an e2e test asserts both the bare string and `${t.common.error}: ${NEED_FIELDS}`), and unlike the rest of this tab it is not routed through `TRANSLATIONS`, so an Arabic user gets an English sentence prefixed by a translated `Error:`. Low because the behaviour is correct and covered by tests; it would rise to medium if the copy diverged between the two sites.",
+      "detail": "The three Fresha log messages (lines 204, 205, 214) and `NEED_FIELDS_MESSAGE` (line 32) are English literals, while the rest of this handler routes user-visible text through `t.common.*` from `utils/translations`. An Arabic user running a Fresha scrape sees Arabic status/completion lines interleaved with three English paragraphs, including the one that explains why add-ons are missing from the export — the explanation most likely to be read by a non-English speaker. This is the file's existing pattern (the Yalla logs at lines 67-68 are also hardcoded), so it is consistent rather than regressive, which is why it is low and not medium.",
       "file": "components/WebScraperTab.tsx",
-      "line": 213,
+      "line": 204,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Gate message \"Please describe what data to extract…\" duplicated as a literal"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`/^\\/(?:[a-z]{2}(?:-[A-Za-z]{2})?\\/)?a\\/([A-Za-z0-9-]+)(?:\\/|$)/` only accepts a lowercase two-letter language, optionally with a two-letter region. A Fresha URL carrying a script-subtag locale (`/zh-Hant/a/<slug>`) or an uppercase one (`/EN-GB/a/<slug>`, which a user can produce by hand-editing or by a link shortener normalising case) returns `null`. The failure is silent and safe — the link just takes the old page-text route and the user sees only the first category — but it is indistinguishable from \"this isn't a Fresha link\". Low: all locales Fresha actually serves today match the current pattern.",
-      "file": "utils/freshaVenue.ts",
-      "line": 65,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Locale-segment regex misses uppercase and non-2-letter locale prefixes"
+      "summary": "New user-facing log strings are hardcoded English in a bilingual tab"
     },
     {
       "category": "architecture",
-      "detail": "`fetchFreshaVenue(freshaVenue, (u, init) => fetch(u, init))` literally matches the `frontend-boundaries.md` trigger \"`fetch(` … inside a file under `components/`\". Recording the analysis so a future reviewer does not re-raise it: all request construction, headers, timeout/abort and error shaping live in `services/freshaVenueService.ts`; the component supplies only the browser transport, which is the seam the unit tests use to run `fetchFreshaVenue` with no network. That serves the rule's stated purpose (\"so the tab can be rendered in a test without a live database\") rather than defeating it, and it mirrors the pre-existing `fetchYallaMenu(yalla, targetUrl, (u, init) => fetch(u, init))` on line 63. Not a violation.",
+      "detail": "`handbooks/architecture/frontend-boundaries.md` § 'What Rex flags' lists a literal `fetch(` inside `components/**`, and line 202 contains one: `fetchFreshaVenue(freshaVenue, (u, init) => fetch(u, init))`. I am explicitly NOT treating this as a rule-2 violation. The component calls a service — the request, headers, timeout, abort and error typing all live in `services/freshaVenueService.ts` — and the lambda exists so that service can be unit-tested without a network, which is exactly the rationale rule 2 states. It also matches the identical pre-existing call at line 66 (`fetchYallaMenu(..., (u, init) => fetch(u, init))`). Recording it here so the match is visibly adjudicated rather than silently skipped.",
       "file": "components/WebScraperTab.tsx",
-      "line": 199,
+      "line": 202,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "`fetch(` appears in a component, but as an injected transport — not a boundary violation"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`/(\\d[\\d,]*(?:\\.\\d+)?)/` returns the first number in the formatted string. `from SAR 575` is handled correctly (the `from` prefix also sets `Price Note`), but a hypothetical `SAR 50 - SAR 80` would land as `50.00` with an empty `Price Note` — a figure the customer reads as exact. This path is only reached for option rows, where variants carry no numeric `retailPrice`; the captured venue shows Fresha expressing ranges as `from X`, so no such shape exists in the fixture. Recording it because the module's stated contract is \"nothing is invented\".",
-      "file": "utils/freshaVenue.ts",
-      "line": 115,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "`priceFromFormatted` takes the first number, so a range would be written as an exact price"
-    },
-    {
-      "category": "testing",
-      "detail": "In the \"a non-Fresha link is still blocked\" case the spec sleeps 1 s and then asserts `asked` is empty. Proving a negative with a fixed sleep is the one shape in this otherwise event-driven suite that can go flaky under CI load (too short) or slow the run down (too long). The rest of the file correctly waits on visible text. Not a defect — the assertion is sound today.",
-      "file": "e2e/web-scraper-fresha.spec.ts",
-      "line": 201,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "Fixed `waitForTimeout(1_000)` used to assert \"nothing was fetched\""
+      "summary": "`fetch` appears in a component file as the injected transport, not as I/O"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 5
+  "total": 2
 }
