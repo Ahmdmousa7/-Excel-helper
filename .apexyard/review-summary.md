@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:7771a163714348302ef78ed6eae028e617d916c4d93354f9be614e6a8d6e7112` |
+| Attestation id | `sha256:fccc4c1aa16b108e319635e65320bc871a2c709f484714a66b16c2640f1d605c` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `79591d4927e2` |
+| Reviewed at commit | `f157634b8204` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 3 |
+| Files reviewed | 9 |
 
 ## What this is, and what it is not
 
@@ -33,7 +33,7 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | low | 1 |
 | info | 1 |
 
-Docs-only PR that records D14 in open-decisions.md: cross-file validation for the Files Validation module was considered and deliberately not planned, and §4-C of ocr-rewaa-plan.md is complete as of 2026-09-28. Pointers to D14 were added in ocr-rewaa-plan.md §4-C and the Files Validation section of MODULE_GUIDE.md. I verified the claims against the repo — the D-number does not collide (D13 is the previous entry), the three §4-C deliverables are documented as shipped in MODULE_GUIDE.md §2.4 with tests named, and the commit message carries a real WHY body. No code, dependencies, or config changed; no blocking-handbook surface is touched. Two minor documentation-consistency notes, neither blocking.
+Adds a Fresha venue-menu source to Web Scraper (commit f157634): `utils/freshaVenue.ts` (pure link normalisation + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (one Jina HTML-mode fetch, bounded by an AbortController), and a ~30-line wiring in `WebScraperTab.tsx` that falls through to the existing page-text route on any failure. Layering is clean (utils imports nothing; service imports only utils), there are no new dependencies, external data is validated before use, and coverage is strong — a real captured fixture drives 202 lines of unit tests plus three fully-offline Playwright specs covering the structured path, the fallback, and a non-Fresha link. Two minor observations only; nothing blocking.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ Docs-only PR that records D14 in open-decisions.md: cross-file validation for th
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
-| Vitest | pass | 768/768 passed, lines 99.38% |
-| Playwright | pass | 150/151 passed |
+| Vitest | pass | 804/804 passed, lines 99.41% |
+| Playwright | pass | 153/154 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 132 source files, 35200 lines
+- 136 source files, 35836 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

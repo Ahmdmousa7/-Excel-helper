@@ -1,7 +1,7 @@
 {
-  "attestation_id": "sha256:7771a163714348302ef78ed6eae028e617d916c4d93354f9be614e6a8d6e7112",
+  "attestation_id": "sha256:fccc4c1aa16b108e319635e65320bc871a2c709f484714a66b16c2640f1d605c",
   "available": true,
-  "files_reviewed": 3,
+  "files_reviewed": 9,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
@@ -13,6 +13,6 @@
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Docs-only PR that records D14 in open-decisions.md: cross-file validation for the Files Validation module was considered and deliberately not planned, and §4-C of ocr-rewaa-plan.md is complete as of 2026-09-28. Pointers to D14 were added in ocr-rewaa-plan.md §4-C and the Files Validation section of MODULE_GUIDE.md. I verified the claims against the repo — the D-number does not collide (D13 is the previous entry), the three §4-C deliverables are documented as shipped in MODULE_GUIDE.md §2.4 with tests named, and the commit message carries a real WHY body. No code, dependencies, or config changed; no blocking-handbook surface is touched. Two minor documentation-consistency notes, neither blocking.",
+  "summary": "Adds a Fresha venue-menu source to Web Scraper (commit f157634): `utils/freshaVenue.ts` (pure link normalisation + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (one Jina HTML-mode fetch, bounded by an AbortController), and a ~30-line wiring in `WebScraperTab.tsx` that falls through to the existing page-text route on any failure. Layering is clean (utils imports nothing; service imports only utils), there are no new dependencies, external data is validated before use, and coverage is strong — a real captured fixture drives 202 lines of unit tests plus three fully-offline Playwright specs covering the structured path, the fallback, and a non-Fresha link. Two minor observations only; nothing blocking.",
   "verdict": "approved"
 }

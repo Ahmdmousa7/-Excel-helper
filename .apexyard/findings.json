@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:7771a163714348302ef78ed6eae028e617d916c4d93354f9be614e6a8d6e7112",
+  "attestation_id": "sha256:fccc4c1aa16b108e319635e65320bc871a2c709f484714a66b16c2640f1d605c",
   "available": true,
   "by_severity": {
     "critical": 0,
@@ -11,21 +11,21 @@
   "findings": [
     {
       "category": "code-smell",
-      "detail": "MODULE_GUIDE.md keeps every prose block as an EN/AR pair, and §2.4 'Error handling · Edge cases · Unsupported' is no exception: line 241 is **EN:** and line 249 is **AR:**. This PR added the '(considered and deliberately not planned — D14)' qualifier to the EN line only. The AR line still reads a bare 'لا تحقق بين ملفات' — exactly the unqualified phrasing D14 was written to stop a future reader from treating as an unfinished feature. An Arabic-reading reviewer or roadmap pass gets the pre-D14 text and the reopening that D14 explicitly forbids becomes likely, which defeats the stated purpose of the change. Scoped low, not medium, because the decision is still recorded authoritatively in open-decisions.md; it would be medium if MODULE_GUIDE.md were the only place the scope limit lived.",
-      "file": "docs/modules/MODULE_GUIDE.md",
-      "line": 249,
+      "detail": "In the multi-variant branch `stats.startingPrices++` fires once per variant row, while in the single-variant branch it fires once per service. `WebScraperTab.tsx:198` renders the two counters in one sentence — `${s.services} services in ${s.categories} categories, ${s.startingPrices} with a starting price` — which reads as a subset of the service count. A venue with 3 services that each expose 2 \"from\" variants logs \"3 services in 1 categories, 6 with a starting price\". No user data is wrong, only the log; the test venue has `withOptions: 0` so this never triggers on the captured fixture, which is why the suite doesn't catch it. It would be medium if the number were exported rather than logged.",
+      "file": "utils/freshaVenue.ts",
+      "line": 152,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Arabic counterpart of the edited paragraph lost the D14 pointer"
+      "summary": "startingPrices counts option rows, not services, so the log line can exceed the service count"
     },
     {
-      "category": "code-smell",
-      "detail": "Not a defect in this diff — D14 scopes itself correctly, saying the phrase it governs is the one 'in the Files Validation section of MODULE_GUIDE.md'. Noting it only because MODULE_GUIDE.md §2.2 'Unsupported features' carries the same words for a different module, so a reader grepping the phrase lands on line 163 first and may assume D14 settled Composite Check's scope too. D14 does not cover it, and the PR is right not to claim otherwise.",
-      "file": "docs/modules/MODULE_GUIDE.md",
-      "line": 163,
+      "category": "architecture",
+      "detail": "`handbooks/architecture/frontend-boundaries.md` § \"What Rex flags\" lists `fetch(` appearing in a file under `components/`, and `(u, init) => fetch(u, init)` matches that pattern literally. Recording it as a deliberate non-violation rather than silently skipping it: the component calls a service (`fetchFreshaVenue`), all URL construction, headers, status handling and the abort timer live in `services/freshaVenueService.ts`, and the arrow function only hands the service the browser primitive via the `FetchTextLike` port. That is what makes the module testable without a network — `tests/unit/freshaVenue.test.ts:180-202` exercises success, 451, missing data and timeout with no DOM. It is also the pattern already established at `WebScraperTab.tsx:63` for `fetchYallaMenu`, so this diff follows the file's convention rather than introducing a new one. No action required.",
+      "file": "components/WebScraperTab.tsx",
+      "line": 196,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "A second 'no cross-file validation' line exists under Composite Check (§2.2)"
+      "summary": "Literal `fetch(` in a component is an injected transport, not component-owned I/O"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
