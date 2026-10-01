@@ -138,6 +138,27 @@ test.describe('Web Scraper — Fresha venue data', () => {
     expect(XLSX.utils.sheet_to_json(wb.Sheets['Scraped Data'])).toEqual(FALLBACK_ANSWER);
   });
 
+  test('the log counts starting prices per service, not per option row', async ({ app, page }) => {
+    test.setTimeout(90_000);
+    // One service, three differently named "from" options.
+    const venue = { props: { pageProps: { data: { location: { name: 'Test venue', services: [{ id: 1, name: 'Hair', items: [{
+      name: 'Hair colour', caption: '2 hours', formattedRetailPrice: 'from SAR 200', retailPrice: { currency: 'SAR', value: 200 },
+      variants: [
+        { id: '1', name: 'Short', caption: '1 hour', formattedRetailPrice: 'from SAR 200' },
+        { id: '2', name: 'Medium', caption: '1 hour 30 mins', formattedRetailPrice: 'from SAR 300' },
+        { id: '3', name: 'Long', caption: '2 hours', formattedRetailPrice: 'from SAR 400' },
+      ],
+    }] }] } } } } };
+    await jina(page, `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(venue)}</script>`);
+    await models(page, FALLBACK_ANSWER);
+    await noFresha(page);
+    await scrape(app, page);
+    await expect(page.getByText(`${en.scraper.preview} (3)`)).toBeVisible({ timeout: 60_000 }); // 3 option rows
+    await page.getByRole('button', { name: en.actions.showLogs }).click();
+    // Before: "…, 3 with a starting price, 1 with options".
+    await expect(page.getByText(/1 services in 1 categories, 1 with a starting price, 1 with options/)).toBeVisible();
+  });
+
   test('a non-Fresha link never takes the Fresha route', async ({ app, page }) => {
     test.setTimeout(90_000);
     const asked: string[] = [];

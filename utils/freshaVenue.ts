@@ -146,10 +146,13 @@ export function freshaRows(venue: FreshaVenue): { rows: FreshaRow[]; stats: Fres
       });
       if (named.length >= 2) {
         stats.withOptions++;
+        // Counted per SERVICE (this `item`), not per option row: one service
+        // with three "from" options is one service with a starting price.
+        let serviceHasStartingPrice = false;
         for (const v of named) {
           const starting = isStartingPrice(v.formattedRetailPrice);
           const price = priceText(v.retailPrice) || priceFromFormatted(v.formattedRetailPrice);
-          if (starting) stats.startingPrices++;
+          if (starting) serviceHasStartingPrice = true;
           if (!price) stats.noPrice++;
           rows.push({
             Name: name, Category: cat.name, Price: price, Type: 'Variable',
@@ -157,6 +160,7 @@ export function freshaRows(venue: FreshaVenue): { rows: FreshaRow[]; stats: Fres
             Duration: text(v.caption) || text(item.caption), 'Price Note': starting ? STARTING_PRICE_NOTE : '',
           });
         }
+        if (serviceHasStartingPrice) stats.startingPrices++;
         continue;
       }
       const starting = isStartingPrice(item.formattedRetailPrice);

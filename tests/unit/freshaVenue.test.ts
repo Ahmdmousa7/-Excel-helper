@@ -147,6 +147,33 @@ describe('freshaRows rules on synthetic data', () => {
     expect(stats.withOptions).toBe(1);
   });
 
+  it('starting prices are counted per SERVICE, not per option row; the rows are unchanged', () => {
+    const { rows, stats } = freshaRows(venue([{
+      name: 'Hair colour', caption: '2 hours', formattedRetailPrice: 'from SAR 200', retailPrice: { value: 200 },
+      variants: [
+        { name: 'Short', caption: '1 hour', formattedRetailPrice: 'from SAR 200' },
+        { name: 'Medium', caption: '1 hour 30 mins', formattedRetailPrice: 'from SAR 300' },
+        { name: 'Long', caption: '2 hours', formattedRetailPrice: 'from SAR 400' },
+      ],
+    }]));
+    // Three option rows, each still marked — exactly as before.
+    expect(rows.map((r) => [r.Type, r['Option 1 Value'], r.Price, r['Price Note']])).toEqual([
+      ['Variable', 'Short', '200.00', STARTING_PRICE_NOTE],
+      ['Variable', 'Medium', '300.00', STARTING_PRICE_NOTE],
+      ['Variable', 'Long', '400.00', STARTING_PRICE_NOTE],
+    ]);
+    // …but ONE service with a starting price (before: 3).
+    expect(stats).toMatchObject({ services: 1, rows: 3, withOptions: 1, startingPrices: 1 });
+  });
+
+  it('a service counts once when only some of its options are starting prices', () => {
+    const { stats } = freshaRows(venue([
+      { name: 'A', retailPrice: { value: 9 }, variants: [{ name: 'x', formattedRetailPrice: 'from SAR 9' }, { name: 'y', formattedRetailPrice: 'SAR 12' }] },
+      { name: 'B', retailPrice: { value: 5 }, variants: [{ name: 'x', formattedRetailPrice: 'SAR 5' }, { name: 'y', formattedRetailPrice: 'SAR 7' }] },
+    ]));
+    expect(stats).toMatchObject({ services: 2, rows: 4, withOptions: 2, startingPrices: 1 });
+  });
+
   it('a repeated variant name is one option, not two rows', () => {
     const { rows } = freshaRows(venue([{
       name: 'Cut', formattedRetailPrice: 'SAR 9', retailPrice: { value: 9 },
