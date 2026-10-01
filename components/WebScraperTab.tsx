@@ -8,6 +8,8 @@ import { TRANSLATIONS, Language } from '../utils/translations';
 import { readableAiError } from '../utils/aiErrors';
 import { yallaMenuSource } from '../utils/yallaMenu';
 import { fetchYallaMenu } from '../services/yallaMenuService';
+import { freshaVenueUrl, FRESHA_COLUMNS, BOOKING_ONLY_NOTE } from '../utils/freshaVenue';
+import { fetchFreshaVenue } from '../services/freshaVenueService';
 import ProgressBar from './ProgressBar';
 import { Globe, Download, Search, AlertCircle, Table, ExternalLink, Zap, RefreshCw, CheckSquare } from 'lucide-react';
 
@@ -44,6 +46,9 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
   const [progress, setProgress] = useState(0);
   const [scrapedData, setScrapedData] = useState<any[]>([]);
   const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
+  // The rows came from Fresha's venue data (utils/freshaVenue.ts): the export
+  // keeps its fixed column order and adds the `Not on venue page` note.
+  const [freshaExport, setFreshaExport] = useState(false);
 
   const fetchContent = async (targetUrl: string): Promise<{ text: string; source: 'html' | 'markdown' | 'json' | 'menu' }> => {
      // A Yalla QR Codes menu: read the menu's own data, which carries every
@@ -177,9 +182,33 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
     setStatus(ProcessingStatus.PROCESSING);
     setProgress(5);
     setScrapedData([]);
+    setFreshaExport(false);
     addLog(`${t.common.processing} ${url}...`, 'info');
 
     try {
+      // A Fresha link: read the PUBLIC venue page's own menu data and turn it
+      // into rows directly — no model reading prices off text. The booking
+      // flow's text shows only its first category. Any failure falls through
+      // to the page-text route below, unchanged.
+      const freshaVenue = freshaVenueUrl(url);
+      if (freshaVenue) {
+        try {
+          const fresha = await fetchFreshaVenue(freshaVenue, (u, init) => fetch(u, init));
+          const s = fresha.stats;
+          addLog(`Read Fresha's venue data from ${freshaVenue}: ${s.services} services in ${s.categories} categories${s.startingPrices ? `, ${s.startingPrices} with a starting price` : ''}${s.withOptions ? `, ${s.withOptions} with options` : ''}${s.noPrice ? `, ${s.noPrice} with no price` : ''}. The field selection does not apply: Fresha data has fixed columns.`, 'info');
+          addLog("Services offered only inside Fresha's booking flow (add-ons) are not on the venue page and cannot be read; the export explains this on a \"Not on venue page\" sheet.", 'warning');
+          setScrapedData(fresha.rows);
+          setPreviewHeaders([...FRESHA_COLUMNS]);
+          setFreshaExport(true);
+          addLog(`${t.common.completed} ${fresha.rows.length} items.`, 'success');
+          setProgress(100);
+          return;
+        } catch (e) {
+          console.warn('Fresha venue data unavailable, using the page text instead.', e);
+          addLog("Could not read Fresha's venue data; using the page text instead (only part of the menu may be found).", 'warning');
+        }
+      }
+
       const { text: content, source } = await fetchContent(url);
       
       setProgress(40);
@@ -268,8 +297,12 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
     if (scrapedData.length === 0) return;
 
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(scrapedData);
+    const ws = XLSX.utils.json_to_sheet(scrapedData, freshaExport ? { header: [...FRESHA_COLUMNS] } : undefined);
     XLSX.utils.book_append_sheet(wb, ws, "Scraped Data");
+    if (freshaExport) {
+      // A note, never services: booking-only add-ons cannot be read (utils/freshaVenue.ts).
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Note'], ...BOOKING_ONLY_NOTE.map((line) => [line])]), 'Not on venue page');
+    }
     
     let domain = "web_data";
     try {

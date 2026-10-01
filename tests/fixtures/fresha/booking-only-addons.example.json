@@ -1,0 +1,8 @@
+{
+  "note": "EXAMPLE ONLY, never runtime data. On 2026-10-01 these 3 Little Palm Spa services were seen only inside Fresha's booking flow (read in a headless browser for the investigation), not on the public venue page. The app cannot read them; tests assert they never appear in its output.",
+  "services": [
+    { "name": "ستيكر للأظافر | Nail steakrs", "category": "خدمات العناية باليدين والقدمين | manicure & badicure Services", "price": "SAR 20" },
+    { "name": "إضافه كاسات هواء | Add cupping", "category": "خدمات المساج | Massage services", "price": "SAR 50" },
+    { "name": "إضافه ٣٠ دقيقه | Additional 30 minutes", "category": "خدمات المساج | Massage services", "price": "SAR 85" }
+  ]
+}
