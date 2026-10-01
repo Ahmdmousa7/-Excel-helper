@@ -1,42 +1,69 @@
 {
-  "attestation_id": "sha256:8a4a3f678a874b6fb6112eb5cadb03724828bb4f981400325fd36a21b1d59934",
+  "attestation_id": "sha256:8351b2701314cdf90cbb526150fffd407e7796eebc703c3f5fbf71ea98f780b3",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 3,
+    "info": 1,
+    "low": 5,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "The docstring on line 251 states \"RFC 4180-style CSV\", but line 254 joins records with `'\\n'`. RFC 4180 section 2.1 mandates CRLF as the record separator. No user impact — Excel, LibreOffice and Google Sheets all accept LF-terminated records, and the unit test on `compareRules.test.ts:189` pins the current LF behaviour deliberately. It is only the comment that over-claims, and in a file where every other comment is precise about exactly what it does and does not guarantee, this one sends the next reader to the wrong spec.",
-      "file": "utils/compareUtils.ts",
-      "line": 251,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "toCsv doc says RFC 4180 but emits LF line endings"
-    },
-    {
-      "category": "performance",
-      "detail": "`settingsKey` serialises `fileColumns` (one `ColDef` object per column per file) on every single render, including renders that cannot change it — `setActiveTab`, `setStatus`, and the per-keystroke re-renders from the column-rename `<input>` on line 677. With 10 files x 100 columns that is a ~100 KB string rebuilt per keystroke while the user is typing a header name. Not a freeze, but it is pure waste in the interaction path the Structure tab is built around, and the handbook's rule 5 covers recreating stable values every render.",
+      "detail": "getProcessedDataForFile(fileName), removeFile(name), moveCol(fileName, …) and updateCol(fileName, …) were switched to the keyOf() upload id, but their parameter names were not. Before this PR every call site passed f.name; the signatures still read as if that is correct. Passing f.name now silently returns [] (or deletes nothing) instead of throwing — the exact failure the id keying was introduced to prevent, reintroduced one call site at a time. This is already acknowledged as deliberately out of scope in commit e5bfc77, so it is a naming debt rather than a defect.",
       "file": "components/MergeTool.tsx",
-      "line": 269,
+      "line": 143,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "settingsKey JSON.stringify runs on every MergeTool render"
+      "summary": "Merge helpers still take params named fileName/name but now receive an opaque id"
     },
     {
       "category": "react",
-      "detail": "`lastRunSettings.current` is only assigned AFTER the run completes (line 234), so the clearing effect is unarmed for the whole duration of a run. In `separate` output mode the run genuinely yields at `await zip.generateAsync(...)`, so a user can switch output mode mid-run. Sequence: user changes mode -> effect fires with the new `settingsKey` but bails because `lastRunSettings.current` is still `null` -> the async body then completes and writes `lastRunSettings.current = <old settingsKey>` plus `setSeparateZips(content)` and `setStatus(COMPLETED)`. The effect never re-runs (its dep `settingsKey` has not changed since), so the result produced under the old settings survives the change the guard exists to catch. Concretely: `downloadResult()` then takes neither branch (`outputMode` is no longer `'separate'`, `mergedData` is `null`), so the visible \"Download Output File\" button does nothing. Narrow trigger and no wrong data is written, hence low; it would be medium if the single/sheets paths also yielded, since then the stale result would actually download under the new settings.",
+      "detail": "keyOf is called from the render body (allFiles.map(keyOf) for settingsKey, and throughout the JSX) and writes to both nextFileId.current and the fileIds WeakMap. That is a render-phase side effect. It is safe today because the WeakMap makes the result stable per FileData object, so a StrictMode double-render or a discarded concurrent render only burns a counter value — no id ever changes. Worth tightening because the invariant that makes it safe is implicit, and a future change to the key derivation (e.g. keying on sheet+name instead of object identity) would turn it into non-deterministic output.",
       "file": "components/MergeTool.tsx",
-      "line": 274,
+      "line": 32,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Stale-result guard misses settings changed during async processing"
+      "summary": "keyOf allocates ids and mutates refs during render"
+    },
+    {
+      "category": "react",
+      "detail": "After one run has committed (lastRunSettings.current is non-null), changing a setting during a *subsequent* run makes this effect fire immediately and set status to IDLE. The spinner disappears and 'Generate Unified Dataset' becomes clickable again while the first run is still inside its setTimeout/zip.generateAsync, so the user can start a second concurrent run. The outcome is still correct — the in-flight run hits the latestSettings mismatch and discards itself — but the UI reports idle while work is happening, and the 'Settings changed while processing…' log arrives seconds after the controls already looked free. The e2e test does not catch this because it only exercises the first-ever run, where lastRunSettings.current is still null.",
+      "file": "components/MergeTool.tsx",
+      "line": 293,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Stale-result guard resets status to IDLE while a run is still in flight"
+    },
+    {
+      "category": "testing",
+      "detail": "compareKey routes every Compare key through identifierKey, whose INVISIBLE class is `[\\p{M}\\p{Cf}\\u0640]`. \\p{M} is every Unicode combining mark, not just Arabic diacritics: a decomposed `café` (`cafe` + U+0301) now produces the same key as `cafe`. The intent (D7 rule 3) is Arabic kasra/tatweel and zero-width marks, and the trigger is narrow because Excel writes NFC, but macOS-originated or NFD-normalised exports do carry decomposed Latin — a Compare run against such a file would report a match where it previously reported two missing rows. compareRules.test.ts pins the Arabic and ZWSP cases but not this one, so the behaviour is unpinned either way.",
+      "file": "utils/compareUtils.ts",
+      "line": 70,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "compareKey drops Latin combining accents, which the doc calls only 'invisible characters'"
+    },
+    {
+      "category": "typescript",
+      "detail": "`let dataOut: any[][] | {sheets: {name: string, data: any[][]}[]} | null` is added by this diff with a bare `any[][]` and no inline reason. It mirrors the existing mergedData state type, so it propagates an existing hole rather than opening a new one — but it is the value every merge branch now writes through, and it is the one place where a wrong shape (e.g. a sheets object reaching the Array.isArray branch in downloadResult) would go uncaught.",
+      "file": "components/MergeTool.tsx",
+      "line": 181,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "New local dataOut declared with any[][] and no justification"
+    },
+    {
+      "category": "typescript",
+      "detail": "`dataRows` is `readonly unknown[][]`, and Array.prototype.filter on a readonly array already yields `unknown[][]`, so the assertion narrows nothing. It is harmless today but reads as if a real type gap is being papered over, which is the pattern the type-safety handbook asks reviewers to keep out.",
+      "file": "utils/dedupe.ts",
+      "line": 46,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "Redundant `as unknown[][]` assertion on a filter result"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 6
 }

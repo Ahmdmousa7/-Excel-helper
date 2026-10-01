@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:8a4a3f678a874b6fb6112eb5cadb03724828bb4f981400325fd36a21b1d59934",
+  "attestation_id": "sha256:8351b2701314cdf90cbb526150fffd407e7796eebc703c3f5fbf71ea98f780b3",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,8 +21,8 @@
         "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab-mO6Rc4oc.js",
-        "gzip_bytes": 144824,
+        "file": "ProjectSummaryTab-DXx2z3PK.js",
+        "gzip_bytes": 144822,
         "raw_bytes": 444476
       },
       {
@@ -31,8 +31,8 @@
         "raw_bytes": 282467
       },
       {
-        "file": "index.es-CelgiczN.js",
-        "gzip_bytes": 51665,
+        "file": "index.es-C28b7f2P.js",
+        "gzip_bytes": 51664,
         "raw_bytes": 151183
       },
       {
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-BUQcuQvx.js",
-        "gzip_bytes": 43360,
+        "file": "HomeTab-DX0MlpQP.js",
+        "gzip_bytes": 43361,
         "raw_bytes": 135983
       },
       {
-        "file": "index-CXuh6qrE.js",
-        "gzip_bytes": 32092,
+        "file": "index-CELcHwBG.js",
+        "gzip_bytes": 32083,
         "raw_bytes": 104376
       },
       {
@@ -61,8 +61,8 @@
         "raw_bytes": 96519
       },
       {
-        "file": "OcrTab-DFt2qqri.js",
-        "gzip_bytes": 16791,
+        "file": "OcrTab-Cfppp1MI.js",
+        "gzip_bytes": 16790,
         "raw_bytes": 48435
       }
     ],
@@ -104,7 +104,7 @@
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1320.3,
+        "gzip_kb": 1320.4,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -121,7 +121,7 @@
       {
         "errors": 0,
         "rule": "@typescript-eslint/no-explicit-any",
-        "warnings": 282
+        "warnings": 284
       },
       {
         "errors": 0,
@@ -154,7 +154,7 @@
         "warnings": 3
       }
     ],
-    "warnings": 563
+    "warnings": 565
   },
   "playwright": {
     "available": true,
@@ -162,9 +162,9 @@
     "failures": [],
     "flaky_count": 0,
     "passed": true,
-    "passed_count": 148,
+    "passed_count": 149,
     "skipped_count": 1,
-    "total": 149
+    "total": 150
   },
   "schema": "apexyard.evidence.metrics/1",
   "typescript": {

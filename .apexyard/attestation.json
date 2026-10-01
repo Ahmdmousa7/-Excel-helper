@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:8a4a3f678a874b6fb6112eb5cadb03724828bb4f981400325fd36a21b1d59934",
+  "attestation_id": "sha256:8351b2701314cdf90cbb526150fffd407e7796eebc703c3f5fbf71ea98f780b3",
   "files": [
     {
       "oid": "98c27583d2ad63f3e63962af17784798b91c8759",
@@ -14,7 +14,7 @@
       "path": "components/DeduplicateTool.tsx"
     },
     {
-      "oid": "2a8be70482b16957a992e702b81cbebdd5f54bcf",
+      "oid": "34a8ba12ab6a193c04d461fe26d55a467b0961fd",
       "path": "components/MergeTool.tsx"
     },
     {
@@ -22,7 +22,7 @@
       "path": "components/SplitterTool.tsx"
     },
     {
-      "oid": "6da653d6b2accd6e00f96dd9c9e965890faa5504",
+      "oid": "cb76dda40868dd2ef7fc05a0695dde16082614b1",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
@@ -34,7 +34,7 @@
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "56e6935c1664327230092d1b7f649d9822725af6",
+      "oid": "673f7cf6be62f6b839323212b2309e7e3378e71b",
       "path": "e2e/reference-fixes.spec.ts"
     },
     {
@@ -77,13 +77,13 @@
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 3,
+    "info": 1,
+    "low": 5,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "e5bfc77aaa293e01e8814e90182f36401be6a5e0",
+  "reviewed_at_commit": "cc5e37e55c2e2c6cbee040330bb0aa72fd08b60d",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"
