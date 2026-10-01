@@ -178,6 +178,28 @@ test.describe('Merge Datasets', () => {
     await expect(download).toHaveCount(0);
   });
 
+  test('a setting changed WHILE a run is processing discards that run instead of offering it', async ({ app, page }) => {
+    await openWith(app, page, TOOL.mergeDatasets, 'a.csv', csv([['a'], ['1']]));
+    await addFiles(page).setInputFiles({ name: 'b.csv', mimeType: CSV_MIME, buffer: csv([['a'], ['2']]) });
+    await run(page);
+    // Hold the run's timer so the change lands mid-run, deterministically.
+    await page.clock.install();
+    await page.getByRole('button', { name: /Generate Unified Dataset/ }).click();
+    await page.getByText('Multiple Sheets', { exact: false }).first().click();
+    await page.clock.runFor(1_000);
+    // Before: the single-sheet result from the OLD settings was committed and
+    // offered as "Processing Complete" under Multiple Sheets.
+    await expect(page.getByRole('button', { name: /Download Output File/ })).toHaveCount(0);
+    await showLogs(page);
+    await expect(page.getByText('Settings changed while processing, so that result was discarded.', { exact: false })).toBeVisible();
+    // A run under the new settings produces the new output.
+    await page.getByRole('button', { name: /Process Separated Datasets/ }).click();
+    await page.clock.runFor(1_000);
+    const dl = page.waitForEvent('download');
+    await page.getByRole('button', { name: /Download Output File/ }).click();
+    expect(XLSX.read(await bytesOf(dl)).SheetNames).toEqual(['a', 'b']);
+  });
+
   test('Add Files can be reached by keyboard', async ({ app, page }) => {
     await openWith(app, page, TOOL.mergeDatasets, 'a.csv', csv([['a'], ['1']]));
     const input = addFiles(page);

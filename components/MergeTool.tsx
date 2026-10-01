@@ -167,12 +167,18 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
 
   const processExecution = async () => {
       if (allFiles.length === 0) return;
+      // The settings this run is computed from. The settings controls stay
+      // usable while it works (100 ms before it starts, and for the whole ZIP
+      // generation in separate-files mode), so they can change under it.
+      const runSettings = settingsKey;
       setStatus(ProcessingStatus.PROCESSING);
       setMergedData(null);
       setSeparateZips(null);
 
       setTimeout(async () => {
           try {
+              let zipOut: Blob | null = null;
+              let dataOut: any[][] | {sheets: {name: string, data: any[][]}[]} | null = null;
               if (outputMode === 'separate') {
                   addLog("Processing separated files output...", 'info');
                   const zip = new JSZip();
@@ -189,8 +195,7 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                       zip.file(`${entryNames[i]}.xlsx`, buffer);
                   });
                   
-                  const content = await zip.generateAsync({ type: 'blob' });
-                  setSeparateZips(content);
+                  zipOut = await zip.generateAsync({ type: 'blob' });
                   addLog(`Processed ${allFiles.length} separate files successfully.`, 'success');
               } else if (outputMode === 'sheets') {
                   addLog("Processing to multiple sheets...", 'info');
@@ -204,7 +209,7 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                           data: getProcessedDataForFile(keyOf(f))
                       };
                   });
-                  setMergedData({ sheets: targetDatasets });
+                  dataOut = { sheets: targetDatasets };
                   addLog(`Successfully processed into ${targetDatasets.length} separated sheets.`, 'success');
               } else {
                   addLog("Processing merge to single file...", 'info');
@@ -228,10 +233,21 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
                       }
                   }
                   
-                  setMergedData(result);
+                  dataOut = result;
                   addLog(`Successfully merged. Result rows: ${result.length}`, 'success');
               }
-              lastRunSettings.current = settingsKey;
+              // A setting changed while this run was processing: its output
+              // belongs to the OLD settings and must not be offered as the
+              // result of the current ones. The guard effect below cannot catch
+              // this — it only clears a result that has already been committed.
+              if (latestSettings.current !== runSettings) {
+                  addLog('Settings changed while processing, so that result was discarded. Run again to use the new settings.', 'warning');
+                  setStatus(ProcessingStatus.IDLE);
+                  return;
+              }
+              setSeparateZips(zipOut);
+              setMergedData(dataOut);
+              lastRunSettings.current = runSettings;
               setStatus(ProcessingStatus.COMPLETED);
               setActiveTab('merge');
           } catch(err: any) {
@@ -270,6 +286,9 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
       allFiles.map(keyOf), selectedSheets, fileColumns, mergeType, joinType, keyCol1, keyCol2, outputMode,
   ]);
   const lastRunSettings = useRef<string | null>(null);
+  // The settings as they are NOW, readable from inside a run that started earlier.
+  const latestSettings = useRef(settingsKey);
+  latestSettings.current = settingsKey;
   useEffect(() => {
       if (lastRunSettings.current !== null && lastRunSettings.current !== settingsKey) {
           lastRunSettings.current = null;
