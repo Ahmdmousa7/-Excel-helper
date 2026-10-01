@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compareDatasets, buildCompareExport, toCsv, aiInsightsRows } from '../../utils/compareUtils';
+import { compareDatasets, buildCompareExport, toCsv, aiInsightsRows, neutraliseFormula } from '../../utils/compareUtils';
 
 /**
  * Compare behaviour adopted from the ExcelDiff AI reference package
@@ -74,5 +74,45 @@ describe('buildCompareExport, toCsv, aiInsightsRows', () => {
 
   it('AI Insights: one line per row', () => {
     expect(aiInsightsRows(['one', 'two' + CR, 'three'].join(NL))).toEqual([['AI Insights'], ['one'], ['two'], ['three']]);
+  });
+});
+
+describe('CSV formula injection (OWASP "CSV injection")', () => {
+  const TAB = String.fromCharCode(9);
+  const CRC = String.fromCharCode(13);
+
+  it.each([
+    ['=SUM(A1:A9)', "'=SUM(A1:A9)"],
+    ['=HYPERLINK("http://example.com","x")', `'=HYPERLINK("http://example.com","x")`],
+    ["+cmd|'/C calc'!A0", "'+cmd|'/C calc'!A0"],
+    ['-2+3', "'-2+3"],
+    ['@SUM(A1)', "'@SUM(A1)"],
+    ['-', "'-"],
+    ['-Infinity', "'-Infinity"],
+    [TAB + '=1+1', "'" + TAB + '=1+1'],
+    [CRC + '=1+1', "'" + CRC + '=1+1'],
+  ])('neutralises %j', (input, output) => {
+    expect(neutraliseFormula(input)).toBe(output);
+  });
+
+  it.each([
+    [12.5, '12.5'], [-5, '-5'], [0, '0'],           // real numbers
+    ['-5', '-5'], ['+3.5', '+3.5'], ['-1e5', '-1e5'], ['+966501234567', '+966501234567'], // plain numbers as text
+    ['0.03', '0.03'], ['00123', '00123'],         // leading zeros kept (D7)
+    ['Item #3', 'Item #3'], ['a=b', 'a=b'], [' =x', ' =x'], // `=` not first
+    ['حمص', 'حمص'], ['say "hi"', 'say "hi"'], ['', ''], [null, ''], [undefined, ''],
+  ])('leaves %j exactly as it is', (input, output) => {
+    expect(neutraliseFormula(input)).toBe(output);
+  });
+
+  it('a date is written as before', () => {
+    const d = new Date(Date.UTC(2026, 8, 29));
+    expect(neutraliseFormula(d)).toBe(String(d));
+  });
+
+  it('toCsv neutralises inside correct quoting, and ordinary cells are byte-for-byte as before', () => {
+    expect(toCsv([['=1+1', '="x"', '-5', 'Item #3', 'حمص', 'say "hi"', 7]])).toBe(
+      `"'=1+1","'=""x""","-5","Item #3","حمص","say ""hi""","7"`,
+    );
   });
 });

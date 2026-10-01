@@ -283,6 +283,7 @@ No three-way compare, no cell-level colour diff export. `components/CompareTool.
 - **Keys ignore invisible characters** — zero-width spaces, direction marks, a trailing kasra — through `identifierKey` (D7 rule 3). Leading zeros still count: `00123` is not `123` (D7 rule 2).
 - **Run is disabled while no column is mapped**; before, every shared key came back as a perfect match.
 - **Exports:** the Excel report keeps numbers and dates as real cells, not text; the CSV is a Blob, so a `#` in any cell no longer cuts the file short; the AI Insights sheet has one line per row.
+- **CSV formula injection (2026-10-01).** A text cell that starts with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading apostrophe — `=SUM(A1)` becomes `'=SUM(A1)` — so a spreadsheet opening the CSV shows it as text instead of running it (OWASP "CSV injection"). **The apostrophe is part of the exported value.** Real numbers and text that is a plain number (`-5`, `+3.5`, `+966501234567`) are never prefixed, and every other cell — `00123`, dates, Arabic, a `=` that is not first — is exported exactly as before. The Excel (`.xlsx`) export is unaffected: it writes typed cells, which a spreadsheet does not evaluate. `neutraliseFormula` in `utils/compareUtils.ts`; tests in `tests/unit/compareRules.test.ts` and `e2e/reference-fixes.spec.ts`.
 
 ---
 

@@ -30,7 +30,10 @@ const INVISIBLE = new RegExp(`[\\p{M}\\p{Cf}${TATWEEL}]`, 'gu');
  *   - **visible punctuation** — SKUs legitimately use `-`, `_` and `|`, and the
  *     resolver itself appends `-1`, so stripping hyphens would make `X-1` equal
  *     `X1` and manufacture the very collisions it exists to remove;
- *   - **case** — identifiers are compared as exact text.
+ *   - **case** — this key keeps letter case, so Files Validation compares
+ *     SKUs and barcodes case-sensitively. Compare and Deduplicate lower-case
+ *     the key on top of this (`compareKey` in `compareUtils.ts`, `dedupeRows`
+ *     in `dedupe.ts`): their matching is case-insensitive, by design.
  *
  * Only for COMPARISON — this function rewrites nothing. The cells that
  * `resolveBarcodes` and the SKU pass identify as duplicates ARE rewritten, with

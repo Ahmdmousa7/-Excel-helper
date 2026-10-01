@@ -68,6 +68,22 @@ test.describe('Compare Files', () => {
   });
 });
 
+test.describe('Compare Files: CSV formula injection', () => {
+  test('a formula-like cell is exported with a leading apostrophe; numbers are not', async ({ app, page }) => {
+    await openWith(app, page, TOOL.compareFiles, 'one.csv', csv([['SKU', 'Name', 'Qty'], ['1', '=HYPERLINK("http://x")', '-5']]));
+    await page.locator('input[type="file"]').last().setInputFiles({ name: 'two.csv', mimeType: CSV_MIME, buffer: csv([['SKU', 'Name', 'Qty'], ['1', '@SUM(A1)', '-5']]) });
+    await page.getByRole('button', { name: /Run Comparison/ }).click();
+    const dl = page.waitForEvent('download');
+    await page.getByRole('button', { name: /Export CSV/ }).click();
+    const text = (await bytesOf(dl)).toString('utf8');
+    // Opened in Excel these would run; with the apostrophe they are text.
+    expect(text).toContain(`"'=HYPERLINK(""http://x"")"`);
+    expect(text).toContain(`"'@SUM(A1)"`);
+    expect(text).not.toMatch(/(^|,)"[=@+]/m);
+    expect(text).toContain('"-5"'); // a negative number stays a number
+  });
+});
+
 test.describe('Remove Blanks', () => {
   test('a result is cleared when the start row changes', async ({ app, page }) => {
     await openWith(app, page, TOOL.removeBlanks, 'a.csv', csv([['a', 'b'], ['1', '']]));

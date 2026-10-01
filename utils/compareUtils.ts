@@ -220,9 +220,38 @@ export const buildCompareExport = (
   return out;
 };
 
-/** RFC 4180-style CSV: every cell quoted, quotes doubled. `#`, commas and Arabic pass through. */
+/**
+ * First characters that make Excel, LibreOffice or Google Sheets read a CSV
+ * cell as a FORMULA when the file is opened, including inside quotes:
+ * `=`, `+`, `-`, `@`, and a leading tab or carriage return (OWASP "CSV
+ * injection"). Built from characters, not escapes.
+ */
+const FORMULA_START: ReadonlySet<string> = new Set(['=', '+', '-', '@', String.fromCharCode(9), String.fromCharCode(13)]);
+
+/**
+ * The text a CSV cell will hold, made safe to open in a spreadsheet: a text
+ * value starting with a formula character gets a leading apostrophe
+ * (`=SUM(A1)` → `'=SUM(A1)`), the standard neutraliser — the apostrophe is
+ * part of the exported value and shows in the cell.
+ *
+ * Left exactly as they are: real numbers, and text that is a plain number
+ * (`-5`, `+3.5`, `-1e5`) — a spreadsheet reads those as numbers, never as a
+ * formula, and prefixing them would turn a legitimate negative quantity into
+ * text. Everything else — `00123`, dates, Arabic, a `=` that is not first —
+ * is unchanged.
+ */
+export const neutraliseFormula = (cell: unknown): string => {
+  const s = String(cell ?? '');
+  if (typeof cell === 'number' || !FORMULA_START.has(s.charAt(0)) || isNumeric(s)) return s;
+  return `'${s}`;
+};
+
+/**
+ * RFC 4180-style CSV: every cell quoted, quotes doubled, formula-leading text
+ * neutralised (`neutraliseFormula`). `#`, commas and Arabic pass through.
+ */
 export const toCsv = (rows: readonly (readonly unknown[])[]): string =>
-  rows.map((r) => r.map((x) => `"${String(x ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  rows.map((r) => r.map((x) => `"${neutraliseFormula(x).replace(/"/g, '""')}"`).join(',')).join('\n');
 
 /** The AI Insights sheet: one line of the analysis per row, not the whole text in one cell. */
 export const aiInsightsRows = (analysis: string): string[][] =>
