@@ -171,6 +171,9 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
       // usable while it works (100 ms before it starts, and for the whole ZIP
       // generation in separate-files mode), so they can change under it.
       const runSettings = settingsKey;
+      // Only the run that is still the active one may finish (finishRun).
+      const runId = ++runSeq.current;
+      activeRun.current = runId;
       setStatus(ProcessingStatus.PROCESSING);
       setMergedData(null);
       setSeparateZips(null);
@@ -178,7 +181,7 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
       setTimeout(async () => {
           try {
               let zipOut: Blob | null = null;
-              let dataOut: any[][] | {sheets: {name: string, data: any[][]}[]} | null = null;
+              let dataOut: typeof mergedData = null;
               if (outputMode === 'separate') {
                   addLog("Processing separated files output...", 'info');
                   const zip = new JSZip();
@@ -240,6 +243,7 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
               // belongs to the OLD settings and must not be offered as the
               // result of the current ones. The guard effect below cannot catch
               // this — it only clears a result that has already been committed.
+              if (!finishRun(runId)) return;
               if (latestSettings.current !== runSettings) {
                   addLog('Settings changed while processing, so that result was discarded. Run again to use the new settings.', 'warning');
                   setStatus(ProcessingStatus.IDLE);
@@ -251,6 +255,7 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
               setStatus(ProcessingStatus.COMPLETED);
               setActiveTab('merge');
           } catch(err: any) {
+              if (!finishRun(runId)) return;
               addLog(`Error: ${err.message}`, 'error');
              setStatus(ProcessingStatus.ERROR);
           }
@@ -286,10 +291,22 @@ export const MergeTool: React.FC<Props> = ({ fileData, addLog }) => {
       allFiles.map(keyOf), selectedSheets, fileColumns, mergeType, joinType, keyCol1, keyCol2, outputMode,
   ]);
   const lastRunSettings = useRef<string | null>(null);
+  // The run in progress (0 = none). While one is, the guard below leaves the
+  // status alone: setting IDLE mid-run hid the spinner and re-enabled Run while
+  // the work was still going. The run's own settings check discards it instead.
+  const runSeq = useRef(0);
+  const activeRun = useRef(0);
+  /** True, and the run is over, if `runId` is still the active run. */
+  const finishRun = (runId: number): boolean => {
+      if (activeRun.current !== runId) return false;
+      activeRun.current = 0;
+      return true;
+  };
   // The settings as they are NOW, readable from inside a run that started earlier.
   const latestSettings = useRef(settingsKey);
   latestSettings.current = settingsKey;
   useEffect(() => {
+      if (activeRun.current !== 0) return; // the active run discards itself on completion
       if (lastRunSettings.current !== null && lastRunSettings.current !== settingsKey) {
           lastRunSettings.current = null;
           setMergedData(null);

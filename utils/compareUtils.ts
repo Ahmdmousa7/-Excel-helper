@@ -62,10 +62,14 @@ const editDistance = (s1: string, s2: string): number => {
 const isNumeric = (v: string): boolean => v !== '' && Number.isFinite(Number(v));
 
 /**
- * The key two rows are matched on: the cell as text, with invisible
- * characters removed (zero-width spaces, direction marks, a trailing kasra —
- * `identifierKey`, decision D7 rule 3), then trimmed and lower-cased as
- * before. Leading zeros and punctuation are kept: `00123` is not `123`.
+ * The key two rows are matched on: the cell as text through `identifierKey`
+ * (decision D7 rule 3), then lower-cased. `identifierKey` removes every
+ * combining mark (Unicode category M), every format character (category Cf)
+ * and tatweel, and trims. That covers zero-width spaces, direction marks and
+ * Arabic diacritics such as a trailing kasra, and also combining LATIN accents
+ * in decomposed text: `e` followed by U+0301 matches `e`. A precomposed letter
+ * such as `é` (U+00E9) is one character, not a mark, and is kept. Leading
+ * zeros and punctuation are kept too: `00123` is not `123`.
  */
 const compareKey = (v: unknown): string => identifierKey(v).toLowerCase();
 

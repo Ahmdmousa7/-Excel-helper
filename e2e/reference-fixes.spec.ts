@@ -203,6 +203,31 @@ test.describe('Merge Datasets', () => {
     expect(XLSX.read(await bytesOf(dl)).SheetNames).toEqual(['a', 'b']);
   });
 
+  test('after an earlier run, a mid-run setting change keeps the run visibly processing until it finishes', async ({ app, page }) => {
+    await openWith(app, page, TOOL.mergeDatasets, 'a.csv', csv([['a'], ['1']]));
+    await addFiles(page).setInputFiles({ name: 'b.csv', mimeType: CSV_MIME, buffer: csv([['a'], ['2']]) });
+    await run(page);
+    await page.clock.install();
+    await page.clock.pauseAt(Date.now() + 1_000);
+    // A first run completes, so the stale-result guard is armed.
+    await page.getByRole('button', { name: /Generate Unified Dataset/ }).click();
+    await page.clock.runFor(1_000);
+    await expect(page.getByRole('button', { name: /Download Output File/ })).toBeVisible();
+    // A second run starts; a setting changes while it is pending.
+    await page.getByRole('button', { name: /Generate Unified Dataset/ }).click();
+    await page.getByText('Multiple Sheets', { exact: false }).first().click();
+    // Before: the guard set IDLE here — the spinner vanished and Run was
+    // enabled again while the run was still going.
+    const runButton = page.getByRole('button', { name: /Process Separated Datasets/ });
+    await expect(runButton).toBeDisabled();
+    await page.clock.runFor(1_000);
+    // The run finished: discarded, nothing stale offered, Run available again.
+    await expect(runButton).toBeEnabled();
+    await expect(page.getByRole('button', { name: /Download Output File/ })).toHaveCount(0);
+    await showLogs(page);
+    await expect(page.getByText('Settings changed while processing, so that result was discarded.', { exact: false })).toBeVisible();
+  });
+
   test('Add Files can be reached by keyboard', async ({ app, page }) => {
     await openWith(app, page, TOOL.mergeDatasets, 'a.csv', csv([['a'], ['1']]));
     const input = addFiles(page);

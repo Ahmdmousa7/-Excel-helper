@@ -116,3 +116,20 @@ describe('CSV formula injection (OWASP "CSV injection")', () => {
     );
   });
 });
+
+describe('compareKey normalisation, as documented', () => {
+  const keyMatch = (a: string, b: string) =>
+    compareDatasets([['K', 'V'], [a, 'x']], [['K', 'V'], [b, 'x']], 0, 0, { 1: 1 }).summary.matches === 1;
+
+  it('a combining Latin accent (decomposed) is removed, so `e` + U+0301 matches `e`', () => {
+    expect(keyMatch('cafe' + String.fromCharCode(0x0301), 'cafe')).toBe(true);
+  });
+
+  it('a precomposed letter is kept: `é` (U+00E9) does not match `e`', () => {
+    expect(keyMatch('caf' + String.fromCharCode(0x00e9), 'cafe')).toBe(false);
+  });
+
+  it('case is ignored for Compare keys', () => {
+    expect(keyMatch('SKU-A', 'sku-a')).toBe(true);
+  });
+});
