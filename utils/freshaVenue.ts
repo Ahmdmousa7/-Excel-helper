@@ -126,6 +126,15 @@ export interface FreshaStats { categories: number; services: number; rows: numbe
  * option rows when Fresha lists two or more distinct, named variants for it —
  * real choices the source exposes. One variant (the usual case, including
  * every "from" price on the test venue) is one row: nothing is invented.
+ *
+ * That one row takes the SERVICE's price and duration, on purpose: Fresha's
+ * service fields summarise its variants, and for a single variant they are the
+ * same values — on the test venue all 66 single-variant services have the
+ * variant's name, caption and formatted price identical to the service's, in
+ * the English and the Arabic page alike (checked 2026-10-01). And only the
+ * service carries the price as a NUMBER (`retailPrice.value`); a variant has
+ * just the localised display text. Option rows use each variant's own values,
+ * because there each variant is a separate choice with its own price.
  */
 export function freshaRows(venue: FreshaVenue): { rows: FreshaRow[]; stats: FreshaStats } {
   const rows: FreshaRow[] = [];

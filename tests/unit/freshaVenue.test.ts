@@ -174,6 +174,17 @@ describe('freshaRows rules on synthetic data', () => {
     expect(stats).toMatchObject({ services: 2, rows: 4, withOptions: 2, startingPrices: 1 });
   });
 
+  it('a single variant is the service itself: the row keeps the service\'s numeric price and duration (documented)', () => {
+    // Fresha's service fields summarise its variants — on the real venue the
+    // single variant always matches them — and only the service has a numeric
+    // price. Even if the variant's display text differed, the service wins.
+    const { rows } = freshaRows(venue([{
+      name: 'Massage', caption: '1 hour', formattedRetailPrice: 'SAR 200', retailPrice: { currency: 'SAR', value: 200 },
+      variants: [{ name: 'Massage 60', caption: '45 mins', formattedRetailPrice: 'SAR 150' }],
+    }]));
+    expect(rows).toEqual([expect.objectContaining({ Name: 'Massage', Price: '200.00', Duration: '1 hour', Type: 'Simple', 'Option 1 Value': '' })]);
+  });
+
   it('a repeated variant name is one option, not two rows', () => {
     const { rows } = freshaRows(venue([{
       name: 'Cut', formattedRetailPrice: 'SAR 9', retailPrice: { value: 9 },
