@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:fccc4c1aa16b108e319635e65320bc871a2c709f484714a66b16c2640f1d605c` |
+| Attestation id | `sha256:c8e9e4d5a86698712f26e459ea32581400de3f93d2a1121eaf2b606e364bd1d1` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `f157634b8204` |
+| Reviewed at commit | `1f9f52d55f81` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -31,9 +31,9 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | high | 0 |
 | medium | 0 |
 | low | 1 |
-| info | 1 |
+| info | 2 |
 
-Adds a Fresha venue-menu source to Web Scraper (commit f157634): `utils/freshaVenue.ts` (pure link normalisation + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (one Jina HTML-mode fetch, bounded by an AbortController), and a ~30-line wiring in `WebScraperTab.tsx` that falls through to the existing page-text route on any failure. Layering is clean (utils imports nothing; service imports only utils), there are no new dependencies, external data is validated before use, and coverage is strong — a real captured fixture drives 202 lines of unit tests plus three fully-offline Playwright specs covering the structured path, the fallback, and a non-Fresha link. Two minor observations only; nothing blocking.
+This PR teaches Web Scraper to read Fresha venue menus from Fresha's own `__NEXT_DATA__` payload on the public venue page instead of letting a model read prices off booking-flow text, with the parsing isolated in a pure `utils/freshaVenue.ts` and the single network call in `services/freshaVenueService.ts`. The boundary is clean (pure parser + injected fetch + fallback to the existing page-text route on any failure), input is validated defensively (host-anchored URL check, `unknown`-first JSON narrowing, never-throws parser), and coverage is strong: unit tests against a real captured fixture plus four fully offline Playwright specs that assert Fresha itself is never contacted. No blocking issues; two small correctness/polish notes and one architectural observation.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ Adds a Fresha venue-menu source to Web Scraper (commit f157634): `utils/freshaVe
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
-| Vitest | pass | 804/804 passed, lines 99.41% |
-| Playwright | pass | 153/154 passed |
+| Vitest | pass | 806/806 passed, lines 99.42% |
+| Playwright | pass | 154/155 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 136 source files, 35836 lines
+- 136 source files, 35888 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

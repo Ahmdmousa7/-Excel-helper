@@ -1,33 +1,42 @@
 {
-  "attestation_id": "sha256:fccc4c1aa16b108e319635e65320bc871a2c709f484714a66b16c2640f1d605c",
+  "attestation_id": "sha256:c8e9e4d5a86698712f26e459ea32581400de3f93d2a1121eaf2b606e364bd1d1",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
+    "info": 2,
     "low": 1,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "In the multi-variant branch `stats.startingPrices++` fires once per variant row, while in the single-variant branch it fires once per service. `WebScraperTab.tsx:198` renders the two counters in one sentence — `${s.services} services in ${s.categories} categories, ${s.startingPrices} with a starting price` — which reads as a subset of the service count. A venue with 3 services that each expose 2 \"from\" variants logs \"3 services in 1 categories, 6 with a starting price\". No user data is wrong, only the log; the test venue has `withOptions: 0` so this never triggers on the captured fixture, which is why the suite doesn't catch it. It would be medium if the number were exported rather than logged.",
+      "detail": "When a service has exactly one named variant, `named.length >= 2` is false and the code falls through to the item-level `item.retailPrice` / `item.formattedRetailPrice` / `item.caption`, discarding the variant entirely. On the captured venue this is invisible (`noPrice: 0`, every item carries its own price), but Fresha's shape does not guarantee it: a service whose price and caption live only on its sole variant would export with `Price: ''` and `Duration: ''` even though the data was present in the payload. The deliberate rule being protected here is 'one variant is one row, no invented options' — that rule is about row count, not about which field the value is read from, so reading the variant's price for the single-variant row preserves the intent while closing the gap. Raising this above `low` would require seeing a real venue where the item-level price is absent; the fixture does not contain one.",
       "file": "utils/freshaVenue.ts",
-      "line": 152,
+      "line": 166,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "startingPrices counts option rows, not services, so the log line can exceed the service count"
+      "summary": "Single-named-variant services ignore that variant's own price and duration"
     },
     {
       "category": "architecture",
-      "detail": "`handbooks/architecture/frontend-boundaries.md` § \"What Rex flags\" lists `fetch(` appearing in a file under `components/`, and `(u, init) => fetch(u, init)` matches that pattern literally. Recording it as a deliberate non-violation rather than silently skipping it: the component calls a service (`fetchFreshaVenue`), all URL construction, headers, status handling and the abort timer live in `services/freshaVenueService.ts`, and the arrow function only hands the service the browser primitive via the `FetchTextLike` port. That is what makes the module testable without a network — `tests/unit/freshaVenue.test.ts:180-202` exercises success, 451, missing data and timeout with no DOM. It is also the pattern already established at `WebScraperTab.tsx:63` for `fetchYallaMenu`, so this diff follows the file's convention rather than introducing a new one. No action required.",
+      "detail": "`handbooks/architecture/frontend-boundaries.md` § rule 2 flags `fetch(` inside `components/**`. Noting it explicitly rather than silently suppressing it: this is NOT scored as a violation. The actual I/O — URL construction, headers, AbortController, timeout, error mapping — lives entirely in `services/freshaVenueService.ts`; the component passes the platform `fetch` as a `FetchTextLike` so the service stays testable without a network (which `tests/unit/freshaVenue.test.ts:210-228` relies on), and it mirrors the already-established, untouched pattern at `components/WebScraperTab.tsx:63` for the Yalla menu service. The component calls a service, which is the intended path the handbook describes. No action required.",
       "file": "components/WebScraperTab.tsx",
       "line": 196,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Literal `fetch(` in a component is an injected transport, not component-owned I/O"
+      "summary": "`fetch` appears literally in a component, as the service's injection point"
+    },
+    {
+      "category": "code-smell",
+      "detail": "The success log interpolates raw counts into fixed plural nouns. The e2e spec at `e2e/web-scraper-fresha.spec.ts:159` asserts exactly `1 services in 1 categories`, locking the wrong grammar into the test suite. This is user-visible copy on a tab that otherwise routes its strings through `TRANSLATIONS`; a single-service venue is an unusual but entirely reachable case.",
+      "file": "components/WebScraperTab.tsx",
+      "line": 198,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "Fresha log line is not pluralised: \"1 services in 1 categories\""
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 3
 }
