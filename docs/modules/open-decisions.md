@@ -326,3 +326,20 @@ The product owner chose to keep this behaviour. It is not hidden: every rename i
 **Shared defects** — present in both apps, so not justified by the reference — are tracked as **TD-056**.
 
 **AR:** الحزمة `exceldiff-ai.zip` هي نفس `latest.zip`. قُورنت بالتطبيق وحدةً وحدة، واعتُمد منها ما يُصلح خللاً فعلياً دون مخالفة القرارات المسجلة، مع اختبار لكل تغيير. ما يخالف القرارات (مثل حذف الأصفار البادئة) لم يُنقل، وما يحتاج قراراً من صاحب المنتج مُدرج أعلاه.
+
+---
+
+## D14 — Files Validation: cross-file validation is not planned / التحقق بين ملفين غير مخطط له
+
+**DECIDED 2026-10-01 (product owner): not implemented now, and not planned for the current development phase.**
+
+**Files Validation §4-C is complete.** All three items in `ocr-rewaa-plan.md` §4-C shipped on 2026-09-28: duplicate matching that ignores invisible characters only (D7), barcode resolution with `-1`/`-2`, and the `Err_…` / `Fix_…` sheets. Nothing in §4-C is outstanding.
+
+**What was considered.** Checking one file's SKUs and barcodes against a second file — for example an existing Rewaa catalogue export — was proposed as a possible next Files Validation capability. The product owner decided not to build it.
+
+**This is not a gap.** It is not a bug, a blocker, or an unfinished part of any implementation. "No cross-file validation" in the Files Validation section of `MODULE_GUIDE.md` describes a deliberate scope limit.
+
+**Do not reopen it automatically** — not from a review finding, a reference package, or a roadmap pass. It is revisited only if the product owner explicitly asks for it. Nothing was built for it: no branch, code, UI, tests or dependencies.
+
+**AR:** اكتمل البند §4-C الخاص بالتحقق من الملفات. فكرة التحقق بين ملفين (مقارنة الأكواد والباركود مع ملف مرجعي) نوقشت وقرر صاحب المنتج عدم تنفيذها حالياً. هذا ليس خطأً ولا نقصاً، ولا يُعاد فتحه إلا بطلب صريح.
+

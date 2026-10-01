@@ -104,6 +104,8 @@ Three increments, each gated and reviewed. **Nothing starts without approval.**
 
 ### C — Files Validation
 
+> **COMPLETE 2026-09-28.** All three items below shipped (see Files Validation in `MODULE_GUIDE.md`). Cross-file validation was considered as a follow-on and is deliberately **not planned** — see **D14** in `open-decisions.md`.
+
 The three earlier asks, now governed by D7: diacritic/punctuation normalization for duplicate matching (**no** zero-stripping), barcode auto-resolution appending `-1`/`-2` mirroring the existing SKU behaviour, and per-error / per-fix sheets in the output.
 
 ---

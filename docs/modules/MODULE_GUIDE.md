@@ -238,7 +238,7 @@ No resume of a partial run, no per-cell retry, no offline translation, no langua
 | `Export Error: <message>` | *(English only)* | Writing the workbook failed |
 
 #### Error handling · Edge cases · Unsupported
-**EN:** Row problems are highlighted rather than fatal; the preview caps at 100 rows. Scientific-notation barcodes are protected by the shared `cellText` override (TD-038). No cross-file validation, and the rule set is not user-editable.
+**EN:** Row problems are highlighted rather than fatal; the preview caps at 100 rows. Scientific-notation barcodes are protected by the shared `cellText` override (TD-038). No cross-file validation (considered and deliberately not planned — D14), and the rule set is not user-editable.
 
 **Duplicates (since 2026-09-28).** SKUs and barcodes are compared by `identifierKey`, which ignores **invisible** characters only — combining marks such as a stray kasra, zero-width and direction marks, a BOM, tatweel. So `6287013210006` followed by a kasra *is* a duplicate of `6287013210006`. **Leading zeros, visible punctuation and case still count** (D7): `00123` is not `123`, and `X-1` is not `X1`. The cell's original value is never rewritten by the comparison.
 - Duplicate **SKU** → later rows get `-1`, `-2` (unchanged).
