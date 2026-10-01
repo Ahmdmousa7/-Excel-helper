@@ -1,8 +1,8 @@
 {
-  "attestation_id": "sha256:7485afd5954adeb8f11c06464225964cf5e493147ab5834359dad07acc366d42",
+  "attestation_id": "sha256:274d6ec011e44110ddbc5f0498584e5023176889e2446c5be33912587136a29c",
   "files": [
     {
-      "oid": "c429188690c9d10c14f6823967dc744ab834fbc4",
+      "oid": "27116a6f0c3aa1e5b598c5647b580160a2b7d8b9",
       "path": "components/WebScraperTab.tsx"
     },
     {
@@ -10,7 +10,7 @@
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "6eda79b2184727b1349325feac3c5d52bd4d058c",
+      "oid": "2b168d08059f353cb6c36b6c8a8ae83465ea28d2",
       "path": "e2e/web-scraper-fresha.spec.ts"
     },
     {
@@ -41,13 +41,13 @@
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
-    "low": 1,
+    "info": 3,
+    "low": 2,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "8d8a327d81215c38fb6d455e3a1dc10bbbbfcf64",
+  "reviewed_at_commit": "b4aca589495e6fa5d6689470f786c4842ce61d99",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

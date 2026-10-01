@@ -1,42 +1,60 @@
 {
-  "attestation_id": "sha256:7485afd5954adeb8f11c06464225964cf5e493147ab5834359dad07acc366d42",
+  "attestation_id": "sha256:274d6ec011e44110ddbc5f0498584e5023176889e2446c5be33912587136a29c",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 2,
-    "low": 1,
+    "info": 3,
+    "low": 2,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "handleScrape returns early at line 177 when no fields are ticked and no instruction is typed, before the Fresha branch at line 193 is ever reached. But the Fresha branch needs neither — it logs at line 198 that 'The field selection does not apply: Fresha data has fixed columns', and it makes no model call at all. A user who unticks all four default fields and leaves the instruction empty gets 'Please describe what data to extract or select fields' on a Fresha link that the app can in fact process with zero further input. The trigger is narrow (the default field set is non-empty, so most users never hit it), which is why this is low rather than medium; it would be medium if the defaults ever shipped unticked.",
+      "detail": "The same English literal now appears twice — as the pre-scrape warning at line 182 and as the thrown fallback error at line 213. The two must stay in sync (an e2e test asserts both the bare string and `${t.common.error}: ${NEED_FIELDS}`), and unlike the rest of this tab it is not routed through `TRANSLATIONS`, so an Arabic user gets an English sentence prefixed by a translated `Error:`. Low because the behaviour is correct and covered by tests; it would rise to medium if the copy diverged between the two sites.",
       "file": "components/WebScraperTab.tsx",
-      "line": 177,
+      "line": 213,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Fresha path is gated by a field/instruction check it then declares irrelevant"
-    },
-    {
-      "category": "architecture",
-      "detail": "Noting this explicitly because `handbooks/architecture/frontend-boundaries.md` is a blocking handbook whose trigger list includes a literal `fetch(` under `components/`. Line 196 is `fetchFreshaVenue(freshaVenue, (u, init) => fetch(u, init))`. This is NOT a violation of rule 2: the component calls a service (`services/freshaVenueService.ts`), which is exactly the prescribed path; the lambda only injects the browser primitive so the service stays testable without a network — and `tests/unit/freshaVenue.test.ts` exercises that seam directly. It also mirrors the identical, pre-existing Yalla call at line 63. No action requested.",
-      "file": "components/WebScraperTab.tsx",
-      "line": 196,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "fetch() literal in a component — considered under frontend-boundaries rule 2, not flagged"
+      "summary": "Gate message \"Please describe what data to extract…\" duplicated as a literal"
     },
     {
       "category": "code-smell",
-      "detail": "The three new addLog strings (lines 198, 199, 208) are hardcoded English in an app that ships a full Arabic layer (`TRANSLATIONS`, used two lines away at 186 and 203). The adjacent Yalla block at lines 64–69 does the same, so the diff is consistent with its surroundings — that consistency is why this is info and not a request. Separately, the count interpolation produces ungrammatical output on the singular case: the e2e spec at `e2e/web-scraper-fresha.spec.ts:168` asserts the literal string '1 services in 1 categories'.",
+      "detail": "`/^\\/(?:[a-z]{2}(?:-[A-Za-z]{2})?\\/)?a\\/([A-Za-z0-9-]+)(?:\\/|$)/` only accepts a lowercase two-letter language, optionally with a two-letter region. A Fresha URL carrying a script-subtag locale (`/zh-Hant/a/<slug>`) or an uppercase one (`/EN-GB/a/<slug>`, which a user can produce by hand-editing or by a link shortener normalising case) returns `null`. The failure is silent and safe — the link just takes the old page-text route and the user sees only the first category — but it is indistinguishable from \"this isn't a Fresha link\". Low: all locales Fresha actually serves today match the current pattern.",
+      "file": "utils/freshaVenue.ts",
+      "line": 65,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Locale-segment regex misses uppercase and non-2-letter locale prefixes"
+    },
+    {
+      "category": "architecture",
+      "detail": "`fetchFreshaVenue(freshaVenue, (u, init) => fetch(u, init))` literally matches the `frontend-boundaries.md` trigger \"`fetch(` … inside a file under `components/`\". Recording the analysis so a future reviewer does not re-raise it: all request construction, headers, timeout/abort and error shaping live in `services/freshaVenueService.ts`; the component supplies only the browser transport, which is the seam the unit tests use to run `fetchFreshaVenue` with no network. That serves the rule's stated purpose (\"so the tab can be rendered in a test without a live database\") rather than defeating it, and it mirrors the pre-existing `fetchYallaMenu(yalla, targetUrl, (u, init) => fetch(u, init))` on line 63. Not a violation.",
       "file": "components/WebScraperTab.tsx",
-      "line": 198,
+      "line": 199,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "New log lines are English-only and read '1 services in 1 categories'"
+      "summary": "`fetch(` appears in a component, but as an injected transport — not a boundary violation"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`/(\\d[\\d,]*(?:\\.\\d+)?)/` returns the first number in the formatted string. `from SAR 575` is handled correctly (the `from` prefix also sets `Price Note`), but a hypothetical `SAR 50 - SAR 80` would land as `50.00` with an empty `Price Note` — a figure the customer reads as exact. This path is only reached for option rows, where variants carry no numeric `retailPrice`; the captured venue shows Fresha expressing ranges as `from X`, so no such shape exists in the fixture. Recording it because the module's stated contract is \"nothing is invented\".",
+      "file": "utils/freshaVenue.ts",
+      "line": 115,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "`priceFromFormatted` takes the first number, so a range would be written as an exact price"
+    },
+    {
+      "category": "testing",
+      "detail": "In the \"a non-Fresha link is still blocked\" case the spec sleeps 1 s and then asserts `asked` is empty. Proving a negative with a fixed sleep is the one shape in this otherwise event-driven suite that can go flaky under CI load (too short) or slow the run down (too long). The rest of the file correctly waits on visible text. Not a defect — the assertion is sound today.",
+      "file": "e2e/web-scraper-fresha.spec.ts",
+      "line": 201,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "Fixed `waitForTimeout(1_000)` used to assert \"nothing was fetched\""
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 5
 }

@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:7485afd5954adeb8f11c06464225964cf5e493147ab5834359dad07acc366d42` |
+| Attestation id | `sha256:274d6ec011e44110ddbc5f0498584e5023176889e2446c5be33912587136a29c` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `8d8a327d8121` |
+| Reviewed at commit | `b4aca589495e` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
-| info | 2 |
+| low | 2 |
+| info | 3 |
 
-Adds a structured read path for Fresha venue menus to the Web Scraper: a pure parser/row-builder (utils/freshaVenue.ts), an I/O wrapper that fetches the public venue page through Jina in HTML mode and extracts __NEXT_DATA__ (services/freshaVenueService.ts), and a branch in WebScraperTab that uses it, falls back to the existing page-text route on any failure, and appends a 'Not on venue page' note sheet to the export. The work is well-bounded: the parser is dependency-free and never throws, external data is treated as unknown and validated before use, every failure degrades to the pre-existing behaviour, and coverage is strong (41 unit tests pass locally against a real captured fixture, plus four offline Playwright specs covering the structured path, the fallback, per-service stat counting, and a non-Fresha link). No security, dependency, accessibility, or blocking-handbook violations found; findings are one low and two informational. Reviewed at 8d8a327 (branch scraper-fresha-venue).
+Adds a Fresha-venue path to the Web Scraper: `utils/freshaVenue.ts` (pure link detection + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (one Jina HTML-mode request, bounded by a 45 s abort), and the wiring in `WebScraperTab.tsx` that bypasses the field/instruction gate for Fresha links and adds a `Not on venue page` note sheet to the export. Layering is correct (components → services → utils, parsing stays pure and network-free), external data is treated as `unknown` and validated before use, failures fall back to the existing page-text route rather than being swallowed, and `docs/modules/MODULE_GUIDE.md` is updated with the rationale. I ran `npx vitest run tests/unit/freshaVenue.test.ts`: 41/41 pass. No blocking issues; findings are low/info polish only.
 
 ## Quality gates
 
@@ -42,7 +42,7 @@ Adds a structured read path for Fresha venue menus to the Web Scraper: a pure pa
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
 | Vitest | pass | 809/809 passed, lines 99.42% |
-| Playwright | pass | 154/155 passed |
+| Playwright | pass | 157/158 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 136 source files, 35936 lines
+- 136 source files, 35997 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
