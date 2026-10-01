@@ -354,12 +354,18 @@ Sample Mismatches (up to 10): ${JSON.stringify(sampleMismatches)}`;
                      <button 
                          onClick={handleCompare}
                          disabled={!fileData || mappedCount === 0 || status === ProcessingStatus.PROCESSING}
-                         title={mappedCount === 0 ? 'Map at least one column to compare' : undefined}
+                         aria-describedby={fileData && mappedCount === 0 ? 'compare-run-hint' : undefined}
                          className="w-full bg-slate-800 text-white font-bold mt-2 py-2.5 rounded shadow-sm hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
                      >
                          {status === ProcessingStatus.PROCESSING ? <Activity className="animate-spin" size={16}/> : <Play size={16}/>}
                          Run Comparison
                      </button>
+                     {/* Visible, not a hover tooltip: keyboard and touch users see why Run is disabled. */}
+                     {fileData && mappedCount === 0 && (
+                         <p id="compare-run-hint" className="text-xs text-amber-700">
+                             Map at least one column to compare.
+                         </p>
+                     )}
                  </div>
              </div>
 

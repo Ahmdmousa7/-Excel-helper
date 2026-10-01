@@ -4,7 +4,7 @@
  * before that change. The pure logic behind them is unit tested in
  * tests/unit/{compareRules,sheetNames,dedupe,workbookBytesUtf16}.test.ts.
  */
-import { test, expect, TOOL } from './fixtures';
+import { test, expect, TOOL, AppShell } from './fixtures';
 import type { Page } from '@playwright/test';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
@@ -21,7 +21,7 @@ const CSV_MIME = 'text/csv';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 /** Load the shell's primary file, then open a tool. */
-async function openWith(app: any, page: Page, tool: string, name: string, buffer: Buffer, mimeType = CSV_MIME) {
+async function openWith(app: AppShell, page: Page, tool: string, name: string, buffer: Buffer, mimeType = CSV_MIME) {
   await app.goto();
   await app.openTool(tool);
   await page.locator('input[type="file"]').first().setInputFiles({ name, mimeType, buffer });
@@ -39,7 +39,19 @@ test.describe('Compare Files', () => {
     await openWith(app, page, TOOL.compareFiles, 'one.csv', csv([['id', 'price'], ['1', '5']]));
     await page.locator('input[type="file"]').last().setInputFiles({ name: 'two.csv', mimeType: CSV_MIME, buffer: csv([['key', 'cost'], ['1', '5']]) });
     // Before: enabled, and every shared key came back as a "perfect match".
-    await expect(page.getByRole('button', { name: /Run Comparison/ })).toBeDisabled();
+    const run = page.getByRole('button', { name: /Run Comparison/ });
+    await expect(run).toBeDisabled();
+    // The reason is visible text tied to the button, not a hover-only tooltip.
+    await expect(page.getByText('Map at least one column to compare.')).toBeVisible();
+    await expect(run).toHaveAccessibleDescription('Map at least one column to compare.');
+    await expect(run).not.toHaveAttribute('title');
+  });
+
+  test('the hint disappears once a column is mapped', async ({ app, page }) => {
+    await openWith(app, page, TOOL.compareFiles, 'one.csv', csv([['id', 'price'], ['1', '5']]));
+    await page.locator('input[type="file"]').last().setInputFiles({ name: 'two.csv', mimeType: CSV_MIME, buffer: csv([['id', 'price'], ['1', '5']]) });
+    await expect(page.getByRole('button', { name: /Run Comparison/ })).toBeEnabled();
+    await expect(page.getByText('Map at least one column to compare.')).toHaveCount(0);
   });
 
   test('the CSV export keeps rows after a # and cells stay whole', async ({ app, page }) => {
