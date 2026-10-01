@@ -1,8 +1,8 @@
 {
-  "attestation_id": "sha256:2cc47f4c081c213022f6a9be2ddccf1e8a9ac4fe3fb1cf14dffa49016e4a994f",
+  "attestation_id": "sha256:4abff4a092deff90ffbcd78f9cbc0373e180274584806cb467468c16bb362007",
   "files": [
     {
-      "oid": "a99376984537f9a588c242932e224bcb67d261c5",
+      "oid": "c3044d14725f4290e3729da0f6641895e2e0a453",
       "path": "components/WebScraperTab.tsx"
     },
     {
@@ -14,7 +14,7 @@
       "path": "e2e/web-scraper-fresha.spec.ts"
     },
     {
-      "oid": "3b4e82a5789c3f2a41bbbdb2cdea5876e15dd2c2",
+      "oid": "613a8d23f7edacee23e1bd803232a236ff9ca5c0",
       "path": "services/freshaVenueService.ts"
     },
     {
@@ -30,7 +30,7 @@
       "path": "tests/fixtures/fresha/little-palm-spa-venue.html"
     },
     {
-      "oid": "fb3a9fc72d84343c2b8f67f1824789ab97f05b0d",
+      "oid": "0eff760720da212ece4e893949e3ea14a61de789",
       "path": "tests/unit/freshaVenue.test.ts"
     },
     {
@@ -38,7 +38,7 @@
       "path": "tests/unit/webScraperMessages.test.ts"
     },
     {
-      "oid": "da3373a274da6ab873baf523d213cb5093b6e7f9",
+      "oid": "d77b0b9ffab6ad9baa7674de16384f1244d08799",
       "path": "utils/freshaVenue.ts"
     },
     {
@@ -49,13 +49,13 @@
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
+    "info": 0,
     "low": 2,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "0e82c5147fea35d819a6b81450a1934078f6b552",
+  "reviewed_at_commit": "659120c2609cd490332749e768e2bd29cacdc799",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

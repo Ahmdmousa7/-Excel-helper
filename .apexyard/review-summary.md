@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:2cc47f4c081c213022f6a9be2ddccf1e8a9ac4fe3fb1cf14dffa49016e4a994f` |
+| Attestation id | `sha256:4abff4a092deff90ffbcd78f9cbc0373e180274584806cb467468c16bb362007` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `0e82c5147fea` |
+| Reviewed at commit | `659120c2609c` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -31,9 +31,9 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | high | 0 |
 | medium | 0 |
 | low | 2 |
-| info | 1 |
+| info | 0 |
 
-Adds a structured Fresha venue-menu path to Web Scraper: `utils/freshaVenue.ts` (pure link detection + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (one Jina HTML-mode request with a 45 s abort), and a ~30-line branch in `WebScraperTab.tsx` that uses it, falls back to the existing page-text route on any failure, and appends a `Not on venue page` note sheet to the export. The layering (components → services → utils) is correct, no new dependencies are introduced, no `any`/`@ts-ignore`/TODO is added, and the behaviour is covered by 34 unit tests against a real captured fixture plus 10 offline Playwright tests spanning the structured path, the fallback, the non-Fresha path, and both EN and AR. No blocking-handbook violations; the three findings below are advisory polish.
+Adds a structured read path for Fresha venue menus to the Web Scraper: `utils/freshaVenue.ts` (pure link detection + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (the single Jina HTML-mode fetch with abort/timeout), and a small wiring change in `WebScraperTab.tsx` that bypasses the field-selection gate for Fresha links and appends a `Not on venue page` note sheet to the export. The layering is correct (pure utils, I/O in services, component calls the service with the same `(u, init) => fetch(u, init)` injection the existing Yalla path uses at `WebScraperTab.tsx:63`), external JSON is treated as `unknown` and validated before use, no `any`/`@ts-ignore`/TODOs are introduced, no dependencies change, and the fallback to the existing page-text route is preserved and tested. Unit + e2e coverage is unusually thorough (timeout-vs-network-failure distinction on a fake clock, per-service vs per-row stat counting, Arabic path, and an assertion that booking-only add-ons never appear in output). Two low-severity polish items only; nothing blocking.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ Adds a structured Fresha venue-menu path to Web Scraper: `utils/freshaVenue.ts` 
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
-| Vitest | pass | 866/866 passed, lines 99.42% |
+| Vitest | pass | 884/884 passed, lines 99.42% |
 | Playwright | pass | 161/162 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 137 source files, 36120 lines
+- 137 source files, 36259 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

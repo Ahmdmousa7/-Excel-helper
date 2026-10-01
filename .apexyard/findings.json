@@ -1,42 +1,33 @@
 {
-  "attestation_id": "sha256:2cc47f4c081c213022f6a9be2ddccf1e8a9ac4fe3fb1cf14dffa49016e4a994f",
+  "attestation_id": "sha256:4abff4a092deff90ffbcd78f9cbc0373e180274584806cb467468c16bb362007",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
+    "info": 0,
     "low": 2,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "The stats line is built inline with four chained conditional segments inside one template literal on a single line. It is the hardest line to read in the new code, and because it lives in the component the only way it gets tested is through a real browser — `e2e/web-scraper-fresha.spec.ts:93` and `:159` assert its wording via `page.getByText(/…/)`, which costs a 90 s Playwright test to verify pure string formatting. Pulling it into the pure module makes the same assertion a one-line vitest case and keeps the component to orchestration.",
+      "detail": "The log line explaining the `Not on venue page` sheet is a 150-char string literal in the component, while the sheet's own wording lives in `BOOKING_ONLY_NOTE` (`utils/freshaVenue.ts:32`). The two describe the same fact and must stay in agreement, but only one has a single source. This branch already corrected exactly this shape for the fields message (commit f1e1e07, \"one source for the fields message\") and for the summary line (659120c, `freshaSummary` extracted as a pure helper) — this literal is the last one left. `e2e/web-scraper-fresha.spec.ts:97` asserts on a regex substring of it rather than importing it, so a reword in the component that drifts from the sheet's wording would still pass if the regex fragment survives.",
       "file": "components/WebScraperTab.tsx",
       "line": 201,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Fresha success log is a ~450-char template literal with four nested ternaries"
+      "summary": "Booking-only warning is an inline literal while its sheet text is a shared constant"
     },
     {
       "category": "code-smell",
-      "detail": "The catch branches on `controller.signal.aborted` rather than on which failure actually occurred. Once the 45 s timer has fired, a genuinely different failure — `!res.ok` landing at the same moment, or a parse that returns null on a slow large page — is rewritten as `The venue page did not answer within 45 s.` The user impact is nil today (the component discards this message and logs its own generic fallback text at WebScraperTab.tsx:211, so the precise wording only reaches `console.warn`), which is why this is low and not medium. It would become a real diagnosis problem the moment the FreshaVenueError message is surfaced to the user or to a log sink.",
-      "file": "services/freshaVenueService.ts",
-      "line": 59,
+      "detail": "`parts[0]` is built with unconditional plurals, so a one-category/one-service venue logs `1 services in 1 categories`. This is user-visible text in the log panel, not an internal diagnostic — `e2e/web-scraper-fresha.spec.ts:159` and `tests/unit/freshaVenue.test.ts:405` both currently pin the ungrammatical wording, so it is locked in rather than accidental. Low because it is cosmetic and the realistic venue has many services; it would not rise above low unless the log were also the error-path message a user has to act on.",
+      "file": "utils/freshaVenue.ts",
+      "line": 137,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Any error thrown after the deadline is reported as a timeout"
-    },
-    {
-      "category": "architecture",
-      "detail": "`handbooks/architecture/frontend-boundaries.md` § rule 2 flags a literal `fetch(` under `components/`, and `(u, init) => fetch(u, init)` matches that pattern textually. Recording explicitly that I do not consider this a violation: the request, headers, abort timer and error shaping all live in `services/freshaVenueService.ts`; the component only supplies the browser primitive through the service's `FetchTextLike` parameter. That seam is exactly what lets `tests/unit/freshaVenue.test.ts:283-305` exercise the service with no network, which is the outcome rule 2 exists to protect. It is also the established convention in this file — the pre-existing Yalla path at line 63 is identical. No change requested; noted so a future rule-match on this line is not re-litigated.",
-      "file": "components/WebScraperTab.tsx",
-      "line": 199,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "Checked and cleared: the literal `fetch` in the component is a DI seam, not I/O"
+      "summary": "freshaSummary emits \"1 services in 1 categories\" for single-item venues"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 2
 }
