@@ -1,69 +1,51 @@
 {
-  "attestation_id": "sha256:8351b2701314cdf90cbb526150fffd407e7796eebc703c3f5fbf71ea98f780b3",
+  "attestation_id": "sha256:1bfe4a46e0556bb9d4ad2bc2a7a4a19ba053c96e5519afbb46f5960098c21a7d",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 5,
+    "info": 0,
+    "low": 4,
     "medium": 0
   },
   "findings": [
     {
+      "category": "architecture",
+      "detail": "The keying change from `f.name` to `keyOf(f)` is correct and is what fixes two uploads called `export.xlsx` collapsing into one. But `removeFile(name)`, `moveCol(fileName, …)`, `updateCol(fileName, …)` and `getProcessedDataForFile(fileName)` kept their old parameter names while every call site now passes `keyOf(f)` (e.g. `removeFile(keyOf(f))`, `getProcessedDataForFile(keyOf(f))`). A reader — or the next person adding a call site — will reasonably pass `f.name`, which silently returns `[]` from `getProcessedDataForFile` (the `allFiles.find(f => keyOf(f) === fileName)` lookup misses) and produces an empty sheet rather than an error. The regression this PR just fixed is exactly that class of bug.",
+      "file": "components/MergeTool.tsx",
+      "line": 109,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Per-file helpers still take a param named `name`/`fileName` but now receive an opaque id"
+    },
+    {
       "category": "code-smell",
-      "detail": "getProcessedDataForFile(fileName), removeFile(name), moveCol(fileName, …) and updateCol(fileName, …) were switched to the keyOf() upload id, but their parameter names were not. Before this PR every call site passed f.name; the signatures still read as if that is correct. Passing f.name now silently returns [] (or deletes nothing) instead of throwing — the exact failure the id keying was introduced to prevent, reintroduced one call site at a time. This is already acknowledged as deliberately out of scope in commit e5bfc77, so it is a naming debt rather than a defect.",
+      "detail": "The same \"drop the file extension to build an output name\" step now appears at `components/CleanTool.tsx:98` (`res.fileName.lastIndexOf('.')`), `components/MergeTool.tsx:189` and `components/MergeTool.tsx:207` (same shape, on `f.name`), and `components/SplitterTool.tsx` (`fileData.name.replace(/\\.[^/.]+$/, '')` — a third, different implementation added by this PR). The two forms happen to agree on every input I checked (`a.csv`, `archive.tar.gz`, `.gitignore`, no-extension), so there is no bug today. It's worth consolidating because this PR already created the natural home for it — `utils/excelUtils.ts` now exports `uniqueNames` and `safeSheetName`, and all four call sites feed one of those two helpers. Below the code-smells handbook's 15-line duplication threshold, hence low.",
+      "file": "components/CleanTool.tsx",
+      "line": 98,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Extension-stripping is open-coded in four places across this diff, in two different forms"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`mappedCount` counts every non-`-1` entry in `columnMapping`, including the mapping for the key column itself. The auto-map at line 63-79 maps by header name, so `SKU → SKU` is normally present. A user who sets every other column to `-- Ignore --` leaves `mappedCount === 1`, Run is enabled, and `compareDatasets` compares the key column against itself — which matches for every shared key by construction. The result is the same misleading \"perfect match on everything\" report the guard was added to prevent, just via a narrower path. Not a regression (before this PR the zero-column case produced it too), and the trigger needs deliberate user action, which is why this is low rather than medium.",
+      "file": "components/CompareTool.tsx",
+      "line": 107,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "The \"map at least one column\" guard counts the key column, so an all-match report is still reachable"
+    },
+    {
+      "category": "code-smell",
+      "detail": "`catch(err: any) { if (!finishRun(runId)) return; addLog(...) }` discards the error message when `runId` is no longer the active run. Today that branch is unreachable — the single Run button at line 649 is `disabled={… || status === ProcessingStatus.PROCESSING}`, so a second run can't start and `finishRun` always returns true — so there is no user impact now. But the guard exists precisely to anticipate overlapping runs; the day one becomes possible (an auto-run on settings change, a cancel-and-rerun button), a merge failure becomes a completely silent no-op with the spinner already cleared by the newer run. The success path's equivalent guard is fine because it has an explicit `addLog` for its discard case; the error path has none.",
       "file": "components/MergeTool.tsx",
-      "line": 143,
+      "line": 258,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Merge helpers still take params named fileName/name but now receive an opaque id"
-    },
-    {
-      "category": "react",
-      "detail": "keyOf is called from the render body (allFiles.map(keyOf) for settingsKey, and throughout the JSX) and writes to both nextFileId.current and the fileIds WeakMap. That is a render-phase side effect. It is safe today because the WeakMap makes the result stable per FileData object, so a StrictMode double-render or a discarded concurrent render only burns a counter value — no id ever changes. Worth tightening because the invariant that makes it safe is implicit, and a future change to the key derivation (e.g. keying on sheet+name instead of object identity) would turn it into non-deterministic output.",
-      "file": "components/MergeTool.tsx",
-      "line": 32,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "keyOf allocates ids and mutates refs during render"
-    },
-    {
-      "category": "react",
-      "detail": "After one run has committed (lastRunSettings.current is non-null), changing a setting during a *subsequent* run makes this effect fire immediately and set status to IDLE. The spinner disappears and 'Generate Unified Dataset' becomes clickable again while the first run is still inside its setTimeout/zip.generateAsync, so the user can start a second concurrent run. The outcome is still correct — the in-flight run hits the latestSettings mismatch and discards itself — but the UI reports idle while work is happening, and the 'Settings changed while processing…' log arrives seconds after the controls already looked free. The e2e test does not catch this because it only exercises the first-ever run, where lastRunSettings.current is still null.",
-      "file": "components/MergeTool.tsx",
-      "line": 293,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Stale-result guard resets status to IDLE while a run is still in flight"
-    },
-    {
-      "category": "testing",
-      "detail": "compareKey routes every Compare key through identifierKey, whose INVISIBLE class is `[\\p{M}\\p{Cf}\\u0640]`. \\p{M} is every Unicode combining mark, not just Arabic diacritics: a decomposed `café` (`cafe` + U+0301) now produces the same key as `cafe`. The intent (D7 rule 3) is Arabic kasra/tatweel and zero-width marks, and the trigger is narrow because Excel writes NFC, but macOS-originated or NFD-normalised exports do carry decomposed Latin — a Compare run against such a file would report a match where it previously reported two missing rows. compareRules.test.ts pins the Arabic and ZWSP cases but not this one, so the behaviour is unpinned either way.",
-      "file": "utils/compareUtils.ts",
-      "line": 70,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "compareKey drops Latin combining accents, which the doc calls only 'invisible characters'"
-    },
-    {
-      "category": "typescript",
-      "detail": "`let dataOut: any[][] | {sheets: {name: string, data: any[][]}[]} | null` is added by this diff with a bare `any[][]` and no inline reason. It mirrors the existing mergedData state type, so it propagates an existing hole rather than opening a new one — but it is the value every merge branch now writes through, and it is the one place where a wrong shape (e.g. a sheets object reaching the Array.isArray branch in downloadResult) would go uncaught.",
-      "file": "components/MergeTool.tsx",
-      "line": 181,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "New local dataOut declared with any[][] and no justification"
-    },
-    {
-      "category": "typescript",
-      "detail": "`dataRows` is `readonly unknown[][]`, and Array.prototype.filter on a readonly array already yields `unknown[][]`, so the assertion narrows nothing. It is harmless today but reads as if a real type gap is being papered over, which is the pattern the type-safety handbook asks reviewers to keep out.",
-      "file": "utils/dedupe.ts",
-      "line": 46,
-      "severity": "info",
-      "suggested_fix": null,
-      "summary": "Redundant `as unknown[][]` assertion on a filter result"
+      "summary": "A superseded run's exception returns from `catch` without logging it"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 6
+  "total": 4
 }

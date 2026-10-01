@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:8351b2701314cdf90cbb526150fffd407e7796eebc703c3f5fbf71ea98f780b3` |
+| Attestation id | `sha256:1bfe4a46e0556bb9d4ad2bc2a7a4a19ba053c96e5519afbb46f5960098c21a7d` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `cc5e37e55c2e` |
+| Reviewed at commit | `f19d4e65d25e` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,19 +30,19 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 5 |
-| info | 1 |
+| low | 4 |
+| info | 0 |
 
-This branch adopts a set of behavioural fixes from the ExcelDiff AI reference package across Compare, Merge, Remove Blanks, Deduplicate and Separator, plus a UTF-16 BOM fix in the text decoder. The high-value changes are genuine defect fixes — fuzzy matching no longer equates near-identical barcodes, decimal tolerance no longer reads a blank cell as 0, Merge keys per-file settings by upload identity instead of file name, sheet/ZIP entry names are made Excel-valid and unique, and the Compare CSV export now neutralises formula-leading cells (OWASP CSV injection). Every behavioural change is backed by a unit test that fails on the old code plus a browser test, and the decisions (adopted, not adopted, pending) are recorded in docs/modules/open-decisions.md D13 and docs/quality/tech-debt-register.md TD-056. No blocking-handbook violations: layering is respected (utils → utils only), download I/O moved out of three components into services/download.ts, and no secrets or unsanitised HTML were introduced. Findings are all low/info polish on the new Merge code.
+This PR lands the behavioural fixes adopted from the ExcelDiff AI reference package across Compare, Clean, Deduplicate, Merge and Splitter: numeric-aware fuzzy/tolerance comparison, invisible-character-tolerant keys via `identifierKey`, OWASP CSV-injection neutralisation on the Compare CSV export, Excel-valid unique sheet/ZIP entry names, a UTF-16 BOM decode path, and a settings/result coherence guard in Merge. Extraction of `utils/dedupe.ts`, `buildCompareExport`/`toCsv`/`neutraliseFormula`, `uniqueNames`/`safeSheetName` and routing downloads through `services/download.ts` all move logic the right way across the layering boundary, and every behaviour change is pinned by a new unit test plus an e2e test that is documented to fail on the old code. I found no blocking-handbook violations and no defect users will hit — the four findings below are all low-severity polish. No new dependencies and no technical decision that lacks a record (`docs/modules/open-decisions.md` D13 covers the adoption choices and the explicitly-not-adopted set).
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 565 warning(s) |
-| Vitest | pass | 765/765 passed, lines 99.38% |
-| Playwright | pass | 149/150 passed |
+| ESLint | pass | 0 error(s), 563 warning(s) |
+| Vitest | pass | 768/768 passed, lines 99.38% |
+| Playwright | pass | 150/151 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 132 source files, 35137 lines
+- 132 source files, 35200 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
