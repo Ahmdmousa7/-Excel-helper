@@ -1,12 +1,12 @@
 {
-  "attestation_id": "sha256:0200e84f5fb2b51734d6abe7eafd56f2d78d3fe3d8e0d6f1fb1078199f1ee1ce",
+  "attestation_id": "sha256:537e1795fd8d43fc7e5ea705243432083887b5dc707e457b932189dbf56842f0",
   "files": [
     {
       "oid": "98c27583d2ad63f3e63962af17784798b91c8759",
       "path": "components/CleanTool.tsx"
     },
     {
-      "oid": "691590eaf3feaf6a0a20bb237098192f97901ade",
+      "oid": "73edda751200f8301ed35f938c820c4521607bd0",
       "path": "components/CompareTool.tsx"
     },
     {
@@ -34,7 +34,7 @@
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "05310a794a8d353bf64bc359344253b3a1a945fa",
+      "oid": "bcbb60caf7fc4b0d10a5cf24936baa92084731c1",
       "path": "e2e/reference-fixes.spec.ts"
     },
     {
@@ -74,12 +74,12 @@
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 2,
+    "low": 3,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "e6d12db043d064f97289ea50678a7a6e244eacb4",
+  "reviewed_at_commit": "f131b01b88a5751b7b6955c6f06ba97cf84ed169",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

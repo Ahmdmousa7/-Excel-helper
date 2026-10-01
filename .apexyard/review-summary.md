@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:0200e84f5fb2b51734d6abe7eafd56f2d78d3fe3d8e0d6f1fb1078199f1ee1ce` |
+| Attestation id | `sha256:537e1795fd8d43fc7e5ea705243432083887b5dc707e457b932189dbf56842f0` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `e6d12db043d0` |
+| Reviewed at commit | `f131b01b88a5` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 2 |
+| low | 3 |
 | info | 0 |
 
-Reviewed commit e6d12db043d064f97289ea50678a7a6e244eacb4: a targeted bug-fix pass adopting behaviours from the ExcelDiff AI reference package across five tools. The substantive fixes are correct and each is backed by a test that fails on the old code — fuzzy-match no longer equates two barcodes differing by one digit, decimal tolerance no longer treats a blank cell as 0, compare/dedupe keys strip invisible characters via the existing `identifierKey` (preserving leading zeros per D7), the `cleanEmptyColumns` out-of-range start row no longer nukes every column, Merge keys per-file state by object identity instead of filename, `safeSheetName`/`uniqueNames` stop silent overwrites and SheetJS crashes, and the UTF-16 BOM branch in `decodeTextBytes` restores Excel 'Unicode Text' files. Architecture and security are clean: no new `utils/`→`services/` edges, no I/O moved into components (downloads were moved the other way, into `services/download.ts`), no secrets, no HTML injection. Two low, non-blocking findings.
+This PR adopts a vetted set of behavioural fixes from the ExcelDiff AI reference package across Compare, Clean, Deduplicate, Merge and Splitter, extracting the pure logic into `utils/dedupe.ts`, `utils/compareUtils.ts` (`buildCompareExport`/`toCsv`/`aiInsightsRows`) and `utils/excelUtils.ts` (`uniqueNames`/`safeSheetName`), and routing every download through the existing `services/download.ts`. The work is well-scoped and unusually well-evidenced: each change has a unit test that fails on the old code, an e2e test driving the real tool, a recorded decision (D13 in `docs/modules/open-decisions.md`) listing what was deliberately NOT adopted, and a tech-debt row (TD-056) for the shared defects left alone. I verified the matching rules in `compareDatasets` (the numeric/fuzzy/tolerance interaction falls through to an exact compare correctly), `safeSheetName`/`uniqueNames` termination and 31-char bound, the `keyOf` WeakMap identity scheme against `App.tsx` (`fileData` is a stable state object, so per-file settings survive re-renders), and that `'warning'` is a valid `LogEntry` type. No blocking-handbook violations: the new `utils/` modules import only other `utils/`, components do their I/O through `services/`, and the a11y changes (radio group `name`, `htmlFor`/`id`, `sr-only` file input, visible `aria-describedby` hint) move in the right direction. Three Lows only.
 
 ## Quality gates
 
@@ -42,7 +42,7 @@ Reviewed commit e6d12db043d064f97289ea50678a7a6e244eacb4: a targeted bug-fix pas
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
 | Vitest | pass | 737/737 passed, lines 99.37% |
-| Playwright | pass | 146/147 passed |
+| Playwright | pass | 147/148 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 132 source files, 34987 lines
+- 132 source files, 35005 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

