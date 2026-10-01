@@ -1,33 +1,42 @@
 {
-  "attestation_id": "sha256:29c1849c64b5eaad76f9a4cdb03a891bbf886eda3c234a8abbd5a6f4ba17ff5c",
+  "attestation_id": "sha256:2cc47f4c081c213022f6a9be2ddccf1e8a9ac4fe3fb1cf14dffa49016e4a994f",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 1,
+    "low": 2,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "The three Fresha log messages (lines 204, 205, 214) and `NEED_FIELDS_MESSAGE` (line 32) are English literals, while the rest of this handler routes user-visible text through `t.common.*` from `utils/translations`. An Arabic user running a Fresha scrape sees Arabic status/completion lines interleaved with three English paragraphs, including the one that explains why add-ons are missing from the export — the explanation most likely to be read by a non-English speaker. This is the file's existing pattern (the Yalla logs at lines 67-68 are also hardcoded), so it is consistent rather than regressive, which is why it is low and not medium.",
+      "detail": "The stats line is built inline with four chained conditional segments inside one template literal on a single line. It is the hardest line to read in the new code, and because it lives in the component the only way it gets tested is through a real browser — `e2e/web-scraper-fresha.spec.ts:93` and `:159` assert its wording via `page.getByText(/…/)`, which costs a 90 s Playwright test to verify pure string formatting. Pulling it into the pure module makes the same assertion a one-line vitest case and keeps the component to orchestration.",
       "file": "components/WebScraperTab.tsx",
-      "line": 204,
+      "line": 201,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "New user-facing log strings are hardcoded English in a bilingual tab"
+      "summary": "Fresha success log is a ~450-char template literal with four nested ternaries"
+    },
+    {
+      "category": "code-smell",
+      "detail": "The catch branches on `controller.signal.aborted` rather than on which failure actually occurred. Once the 45 s timer has fired, a genuinely different failure — `!res.ok` landing at the same moment, or a parse that returns null on a slow large page — is rewritten as `The venue page did not answer within 45 s.` The user impact is nil today (the component discards this message and logs its own generic fallback text at WebScraperTab.tsx:211, so the precise wording only reaches `console.warn`), which is why this is low and not medium. It would become a real diagnosis problem the moment the FreshaVenueError message is surfaced to the user or to a log sink.",
+      "file": "services/freshaVenueService.ts",
+      "line": 59,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "Any error thrown after the deadline is reported as a timeout"
     },
     {
       "category": "architecture",
-      "detail": "`handbooks/architecture/frontend-boundaries.md` § 'What Rex flags' lists a literal `fetch(` inside `components/**`, and line 202 contains one: `fetchFreshaVenue(freshaVenue, (u, init) => fetch(u, init))`. I am explicitly NOT treating this as a rule-2 violation. The component calls a service — the request, headers, timeout, abort and error typing all live in `services/freshaVenueService.ts` — and the lambda exists so that service can be unit-tested without a network, which is exactly the rationale rule 2 states. It also matches the identical pre-existing call at line 66 (`fetchYallaMenu(..., (u, init) => fetch(u, init))`). Recording it here so the match is visibly adjudicated rather than silently skipped.",
+      "detail": "`handbooks/architecture/frontend-boundaries.md` § rule 2 flags a literal `fetch(` under `components/`, and `(u, init) => fetch(u, init)` matches that pattern textually. Recording explicitly that I do not consider this a violation: the request, headers, abort timer and error shaping all live in `services/freshaVenueService.ts`; the component only supplies the browser primitive through the service's `FetchTextLike` parameter. That seam is exactly what lets `tests/unit/freshaVenue.test.ts:283-305` exercise the service with no network, which is the outcome rule 2 exists to protect. It is also the established convention in this file — the pre-existing Yalla path at line 63 is identical. No change requested; noted so a future rule-match on this line is not re-litigated.",
       "file": "components/WebScraperTab.tsx",
-      "line": 202,
+      "line": 199,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "`fetch` appears in a component file as the injected transport, not as I/O"
+      "summary": "Checked and cleared: the literal `fetch` in the component is a DI seam, not I/O"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 3
 }

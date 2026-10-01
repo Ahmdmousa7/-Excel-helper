@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:29c1849c64b5eaad76f9a4cdb03a891bbf886eda3c234a8abbd5a6f4ba17ff5c",
+  "attestation_id": "sha256:2cc47f4c081c213022f6a9be2ddccf1e8a9ac4fe3fb1cf14dffa49016e4a994f",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,11 +8,11 @@
     },
     "components": {
       "files": 36,
-      "loc": 17950
+      "loc": 17947
     },
     "e2e": {
       "files": 31,
-      "loc": 4512
+      "loc": 4564
     },
     "hooks": {
       "files": 2,
@@ -23,8 +23,8 @@
       "loc": 1625
     },
     "tests": {
-      "files": 30,
-      "loc": 6717
+      "files": 31,
+      "loc": 6735
     },
     "types": {
       "files": 1,
@@ -32,7 +32,7 @@
     },
     "utils": {
       "files": 19,
-      "loc": 4074
+      "loc": 4076
     }
   },
   "layering": {
@@ -70,7 +70,7 @@
       },
       {
         "file": "utils/translations.ts",
-        "loc": 952
+        "loc": 954
       },
       {
         "file": "services/geminiService.ts",
@@ -96,6 +96,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 136,
-  "total_loc": 36051
+  "source_files": 137,
+  "total_loc": 36120
 }

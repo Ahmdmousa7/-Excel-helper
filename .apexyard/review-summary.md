@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:29c1849c64b5eaad76f9a4cdb03a891bbf886eda3c234a8abbd5a6f4ba17ff5c` |
+| Attestation id | `sha256:2cc47f4c081c213022f6a9be2ddccf1e8a9ac4fe3fb1cf14dffa49016e4a994f` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `f1e1e0786274` |
+| Reviewed at commit | `0e82c5147fea` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 9 |
+| Files reviewed | 11 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
+| low | 2 |
 | info | 1 |
 
-Adds a structured read path for Fresha venue menus to Web Scraper: a pure URL/parse/row-builder module (`utils/freshaVenue.ts`), an I/O-only service that fetches the public venue page through Jina in HTML mode (`services/freshaVenueService.ts`), and wiring in `WebScraperTab.tsx` that bypasses the field/instruction gate for Fresha links, renders fixed columns, and appends a `Not on venue page` note sheet on export. The parsing treats the scraped `__NEXT_DATA__` as untrusted (`unknown` + guards, no `any`, no HTML injection), the failure path falls back to the existing page-text route, and coverage is strong — a real captured fixture, synthetic rule cases, and an offline Playwright suite that asserts fresha.com is never contacted directly and no model call happens on the structured path. No blocking-handbook violations found; two non-blocking observations below.
+Adds a structured Fresha venue-menu path to Web Scraper: `utils/freshaVenue.ts` (pure link detection + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (one Jina HTML-mode request with a 45 s abort), and a ~30-line branch in `WebScraperTab.tsx` that uses it, falls back to the existing page-text route on any failure, and appends a `Not on venue page` note sheet to the export. The layering (components → services → utils) is correct, no new dependencies are introduced, no `any`/`@ts-ignore`/TODO is added, and the behaviour is covered by 34 unit tests against a real captured fixture plus 10 offline Playwright tests spanning the structured path, the fallback, the non-Fresha path, and both EN and AR. No blocking-handbook violations; the three findings below are advisory polish.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ Adds a structured read path for Fresha venue menus to Web Scraper: a pure URL/pa
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
-| Vitest | pass | 864/864 passed, lines 99.42% |
-| Playwright | pass | 157/158 passed |
+| Vitest | pass | 866/866 passed, lines 99.42% |
+| Playwright | pass | 161/162 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 136 source files, 36051 lines
+- 137 source files, 36120 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -67,7 +67,7 @@ reports zero failures for a tool that never executed.
 | `components/OcrTab.tsx` | 1074 |
 | `components/SupportChat.tsx` | 964 |
 | `components/TranslateTab.tsx` | 956 |
-| `utils/translations.ts` | 952 |
+| `utils/translations.ts` | 954 |
 | `services/geminiService.ts` | 946 |
 | `components/ProjectSummaryTab.tsx` | 841 |
 | `components/ZidTab.tsx` | 841 |
