@@ -1,51 +1,33 @@
 {
-  "attestation_id": "sha256:1bfe4a46e0556bb9d4ad2bc2a7a4a19ba053c96e5519afbb46f5960098c21a7d",
+  "attestation_id": "sha256:7771a163714348302ef78ed6eae028e617d916c4d93354f9be614e6a8d6e7112",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 4,
+    "info": 1,
+    "low": 1,
     "medium": 0
   },
   "findings": [
     {
-      "category": "architecture",
-      "detail": "The keying change from `f.name` to `keyOf(f)` is correct and is what fixes two uploads called `export.xlsx` collapsing into one. But `removeFile(name)`, `moveCol(fileName, …)`, `updateCol(fileName, …)` and `getProcessedDataForFile(fileName)` kept their old parameter names while every call site now passes `keyOf(f)` (e.g. `removeFile(keyOf(f))`, `getProcessedDataForFile(keyOf(f))`). A reader — or the next person adding a call site — will reasonably pass `f.name`, which silently returns `[]` from `getProcessedDataForFile` (the `allFiles.find(f => keyOf(f) === fileName)` lookup misses) and produces an empty sheet rather than an error. The regression this PR just fixed is exactly that class of bug.",
-      "file": "components/MergeTool.tsx",
-      "line": 109,
+      "category": "code-smell",
+      "detail": "MODULE_GUIDE.md keeps every prose block as an EN/AR pair, and §2.4 'Error handling · Edge cases · Unsupported' is no exception: line 241 is **EN:** and line 249 is **AR:**. This PR added the '(considered and deliberately not planned — D14)' qualifier to the EN line only. The AR line still reads a bare 'لا تحقق بين ملفات' — exactly the unqualified phrasing D14 was written to stop a future reader from treating as an unfinished feature. An Arabic-reading reviewer or roadmap pass gets the pre-D14 text and the reopening that D14 explicitly forbids becomes likely, which defeats the stated purpose of the change. Scoped low, not medium, because the decision is still recorded authoritatively in open-decisions.md; it would be medium if MODULE_GUIDE.md were the only place the scope limit lived.",
+      "file": "docs/modules/MODULE_GUIDE.md",
+      "line": 249,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Per-file helpers still take a param named `name`/`fileName` but now receive an opaque id"
+      "summary": "Arabic counterpart of the edited paragraph lost the D14 pointer"
     },
     {
       "category": "code-smell",
-      "detail": "The same \"drop the file extension to build an output name\" step now appears at `components/CleanTool.tsx:98` (`res.fileName.lastIndexOf('.')`), `components/MergeTool.tsx:189` and `components/MergeTool.tsx:207` (same shape, on `f.name`), and `components/SplitterTool.tsx` (`fileData.name.replace(/\\.[^/.]+$/, '')` — a third, different implementation added by this PR). The two forms happen to agree on every input I checked (`a.csv`, `archive.tar.gz`, `.gitignore`, no-extension), so there is no bug today. It's worth consolidating because this PR already created the natural home for it — `utils/excelUtils.ts` now exports `uniqueNames` and `safeSheetName`, and all four call sites feed one of those two helpers. Below the code-smells handbook's 15-line duplication threshold, hence low.",
-      "file": "components/CleanTool.tsx",
-      "line": 98,
-      "severity": "low",
+      "detail": "Not a defect in this diff — D14 scopes itself correctly, saying the phrase it governs is the one 'in the Files Validation section of MODULE_GUIDE.md'. Noting it only because MODULE_GUIDE.md §2.2 'Unsupported features' carries the same words for a different module, so a reader grepping the phrase lands on line 163 first and may assume D14 settled Composite Check's scope too. D14 does not cover it, and the PR is right not to claim otherwise.",
+      "file": "docs/modules/MODULE_GUIDE.md",
+      "line": 163,
+      "severity": "info",
       "suggested_fix": null,
-      "summary": "Extension-stripping is open-coded in four places across this diff, in two different forms"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`mappedCount` counts every non-`-1` entry in `columnMapping`, including the mapping for the key column itself. The auto-map at line 63-79 maps by header name, so `SKU → SKU` is normally present. A user who sets every other column to `-- Ignore --` leaves `mappedCount === 1`, Run is enabled, and `compareDatasets` compares the key column against itself — which matches for every shared key by construction. The result is the same misleading \"perfect match on everything\" report the guard was added to prevent, just via a narrower path. Not a regression (before this PR the zero-column case produced it too), and the trigger needs deliberate user action, which is why this is low rather than medium.",
-      "file": "components/CompareTool.tsx",
-      "line": 107,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "The \"map at least one column\" guard counts the key column, so an all-match report is still reachable"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`catch(err: any) { if (!finishRun(runId)) return; addLog(...) }` discards the error message when `runId` is no longer the active run. Today that branch is unreachable — the single Run button at line 649 is `disabled={… || status === ProcessingStatus.PROCESSING}`, so a second run can't start and `finishRun` always returns true — so there is no user impact now. But the guard exists precisely to anticipate overlapping runs; the day one becomes possible (an auto-run on settings change, a cancel-and-rerun button), a merge failure becomes a completely silent no-op with the spinner already cleared by the newer run. The success path's equivalent guard is fine because it has an explicit `addLog` for its discard case; the error path has none.",
-      "file": "components/MergeTool.tsx",
-      "line": 258,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "A superseded run's exception returns from `catch` without logging it"
+      "summary": "A second 'no cross-file validation' line exists under Composite Check (§2.2)"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 4
+  "total": 2
 }

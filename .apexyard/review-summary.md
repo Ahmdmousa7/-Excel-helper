@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:1bfe4a46e0556bb9d4ad2bc2a7a4a19ba053c96e5519afbb46f5960098c21a7d` |
+| Attestation id | `sha256:7771a163714348302ef78ed6eae028e617d916c4d93354f9be614e6a8d6e7112` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `f19d4e65d25e` |
+| Reviewed at commit | `79591d4927e2` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 18 |
+| Files reviewed | 3 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 4 |
-| info | 0 |
+| low | 1 |
+| info | 1 |
 
-This PR lands the behavioural fixes adopted from the ExcelDiff AI reference package across Compare, Clean, Deduplicate, Merge and Splitter: numeric-aware fuzzy/tolerance comparison, invisible-character-tolerant keys via `identifierKey`, OWASP CSV-injection neutralisation on the Compare CSV export, Excel-valid unique sheet/ZIP entry names, a UTF-16 BOM decode path, and a settings/result coherence guard in Merge. Extraction of `utils/dedupe.ts`, `buildCompareExport`/`toCsv`/`neutraliseFormula`, `uniqueNames`/`safeSheetName` and routing downloads through `services/download.ts` all move logic the right way across the layering boundary, and every behaviour change is pinned by a new unit test plus an e2e test that is documented to fail on the old code. I found no blocking-handbook violations and no defect users will hit — the four findings below are all low-severity polish. No new dependencies and no technical decision that lacks a record (`docs/modules/open-decisions.md` D13 covers the adoption choices and the explicitly-not-adopted set).
+Docs-only PR that records D14 in open-decisions.md: cross-file validation for the Files Validation module was considered and deliberately not planned, and §4-C of ocr-rewaa-plan.md is complete as of 2026-09-28. Pointers to D14 were added in ocr-rewaa-plan.md §4-C and the Files Validation section of MODULE_GUIDE.md. I verified the claims against the repo — the D-number does not collide (D13 is the previous entry), the three §4-C deliverables are documented as shipped in MODULE_GUIDE.md §2.4 with tests named, and the commit message carries a real WHY body. No code, dependencies, or config changed; no blocking-handbook surface is touched. Two minor documentation-consistency notes, neither blocking.
 
 ## Quality gates
 
