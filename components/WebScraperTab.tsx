@@ -28,9 +28,6 @@ const MENU_ROW_RULES =
   "For '- VARIANT' lines also fill 'Option 1' and 'Option 1 Value' as given and set 'Type' to 'Variable'; for the other lines set 'Type' to 'Simple'. " +
   'Use the prices exactly as given.';
 
-/** Shown when neither fields nor an instruction say what to extract. */
-const NEED_FIELDS_MESSAGE = "Please describe what data to extract or select fields.";
-
 const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   const t = TRANSLATIONS[language];
   const [url, setUrl] = useState('');
@@ -182,7 +179,7 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
     // it. Every other link keeps this check exactly as before.
     const freshaVenue = freshaVenueUrl(url);
     if (!queryInstruction && !freshaVenue) {
-      addLog(NEED_FIELDS_MESSAGE, 'warning');
+      addLog(t.scraper.needFields, 'warning');
       return;
     }
 
@@ -213,7 +210,7 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
           console.warn('Fresha venue data unavailable, using the page text instead.', e);
           addLog("Could not read Fresha's venue data; using the page text instead (only part of the menu may be found).", 'warning');
           // The page-text route DOES need fields or an instruction.
-          if (!queryInstruction) throw new Error(NEED_FIELDS_MESSAGE);
+          if (!queryInstruction) throw new Error(t.scraper.needFields);
         }
       }
 

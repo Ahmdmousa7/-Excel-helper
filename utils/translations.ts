@@ -396,6 +396,7 @@ export const TRANSLATIONS = {
       prompt: 'Extraction Prompt',
       smartMode: 'Smart Mode Active',
       preview: 'Data Preview',
+      needFields: 'Please describe what data to extract or select fields.',
     },
     pdf: {
       split: 'Cut / Split PDF',
@@ -839,6 +840,7 @@ export const TRANSLATIONS = {
       prompt: 'موجه الاستخراج',
       smartMode: 'الوضع الذكي نشط',
       preview: 'معاينة البيانات',
+      needFields: 'يرجى وصف البيانات المراد استخراجها أو اختيار الحقول.',
     },
     pdf: {
       split: 'قص / تقسيم PDF',

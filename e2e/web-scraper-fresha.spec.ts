@@ -213,6 +213,58 @@ test.describe('Web Scraper — Fresha venue data', () => {
       expect(asked).toEqual([{ url: `https://r.jina.ai/${VENUE}`, format: 'html' }]); // no page-text fetch
       expect(calls).toHaveLength(0);
     });
+
+    test('the default (English) message is the translation key, word for word', () => {
+      expect(en.scraper.needFields).toBe(NEED_FIELDS);
+    });
+
+    // The message asks the user to act, so it follows the app language. The
+    // status logs around it stay English, as everywhere else in Web Scraper.
+    test.describe('in Arabic', () => {
+      const ar = TRANSLATIONS.ar;
+      test.beforeEach(async ({ page }) => {
+        await page.addInitScript(() => localStorage.setItem('app_lang', 'ar'));
+      });
+
+      test('a non-Fresha link is blocked with the Arabic message', async ({ app, page }) => {
+        test.setTimeout(60_000);
+        const asked = await jina(page, VENUE_HTML);
+        const calls = await models(page, FALLBACK_ANSWER);
+        await openEmpty(app, page, 'https://example.com/menu');
+        await page.getByRole('button', { name: ar.common.start }).click();
+        await page.getByRole('button', { name: ar.actions.showLogs }).click();
+        await expect(page.getByText(ar.scraper.needFields)).toBeVisible();
+        await expect(page.getByText(NEED_FIELDS)).toHaveCount(0);
+        await page.waitForTimeout(1_000);
+        expect(asked).toEqual([]);
+        expect(calls).toHaveLength(0);
+      });
+
+      test('a Fresha link still scrapes from its venue data', async ({ app, page }) => {
+        test.setTimeout(90_000);
+        const asked = await jina(page, VENUE_HTML);
+        const calls = await models(page, FALLBACK_ANSWER);
+        await noFresha(page);
+        await openEmpty(app, page, BOOKING);
+        await page.getByRole('button', { name: ar.common.start }).click();
+        await expect(page.getByText(`${ar.scraper.preview} (67)`)).toBeVisible({ timeout: 60_000 });
+        expect(asked).toEqual([{ url: `https://r.jina.ai/${VENUE}`, format: 'html' }]);
+        expect(calls).toHaveLength(0);
+      });
+
+      test('a Fresha link whose venue data is unavailable stops with the Arabic message', async ({ app, page }) => {
+        test.setTimeout(90_000);
+        const asked = await jina(page, '<html><body>no data</body></html>');
+        const calls = await models(page, FALLBACK_ANSWER);
+        await noFresha(page);
+        await openEmpty(app, page, BOOKING);
+        await page.getByRole('button', { name: ar.common.start }).click();
+        await page.getByRole('button', { name: ar.actions.showLogs }).click();
+        await expect(page.getByText(`${ar.common.error}: ${ar.scraper.needFields}`)).toBeVisible({ timeout: 60_000 });
+        expect(asked).toEqual([{ url: `https://r.jina.ai/${VENUE}`, format: 'html' }]);
+        expect(calls).toHaveLength(0);
+      });
+    });
   });
 
   test('a non-Fresha link never takes the Fresha route', async ({ app, page }) => {
