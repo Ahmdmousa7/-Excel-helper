@@ -183,7 +183,10 @@ test.describe('Merge Datasets', () => {
     await addFiles(page).setInputFiles({ name: 'b.csv', mimeType: CSV_MIME, buffer: csv([['a'], ['2']]) });
     await run(page);
     // Hold the run's timer so the change lands mid-run, deterministically.
+    // install() alone fakes the timers but lets time keep flowing, so under
+    // load the run's 100 ms could elapse before the click; pauseAt stops it.
     await page.clock.install();
+    await page.clock.pauseAt(Date.now() + 1_000);
     await page.getByRole('button', { name: /Generate Unified Dataset/ }).click();
     await page.getByText('Multiple Sheets', { exact: false }).first().click();
     await page.clock.runFor(1_000);
