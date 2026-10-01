@@ -39,6 +39,17 @@ export const BOOKING_ONLY_NOTE: readonly string[] = [
 const FRESHA_HOST = /^(?:www\.)?fresha\.com$/i;
 
 /**
+ * `/<locale>/a/<venue>` or `/a/<venue>`. The locale is one path segment in
+ * BCP-47 form, any letter case: a 2-3 letter language, then an optional
+ * 4-letter script, then an optional 2-letter or 3-digit region (`ar`, `en-GB`,
+ * `EN-gb`, `zh-HK`, `zh-Hant-HK`, `es-419`). Fresha's venue page links itself
+ * in 37 such locales (2026-10-01), all of the language or language-region form.
+ * Nothing looser: `/a/` must follow at once and stays lowercase, as Fresha
+ * writes it, and the venue id is the next segment.
+ */
+const FRESHA_VENUE_PATH = /^\/(?:[A-Za-z]{2,3}(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|\d{3}))?\/)?a\/([A-Za-z0-9-]+)(?:\/|$)/;
+
+/**
  * The public venue page for a Fresha booking or venue link, or null when the
  * link is not one. Drops `/booking`, anything after it, and the query (cart and
  * session ids).
@@ -62,7 +73,7 @@ export function freshaVenueUrl(link: string): string | null {
     return null;
   }
   if (!/^https?:$/.test(u.protocol) || !FRESHA_HOST.test(u.hostname)) return null;
-  const m = /^\/(?:[a-z]{2}(?:-[A-Za-z]{2})?\/)?a\/([A-Za-z0-9-]+)(?:\/|$)/.exec(u.pathname);
+  const m = FRESHA_VENUE_PATH.exec(u.pathname);
   if (!m) return null;
   return `https://www.fresha.com/en-GB/a/${m[1]}`;
 }

@@ -43,6 +43,46 @@ describe('freshaVenueUrl', () => {
     'not a url',
     '',
   ])('%j is not a Fresha venue link', (input) => expect(freshaVenueUrl(input)).toBeNull());
+
+  // Every locale Fresha's own venue page links itself in (2026-10-01).
+  const FRESHA_LOCALES = [
+    'ar', 'bg', 'cs', 'da', 'de', 'el', 'en-GB', 'es', 'es-MX', 'fi', 'fr', 'fr-CA', 'hr', 'hu', 'id', 'it', 'ja',
+    'ko', 'lt', 'ms', 'nb', 'nl', 'pl', 'pt', 'pt-PT', 'ro', 'ru', 'sl', 'sq', 'sr', 'sv', 'th', 'tr', 'uk', 'vi', 'zh', 'zh-HK',
+  ];
+  it.each(FRESHA_LOCALES)('the %s venue page is recognised', (loc) =>
+    expect(freshaVenueUrl(`https://www.fresha.com/${loc}/a/salon-ab12`)).toBe('https://www.fresha.com/en-GB/a/salon-ab12'));
+
+  it.each([
+    // Any letter case in the locale.
+    'https://www.fresha.com/EN-GB/a/salon-ab12',
+    'https://www.fresha.com/en-gb/a/salon-ab12',
+    'https://www.fresha.com/Ar/a/salon-ab12',
+    'https://www.fresha.com/ZH-hk/a/salon-ab12/booking',
+    // Valid BCP-47 forms the old 2-letter rule missed: script, numeric region, 3-letter language.
+    'https://www.fresha.com/zh-Hant/a/salon-ab12',
+    'https://www.fresha.com/zh-Hant-HK/a/salon-ab12',
+    'https://www.fresha.com/es-419/a/salon-ab12',
+    'https://www.fresha.com/fil/a/salon-ab12',
+  ])('%s → the en-GB venue page', (input) => expect(freshaVenueUrl(input)).toBe('https://www.fresha.com/en-GB/a/salon-ab12'));
+
+  it('a booking link with an upper-case locale still drops /booking and the cart query', () => {
+    expect(freshaVenueUrl(BOOKING.replace('/en-GB/', '/EN-GB/'))).toBe(VENUE);
+    expect(freshaVenueUrl(BOOKING.replace('/en-GB/', '/es-419/'))).toBe(VENUE);
+  });
+
+  it.each([
+    // Not Fresha, whatever the path.
+    'https://example.com/en-GB/a/salon-ab12',
+    'https://www.fresha.com.evil.example/EN-GB/a/salon-ab12',
+    'https://evil.example/www.fresha.com/en-GB/a/salon-ab12',
+    // Fresha, but the first segment is not a locale.
+    'https://www.fresha.com/english/a/salon-ab12',
+    'https://www.fresha.com/en_GB/a/salon-ab12',
+    'https://www.fresha.com/en-GB-x/a/salon-ab12',
+    'https://www.fresha.com/e/a/salon-ab12',
+    'https://www.fresha.com/en-GB/lp/a/salon-ab12',
+    'https://www.fresha.com/en-GB/A/salon-ab12',
+  ])('%j is still not a Fresha venue link', (input) => expect(freshaVenueUrl(input)).toBeNull());
 });
 
 describe('parseFreshaVenueHtml', () => {
