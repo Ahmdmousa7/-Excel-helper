@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:c8e9e4d5a86698712f26e459ea32581400de3f93d2a1121eaf2b606e364bd1d1` |
+| Attestation id | `sha256:efb62c7f6be24004a9d3fad3bf2c2aab4868d7a9f1914a84a8546dd1371979fb` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `1f9f52d55f81` |
+| Reviewed at commit | `f4fedccc4f0c` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -33,7 +33,7 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | low | 1 |
 | info | 2 |
 
-This PR teaches Web Scraper to read Fresha venue menus from Fresha's own `__NEXT_DATA__` payload on the public venue page instead of letting a model read prices off booking-flow text, with the parsing isolated in a pure `utils/freshaVenue.ts` and the single network call in `services/freshaVenueService.ts`. The boundary is clean (pure parser + injected fetch + fallback to the existing page-text route on any failure), input is validated defensively (host-anchored URL check, `unknown`-first JSON narrowing, never-throws parser), and coverage is strong: unit tests against a real captured fixture plus four fully offline Playwright specs that assert Fresha itself is never contacted. No blocking issues; two small correctness/polish notes and one architectural observation.
+Adds a structured Fresha venue-menu source to Web Scraper (HEAD f4fedcc): `utils/freshaVenue.ts` (pure link detection + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (one Jina HTML-mode fetch, 45 s timeout), and the wiring in `WebScraperTab.tsx`, with a fixed-column export plus a `Not on venue page` note sheet. The work follows the existing Yalla menu pattern exactly — pure utils, I/O in services, fail-soft fallback to the page-text route — and is backed by a real captured fixture, 15 unit tests and 4 offline e2e tests. External JSON is validated field-by-field (`isObj`, `Array.isArray`, typeof guards) rather than asserted, the venue URL is rebuilt from a `[A-Za-z0-9-]+` slug so nothing user-supplied reaches the fetch path unescaped, and no new dependency or top-level directory is introduced. No blocking findings; one low-severity counter inconsistency and two informational notes.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ This PR teaches Web Scraper to read Fresha venue menus from Fresha's own `__NEXT
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
-| Vitest | pass | 806/806 passed, lines 99.42% |
+| Vitest | pass | 807/807 passed, lines 99.42% |
 | Playwright | pass | 154/155 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 136 source files, 35888 lines
+- 136 source files, 35908 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:c8e9e4d5a86698712f26e459ea32581400de3f93d2a1121eaf2b606e364bd1d1",
+  "attestation_id": "sha256:efb62c7f6be24004a9d3fad3bf2c2aab4868d7a9f1914a84a8546dd1371979fb",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -184,10 +184,10 @@
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 806,
+      "passed": 807,
       "skipped": 0,
       "suites": 173,
-      "total": 806
+      "total": 807
     }
   }
 }
