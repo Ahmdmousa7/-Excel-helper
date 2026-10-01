@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:efb62c7f6be24004a9d3fad3bf2c2aab4868d7a9f1914a84a8546dd1371979fb` |
+| Attestation id | `sha256:7485afd5954adeb8f11c06464225964cf5e493147ab5834359dad07acc366d42` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `f4fedccc4f0c` |
+| Reviewed at commit | `8d8a327d8121` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -33,7 +33,7 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | low | 1 |
 | info | 2 |
 
-Adds a structured Fresha venue-menu source to Web Scraper (HEAD f4fedcc): `utils/freshaVenue.ts` (pure link detection + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (one Jina HTML-mode fetch, 45 s timeout), and the wiring in `WebScraperTab.tsx`, with a fixed-column export plus a `Not on venue page` note sheet. The work follows the existing Yalla menu pattern exactly — pure utils, I/O in services, fail-soft fallback to the page-text route — and is backed by a real captured fixture, 15 unit tests and 4 offline e2e tests. External JSON is validated field-by-field (`isObj`, `Array.isArray`, typeof guards) rather than asserted, the venue URL is rebuilt from a `[A-Za-z0-9-]+` slug so nothing user-supplied reaches the fetch path unescaped, and no new dependency or top-level directory is introduced. No blocking findings; one low-severity counter inconsistency and two informational notes.
+Adds a structured read path for Fresha venue menus to the Web Scraper: a pure parser/row-builder (utils/freshaVenue.ts), an I/O wrapper that fetches the public venue page through Jina in HTML mode and extracts __NEXT_DATA__ (services/freshaVenueService.ts), and a branch in WebScraperTab that uses it, falls back to the existing page-text route on any failure, and appends a 'Not on venue page' note sheet to the export. The work is well-bounded: the parser is dependency-free and never throws, external data is treated as unknown and validated before use, every failure degrades to the pre-existing behaviour, and coverage is strong (41 unit tests pass locally against a real captured fixture, plus four offline Playwright specs covering the structured path, the fallback, per-service stat counting, and a non-Fresha link). No security, dependency, accessibility, or blocking-handbook violations found; findings are one low and two informational. Reviewed at 8d8a327 (branch scraper-fresha-venue).
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ Adds a structured Fresha venue-menu source to Web Scraper (HEAD f4fedcc): `utils
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
-| Vitest | pass | 807/807 passed, lines 99.42% |
+| Vitest | pass | 809/809 passed, lines 99.42% |
 | Playwright | pass | 154/155 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 136 source files, 35908 lines
+- 136 source files, 35936 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

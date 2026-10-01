@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:efb62c7f6be24004a9d3fad3bf2c2aab4868d7a9f1914a84a8546dd1371979fb",
+  "attestation_id": "sha256:7485afd5954adeb8f11c06464225964cf5e493147ab5834359dad07acc366d42",
   "available": true,
   "by_severity": {
     "critical": 0,
@@ -11,30 +11,30 @@
   "findings": [
     {
       "category": "code-smell",
-      "detail": "Commit 1f9f52d deliberately moved `startingPrices` from per-option-row to per-service counting (`serviceHasStartingPrice`), but `noPrice` was left incremented once per option row inside the same `for (const v of named)` loop (line 165), while the simple branch increments it once per service (line 178). The log line in `components/WebScraperTab.tsx:198` renders all four counts in one sentence anchored on services — `\"1 services in 1 categories, …, 3 with no price\"` is what a single priceless 3-variant service would print. Same mixed-unit defect the previous commit fixed, in the adjacent counter. No effect on the exported rows, only on the log the user reads to sanity-check the scrape.",
-      "file": "utils/freshaVenue.ts",
-      "line": 165,
+      "detail": "handleScrape returns early at line 177 when no fields are ticked and no instruction is typed, before the Fresha branch at line 193 is ever reached. But the Fresha branch needs neither — it logs at line 198 that 'The field selection does not apply: Fresha data has fixed columns', and it makes no model call at all. A user who unticks all four default fields and leaves the instruction empty gets 'Please describe what data to extract or select fields' on a Fresha link that the app can in fact process with zero further input. The trigger is narrow (the default field set is non-empty, so most users never hit it), which is why this is low rather than medium; it would be medium if the defaults ever shipped unticked.",
+      "file": "components/WebScraperTab.tsx",
+      "line": 177,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "stats.noPrice counts option rows while every sibling stat counts services"
+      "summary": "Fresha path is gated by a field/instruction check it then declares irrelevant"
     },
     {
       "category": "architecture",
-      "detail": "`handbooks/architecture/frontend-boundaries.md` § \"What Rex flags\" lists `fetch(` inside `components/**` as a trigger. Recording the match rather than silently dropping it: this occurrence is `fetchFreshaVenue(freshaVenue, (u, init) => fetch(u, init))` — the component calls a service (rule 2's prescribed path) and passes the browser global as a test seam; the request construction, headers, abort controller and error mapping all live in `services/freshaVenueService.ts`. It is byte-for-byte the same seam the pre-existing Yalla path uses at line 63, and the net effect of this diff is to move Fresha I/O out of the component, not into it. Treated as a false positive on the trigger pattern, not a rule-2 violation — no verdict effect.",
+      "detail": "Noting this explicitly because `handbooks/architecture/frontend-boundaries.md` is a blocking handbook whose trigger list includes a literal `fetch(` under `components/`. Line 196 is `fetchFreshaVenue(freshaVenue, (u, init) => fetch(u, init))`. This is NOT a violation of rule 2: the component calls a service (`services/freshaVenueService.ts`), which is exactly the prescribed path; the lambda only injects the browser primitive so the service stays testable without a network — and `tests/unit/freshaVenue.test.ts` exercises that seam directly. It also mirrors the identical, pre-existing Yalla call at line 63. No action requested.",
       "file": "components/WebScraperTab.tsx",
       "line": 196,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "fetch token appears in a component, as the injected transport for a service"
+      "summary": "fetch() literal in a component — considered under frontend-boundaries rule 2, not flagged"
     },
     {
       "category": "code-smell",
-      "detail": "The catch rewrites the error to `\"The venue page did not answer within N s.\"` whenever `controller.signal.aborted` is true, regardless of what actually threw. If the response arrives just under the deadline and `parseFreshaVenueHtml` then returns null (or `res.text()` rejects) after the timer has fired, the user is told the page timed out when the real cause was missing `__NEXT_DATA__`. The window is milliseconds wide and both paths lead to the same page-text fallback, so there is no behavioural difference — only a misleading log line in a narrow race. Raising this above `info` would require the misreport to change what the user does, which it does not.",
-      "file": "services/freshaVenueService.ts",
-      "line": 59,
+      "detail": "The three new addLog strings (lines 198, 199, 208) are hardcoded English in an app that ships a full Arabic layer (`TRANSLATIONS`, used two lines away at 186 and 203). The adjacent Yalla block at lines 64–69 does the same, so the diff is consistent with its surroundings — that consistency is why this is info and not a request. Separately, the count interpolation produces ungrammatical output on the singular case: the e2e spec at `e2e/web-scraper-fresha.spec.ts:168` asserts the literal string '1 services in 1 categories'.",
+      "file": "components/WebScraperTab.tsx",
+      "line": 198,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Any error raised after the abort timer fires is reported as a timeout"
+      "summary": "New log lines are English-only and read '1 services in 1 categories'"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

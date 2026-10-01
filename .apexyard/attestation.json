@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:efb62c7f6be24004a9d3fad3bf2c2aab4868d7a9f1914a84a8546dd1371979fb",
+  "attestation_id": "sha256:7485afd5954adeb8f11c06464225964cf5e493147ab5834359dad07acc366d42",
   "files": [
     {
       "oid": "c429188690c9d10c14f6823967dc744ab834fbc4",
@@ -30,11 +30,11 @@
       "path": "tests/fixtures/fresha/little-palm-spa-venue.html"
     },
     {
-      "oid": "1238a12e76b65a11abaef8ac3faa1bab60177bb7",
+      "oid": "edfcceae8b1d9c9fe4e4eca5012eb4cf8a619ce8",
       "path": "tests/unit/freshaVenue.test.ts"
     },
     {
-      "oid": "4678920128dd0605dfc7923020b6fdabc3fe59c1",
+      "oid": "b59f776d5c731a17e7b44256366bad1a3ada1776",
       "path": "utils/freshaVenue.ts"
     }
   ],
@@ -47,7 +47,7 @@
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "f4fedccc4f0c7e2b9120d4065ad47075aad4e652",
+  "reviewed_at_commit": "8d8a327d81215c38fb6d455e3a1dc10bbbbfcf64",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"
