@@ -25,8 +25,11 @@ describe('freshaVenueUrl', () => {
     [VENUE, VENUE],
     [VENUE + '/', VENUE],
     [VENUE + '?share=1#services', VENUE],
-    ['https://fresha.com/a/some-salon-x1y2', 'https://www.fresha.com/a/some-salon-x1y2'],
-    ['http://www.fresha.com/ar/a/salon-ab12/booking', 'https://www.fresha.com/ar/a/salon-ab12'],
+    // Always the en-GB page: Fresha's own labels ("from", durations) then come
+    // in one language. The Arabic page writes `من ‏575 ر.س.` and `3 س`.
+    ['https://fresha.com/a/some-salon-x1y2', 'https://www.fresha.com/en-GB/a/some-salon-x1y2'],
+    ['http://www.fresha.com/ar/a/salon-ab12/booking', 'https://www.fresha.com/en-GB/a/salon-ab12'],
+    ['https://www.fresha.com/ar-SA/a/salon-ab12', 'https://www.fresha.com/en-GB/a/salon-ab12'],
     ['  https://www.FRESHA.com/en-GB/a/salon-ab12/booking/services  ', 'https://www.fresha.com/en-GB/a/salon-ab12'],
   ])('%s → %s', (input, out) => expect(freshaVenueUrl(input)).toBe(out));
 
@@ -142,6 +145,14 @@ describe('freshaRows rules on synthetic data', () => {
       ['Variable', 'Option', 'Long hair', '1250.50', '45 mins', ''],
     ]);
     expect(stats.withOptions).toBe(1);
+  });
+
+  it('a repeated variant name is one option, not two rows', () => {
+    const { rows } = freshaRows(venue([{
+      name: 'Cut', formattedRetailPrice: 'SAR 9', retailPrice: { value: 9 },
+      variants: [{ name: 'Short', formattedRetailPrice: 'SAR 9' }, { name: 'Short', formattedRetailPrice: 'SAR 9' }, { name: 'Long', formattedRetailPrice: 'SAR 12' }],
+    }]));
+    expect(rows.map((r) => [r['Option 1 Value'], r.Price])).toEqual([['Short', '9.00'], ['Long', '12.00']]);
   });
 
   it('variants with the same name are not options: one row', () => {

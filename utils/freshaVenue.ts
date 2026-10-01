@@ -40,10 +40,18 @@ const FRESHA_HOST = /^(?:www\.)?fresha\.com$/i;
 
 /**
  * The public venue page for a Fresha booking or venue link, or null when the
- * link is not one. Keeps the language prefix (`/en-GB`), drops `/booking`,
- * anything after it, and the query (cart and session ids).
+ * link is not one. Drops `/booking`, anything after it, and the query (cart and
+ * session ids).
  *
- *   https://www.fresha.com/en-GB/a/<slug>/booking?pId=1&cartId=…
+ * ALWAYS the `en-GB` page, whatever language the link uses. Fresha writes its
+ * own labels in the page's language — the Arabic page gives a starting price
+ * as `من ‏575 ر.س.` and a duration as `3 س` (measured 2026-10-01), where the
+ * English page gives `from SAR 575` and `3 hours` — so a fixed language keeps
+ * starting-price detection and durations right. The venue's own text (service
+ * and category names) is identical in every language: same 67 services, same
+ * names, verified on the Arabic and English pages of the test venue.
+ *
+ *   https://www.fresha.com/ar/a/<slug>/booking?pId=1&cartId=…
  *   → https://www.fresha.com/en-GB/a/<slug>
  */
 export function freshaVenueUrl(link: string): string | null {
@@ -54,9 +62,9 @@ export function freshaVenueUrl(link: string): string | null {
     return null;
   }
   if (!/^https?:$/.test(u.protocol) || !FRESHA_HOST.test(u.hostname)) return null;
-  const m = /^\/(?:([a-z]{2}(?:-[A-Za-z]{2})?)\/)?a\/([A-Za-z0-9-]+)(?:\/|$)/.exec(u.pathname);
+  const m = /^\/(?:[a-z]{2}(?:-[A-Za-z]{2})?\/)?a\/([A-Za-z0-9-]+)(?:\/|$)/.exec(u.pathname);
   if (!m) return null;
-  return `https://www.fresha.com/${m[1] ? `${m[1]}/` : ''}a/${m[2]}`;
+  return `https://www.fresha.com/en-GB/a/${m[1]}`;
 }
 
 interface FreshaPrice { currency?: unknown; value?: unknown }
@@ -128,9 +136,15 @@ export function freshaRows(venue: FreshaVenue): { rows: FreshaRow[]; stats: Fres
       stats.services++;
       const name = text(item.name);
       const variants = (Array.isArray(item.variants) ? item.variants : []).filter(isObj) as FreshaVariant[];
-      const named = variants.filter((v) => text(v.name));
-      const distinct = new Set(named.map((v) => text(v.name)));
-      if (named.length >= 2 && distinct.size >= 2) {
+      // One variant per name: a repeated name is not a second option.
+      const seen = new Set<string>();
+      const named = variants.filter((v) => {
+        const n = text(v.name);
+        if (!n || seen.has(n)) return false;
+        seen.add(n);
+        return true;
+      });
+      if (named.length >= 2) {
         stats.withOptions++;
         for (const v of named) {
           const starting = isStartingPrice(v.formattedRetailPrice);
