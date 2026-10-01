@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:537e1795fd8d43fc7e5ea705243432083887b5dc707e457b932189dbf56842f0",
+  "attestation_id": "sha256:8a4a3f678a874b6fb6112eb5cadb03724828bb4f981400325fd36a21b1d59934",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,8 +21,8 @@
         "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab-800k0o1c.js",
-        "gzip_bytes": 144823,
+        "file": "ProjectSummaryTab-mO6Rc4oc.js",
+        "gzip_bytes": 144824,
         "raw_bytes": 444476
       },
       {
@@ -31,8 +31,8 @@
         "raw_bytes": 282467
       },
       {
-        "file": "index.es-DQJpjvDM.js",
-        "gzip_bytes": 51659,
+        "file": "index.es-CelgiczN.js",
+        "gzip_bytes": 51665,
         "raw_bytes": 151183
       },
       {
@@ -46,13 +46,13 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-5mXl4143.js",
-        "gzip_bytes": 43361,
+        "file": "HomeTab-BUQcuQvx.js",
+        "gzip_bytes": 43360,
         "raw_bytes": 135983
       },
       {
-        "file": "index-D8tbqyCg.js",
-        "gzip_bytes": 32080,
+        "file": "index-CXuh6qrE.js",
+        "gzip_bytes": 32092,
         "raw_bytes": 104376
       },
       {
@@ -61,8 +61,8 @@
         "raw_bytes": 96519
       },
       {
-        "file": "OcrTab-Ck6cBd_u.js",
-        "gzip_bytes": 16788,
+        "file": "OcrTab-DFt2qqri.js",
+        "gzip_bytes": 16791,
         "raw_bytes": 48435
       }
     ],
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1305.9,
+        "gzip_kb": 1306.1,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 90
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1320.2,
+        "gzip_kb": 1320.3,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -162,9 +162,9 @@
     "failures": [],
     "flaky_count": 0,
     "passed": true,
-    "passed_count": 147,
+    "passed_count": 148,
     "skipped_count": 1,
-    "total": 148
+    "total": 149
   },
   "schema": "apexyard.evidence.metrics/1",
   "typescript": {
@@ -176,18 +176,18 @@
   "vitest": {
     "available": true,
     "coverage": {
-      "branches_pct": 90.21,
+      "branches_pct": 90.27,
       "functions_pct": 100,
-      "lines_pct": 99.37,
-      "statements_pct": 99.37
+      "lines_pct": 99.38,
+      "statements_pct": 99.38
     },
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 737,
+      "passed": 765,
       "skipped": 0,
-      "suites": 164,
-      "total": 737
+      "suites": 165,
+      "total": 765
     }
   }
 }

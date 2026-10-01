@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:537e1795fd8d43fc7e5ea705243432083887b5dc707e457b932189dbf56842f0",
+  "attestation_id": "sha256:8a4a3f678a874b6fb6112eb5cadb03724828bb4f981400325fd36a21b1d59934",
   "files": [
     {
       "oid": "98c27583d2ad63f3e63962af17784798b91c8759",
@@ -22,7 +22,7 @@
       "path": "components/SplitterTool.tsx"
     },
     {
-      "oid": "7f68500ac4c79af060948dbd2056a64e6316eef3",
+      "oid": "6da653d6b2accd6e00f96dd9c9e965890faa5504",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
@@ -34,7 +34,7 @@
       "path": "docs/quality/tech-debt-register.md"
     },
     {
-      "oid": "bcbb60caf7fc4b0d10a5cf24936baa92084731c1",
+      "oid": "56e6935c1664327230092d1b7f649d9822725af6",
       "path": "e2e/reference-fixes.spec.ts"
     },
     {
@@ -42,7 +42,7 @@
       "path": "services/workbookBytes.ts"
     },
     {
-      "oid": "06d7c46ee1222d75a7c0130ee518e7bc74f54de0",
+      "oid": "09827300a2df60c0531c78d367dedf1a27b0b16e",
       "path": "tests/unit/compareRules.test.ts"
     },
     {
@@ -58,7 +58,7 @@
       "path": "tests/unit/workbookBytesUtf16.test.ts"
     },
     {
-      "oid": "c48e856962d9da37e3e0c637033a4c9fafb8dde1",
+      "oid": "32aff69fceef44f2b4de3a0dedc73803660a993c",
       "path": "utils/compareUtils.ts"
     },
     {
@@ -68,6 +68,10 @@
     {
       "oid": "a2740f2145b46cedce739a1d137727a56b409dbd",
       "path": "utils/excelUtils.ts"
+    },
+    {
+      "oid": "e5f4d1c4745de1486607a83c324ed5da3ae9cd27",
+      "path": "utils/identifiers.ts"
     }
   ],
   "findings_by_severity": {
@@ -79,7 +83,7 @@
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "f131b01b88a5751b7b6955c6f06ba97cf84ed169",
+  "reviewed_at_commit": "e5bfc77aaa293e01e8814e90182f36401be6a5e0",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

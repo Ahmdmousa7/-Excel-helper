@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:537e1795fd8d43fc7e5ea705243432083887b5dc707e457b932189dbf56842f0` |
+| Attestation id | `sha256:8a4a3f678a874b6fb6112eb5cadb03724828bb4f981400325fd36a21b1d59934` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `f131b01b88a5` |
+| Reviewed at commit | `e5bfc77aaa29` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 17 |
+| Files reviewed | 18 |
 
 ## What this is, and what it is not
 
@@ -33,7 +33,7 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | low | 3 |
 | info | 0 |
 
-This PR adopts a vetted set of behavioural fixes from the ExcelDiff AI reference package across Compare, Clean, Deduplicate, Merge and Splitter, extracting the pure logic into `utils/dedupe.ts`, `utils/compareUtils.ts` (`buildCompareExport`/`toCsv`/`aiInsightsRows`) and `utils/excelUtils.ts` (`uniqueNames`/`safeSheetName`), and routing every download through the existing `services/download.ts`. The work is well-scoped and unusually well-evidenced: each change has a unit test that fails on the old code, an e2e test driving the real tool, a recorded decision (D13 in `docs/modules/open-decisions.md`) listing what was deliberately NOT adopted, and a tech-debt row (TD-056) for the shared defects left alone. I verified the matching rules in `compareDatasets` (the numeric/fuzzy/tolerance interaction falls through to an exact compare correctly), `safeSheetName`/`uniqueNames` termination and 31-char bound, the `keyOf` WeakMap identity scheme against `App.tsx` (`fileData` is a stable state object, so per-file settings survive re-renders), and that `'warning'` is a valid `LogEntry` type. No blocking-handbook violations: the new `utils/` modules import only other `utils/`, components do their I/O through `services/`, and the a11y changes (radio group `name`, `htmlFor`/`id`, `sr-only` file input, visible `aria-describedby` hint) move in the right direction. Three Lows only.
+This PR adopts a vetted subset of fixes from an external 'ExcelDiff AI' reference package across five tool components, extracting the Compare export, dedupe and sheet/file-naming logic into pure, unit-tested helpers (`utils/compareUtils.ts`, `utils/dedupe.ts`, `utils/excelUtils.ts`) and routing downloads through the existing `services/download.ts`. The substance is strong: real defects are fixed (fuzzy-matching numeric barcodes, blank-vs-zero tolerance, Excel-illegal/duplicate sheet names crashing Merge, ZIP entries silently overwriting each other, UTF-16 BOM decoding), CSV injection is now neutralised with a correct number-exemption, keyboard/label accessibility gaps are closed, and every behavioural change lands with a unit test plus an e2e test and a recorded decision (D13) and debt entry (TD-056). I verified the new helpers against the existing `excelUtils.test.ts` expectations — the `cleanEmptyColumns` start-row fallback only fires when the start row is past the data, so no existing assertion changes. No blocking-handbook violations; three low-severity items below.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ This PR adopts a vetted set of behavioural fixes from the ExcelDiff AI reference
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
-| Vitest | pass | 737/737 passed, lines 99.37% |
-| Playwright | pass | 147/148 passed |
+| Vitest | pass | 765/765 passed, lines 99.38% |
+| Playwright | pass | 148/149 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 132 source files, 35005 lines
+- 132 source files, 35093 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**

