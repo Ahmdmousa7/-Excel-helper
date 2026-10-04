@@ -10,6 +10,8 @@ import { yallaMenuSource } from '../utils/yallaMenu';
 import { fetchYallaMenu } from '../services/yallaMenuService';
 import { freshaVenueUrl, freshaSummary, FRESHA_COLUMNS, BOOKING_ONLY_NOTE } from '../utils/freshaVenue';
 import { fetchFreshaVenue } from '../services/freshaVenueService';
+import { googleSitesPage, googleSitesSummary, googleSitesReportSheet, GOOGLE_SITES_COLUMNS } from '../utils/googleSites';
+import { fetchGoogleSitesMenu } from '../services/googleSitesService';
 import ProgressBar from './ProgressBar';
 import { Globe, Download, Search, AlertCircle, Table, ExternalLink, Zap, RefreshCw, CheckSquare } from 'lucide-react';
 
@@ -49,6 +51,9 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
   // The rows came from Fresha's venue data (utils/freshaVenue.ts): the export
   // keeps its fixed column order and adds the `Not on venue page` note.
   const [freshaExport, setFreshaExport] = useState(false);
+  // The rows came from a Google Site (utils/googleSites.ts): fixed columns, and
+  // a `Google Sites pages` sheet listing every page considered.
+  const [sitesReport, setSitesReport] = useState<string[][] | null>(null);
 
   const fetchContent = async (targetUrl: string): Promise<{ text: string; source: 'html' | 'markdown' | 'json' | 'menu' }> => {
      // A Yalla QR Codes menu: read the menu's own data, which carries every
@@ -178,7 +183,9 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
     // field selection and instruction do not apply to it and must not block
     // it. Every other link keeps this check exactly as before.
     const freshaVenue = freshaVenueUrl(url);
-    if (!queryInstruction && !freshaVenue) {
+    // Same for a published Google Sites page: its menu has fixed columns.
+    const sitesPage = googleSitesPage(url);
+    if (!queryInstruction && !freshaVenue && !sitesPage) {
       addLog(t.scraper.needFields, 'warning');
       return;
     }
@@ -187,6 +194,7 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
     setProgress(5);
     setScrapedData([]);
     setFreshaExport(false);
+    setSitesReport(null);
     addLog(`${t.common.processing} ${url}...`, 'info');
 
     try {
@@ -208,6 +216,43 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
         } catch (e) {
           console.warn('Fresha venue data unavailable, using the page text instead.', e);
           addLog("Could not read Fresha's venue data; using the page text instead (only part of the menu may be found).", 'warning');
+          // The page-text route DOES need fields or an instruction.
+          if (!queryInstruction) throw new Error(t.scraper.needFields);
+        }
+      }
+
+      // A published Google Sites page: read the pasted page and the same-site
+      // pages it links to, and turn their menu lines into rows directly. Images
+      // go to the model only when no page has menu text. Any failure falls
+      // through to the page-text route below, unchanged.
+      if (sitesPage) {
+        try {
+          const sites = await fetchGoogleSitesMenu(sitesPage, (u, init) => fetch(u, init), {
+            readImage: async (data, mimeType, prompt) => {
+              try {
+                return await aiService.processGeneralFile({ data, mimeType }, prompt, (msg) => addLog(msg, 'warning'));
+              } catch (aiErr) {
+                throw readableAiError(aiErr, language, 'Web Scraper');
+              }
+            },
+            onProgress: (msg) => addLog(msg, 'info'),
+          });
+          addLog(googleSitesSummary(sites.siteName || sitesPage.url, sites.stats), 'info');
+          const skipped = sites.pages.filter((p) => p.status === 'other language');
+          if (skipped.length) addLog(`${skipped.length} linked page(s) are the site's other language edition and were not added (no translation, no duplicates); see the "Google Sites pages" sheet.`, 'warning');
+          const failed = sites.pages.filter((p) => p.status === 'failed' || p.status === 'not read: limit');
+          if (failed.length) addLog(`${failed.length} linked page(s) could not be read; see the "Google Sites pages" sheet.`, 'warning');
+          if (sites.unparsed.length) addLog(`${sites.unparsed.length} priced line(s) did not match a menu line and were left out: ${sites.unparsed.map((u) => `"${u.text}"`).join(', ')}.`, 'warning');
+          for (const w of sites.warnings) addLog(w, 'warning');
+          setScrapedData(sites.rows);
+          setPreviewHeaders([...GOOGLE_SITES_COLUMNS]);
+          setSitesReport(googleSitesReportSheet(sites.pages, sites.unparsed));
+          addLog(`${t.common.completed} ${sites.rows.length} items.`, 'success');
+          setProgress(100);
+          return;
+        } catch (e) {
+          console.warn('Google Sites menu unavailable, using the page text instead.', e);
+          addLog(`Could not read the Google Site's menu (${e instanceof Error ? e.message : String(e)}); using the page text instead.`, 'warning');
           // The page-text route DOES need fields or an instruction.
           if (!queryInstruction) throw new Error(t.scraper.needFields);
         }
@@ -301,8 +346,12 @@ const WebScraperTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) =>
     if (scrapedData.length === 0) return;
 
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(scrapedData, freshaExport ? { header: [...FRESHA_COLUMNS] } : undefined);
+    const fixedColumns = freshaExport ? [...FRESHA_COLUMNS] : sitesReport ? [...GOOGLE_SITES_COLUMNS] : null;
+    const ws = XLSX.utils.json_to_sheet(scrapedData, fixedColumns ? { header: fixedColumns } : undefined);
     XLSX.utils.book_append_sheet(wb, ws, "Scraped Data");
+    if (sitesReport) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sitesReport), 'Google Sites pages');
+    }
     if (freshaExport) {
       // A note, never services: booking-only add-ons cannot be read (utils/freshaVenue.ts).
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Note'], ...BOOKING_ONLY_NOTE.map((line) => [line])]), 'Not on venue page');
