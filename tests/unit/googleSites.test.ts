@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  googleSitesPage, pageKey, imageKey, isSameSite, parseGoogleSitesHtml, classifyLine, pageMenuRows, scriptOf, dedupeRows,
+  googleSitesPage, pageKey, imageKey, isSameSite, isGoogleImage, parseGoogleSitesHtml, classifyLine, pageMenuRows, scriptOf, dedupeRows,
   rowsFromOcrAnswer, sitesRow, sitesStats, googleSitesSummary, googleSitesReportSheet, clean,
   GOOGLE_SITES_COLUMNS, STARTING_PRICE_NOTE, MAX_LINKED_PAGES, OCR_PROMPT,
 } from '../../utils/googleSites';
@@ -109,6 +109,16 @@ describe('identities', () => {
     expect(imageKey('https://sites.google.com/sitesv-images-rt/AbC=w1280')).toBe(imageKey('https://sites.google.com/sitesv-images-rt/AbC=w640'));
     expect(imageKey('https://lh3.googleusercontent.com/XyZ=s400')).toBe('https://lh3.googleusercontent.com/XyZ');
     expect(imageKey('https://sites.google.com/sitesv-images-rt/AbC=w1280')).not.toBe(imageKey('https://sites.google.com/sitesv-images-rt/AbD=w1280'));
+  });
+
+  it('isGoogleImage: only images Google hosts for the site', () => {
+    expect(isGoogleImage('https://sites.google.com/sitesv-images-rt/AbC=w1280')).toBe(true);
+    expect(isGoogleImage('https://lh3.googleusercontent.com/XyZ=s400')).toBe(true);
+    expect(isGoogleImage('https://sites.google.com/view/nightback/logo.png')).toBe(false);
+    expect(isGoogleImage('http://sites.google.com/sitesv-images-rt/AbC')).toBe(false);
+    expect(isGoogleImage('https://googleusercontent.com.evil.example/x.png')).toBe(false);
+    expect(isGoogleImage('https://cdn.example.com/menu.jpg')).toBe(false);
+    expect(isGoogleImage('data:image/png;base64,AAAA')).toBe(false);
   });
 
   it('isSameSite: pages of this site only', () => {
@@ -264,7 +274,7 @@ describe('pageMenuRows: the real pages', () => {
     ]);
   });
 
-  it('Arabic edition: 123 items in the site\'s own Arabic, never translated', () => {
+  it('Arabic edition: 107 items in the site\'s own Arabic, never translated', () => {
     const ar = ['نكهات-الشيشة', 'المشروبات-الساخنة', 'المشروبات-الباردة', 'المشروبات-الغازية', 'الكيك-والحلويات'];
     const all = ar.flatMap((s) => rows(s).rows);
     expect(all).toHaveLength(107);
@@ -510,6 +520,16 @@ describe('fetchGoogleSitesMenu', () => {
         'Image 1 on "Main Menu" could not be downloaded: Failed to fetch',
         'Image 2 on "Main Menu" could not be downloaded: Not a readable image (text/html).',
       ]);
+    });
+
+    it('an image hosted outside Google is never downloaded; a warning says so', async () => {
+      const page = htmlOf('main-menu').replace(contentImages[0], 'https://cdn.example.com/menu.jpg');
+      const { fn, asked } = fakeFetch({ ...hubOnly(), 'main-menu': page }, { '*': { bytes: PNG } });
+      const readImage = vi.fn<ReadImage>(async () => '[{"name":"Tea","price":5}]');
+      const res = await fetchGoogleSitesMenu(googleSitesPage(MAIN)!, fn, { readImage });
+      expect(asked.some((a) => a.url.includes('example.com'))).toBe(false);
+      expect(readImage).toHaveBeenCalledTimes(2);
+      expect(res.warnings[0]).toBe('Image 1 on "Main Menu" could not be downloaded: It is not hosted by Google (cdn.example.com), so it is not downloaded.');
     });
 
     it('a model failure stops the read (no half results) so the caller can fall back', async () => {

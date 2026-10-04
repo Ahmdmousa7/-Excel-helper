@@ -101,6 +101,24 @@ export function imageKey(src: string): string {
   return src.replace(/=[ws]\d+[^/]*$/, '');
 }
 
+/**
+ * True for an image Google itself hosts for the site: an uploaded image
+ * (`sites.google.com/sitesv-images…`) or one served from Google's image CDN
+ * (`*.googleusercontent.com`). Only these are downloaded for OCR — an image a
+ * site embeds from any other host is skipped, so a scrape never sends
+ * requests to hosts the user did not point it at.
+ */
+export function isGoogleImage(src: string): boolean {
+  try {
+    const u = new URL(src);
+    if (u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase();
+    return (host === SITES_HOST && u.pathname.startsWith('/sitesv-images')) || host.endsWith('.googleusercontent.com');
+  } catch {
+    return false;
+  }
+}
+
 /** True when `url` is a page of the site `site` (`/view/<site>`). */
 export function isSameSite(url: string, site: string): boolean {
   try {

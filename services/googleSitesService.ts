@@ -18,7 +18,7 @@
  * falls back to the existing page-text scrape.
  */
 import {
-  parseGoogleSitesHtml, pageMenuRows, pageScript, pageKey, imageKey, isSameSite, dedupeRows, rowsFromOcrAnswer, sitesStats,
+  parseGoogleSitesHtml, pageMenuRows, pageScript, pageKey, imageKey, isSameSite, isGoogleImage, dedupeRows, rowsFromOcrAnswer, sitesStats,
   OCR_PROMPT, MAX_LINKED_PAGES, MAX_OCR_IMAGES,
   type GoogleSitesLink, type ParsedSitesPage, type PageReport, type SitesRow, type SitesStats, type Script, type SitesImage,
 } from '../utils/googleSites';
@@ -145,6 +145,7 @@ const toBase64 = (buf: ArrayBuffer): string => {
 };
 
 async function readImageBytes(src: string, fetchFn: FetchLike, timeoutMs: number): Promise<{ data: string; mimeType: string }> {
+  if (!isGoogleImage(src)) throw new GoogleSitesError(`It is not hosted by Google (${new URL(src).hostname}), so it is not downloaded.`);
   return withTimeout(timeoutMs, 'The image', async (signal) => {
     const res = await fetchFn(src, { signal });
     if (!res.ok) throw new GoogleSitesError(`The image answered ${res.status}.`);
