@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:4abff4a092deff90ffbcd78f9cbc0373e180274584806cb467468c16bb362007` |
+| Attestation id | `sha256:870f727bec1a06c524780f382a1ed8622fa78963971c837c5489893f26532d5e` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `659120c2609c` |
+| Reviewed at commit | `8eb0b0d21fa8` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 11 |
+| Files reviewed | 8 |
 
 ## What this is, and what it is not
 
@@ -33,7 +33,7 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | low | 2 |
 | info | 0 |
 
-Adds a structured read path for Fresha venue menus to the Web Scraper: `utils/freshaVenue.ts` (pure link detection + `__NEXT_DATA__` → rows), `services/freshaVenueService.ts` (the single Jina HTML-mode fetch with abort/timeout), and a small wiring change in `WebScraperTab.tsx` that bypasses the field-selection gate for Fresha links and appends a `Not on venue page` note sheet to the export. The layering is correct (pure utils, I/O in services, component calls the service with the same `(u, init) => fetch(u, init)` injection the existing Yalla path uses at `WebScraperTab.tsx:63`), external JSON is treated as `unknown` and validated before use, no `any`/`@ts-ignore`/TODOs are introduced, no dependencies change, and the fallback to the existing page-text route is preserved and tested. Unit + e2e coverage is unusually thorough (timeout-vs-network-failure distinction on a fake clock, per-service vs per-row stat counting, Arabic path, and an assertion that booking-only add-ons never appear in output). Two low-severity polish items only; nothing blocking.
+Adds a dedicated route for published Google Sites menus to the Web Scraper: a pure parser/classifier (`utils/googleSites.ts`), an I/O module (`services/googleSitesService.ts`), a branch in `WebScraperTab.tsx` that mirrors the existing Fresha/Yalla structure, a 12-page real-site fixture, 568 lines of unit tests and a fully offline Playwright spec. The design is sound: text first with no model call, OCR only as a last resort, image downloads gated to Google-hosted hosts (`isGoogleImage`), per-page/total/image/model timeouts, and a documented fallback to the existing page-text route that still requires fields. No new dependencies, no secrets, no unsanitized HTML, no new JSX, and the blocking handbooks (frontend boundaries, security baseline) are satisfied — the component delegates all I/O to the service and only passes the platform `fetch` as a test seam, the same idiom already used at lines 68 and 207. Two low-severity advisory notes only.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ Adds a structured read path for Fresha venue menus to the Web Scraper: `utils/fr
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 563 warning(s) |
-| Vitest | pass | 884/884 passed, lines 99.42% |
-| Playwright | pass | 161/162 passed |
+| Vitest | pass | 973/973 passed, lines 99.01% |
+| Playwright | pass | 170/171 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 137 source files, 36259 lines
+- 141 source files, 37884 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
