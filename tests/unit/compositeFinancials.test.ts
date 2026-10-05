@@ -158,6 +158,29 @@ describe('productFinancials', () => {
     expect(fin(['X', 'C', '-5', 'pc', 'RAW-1', '2']).issues[0]).toEqual({ message: "Negative Retail Price '-5'", arabic: "سعر البيع بالسالب '-5'", col: 2 });
   });
 
+  it('a Retail Price problem: Profit and Margin blank, and the Note gives the same reason as Validation Errors', () => {
+    const cases: [unknown, string][] = [
+      ['', 'Missing Retail Price'],
+      ['free', "Invalid Retail Price 'free'"],
+      ['-5', "Negative Retail Price '-5'"],
+    ];
+    for (const [retail, reason] of cases) {
+      const p = fin(['X', 'C', retail, 'pc', 'RAW-1', '2']);
+      // Cost is unaffected; nothing is turned into 0.
+      expect(p).toMatchObject({ cost: 2, retailPrice: null, profit: null, margin: null, status: null, note: reason });
+      expect(p.issues.map((i) => i.message)).toEqual([reason]);
+    }
+  });
+
+  it('cost unknown AND a Retail Price problem: the Note gives both reasons', () => {
+    expect(fin(['X', 'C', '', 'pc', 'RAW-EMPTY', '1']).note).toBe('A cost in the Raw sheet is missing or unusable; Missing Retail Price');
+  });
+
+  it('a usable Retail Price and a known cost: no Note', () => {
+    expect(fin(['X', 'C', 20, 'pc', 'RAW-1', '2']).note).toBe('');
+    expect(fin(['X', 'C', 1, 'pc', 'RAW-2', '2']).note).toBe(''); // a loss still has a profit figure
+  });
+
   it('Retail Price not mapped: cost only, no profit, no error, a note', () => {
     const p = fin(['X', 'C', 20, 'pc', 'RAW-1', '2'], { ...MAP, retailPriceCol: NOT_MAPPED });
     expect(p).toMatchObject({ cost: 2, retailPrice: null, profit: null, status: null, issues: [], note: 'Retail Price is not mapped' });
@@ -198,14 +221,17 @@ describe('the export sheets', () => {
     fin(['Burger', 'COMP-1', 20, 'pc', 'RAW-1', '2', 'RAW-2', '1.5']),
     fin(['Loser', 'COMP-3', '10', 'pc', 'RAW-2', '2', 'RAW-3', '1']),
     fin(['Empty', 'COMP-9', 5, 'pc']),
+    fin(['NoPrice', 'COMP-7', 'n/a', 'pc', 'RAW-1', '3']),
   ];
 
   it('Profit Analysis: numbers stay numbers, unknowns stay blank', () => {
-    expect(profitSheetRows(products, [2, 3, 4])).toEqual([
+    expect(profitSheetRows(products, [2, 3, 4, 5])).toEqual([
       [...PROFIT_HEADER],
       ['Burger', 'COMP-1', 20, 9.5, 10.5, 0.525, 'Profit', 2, ''],
       ['Loser', 'COMP-3', 10, 12.5, -2.5, -0.25, 'Loss', 3, ''],
       ['Empty', 'COMP-9', 5, '', '', '', '', 4, 'No ingredients'],
+      // The cost stays a number; Retail Price, Profit and Margin stay blank, with the reason.
+      ['NoPrice', 'COMP-7', '', 3, '', '', '', 5, "Invalid Retail Price 'n/a'"],
     ]);
   });
 
@@ -217,10 +243,11 @@ describe('the export sheets', () => {
       ['Loser', 'COMP-3', 'RAW-2', 'Patty', 2, 5, 10],
       ['Loser', 'COMP-3', 'RAW-3', 'Cheese', 1, 2.5, 2.5],
       ['Empty', 'COMP-9', '(No Ingredients)', '', '', '', ''],
+      ['NoPrice', 'COMP-7', 'RAW-1', 'Bun', 3, 1, 3],
     ]);
   });
 
   it('the summary counts', () => {
-    expect(financialSummary(products)).toEqual({ products: 3, withProfit: 1, breakEven: 0, withLoss: 1, costUnknown: 1, costAboveRetail: 1 });
+    expect(financialSummary(products)).toEqual({ products: 4, withProfit: 1, breakEven: 0, withLoss: 1, costUnknown: 1, costAboveRetail: 1 });
   });
 });

@@ -189,7 +189,7 @@ export interface ProductFinancials {
   status: ProfitStatus | null;
   lines: BomLine[];
   issues: FinancialIssue[];
-  /** Why cost or profit is blank, in plain words; '' when both are known. */
+  /** Why Profit (and Margin) is blank, in plain words — the Retail Price reason is the Validation Errors message; '' when Profit is known. */
   note: string;
 }
 
@@ -267,12 +267,16 @@ export function productFinancials(
     const amount = parseAmount(row[m.retailPriceCol]);
     if (amount.kind === 'ok' && amount.value >= 0) {
       retailPrice = amount.value;
-    } else if (amount.kind === 'empty') {
-      issues.push({ message: 'Missing Retail Price', arabic: 'سعر البيع مفقود', col: m.retailPriceCol });
-    } else if (amount.kind === 'ok') {
-      issues.push({ message: `Negative Retail Price '${amount.value}'`, arabic: `سعر البيع بالسالب '${amount.value}'`, col: m.retailPriceCol });
     } else {
-      issues.push({ message: `Invalid Retail Price '${amount.text}'`, arabic: `سعر البيع غير صحيح '${amount.text}'`, col: m.retailPriceCol });
+      const issue: FinancialIssue =
+        amount.kind === 'empty'
+          ? { message: 'Missing Retail Price', arabic: 'سعر البيع مفقود', col: m.retailPriceCol }
+          : amount.kind === 'ok'
+            ? { message: `Negative Retail Price '${amount.value}'`, arabic: `سعر البيع بالسالب '${amount.value}'`, col: m.retailPriceCol }
+            : { message: `Invalid Retail Price '${amount.text}'`, arabic: `سعر البيع غير صحيح '${amount.text}'`, col: m.retailPriceCol };
+      issues.push(issue);
+      // The Profit Analysis Note gives the same reason as Validation Errors.
+      notes.push(issue.message);
     }
   } else {
     notes.push('Retail Price is not mapped');
@@ -305,7 +309,8 @@ export function productFinancials(
     status,
     lines,
     issues,
-    note: cost === null || (retailPrice === null && m.retailPriceCol === NOT_MAPPED) ? capitalise(dedupe(notes).join('; ')) : '',
+    // Why Profit is blank, whenever it is: no known cost, and/or no usable Retail Price.
+    note: profit === null ? capitalise(dedupe(notes).join('; ')) : '',
   };
 }
 

@@ -5,6 +5,7 @@ import { FileData, ProcessingStatus, LogEntry } from '../types';
 import { classifyQuantity } from '../utils/quantityRule';
 import { getSheetData, saveWorkbook, cloneWorkbook, readExcelFile } from '../services/excelService';
 import { safeSheetName } from '../utils/excelUtils';
+import { identifierKey } from '../utils/identifiers';
 import { defaultSheets, sheetLabel, sheetVisibility, showSheet } from '../utils/compositeWorkbook';
 import {
   legacyAmount, compositeCost, profitOf, marginPercentOf, financialsEnabled, buildCostIndex, productFinancials,
@@ -380,6 +381,12 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
           if (v !== 'visible') addLog(`The ${label} sheet '${name}' is ${v === 'veryHidden' ? 'very hidden' : 'hidden'} in your file; it was read in full.`, 'info');
       });
 
+      // "Is this SKU in the Raw sheet?" — keyed with identifierKey (decision D7):
+      // an invisible character (zero-width space, direction mark, diacritic,
+      // tatweel) does not make a SKU different; leading zeros and case still do.
+      // The same rule the Cost & Profit lookup uses, so one export can no longer
+      // call an ingredient "missing" while costing it. Only these membership
+      // checks use the key; messages quote the cell as written.
       const rawMaterialsSet = new Set<string>();
       const rawMaterialsArr: string[] = [];
       const skuCostMap = new Map<string, number>();
@@ -394,7 +401,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
         if (rawSkuCol !== -1) {
             const val = String(row[rawSkuCol] || "").trim();
             if (val) {
-                rawMaterialsSet.add(val);
+                if (identifierKey(val)) rawMaterialsSet.add(identifierKey(val));
                 if (enableFuzzy) rawMaterialsArr.push(val);
                 
                 if (activeTab === 'analysis') {
@@ -413,7 +420,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
             row.forEach(cell => {
                 if (cell) {
                     const val = String(cell).trim();
-                    rawMaterialsSet.add(val);
+                    if (identifierKey(val)) rawMaterialsSet.add(identifierKey(val));
                     if (enableFuzzy) rawMaterialsArr.push(val);
                 }
             });
@@ -578,7 +585,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                 const parentName = String(row[0] || "").trim();
 
                 // Check for SKU Collision (Composite SKU exists in Raw Materials)
-                if (parentSku && rawMaterialsSet.has(parentSku)) {
+                if (parentSku && rawMaterialsSet.has(identifierKey(parentSku))) {
                     const msg = `Conflict: Composite SKU '${parentSku}' is also defined as a Raw Material`;
                     rowErrors.push(msg);
                     rowLocations.push(getCellRef(1));
@@ -663,7 +670,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                 rowVals.forEach(item => {
                    if (item.col >= fixedColCount && (item.col - fixedColCount) % 2 === 0) { 
                        // Check Existence
-                       if (item.val && !rawMaterialsSet.has(item.val)) {
+                       if (item.val && !rawMaterialsSet.has(identifierKey(item.val))) {
                           let errorMsg = `SKU '${item.val}' missing`;
 
                           if (enableFuzzy && rawMaterialsArr.length > 0) {

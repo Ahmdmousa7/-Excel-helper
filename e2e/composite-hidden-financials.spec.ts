@@ -129,6 +129,42 @@ test.describe('Composite Check — hidden content', () => {
   });
 });
 
+test.describe('Composite Check — SKU matching (decision D7)', () => {
+  test('an invisible character does not make a SKU missing; leading zeros and case still matter', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    const ZWSP = String.fromCharCode(0x200b);
+    const wb0 = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb0, XLSX.utils.aoa_to_sheet([
+      ['SKU', 'Name', 'Cost'],
+      [`RAW-100${ZWSP}`, 'Bun', 1],   // invisible character in the Raw sheet
+      ['RAW-200', 'Patty', 5],
+      ['100', 'Plain hundred', 1],
+      [`COMP-009${ZWSP}`, 'Raw twin', 1],
+    ]), 'Raw');
+    XLSX.utils.book_append_sheet(wb0, XLSX.utils.aoa_to_sheet([
+      COMPOSITE[0],
+      ['Clean', 'COMP-001', 20, 'pc', 'RAW-100', 2, `RAW-200${ZWSP}`, 1],   // both match
+      ['Zeros', 'COMP-002', 20, 'pc', '0100', 1, '', ''],                    // 0100 ≠ 100
+      ['Case', 'COMP-003', 20, 'pc', 'raw-200', 1, '', ''],                  // case kept
+      ['Twin', 'COMP-009', 20, 'pc', 'RAW-200', 1, '', ''],                  // also a Raw SKU
+    ]), 'Composite');
+    await open(app, page, Buffer.from(XLSX.write(wb0, { type: 'buffer', bookType: 'xlsx' })));
+    await page.locator('label:has-text("Raw Sheet SKU Column") + select').selectOption({ label: 'SKU' });
+    await page.getByLabel('Raw Sheet: Cost Column').selectOption({ label: 'Cost' });
+    const wb = await validate(page);
+    const errors = grid(wb, 'Validation Errors').slice(1).map((r) => `${r[1]}: ${r[r.length - 3]}`);
+    expect(errors).toEqual([
+      "COMP-002: SKU '0100' missing",
+      "COMP-003: SKU 'raw-200' missing",
+      "COMP-009: Conflict: Composite SKU 'COMP-009' is also defined as a Raw Material",
+    ]);
+    expect(grid(wb, 'Valid Products').map((r) => r[1])).toEqual(['Product SKU', 'COMP-001']);
+    // The structure check and the costing agree on the same ingredient.
+    // (Retail Price is not mapped here, so cost only.)
+    expect(grid(wb, 'Profit Analysis')[1]).toEqual(['Clean', 'COMP-001', '', 7, '', '', '', 2, 'Retail Price is not mapped']);
+  });
+});
+
 test.describe('Composite Check — Cost & Profit in the validated export', () => {
   test('mapped: Profit Analysis and Detailed BOM, numbers as numbers, Cost above Retail in Validation Errors', async ({ app, page }) => {
     test.setTimeout(120_000);
@@ -170,6 +206,36 @@ test.describe('Composite Check — Cost & Profit in the validated export', () =>
 
     await page.getByRole('button', { name: /logs/i }).first().click();
     await expect(page.getByText('Cost & Profit: 4 products: 2 profit, 1 break-even, 1 loss; 1 with Cost above Retail Price (in Validation Errors).')).toBeVisible();
+  });
+
+  test('a Retail Price problem: Profit stays blank and the Note says why, as Validation Errors does', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    const raw = XLSX.utils.aoa_to_sheet(RAW);
+    const comp = XLSX.utils.aoa_to_sheet([
+      COMPOSITE[0],
+      ['Burger', 'COMP-001', 20, 'pc', 'RAW-100', 2, 'RAW-200', 1.5],
+      ['NoPrice', 'COMP-005', '', 'pc', 'RAW-100', 2, '', ''],
+      ['BadPrice', 'COMP-006', 'free', 'pc', 'RAW-100', 2, '', ''],
+      ['NegPrice', 'COMP-007', -5, 'pc', 'RAW-100', 2, '', ''],
+    ]);
+    const wb0 = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb0, raw, 'Raw');
+    XLSX.utils.book_append_sheet(wb0, comp, 'Composite');
+    await open(app, page, Buffer.from(XLSX.write(wb0, { type: 'buffer', bookType: 'xlsx' })));
+    await mapFinancials(page);
+    const wb = await validate(page);
+    expect(grid(wb, 'Profit Analysis').slice(1)).toEqual([
+      ['Burger', 'COMP-001', 20, 9.5, 10.5, 0.525, 'Profit', 2, ''],
+      ['NoPrice', 'COMP-005', '', 2, '', '', '', 3, 'Missing Retail Price'],
+      ['BadPrice', 'COMP-006', '', 2, '', '', '', 4, "Invalid Retail Price 'free'"],
+      ['NegPrice', 'COMP-007', '', 2, '', '', '', 5, "Negative Retail Price '-5'"],
+    ]);
+    // The cost is still a numeric cell on those rows.
+    expect(wb.Sheets['Profit Analysis'].D3).toMatchObject({ t: 'n', v: 2 });
+    // The same reasons, unchanged, in Validation Errors.
+    expect(grid(wb, 'Validation Errors').slice(1).map((r) => r[r.length - 3])).toEqual([
+      'Missing Retail Price', "Invalid Retail Price 'free'", "Negative Retail Price '-5'",
+    ]);
   });
 
   test('Retail Price not mapped: Cost only, no invented profit, no financial errors', async ({ app, page }) => {
