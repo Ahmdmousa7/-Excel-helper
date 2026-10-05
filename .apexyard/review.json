@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:cc87eca444c0dddb2afe85545415c50f0761f50303973df8430bc4e77127ff3f",
+  "attestation_id": "sha256:ee9aeed588eaca4c32013386f34113d0b96e872e9db4a4243dd27f98ea95ae98",
   "available": true,
-  "files_reviewed": 8,
+  "files_reviewed": 5,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
+    "low": 1,
     "medium": 0
   },
-  "findings_total": 3,
+  "findings_total": 2,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR makes Composite Check handle hidden workbook content (hidden/veryHidden sheets no longer get auto-picked as the Raw sheet, and the validated sheet is forced visible in the generated copy only) and adds Cost & Profit output to the validated export via a new shared formula module. The financial logic is correctly extracted into pure `utils/` modules with a strict reading (nothing missing becomes 0) that is kept separate from the analyzer's preserved lenient reading, and raw-sheet SKU membership is unified on `identifierKey` per decision D7. Coverage is strong — 403 lines of new unit tests plus a 286-line Playwright spec that asserts the actual downloaded workbook, including numeric cell types and number formats — and the module docs were updated in the same change. No blocking-handbook violations, no new dependencies, no escape hatches; findings are three low/info polish items. The PR description was not supplied to this run, so §6 (summary/glossary/ticket) and the AgDR link check could not be assessed.",
+  "summary": "This PR adds automatic default column mapping for Composite Check: a new pure helper (`utils/compositeMapping.ts`) picks Raw SKU / Cost / Name and the Composite sheet's Retail Price from headers only (exact match, then a short evidence-backed alias list, otherwise nothing), with ambiguity and dedupe guards, and `CompositeTab.tsx` wires it in while keeping every dropdown editable and tracking auto-vs-manual provenance. The design is deliberately conservative (never positional, never content-based), well documented in MODULE_GUIDE.md, and covered by both a focused unit suite and six new end-to-end flows including the real Arabic template headers. No blocking-handbook violations: the new util stays in the `utils/` layer, no I/O moved into components, no new `any`, and the two `exhaustive-deps` suppressions each carry a stated reason as the technical-debt handbook requires. I verified the mount ordering of the three effects (`compositeSheet` starts as `''`, so the `[fixedColCount]` effect cannot clobber the auto-suggested Retail Price on mount) and found no defect there. Two non-blocking notes below.",
   "verdict": "approved"
 }

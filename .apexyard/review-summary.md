@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:cc87eca444c0dddb2afe85545415c50f0761f50303973df8430bc4e77127ff3f` |
+| Attestation id | `sha256:ee9aeed588eaca4c32013386f34113d0b96e872e9db4a4243dd27f98ea95ae98` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `220e81c98e71` |
+| Reviewed at commit | `62569075688f` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 8 |
+| Files reviewed | 5 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 2 |
+| low | 1 |
 | info | 1 |
 
-This PR makes Composite Check handle hidden workbook content (hidden/veryHidden sheets no longer get auto-picked as the Raw sheet, and the validated sheet is forced visible in the generated copy only) and adds Cost & Profit output to the validated export via a new shared formula module. The financial logic is correctly extracted into pure `utils/` modules with a strict reading (nothing missing becomes 0) that is kept separate from the analyzer's preserved lenient reading, and raw-sheet SKU membership is unified on `identifierKey` per decision D7. Coverage is strong — 403 lines of new unit tests plus a 286-line Playwright spec that asserts the actual downloaded workbook, including numeric cell types and number formats — and the module docs were updated in the same change. No blocking-handbook violations, no new dependencies, no escape hatches; findings are three low/info polish items. The PR description was not supplied to this run, so §6 (summary/glossary/ticket) and the AgDR link check could not be assessed.
+This PR adds automatic default column mapping for Composite Check: a new pure helper (`utils/compositeMapping.ts`) picks Raw SKU / Cost / Name and the Composite sheet's Retail Price from headers only (exact match, then a short evidence-backed alias list, otherwise nothing), with ambiguity and dedupe guards, and `CompositeTab.tsx` wires it in while keeping every dropdown editable and tracking auto-vs-manual provenance. The design is deliberately conservative (never positional, never content-based), well documented in MODULE_GUIDE.md, and covered by both a focused unit suite and six new end-to-end flows including the real Arabic template headers. No blocking-handbook violations: the new util stays in the `utils/` layer, no I/O moved into components, no new `any`, and the two `exhaustive-deps` suppressions each carry a stated reason as the technical-debt handbook requires. I verified the mount ordering of the three effects (`compositeSheet` starts as `''`, so the `[fixedColCount]` effect cannot clobber the auto-suggested Retail Price on mount) and found no defect there. Two non-blocking notes below.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ This PR makes Composite Check handle hidden workbook content (hidden/veryHidden 
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 560 warning(s) |
-| Vitest | pass | 1026/1026 passed, lines 99.11% |
-| Playwright | pass | 179/180 passed |
+| Vitest | pass | 1045/1045 passed, lines 99.13% |
+| Playwright | pass | 185/186 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 146 source files, 39132 lines
+- 148 source files, 39572 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -61,7 +61,7 @@ reports zero failures for a tool that never executed.
 
 | File | Lines |
 |---|---:|
-| `components/CompositeTab.tsx` | 1514 |
+| `components/CompositeTab.tsx` | 1564 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1124 |
 | `components/OcrTab.tsx` | 1074 |

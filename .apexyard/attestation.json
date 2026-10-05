@@ -1,49 +1,37 @@
 {
-  "attestation_id": "sha256:cc87eca444c0dddb2afe85545415c50f0761f50303973df8430bc4e77127ff3f",
+  "attestation_id": "sha256:ee9aeed588eaca4c32013386f34113d0b96e872e9db4a4243dd27f98ea95ae98",
   "files": [
     {
-      "oid": "cec94c8f5d95183a564a6f07c4905a07d1334217",
+      "oid": "a9415e1cc2fdd03ffd5960a2a8676464db786e3c",
       "path": "components/CompositeTab.tsx"
     },
     {
-      "oid": "b4b7029f8411fafbc8ba47d33bf5d7a5b6f669be",
+      "oid": "a7c31d9bc0c84455b4b4694fb7f175aaf235ebe5",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "267ce93cc1e863dc3c95c9c7b69da3a1e7cbb302",
-      "path": "docs/modules/open-decisions.md"
-    },
-    {
-      "oid": "893462cc4597681963058a04bfe052612223f904",
+      "oid": "fd13666c73b064b9f225ff6a077f9a41506c0521",
       "path": "e2e/composite-hidden-financials.spec.ts"
     },
     {
-      "oid": "c162515151e3f6ce57fa79808ac89471de0a8843",
-      "path": "tests/unit/compositeFinancials.test.ts"
+      "oid": "3b458540a2cee1c77b67ae179043c509fd6fe671",
+      "path": "tests/unit/compositeMapping.test.ts"
     },
     {
-      "oid": "ea0ef0473caa1d1792a2d17218b216db4205bd90",
-      "path": "tests/unit/compositeWorkbook.test.ts"
-    },
-    {
-      "oid": "413e8d788d613f7f7884eb27bd894bffc6924530",
-      "path": "utils/compositeFinancials.ts"
-    },
-    {
-      "oid": "c79d7b0dfecc5f0a3fb15288fe8b2595c9a44caa",
-      "path": "utils/compositeWorkbook.ts"
+      "oid": "f436f20dbc698291f36cc5375a14d53700d2b327",
+      "path": "utils/compositeMapping.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
+    "low": 1,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "220e81c98e71eb3d1ac7f0efcf01097ca760f2e2",
+  "reviewed_at_commit": "62569075688f44086a9414ac355a412ac71bc0b0",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

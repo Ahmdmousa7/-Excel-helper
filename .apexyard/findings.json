@@ -1,42 +1,33 @@
 {
-  "attestation_id": "sha256:cc87eca444c0dddb2afe85545415c50f0761f50303973df8430bc4e77127ff3f",
+  "attestation_id": "sha256:ee9aeed588eaca4c32013386f34113d0b96e872e9db4a4243dd27f98ea95ae98",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
     "info": 1,
-    "low": 2,
+    "low": 1,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "`if (identifierKey(val)) rawMaterialsSet.add(identifierKey(val));` runs the Unicode `[\\p{M}\\p{Cf}\\u0640]/gu` replace twice for the same value, and the same shape repeats at line 423 — where it runs over *every cell* of every raw row, not just the SKU column. On a large raw sheet that doubles the regex work in the hottest loop of the pass for no benefit, and it reads as if two different keys were intended.",
+      "detail": "`nextChoice` has exactly one production call site — CompositeTab.tsx:295 — and it passes `sourceChanged: false` literally. The `if (sourceChanged) return autoChoice(suggested)` branch (line 104) and the exported `manualChoice` helper are exercised only by tests/unit/compositeMapping.test.ts:115-116. Meanwhile the real \"source changed\" behaviour is reimplemented inline in the component: the `[fileData, compositeSheet]` effect does `setRetailPriceCol(suggest…)` + `setMappingSource(prev => ({...prev, retail: 'auto'}))`, and the `[fileData, rawSheet]` effect does the same for sku/cost/name. So the rule lives in two places, and the unit test asserting \"another sheet or file: the new default replaces even a manual choice\" is validating a code path the app never takes — if the component's inline version drifts, that test keeps passing. This is the code-smells handbook's dead-code entry (an exported path unreachable from production) plus a duplicated rule, not a user-visible bug.",
+      "file": "utils/compositeMapping.ts",
+      "line": 103,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "nextChoice's `sourceChanged` branch and `manualChoice` are only reachable from tests"
+    },
+    {
+      "category": "testing",
+      "detail": "Observation, not a request. (1) A workbook with standard headers now arrives with Cost mapped, so `financialsEnabled` flips on and the export gains `Profit Analysis` + `Detailed BOM` sheets for users who previously got neither — and `Cost above Retail Price` becomes a validation error for them. (2) The Raw SKU dropdown no longer defaults to `Auto-Detect / All Columns`; once a column is auto-chosen, `SKU '…' missing` is checked against that column only, so a SKU that happens to appear in a Name cell now reports missing where it previously passed. Both are intentional, called out in docs/modules/MODULE_GUIDE.md under \"Consequences, deliberate\", and pinned by e2e cases (`the auto-chosen SKU column is what \"SKU missing\" checks`), and the existing hidden-content specs were correctly updated with `clearCost(page)` to preserve their old assertions. The reason this is worth a line: the escape hatch (clear Cost / re-select *Auto-Detect*) is discoverable only from the module guide, and the on-screen hint says \"Columns marked Auto were chosen from the headers\" without mentioning that this is what switched the extra sheets on. What would raise this above info is any user-facing surface that silently changes an exported artifact with no in-app explanation — adding half a sentence to the hint, or a line in the release notes, closes it.",
       "file": "components/CompositeTab.tsx",
-      "line": 404,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "identifierKey(val) is computed twice per raw cell"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`classifyQuantity(typeof qtyRaw === 'number' ? qtyRaw : String(qtyRaw ?? '').trim())` converts every non-number to a string before handing it over. `utils/quantityRule.ts:36-39` documents that it deliberately rejects non-string/non-number inputs for exactly this reason: `String([5])` is `'5'`, so an array cell would be accepted as the quantity 5 — 'a parsing accident, not a five'. This call site reintroduces that coercion at the one place the guard was written to protect. The practical blast radius is small (SheetJS cell values are string/number/boolean/Date, and for those the two forms agree), which is why this is low rather than medium; it would be medium if a parse path could hand this function an array or object cell.",
-      "file": "utils/compositeFinancials.ts",
-      "line": 227,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "Pre-stringifying the qty cell defeats classifyQuantity's documented array guard"
-    },
-    {
-      "category": "code-smell",
-      "detail": "`marginPercentOf` re-checks `retailPrice > 0` before delegating to `marginOf`, which already returns 0 for a non-positive retail price (line 94-95). The ternary's false branch is unreachable in any state where `marginOf` would not also return 0, so it is a dead guard that implies a distinction the two functions do not actually have. Observation only — behaviour is correct.",
-      "file": "utils/compositeFinancials.ts",
-      "line": 99,
+      "line": 297,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Redundant retailPrice > 0 guard in marginPercentOf"
+      "summary": "Two deliberate behaviour changes for existing users; both documented, flagging for release notes"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 2
 }
