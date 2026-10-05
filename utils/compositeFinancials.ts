@@ -209,6 +209,8 @@ export function productFinancials(
   const issues: FinancialIssue[] = [];
   const notes: string[] = [];
   const lines: BomLine[] = [];
+  // The lines whose unit cost AND quantity are known; the cost is their sum.
+  const known: IngredientLine[] = [];
   let costKnown = true;
 
   for (let k = fixedColCount; k < row.length; k += 2) {
@@ -248,6 +250,7 @@ export function productFinancials(
     // A bad quantity is reported by the structure check ("Non-numeric Qty" etc.).
     if (qty === null) notes.push(`ingredient '${sku}' has no usable quantity`);
     if (unitCost === null || qty === null) costKnown = false;
+    else known.push({ unitCost, qty });
     lines.push({ sku, name: entry?.name ?? '', qty, unitCost, lineCost: unitCost !== null && qty !== null ? unitCost * qty : null });
   }
 
@@ -257,7 +260,7 @@ export function productFinancials(
   }
   if (!costKnown && issues.length) notes.unshift('a cost in the Raw sheet is missing or unusable');
 
-  const cost = costKnown ? compositeCost(lines as IngredientLine[]) : null;
+  const cost = costKnown ? compositeCost(known) : null;
 
   let retailPrice: number | null = null;
   if (m.retailPriceCol !== NOT_MAPPED) {
@@ -266,9 +269,10 @@ export function productFinancials(
       retailPrice = amount.value;
     } else if (amount.kind === 'empty') {
       issues.push({ message: 'Missing Retail Price', arabic: 'سعر البيع مفقود', col: m.retailPriceCol });
+    } else if (amount.kind === 'ok') {
+      issues.push({ message: `Negative Retail Price '${amount.value}'`, arabic: `سعر البيع بالسالب '${amount.value}'`, col: m.retailPriceCol });
     } else {
-      const text = amount.kind === 'invalid' ? amount.text : String(amount.value);
-      issues.push({ message: `Invalid Retail Price '${text}'`, arabic: `سعر البيع غير صحيح '${text}'`, col: m.retailPriceCol });
+      issues.push({ message: `Invalid Retail Price '${amount.text}'`, arabic: `سعر البيع غير صحيح '${amount.text}'`, col: m.retailPriceCol });
     }
   } else {
     notes.push('Retail Price is not mapped');

@@ -155,7 +155,7 @@ describe('productFinancials', () => {
     expect(missing).toMatchObject({ cost: 2, retailPrice: null, profit: null, status: null });
     expect(missing.issues).toEqual([{ message: 'Missing Retail Price', arabic: 'سعر البيع مفقود', col: 2 }]);
     expect(fin(['X', 'C', 'free', 'pc', 'RAW-1', '2']).issues[0].message).toBe("Invalid Retail Price 'free'");
-    expect(fin(['X', 'C', '-5', 'pc', 'RAW-1', '2']).issues[0].message).toBe("Invalid Retail Price '-5'");
+    expect(fin(['X', 'C', '-5', 'pc', 'RAW-1', '2']).issues[0]).toEqual({ message: "Negative Retail Price '-5'", arabic: "سعر البيع بالسالب '-5'", col: 2 });
   });
 
   it('Retail Price not mapped: cost only, no profit, no error, a note', () => {

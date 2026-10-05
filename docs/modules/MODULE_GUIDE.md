@@ -162,7 +162,7 @@ The loaded `.xlsx`, two named sheets, via `getSheetData(workbook, sheet, raw)`.
 | Row error: `Cost is higher than Retail Price (Cost 12.50 > Retail Price 10.00, loss 2.50)` | `التكلفة أعلى من سعر البيع (…)` | Cost & Profit mapped; the product's cost exceeds its Retail Price. The row is still in Profit Analysis (as a `Loss`) |
 | Row error: `Missing Cost for Ingredient 'X'` / `Invalid Cost 'abc' for Ingredient 'X'` / `Negative Cost '-2' for Ingredient 'X'` | `التكلفة مفقودة للمكون` / `التكلفة غير صحيحة` / `التكلفة بالسالب` | Cost mapped; the ingredient's Raw Cost cell is blank, not a plain number, or below zero |
 | Row error: `Conflicting Cost for Ingredient 'X' (Raw rows 10, 11)` | `تكلفة متعارضة للمكون` | The Raw sheet lists the SKU more than once with different costs (same cost twice is used, and logged) |
-| Row error: `Missing Retail Price` / `Invalid Retail Price 'free'` | `سعر البيع مفقود` / `سعر البيع غير صحيح` | Retail Price mapped; the cell is blank, not a plain number, or below zero |
+| Row error: `Missing Retail Price` / `Invalid Retail Price 'free'` / `Negative Retail Price '-5'` | `سعر البيع مفقود` / `سعر البيع غير صحيح` / `سعر البيع بالسالب` | Retail Price mapped; the cell is blank, not a plain number, or below zero |
 
 #### Error handling / ماذا يحدث عند الخطأ؟
 **EN:** Row-level problems do not stop the run — they are collected and written to the Validation Errors sheet with a cell reference, while clean rows go to Valid Products. Configuration problems are warnings that block the run until fixed.
