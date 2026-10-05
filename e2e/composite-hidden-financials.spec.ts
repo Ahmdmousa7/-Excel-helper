@@ -163,7 +163,10 @@ test.describe('Composite Check — automatic mapping defaults', () => {
     await expect(page.getByLabel('Composite: Retail Price')).toHaveValue('2');         // Retail Price
     for (const label of ['Raw Sheet SKU Column', 'Raw Sheet: Cost Column', 'Raw Sheet: Name Column', 'Composite: Retail Price']) {
       await expect(badge(page, label)).toHaveCount(1);
+      // Screen readers hear it too: the dropdown's own name says so.
+      await expect(page.getByRole('combobox', { name: `${label} (auto-selected)` })).toHaveCount(1);
     }
+    await expect(page.getByText('Columns marked Auto were chosen from the headers.', { exact: false })).toHaveCount(1);
     // Nothing touched: the financial export comes out, exactly as when mapped by hand.
     const wb = await validate(page);
     expect(wb.SheetNames).toEqual(['Raw', 'Composite', 'Validation Errors', 'Valid Products', 'Summary', 'Profit Analysis', 'Detailed BOM']);
@@ -204,6 +207,8 @@ test.describe('Composite Check — automatic mapping defaults', () => {
     await expect(page.getByLabel('Raw Sheet: Name Column')).toHaveValue('-1');         // none
     await expect(page.getByLabel('Composite: Retail Price')).toHaveValue('-1');        // none
     await expect(page.getByText('Auto', { exact: true })).toHaveCount(0);
+    // Nothing chosen automatically: no hint about Auto columns.
+    await expect(page.getByText('Columns marked Auto were chosen from the headers.', { exact: false })).toHaveCount(0);
     const wb = await validate(page);
     expect(wb.SheetNames).toEqual(['Raw', 'Composite', 'Valid Products', 'Summary']);
   });

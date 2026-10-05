@@ -173,7 +173,7 @@ const FinancialMappingField: React.FC<{
     <div className={f.box}>
       <label className={f.label}>{f.title}<AutoBadge show={auto && value !== -1} /></label>
       <select
-          aria-label={f.title}
+          aria-label={auto && value !== -1 ? `${f.title} (auto-selected)` : f.title}
           className="w-full p-2 border rounded text-sm bg-white"
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
@@ -241,6 +241,10 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
   // picked stays until then.
   const [mappingSource, setMappingSource] = useState<Record<MappingField, 'auto' | 'manual'>>({ sku: 'auto', cost: 'auto', name: 'auto', retail: 'auto' });
   const isAuto = (field: MappingField) => mappingSource[field] === 'auto';
+  /** At least one dropdown shows an automatic choice (for the hint). */
+  const anyAuto =
+      (isAuto('sku') && rawSkuCol !== -1) || (isAuto('cost') && costCol !== -1) ||
+      (isAuto('name') && rawNameCol !== -1) || (isAuto('retail') && retailPriceCol !== -1);
   /** A choice made in a dropdown: the user's, not a default. */
   const chooseColumn = (field: MappingField, col: number) => {
       ({ sku: setRawSkuCol, cost: setCostCol, name: setRawNameCol, retail: setRetailPriceCol })[field](col);
@@ -1194,6 +1198,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                           <div className="mb-2">
                             <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Raw Sheet SKU Column<AutoBadge show={isAuto('sku') && rawSkuCol !== -1} /></label>
                             <select 
+                                aria-label={isAuto('sku') && rawSkuCol !== -1 ? 'Raw Sheet SKU Column (auto-selected)' : 'Raw Sheet SKU Column'}
                                 className="w-full p-2 border rounded text-xs bg-white"
                                 value={rawSkuCol}
                                 onChange={(e) => chooseColumn('sku', Number(e.target.value))}
@@ -1207,7 +1212,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                       <div className="bg-white p-4 rounded-lg border border-slate-200">
                           <label className="block text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1"><Coins size={14}/> Cost &amp; Profit (optional)</label>
                           <p className="text-xs text-slate-500 mb-3">The Cost &amp; Profit Analyzer's Financial Mapping. With the Raw SKU column above and a Cost column, the export adds Profit Analysis and Detailed BOM sheets, and Cost above Retail Price is a validation error.</p>
-                          <p className="text-xs text-emerald-700 mb-3">Columns marked Auto were chosen from the headers. Check them, and pick another column (or none) if needed.</p>
+                          {anyAuto && <p className="text-xs text-emerald-700 mb-3">Columns marked Auto were chosen from the headers. Check them, and pick another column (or none) if needed.</p>}
                           <div className="grid grid-cols-1 gap-2">
                               <FinancialMappingField field="cost" value={costCol} onChange={(c) => chooseColumn('cost', c)} options={rawHeaders} auto={isAuto('cost')} />
                               <FinancialMappingField field="name" value={rawNameCol} onChange={(c) => chooseColumn('name', c)} options={rawHeaders} auto={isAuto('name')} />
@@ -1334,7 +1339,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
               
               <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
                   <h3 className="font-bold text-slate-700 mb-2 flex items-center gap-2"><Calculator size={20}/> Financial Mapping</h3>
-                  <p className="text-xs text-emerald-700 mb-4">Columns marked Auto were chosen from the headers. Check them, and pick another column if needed.</p>
+                  {anyAuto && <p className="text-xs text-emerald-700 mb-4">Columns marked Auto were chosen from the headers. Check them, and pick another column if needed.</p>}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                       <FinancialMappingField field="sku" value={rawSkuCol} onChange={(c) => chooseColumn('sku', c)} options={rawHeaders} auto={isAuto('sku')} />
                       <FinancialMappingField field="cost" value={costCol} onChange={(c) => chooseColumn('cost', c)} options={rawHeaders} auto={isAuto('cost')} />
