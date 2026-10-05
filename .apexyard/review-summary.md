@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:9dc647d0720fe7591b12adf8f98450ed16deac4959bee9077c1e4484719518d8` |
+| Attestation id | `sha256:78c84e70e935ae53246e5786284ebe549de65aee5150c97f8aa815dfb404c5a8` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `70dbb63f7746` |
+| Reviewed at commit | `822a074ce1de` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 7 |
+| Files reviewed | 8 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 2 |
-| info | 1 |
+| low | 3 |
+| info | 0 |
 
-This PR extracts the Cost & Profit formula into a new shared module (`utils/compositeFinancials.ts`) and adds hidden-sheet handling (`utils/compositeWorkbook.ts`), then wires both into Composite Check: the Structure Validator's export now carries Profit Analysis + Detailed BOM sheets read strictly (nothing missing becomes 0), sheet pickers prefer visible sheets and label hidden ones, the validated sheet is force-unhidden in the generated copy only, and result sheets get collision-free names via the existing `safeSheetName`. The analyzer tab's lenient reading is preserved behind `legacyAmount`, and the change is backed by 2 new unit suites plus a 5-case Playwright spec that asserts the real downloaded workbook. No blocking-handbook violations, no new dependencies, no security or React-correctness issues found; three low/info advisory notes only.
+This PR makes Composite Check handle hidden workbook content (hidden/veryHidden sheets no longer get picked as defaults, the validated sheet is unhidden in the generated copy only, result sheets get collision-free names via the existing `safeSheetName`) and adds Cost & Profit to the validated export through two new pure modules, `utils/compositeFinancials.ts` and `utils/compositeWorkbook.ts`. The layering is clean (utils import only utils; no I/O moved into the component), the analyzer's lenient arithmetic is preserved verbatim while the export reads strictly, and the behaviour is pinned by substantial unit and Playwright coverage including the D7 SKU-matching edges and the hidden-row/column/sheet matrix. No blocking-handbook violations and no new dependencies; three low-severity polish items only.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ This PR extracts the Cost & Profit formula into a new shared module (`utils/comp
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 560 warning(s) |
-| Vitest | pass | 1022/1022 passed, lines 99.11% |
-| Playwright | pass | 177/178 passed |
+| Vitest | pass | 1025/1025 passed, lines 99.11% |
+| Playwright | pass | 179/180 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 146 source files, 38999 lines
+- 146 source files, 39104 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -61,7 +61,7 @@ reports zero failures for a tool that never executed.
 
 | File | Lines |
 |---|---:|
-| `components/CompositeTab.tsx` | 1507 |
+| `components/CompositeTab.tsx` | 1514 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1124 |
 | `components/OcrTab.tsx` | 1074 |

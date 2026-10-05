@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:9dc647d0720fe7591b12adf8f98450ed16deac4959bee9077c1e4484719518d8",
+  "attestation_id": "sha256:78c84e70e935ae53246e5786284ebe549de65aee5150c97f8aa815dfb404c5a8",
   "available": true,
-  "files_reviewed": 7,
+  "files_reviewed": 8,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 0,
+    "low": 3,
     "medium": 0
   },
   "findings_total": 3,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR extracts the Cost & Profit formula into a new shared module (`utils/compositeFinancials.ts`) and adds hidden-sheet handling (`utils/compositeWorkbook.ts`), then wires both into Composite Check: the Structure Validator's export now carries Profit Analysis + Detailed BOM sheets read strictly (nothing missing becomes 0), sheet pickers prefer visible sheets and label hidden ones, the validated sheet is force-unhidden in the generated copy only, and result sheets get collision-free names via the existing `safeSheetName`. The analyzer tab's lenient reading is preserved behind `legacyAmount`, and the change is backed by 2 new unit suites plus a 5-case Playwright spec that asserts the real downloaded workbook. No blocking-handbook violations, no new dependencies, no security or React-correctness issues found; three low/info advisory notes only.",
+  "summary": "This PR makes Composite Check handle hidden workbook content (hidden/veryHidden sheets no longer get picked as defaults, the validated sheet is unhidden in the generated copy only, result sheets get collision-free names via the existing `safeSheetName`) and adds Cost & Profit to the validated export through two new pure modules, `utils/compositeFinancials.ts` and `utils/compositeWorkbook.ts`. The layering is clean (utils import only utils; no I/O moved into the component), the analyzer's lenient arithmetic is preserved verbatim while the export reads strictly, and the behaviour is pinned by substantial unit and Playwright coverage including the D7 SKU-matching edges and the hidden-row/column/sheet matrix. No blocking-handbook violations and no new dependencies; three low-severity polish items only.",
   "verdict": "approved"
 }

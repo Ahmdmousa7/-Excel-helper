@@ -1,20 +1,24 @@
 {
-  "attestation_id": "sha256:9dc647d0720fe7591b12adf8f98450ed16deac4959bee9077c1e4484719518d8",
+  "attestation_id": "sha256:78c84e70e935ae53246e5786284ebe549de65aee5150c97f8aa815dfb404c5a8",
   "files": [
     {
-      "oid": "afa79330f80b997ff92d5514ed8bbfacbaca58f1",
+      "oid": "cec94c8f5d95183a564a6f07c4905a07d1334217",
       "path": "components/CompositeTab.tsx"
     },
     {
-      "oid": "809778fe032daff05bb7516d0360925cac48cbbd",
+      "oid": "4b6430283455af685956efb706768d4a10d2d616",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "9e0c1e7d671c96d2e36b1d94f4994b0f4fc25c75",
+      "oid": "267ce93cc1e863dc3c95c9c7b69da3a1e7cbb302",
+      "path": "docs/modules/open-decisions.md"
+    },
+    {
+      "oid": "04decefa210495cc0551fa5e4ad920891290b188",
       "path": "e2e/composite-hidden-financials.spec.ts"
     },
     {
-      "oid": "4045f2bded8223c98a1b6a12e5c814a9a5f17d69",
+      "oid": "660d43f38977f73731c9bd3c3a9aaa40b57df6d9",
       "path": "tests/unit/compositeFinancials.test.ts"
     },
     {
@@ -22,7 +26,7 @@
       "path": "tests/unit/compositeWorkbook.test.ts"
     },
     {
-      "oid": "b9deedaa877b830535fb1b5f4bdb95e40135fc97",
+      "oid": "9a6072b599394708c425b2e26846ff212761bcdf",
       "path": "utils/compositeFinancials.ts"
     },
     {
@@ -33,13 +37,13 @@
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 0,
+    "low": 3,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "70dbb63f7746469f6d390acd1262a28eeb67a110",
+  "reviewed_at_commit": "822a074ce1de65fc0b88ab076e9cfb9d561e37fc",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

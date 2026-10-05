@@ -1,40 +1,40 @@
 {
-  "attestation_id": "sha256:9dc647d0720fe7591b12adf8f98450ed16deac4959bee9077c1e4484719518d8",
+  "attestation_id": "sha256:78c84e70e935ae53246e5786284ebe549de65aee5150c97f8aa815dfb404c5a8",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 2,
+    "info": 0,
+    "low": 3,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "`productFinancials` runs from line 203 to line 310 — about 105 lines in a single body that does four distinct jobs: walk the ingredient pairs and classify each cost failure (216-255), decide whether the cost is knowable (257-263), read and validate Retail Price (265-279), and derive profit/margin/status plus the cost-above-retail error (281-296). `handbooks/general/code-smells.md` sets the threshold at 80 lines for a function added in the diff. It is cohesive and well-commented today, but the ingredient loop already carries five mutually-exclusive cost branches; the next cost rule (a per-unit conversion, a currency check) lands inside an already-long body where the cost-knowability invariant (`costKnown` / `known`) is maintained by hand across two scopes.",
-      "file": "utils/compositeFinancials.ts",
-      "line": 203,
+      "detail": "`if (identifierKey(val)) rawMaterialsSet.add(identifierKey(val));` runs the Unicode `\\p{M}\\p{Cf}` regex replace twice for the same value, at line 404 and again at line 423. Line 423 sits in the `rawSkuCol === -1` fallback, which iterates *every cell of every Raw row*, so on a large Raw sheet this doubles the normalisation work on the hottest loop in the validate pass. No correctness impact and the loop is already chunked, so this is cleanup rather than a user-visible problem.",
+      "file": "components/CompositeTab.tsx",
+      "line": 404,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "productFinancials is ~105 lines, over the 80-line threshold"
+      "summary": "identifierKey(val) computed twice per cell when building the membership set"
     },
     {
       "category": "code-smell",
-      "detail": "The `note` is emitted only when `cost === null || (retailPrice === null && m.retailPriceCol === NOT_MAPPED)`. So when the cost IS known but Retail Price is mapped and the cell is blank / unreadable / negative, the Profit Analysis row ships with Retail Price, Profit, Margin % and Profit/Loss all blank and an empty Note — exactly the case `docs/modules/MODULE_GUIDE.md` describes the column as covering (\"`Note` (why a value is blank)\"). The unit test at tests/unit/compositeFinancials.test.ts:154 pins `cost: 2, retailPrice: null, profit: null` for this row but does not assert `note`, so the gap is untested as well as undocumented. The reason is reachable — it is in the Validation Errors sheet — so this is a cross-sheet lookup the user has to make, not lost information; that is why it is low and not medium.",
+      "detail": "`margin = retailPrice > 0 ? marginOf(...) : null` blanks Margin when Retail Price is 0, but `note` is only populated when `profit === null` (line 313). With Retail Price 0 and a known cost, Profit *is* known, so the Note is `''` and the Profit Analysis row ships a blank Margin% cell with no reason — exactly the gap the Note was added to close, and what MODULE_GUIDE.md promises (\"why Profit and Margin are blank whenever they are\"). A free/placeholder-priced composite with cost 0 is the clean case: break-even, blank Margin, empty Note, and no `Cost is higher than Retail Price` error either, so nothing anywhere explains the blank. Narrow trigger (Retail Price must parse to exactly 0), hence low; it would be medium if Margin were silently wrong rather than silently blank.",
       "file": "utils/compositeFinancials.ts",
-      "line": 308,
+      "line": 291,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Note is blank when a Retail Price problem is what blanks Profit"
+      "summary": "Retail Price of exactly 0 leaves Margin blank with no Note explaining it"
     },
     {
-      "category": "performance",
-      "detail": "`bomSheetRows(financials)` emits one row per ingredient line across every product, with no cap. The validator already allows up to 30 ingredient pairs per row (the `pairCount > 30` check at line 597 reports but does not drop them), so a 40,000-row composite sheet can produce >1,000,000 BOM rows — at Excel's 1,048,576-row ceiling, where SheetJS writes a workbook Excel refuses to open. The build also runs synchronously at lines 866-874, after the `await new Promise(r => setTimeout(r, 0))` chunking loop has finished, so the whole sheet construction is one unyielded block on the main thread. This is the same shape the analyzer tab's export already has, so it is not a regression — recording it because this PR puts that shape on the validator path, which is the one users run on their largest files.",
-      "file": "components/CompositeTab.tsx",
-      "line": 872,
-      "severity": "info",
+      "category": "testing",
+      "detail": "`COMPOSITE.map((r) => r.map(String)).map((r) => r.map((c) => c))` — the second `.map` is an identity transform that does nothing. It reads as if a conversion were intended and was dropped, which is the kind of leftover that makes the next reader of this assertion pause and re-derive what the expected grid actually is.",
+      "file": "e2e/composite-hidden-financials.spec.ts",
+      "line": 106,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "Detailed BOM row count is unbounded and built outside the chunked loop"
+      "summary": "Redundant identity `.map((c) => c)` in the hidden-rows/columns assertion"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
