@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:870f727bec1a06c524780f382a1ed8622fa78963971c837c5489893f26532d5e",
+  "attestation_id": "sha256:9dc647d0720fe7591b12adf8f98450ed16deac4959bee9077c1e4484719518d8",
   "available": true,
-  "files_reviewed": 8,
+  "files_reviewed": 7,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 2,
     "medium": 0
   },
-  "findings_total": 2,
+  "findings_total": 3,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Adds a dedicated route for published Google Sites menus to the Web Scraper: a pure parser/classifier (`utils/googleSites.ts`), an I/O module (`services/googleSitesService.ts`), a branch in `WebScraperTab.tsx` that mirrors the existing Fresha/Yalla structure, a 12-page real-site fixture, 568 lines of unit tests and a fully offline Playwright spec. The design is sound: text first with no model call, OCR only as a last resort, image downloads gated to Google-hosted hosts (`isGoogleImage`), per-page/total/image/model timeouts, and a documented fallback to the existing page-text route that still requires fields. No new dependencies, no secrets, no unsanitized HTML, no new JSX, and the blocking handbooks (frontend boundaries, security baseline) are satisfied — the component delegates all I/O to the service and only passes the platform `fetch` as a test seam, the same idiom already used at lines 68 and 207. Two low-severity advisory notes only.",
+  "summary": "This PR extracts the Cost & Profit formula into a new shared module (`utils/compositeFinancials.ts`) and adds hidden-sheet handling (`utils/compositeWorkbook.ts`), then wires both into Composite Check: the Structure Validator's export now carries Profit Analysis + Detailed BOM sheets read strictly (nothing missing becomes 0), sheet pickers prefer visible sheets and label hidden ones, the validated sheet is force-unhidden in the generated copy only, and result sheets get collision-free names via the existing `safeSheetName`. The analyzer tab's lenient reading is preserved behind `legacyAmount`, and the change is backed by 2 new unit suites plus a 5-case Playwright spec that asserts the real downloaded workbook. No blocking-handbook violations, no new dependencies, no security or React-correctness issues found; three low/info advisory notes only.",
   "verdict": "approved"
 }

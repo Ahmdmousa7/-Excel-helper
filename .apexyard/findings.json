@@ -1,33 +1,42 @@
 {
-  "attestation_id": "sha256:870f727bec1a06c524780f382a1ed8622fa78963971c837c5489893f26532d5e",
+  "attestation_id": "sha256:9dc647d0720fe7591b12adf8f98450ed16deac4959bee9077c1e4484719518d8",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 2,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "The warning joins `sites.unparsed` in full: on the Night Back fixture that is one line, but the count is bounded only by how many priced-looking lines a site has across up to 13 pages. A site with 40 such lines (menus with ranges, combo offers, bare trailing numbers — exactly what `classifyLine` routes to `unparsed`) produces a single multi-kilobyte log entry that pushes every other warning out of view, including the `other language` and `could not be read` notices logged immediately before it. The data is already exported losslessly on the `Google Sites pages` sheet by `googleSitesReportSheet`, so the log does not need to carry all of it.",
-      "file": "components/WebScraperTab.tsx",
-      "line": 245,
+      "detail": "`productFinancials` runs from line 203 to line 310 — about 105 lines in a single body that does four distinct jobs: walk the ingredient pairs and classify each cost failure (216-255), decide whether the cost is knowable (257-263), read and validate Retail Price (265-279), and derive profit/margin/status plus the cost-above-retail error (281-296). `handbooks/general/code-smells.md` sets the threshold at 80 lines for a function added in the diff. It is cohesive and well-commented today, but the ingredient loop already carries five mutually-exclusive cost branches; the next cost rule (a per-unit conversion, a currency check) lands inside an already-long body where the cost-knowability invariant (`costKnown` / `known`) is maintained by hand across two scopes.",
+      "file": "utils/compositeFinancials.ts",
+      "line": 203,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Unparsed-line warning interpolates every unparsed line into one log entry"
+      "summary": "productFinancials is ~105 lines, over the 80-line threshold"
     },
     {
       "category": "code-smell",
-      "detail": "`fetchGoogleSitesMenu` runs from line 161 to 290 — about 125 lines in one function, past the 80-line threshold in handbooks/general/code-smells.md, with four numbered phases (read first page, collect+read linked pages, partition by script, OCR fallback) and nesting that reaches four levels inside the image loop (if → for → try → catch). It is new code in this diff, not a legacy function being touched, and the numbered comments are effectively section headers marking where the seams already are. The cost is concrete: the OCR block (235-278) cannot be unit-tested without first driving the whole page-reading pipeline into a zero-rows state, which is why every image test has to stub six page fetches to 503 (tests/unit/googleSites.test.ts `hubOnly()`).",
-      "file": "services/googleSitesService.ts",
-      "line": 161,
+      "detail": "The `note` is emitted only when `cost === null || (retailPrice === null && m.retailPriceCol === NOT_MAPPED)`. So when the cost IS known but Retail Price is mapped and the cell is blank / unreadable / negative, the Profit Analysis row ships with Retail Price, Profit, Margin % and Profit/Loss all blank and an empty Note — exactly the case `docs/modules/MODULE_GUIDE.md` describes the column as covering (\"`Note` (why a value is blank)\"). The unit test at tests/unit/compositeFinancials.test.ts:154 pins `cost: 2, retailPrice: null, profit: null` for this row but does not assert `note`, so the gap is untested as well as undocumented. The reason is reachable — it is in the Validation Errors sheet — so this is a cross-sheet lookup the user has to make, not lost information; that is why it is low and not medium.",
+      "file": "utils/compositeFinancials.ts",
+      "line": 308,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "fetchGoogleSitesMenu is ~125 lines across four phases"
+      "summary": "Note is blank when a Retail Price problem is what blanks Profit"
+    },
+    {
+      "category": "performance",
+      "detail": "`bomSheetRows(financials)` emits one row per ingredient line across every product, with no cap. The validator already allows up to 30 ingredient pairs per row (the `pairCount > 30` check at line 597 reports but does not drop them), so a 40,000-row composite sheet can produce >1,000,000 BOM rows — at Excel's 1,048,576-row ceiling, where SheetJS writes a workbook Excel refuses to open. The build also runs synchronously at lines 866-874, after the `await new Promise(r => setTimeout(r, 0))` chunking loop has finished, so the whole sheet construction is one unyielded block on the main thread. This is the same shape the analyzer tab's export already has, so it is not a regression — recording it because this PR puts that shape on the validator path, which is the one users run on their largest files.",
+      "file": "components/CompositeTab.tsx",
+      "line": 872,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "Detailed BOM row count is unbounded and built outside the chunked loop"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 3
 }

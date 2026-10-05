@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:870f727bec1a06c524780f382a1ed8622fa78963971c837c5489893f26532d5e` |
+| Attestation id | `sha256:9dc647d0720fe7591b12adf8f98450ed16deac4959bee9077c1e4484719518d8` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `8eb0b0d21fa8` |
+| Reviewed at commit | `70dbb63f7746` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 8 |
+| Files reviewed | 7 |
 
 ## What this is, and what it is not
 
@@ -31,18 +31,18 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | high | 0 |
 | medium | 0 |
 | low | 2 |
-| info | 0 |
+| info | 1 |
 
-Adds a dedicated route for published Google Sites menus to the Web Scraper: a pure parser/classifier (`utils/googleSites.ts`), an I/O module (`services/googleSitesService.ts`), a branch in `WebScraperTab.tsx` that mirrors the existing Fresha/Yalla structure, a 12-page real-site fixture, 568 lines of unit tests and a fully offline Playwright spec. The design is sound: text first with no model call, OCR only as a last resort, image downloads gated to Google-hosted hosts (`isGoogleImage`), per-page/total/image/model timeouts, and a documented fallback to the existing page-text route that still requires fields. No new dependencies, no secrets, no unsanitized HTML, no new JSX, and the blocking handbooks (frontend boundaries, security baseline) are satisfied — the component delegates all I/O to the service and only passes the platform `fetch` as a test seam, the same idiom already used at lines 68 and 207. Two low-severity advisory notes only.
+This PR extracts the Cost & Profit formula into a new shared module (`utils/compositeFinancials.ts`) and adds hidden-sheet handling (`utils/compositeWorkbook.ts`), then wires both into Composite Check: the Structure Validator's export now carries Profit Analysis + Detailed BOM sheets read strictly (nothing missing becomes 0), sheet pickers prefer visible sheets and label hidden ones, the validated sheet is force-unhidden in the generated copy only, and result sheets get collision-free names via the existing `safeSheetName`. The analyzer tab's lenient reading is preserved behind `legacyAmount`, and the change is backed by 2 new unit suites plus a 5-case Playwright spec that asserts the real downloaded workbook. No blocking-handbook violations, no new dependencies, no security or React-correctness issues found; three low/info advisory notes only.
 
 ## Quality gates
 
 | Gate | Result | Detail |
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
-| ESLint | pass | 0 error(s), 563 warning(s) |
-| Vitest | pass | 973/973 passed, lines 99.01% |
-| Playwright | pass | 170/171 passed |
+| ESLint | pass | 0 error(s), 560 warning(s) |
+| Vitest | pass | 1022/1022 passed, lines 99.11% |
+| Playwright | pass | 177/178 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 141 source files, 37884 lines
+- 146 source files, 38999 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -61,7 +61,7 @@ reports zero failures for a tool that never executed.
 
 | File | Lines |
 |---|---:|
-| `components/CompositeTab.tsx` | 1404 |
+| `components/CompositeTab.tsx` | 1507 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1124 |
 | `components/OcrTab.tsx` | 1074 |

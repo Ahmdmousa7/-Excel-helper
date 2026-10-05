@@ -1,49 +1,45 @@
 {
-  "attestation_id": "sha256:870f727bec1a06c524780f382a1ed8622fa78963971c837c5489893f26532d5e",
+  "attestation_id": "sha256:9dc647d0720fe7591b12adf8f98450ed16deac4959bee9077c1e4484719518d8",
   "files": [
     {
-      "oid": "ef8aecca3f7c469933503a0609798a9fff6240d1",
-      "path": "components/WebScraperTab.tsx"
+      "oid": "afa79330f80b997ff92d5514ed8bbfacbaca58f1",
+      "path": "components/CompositeTab.tsx"
     },
     {
-      "oid": "86c7133e74b9a6d9456df37afffb425457fef7f6",
+      "oid": "809778fe032daff05bb7516d0360925cac48cbbd",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "75926a9fee690db1e14295266e3117d675fd565e",
-      "path": "e2e/web-scraper-google-sites.spec.ts"
+      "oid": "9e0c1e7d671c96d2e36b1d94f4994b0f4fc25c75",
+      "path": "e2e/composite-hidden-financials.spec.ts"
     },
     {
-      "oid": "123ce0614b546113cfa6e995be81589caf0571fe",
-      "path": "services/googleSitesService.ts"
+      "oid": "4045f2bded8223c98a1b6a12e5c814a9a5f17d69",
+      "path": "tests/unit/compositeFinancials.test.ts"
     },
     {
-      "oid": "0ca713fa100f60928825d0afd18ed7322b1f1b3c",
-      "path": "tests/fixtures/google-sites/README.md"
+      "oid": "ea0ef0473caa1d1792a2d17218b216db4205bd90",
+      "path": "tests/unit/compositeWorkbook.test.ts"
     },
     {
-      "oid": "5cbd31406a2b283b9787d56c586350849db41b2d",
-      "path": "tests/fixtures/google-sites/nightback-pages.json"
+      "oid": "b9deedaa877b830535fb1b5f4bdb95e40135fc97",
+      "path": "utils/compositeFinancials.ts"
     },
     {
-      "oid": "8dad8f3ee1cdc7ddd35ae37487db0b4415f94a0e",
-      "path": "tests/unit/googleSites.test.ts"
-    },
-    {
-      "oid": "f0f84b3ee5a4a894efbe0a1f527cee00fdc7fdc2",
-      "path": "utils/googleSites.ts"
+      "oid": "c79d7b0dfecc5f0a3fb15288fe8b2595c9a44caa",
+      "path": "utils/compositeWorkbook.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 2,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "8eb0b0d21fa839fe6fd25b8c142da0287b302cbb",
+  "reviewed_at_commit": "70dbb63f7746469f6d390acd1262a28eeb67a110",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

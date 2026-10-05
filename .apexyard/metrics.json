@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:870f727bec1a06c524780f382a1ed8622fa78963971c837c5489893f26532d5e",
+  "attestation_id": "sha256:9dc647d0720fe7591b12adf8f98450ed16deac4959bee9077c1e4484719518d8",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,8 +21,8 @@
         "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab-DufmPgoo.js",
-        "gzip_bytes": 144825,
+        "file": "ProjectSummaryTab-B1GtuOBo.js",
+        "gzip_bytes": 144827,
         "raw_bytes": 444476
       },
       {
@@ -31,8 +31,8 @@
         "raw_bytes": 282467
       },
       {
-        "file": "index.es-CUqC-4P3.js",
-        "gzip_bytes": 51666,
+        "file": "index.es-BIjLu_gA.js",
+        "gzip_bytes": 51664,
         "raw_bytes": 151183
       },
       {
@@ -46,14 +46,14 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-C4qZQgz-.js",
+        "file": "HomeTab-CBC0LSWY.js",
         "gzip_bytes": 43361,
         "raw_bytes": 135983
       },
       {
-        "file": "index-C2PqH5lb.js",
-        "gzip_bytes": 32152,
-        "raw_bytes": 104554
+        "file": "index-CmO5303U.js",
+        "gzip_bytes": 32153,
+        "raw_bytes": 104560
       },
       {
         "file": "jszip.min-CiouRDUD.js",
@@ -61,8 +61,8 @@
         "raw_bytes": 96519
       },
       {
-        "file": "OcrTab-BOC9KE1z.js",
-        "gzip_bytes": 16794,
+        "file": "OcrTab-CiOBYxNB.js",
+        "gzip_bytes": 16789,
         "raw_bytes": 48435
       }
     ],
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1312.9,
+        "gzip_kb": 1316,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 91
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1327.2,
+        "gzip_kb": 1330.3,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 90
@@ -131,7 +131,7 @@
       {
         "errors": 0,
         "rule": "jsx-a11y/label-has-associated-control",
-        "warnings": 66
+        "warnings": 63
       },
       {
         "errors": 0,
@@ -154,7 +154,7 @@
         "warnings": 3
       }
     ],
-    "warnings": 563
+    "warnings": 560
   },
   "playwright": {
     "available": true,
@@ -162,9 +162,9 @@
     "failures": [],
     "flaky_count": 0,
     "passed": true,
-    "passed_count": 170,
+    "passed_count": 177,
     "skipped_count": 1,
-    "total": 171
+    "total": 178
   },
   "schema": "apexyard.evidence.metrics/1",
   "typescript": {
@@ -176,18 +176,18 @@
   "vitest": {
     "available": true,
     "coverage": {
-      "branches_pct": 90.71,
+      "branches_pct": 90.51,
       "functions_pct": 100,
-      "lines_pct": 99.01,
-      "statements_pct": 99.01
+      "lines_pct": 99.11,
+      "statements_pct": 99.11
     },
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 973,
+      "passed": 1022,
       "skipped": 0,
-      "suites": 188,
-      "total": 973
+      "suites": 198,
+      "total": 1022
     }
   }
 }
