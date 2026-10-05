@@ -136,6 +136,14 @@ Produced before the guide was written. These are mismatches between what existin
 **EN:** One workbook with three sheets — **Validation Errors** (the row, `Error Description`, `وصف الخطأ (عربي)`, `Error Location` as a cell ref like `F3`), **Valid Products**, and **Summary** (date, shift statistics, shift log).
 **AR:** مصنّف بثلاث أوراق: «أخطاء التحقق» (الصف، وصف الخطأ بالإنجليزية والعربية، وموقع الخلية مثل `F3`)، و«المنتجات الصحيحة»، و«الملخص».
 
+**Cost & Profit in the validated export (since 2026-10-05, `utils/compositeFinancials.ts`).** The Structure Validator offers the Cost & Profit Analyzer's own Financial Mapping (same state, same fields): the Raw sheet SKU column (the existing *Raw Sheet SKU Column*), **Cost**, **Name** (optional) and the Composite sheet's **Retail Price** (optional). When Raw SKU **and** Cost are mapped, the export adds two sheets, named as the analyzer names them:
+- **Profit Analysis** — `Product Name`, `SKU`, `Retail Price`, `Cost`, `Profit`, `Margin %`, `Profit/Loss` (`Profit` / `Break-even` / `Loss`), `Source Row` (the same numbering as `Error Location`), `Note` (why a value is blank). Money and margin are **numeric cells** (`#,##0.00`, `0.00%`).
+- **Detailed BOM** — one line per ingredient: `Product Name`, `Product SKU`, `Ingredient SKU`, `Ingredient Name` (from the Name mapping), `Quantity`, `Unit Cost`, `Line Cost`.
+
+The formula is the analyzer's and lives in one place: cost = Σ (Raw Cost × Qty) over the composite's ingredient pairs; `Profit = Retail Price − Cost`; `Margin = Profit ÷ Retail Price`. The validated export reads it **strictly** — a missing, unreadable, negative or conflicting cost, an unusable quantity or a missing ingredient leaves that product's Cost and Profit **blank** with a note; nothing becomes `0`. SKUs match with `identifierKey` (D7: leading zeros and case kept, invisible characters ignored). Without the Cost mapping the export is exactly as before. Retail Price must be one of the fixed columns. The **analyzer tab is unchanged**: its dashboard and its `Cost_Analysis_…` export keep their lenient reading (unreadable = 0), its `Projected Cost`, its text `Margin %` and its `At Risk` / `Profitable` status; only the arithmetic now comes from the shared functions.
+
+**Hidden content (since 2026-10-05, `utils/compositeWorkbook.ts`).** Hidden **rows and columns** were never a problem: the shared reader ignores visibility, every cell is read, and the generated sheets carry no hidden rows or columns. Hidden and very hidden **sheets** are read in full too, but caused two failures, now fixed: (1) the default sheets were simply the first two sheets, so a hidden lists sheet at the front became the Raw sheet and every ingredient was reported missing — defaults now count visible sheets first, and hidden sheets stay selectable, marked `(hidden)` / `(very hidden)`; (2) the validated Composite sheet kept its hidden state in the export, so the result was invisible (and, when very hidden, not even unhidable from Excel's menu) — it is now made visible **in the generated copy only**. Other sheets keep their state; the uploaded workbook is never changed. The log names any hidden sheet that was read. Result sheets get a free name (`Valid Products (2)`) when the workbook already has one, so re-validating an exported file no longer fails.
+
 #### Files it reads / ما الملفات التي يقرأها؟
 The loaded `.xlsx`, two named sheets, via `getSheetData(workbook, sheet, raw)`.
 
@@ -151,6 +159,10 @@ The loaded `.xlsx`, two named sheets, via `getSheetData(workbook, sheet, raw)`.
 | Row error: `Missing Qty for Ingredient 'X'` | `الكمية مفقودة للمكون 'X'` | SKU present, quantity blank — **only when Strict Empty Check is on** |
 | Row error: `Missing SKU for Qty 'N'` | `رمز المكون مفقود للكمية 'N'` | Quantity present, SKU blank |
 | Row error: `Possible Typo: 'A' … 'B'` | `خطأ إملائي محتمل` | Fuzzy match near-miss |
+| Row error: `Cost is higher than Retail Price (Cost 12.50 > Retail Price 10.00, loss 2.50)` | `التكلفة أعلى من سعر البيع (…)` | Cost & Profit mapped; the product's cost exceeds its Retail Price. The row is still in Profit Analysis (as a `Loss`) |
+| Row error: `Missing Cost for Ingredient 'X'` / `Invalid Cost 'abc' for Ingredient 'X'` / `Negative Cost '-2' for Ingredient 'X'` | `التكلفة مفقودة للمكون` / `التكلفة غير صحيحة` / `التكلفة بالسالب` | Cost mapped; the ingredient's Raw Cost cell is blank, not a plain number, or below zero |
+| Row error: `Conflicting Cost for Ingredient 'X' (Raw rows 10, 11)` | `تكلفة متعارضة للمكون` | The Raw sheet lists the SKU more than once with different costs (same cost twice is used, and logged) |
+| Row error: `Missing Retail Price` / `Invalid Retail Price 'free'` | `سعر البيع مفقود` / `سعر البيع غير صحيح` | Retail Price mapped; the cell is blank, not a plain number, or below zero |
 
 #### Error handling / ماذا يحدث عند الخطأ؟
 **EN:** Row-level problems do not stop the run — they are collected and written to the Validation Errors sheet with a cell reference, while clean rows go to Valid Products. Configuration problems are warnings that block the run until fixed.
@@ -163,10 +175,10 @@ The loaded `.xlsx`, two named sheets, via `getSheetData(workbook, sheet, raw)`.
 No CSV input (`accept=".xlsx"`), no cross-file validation, no automatic fixing of quantities, no per-row undo.
 
 #### Code location / أين الكود؟
-`components/CompositeTab.tsx` (validation pass, `translateErrorToArabic`) · `utils/quantityRule.ts` (`classifyQuantity`).
+`components/CompositeTab.tsx` (validation pass, `translateErrorToArabic`) · `utils/quantityRule.ts` (`classifyQuantity`) · `utils/compositeFinancials.ts` (the Cost & Profit formula, strict and legacy readings, the two sheets) · `utils/compositeWorkbook.ts` (sheet visibility, default sheets).
 
 #### Tests / أين الاختبارات؟
-`tests/unit/quantityRule.test.ts` (21) — 0, `0.0`, `-0`, negatives, scientific notation, hex/octal/binary, `NaN`/`Infinity`, blanks, arrays, and a 100k-character ReDoS guard. `e2e/composite-quantity-rules.spec.ts` — drives the real UI and asserts message, **language**, and cell reference in the downloaded workbook.
+`tests/unit/quantityRule.test.ts` (21) — 0, `0.0`, `-0`, negatives, scientific notation, hex/octal/binary, `NaN`/`Infinity`, blanks, arrays, and a 100k-character ReDoS guard. `e2e/composite-quantity-rules.spec.ts` — drives the real UI and asserts message, **language**, and cell reference in the downloaded workbook. `tests/unit/compositeFinancials.test.ts` — the formula, strict vs legacy reading, profit / break-even / loss, Cost above Retail, missing / invalid / negative / conflicting costs, missing and invalid Retail Price, unmatched SKUs, leading zeros, the two sheets. `tests/unit/compositeWorkbook.test.ts` — hidden rows and columns (first / middle / last) read in full through the real upload path, hidden and very hidden sheets, defaults, the generated copy made visible while the source is untouched, duplicate result-sheet names. `e2e/composite-hidden-financials.spec.ts` — the real flow: default sheets with a hidden lists sheet, a very hidden Composite sheet with hidden rows and columns, re-validating an export, Cost & Profit with and without Retail Price, no mapping = the old export, and the analyzer's export unchanged.
 
 ---
 

@@ -4,6 +4,13 @@ import * as XLSX from 'xlsx';
 import { FileData, ProcessingStatus, LogEntry } from '../types';
 import { classifyQuantity } from '../utils/quantityRule';
 import { getSheetData, saveWorkbook, cloneWorkbook, readExcelFile } from '../services/excelService';
+import { safeSheetName } from '../utils/excelUtils';
+import { defaultSheets, sheetLabel, sheetVisibility, showSheet } from '../utils/compositeWorkbook';
+import {
+  legacyAmount, compositeCost, profitOf, marginPercentOf, financialsEnabled, buildCostIndex, productFinancials,
+  profitSheetRows, bomSheetRows, financialSummary, PROFIT_SHEET, BOM_SHEET, NOT_MAPPED,
+  type FinancialMapping, type ProductFinancials,
+} from '../utils/compositeFinancials';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import ProgressBar from './ProgressBar';
 import { 
@@ -132,6 +139,63 @@ const translateErrorToArabic = (errorMsg: string): string => {
     return "خطأ في البيانات";
 };
 
+/**
+ * One box of the Cost & Profit Analyzer's Financial Mapping. Shared by both
+ * tabs so the Structure Validator offers the SAME mapping, on the same state,
+ * rather than a second one.
+ */
+const MAPPING_FIELDS = {
+  sku: { box: 'p-3 bg-blue-50 rounded border border-blue-100', label: 'block text-xs font-bold text-blue-800 mb-2 uppercase', title: 'Raw Sheet: SKU Column', empty: '-- Select SKU --' },
+  cost: { box: 'p-3 bg-green-50 rounded border border-green-100', label: 'block text-xs font-bold text-green-800 mb-2 uppercase', title: 'Raw Sheet: Cost Column', empty: '-- Select Cost --' },
+  name: { box: 'p-3 bg-purple-50 rounded border border-purple-100', label: 'block text-xs font-bold text-purple-800 mb-2 uppercase', title: 'Raw Sheet: Name Column', empty: '-- Optional --' },
+  retail: { box: 'p-3 bg-amber-50 rounded border border-amber-100', label: 'block text-xs font-bold text-amber-800 mb-2 uppercase', title: 'Composite: Retail Price', empty: '-- Optional --' },
+} as const;
+
+const FinancialMappingField: React.FC<{
+  field: keyof typeof MAPPING_FIELDS;
+  value: number;
+  onChange: (col: number) => void;
+  options: string[];
+}> = ({ field, value, onChange, options }) => {
+  const f = MAPPING_FIELDS[field];
+  return (
+    <div className={f.box}>
+      <label className={f.label}>{f.title}</label>
+      <select
+          aria-label={f.title}
+          className="w-full p-2 border rounded text-sm bg-white"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+      >
+          <option value="-1">{f.empty}</option>
+          {options.map((h, i) => <option key={i} value={i}>{h}</option>)}
+      </select>
+    </div>
+  );
+};
+
+/** Bold white header on a colour, as the other result sheets do. */
+const styleHeaderRow = (ws: XLSX.WorkSheet, rgb: string) => {
+    if (!ws['!ref']) return;
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+        const ref = XLSX.utils.encode_cell({ r: 0, c: C });
+        if (ws[ref]) ws[ref].s = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb } } };
+    }
+};
+
+/** A number format on the NUMBER cells of some columns (header row skipped); text and blanks are left alone. */
+const formatColumns = (ws: XLSX.WorkSheet, cols: number[], format: string) => {
+    if (!ws['!ref']) return;
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+        for (const C of cols) {
+            const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+            if (cell && cell.t === 'n') cell.z = format;
+        }
+    }
+};
+
 const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = 'en' }) => {
   const t = TRANSLATIONS[language];
   
@@ -177,12 +241,12 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
 
   useEffect(() => {
     if (fileData && fileData.sheets.length > 0) {
-      setRawSheet(fileData.sheets[0]);
-      if (fileData.sheets.length > 1) {
-        setCompositeSheet(fileData.sheets[1]);
-      } else {
-        setCompositeSheet('');
-      }
+      // First and second sheet as before, counting VISIBLE sheets first: a
+      // hidden lists sheet at the front used to become the Raw sheet, and then
+      // every ingredient was reported missing (utils/compositeWorkbook.ts).
+      const defaults = defaultSheets(fileData.workbook);
+      setRawSheet(defaults.raw);
+      setCompositeSheet(defaults.composite);
     }
   }, [fileData]);
 
@@ -309,6 +373,13 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
       const compData = getSheetData(fileData.workbook, compositeSheet);
       const rawData = getSheetData(fileData.workbook, rawSheet);
 
+      // Hidden sheets are read in full, like hidden rows and columns (the reader
+      // ignores visibility); say so, because the user cannot see that data.
+      ([['Composite', compositeSheet], ['Raw', rawSheet]] as const).forEach(([label, name]) => {
+          const v = sheetVisibility(fileData.workbook, name);
+          if (v !== 'visible') addLog(`The ${label} sheet '${name}' is ${v === 'veryHidden' ? 'very hidden' : 'hidden'} in your file; it was read in full.`, 'info');
+      });
+
       const rawMaterialsSet = new Set<string>();
       const rawMaterialsArr: string[] = [];
       const skuCostMap = new Map<string, number>();
@@ -328,8 +399,8 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                 
                 if (activeTab === 'analysis') {
                     if (costCol !== -1) {
-                        const costVal = String(row[costCol] || "0").replace(/[^0-9.]/g, '');
-                        skuCostMap.set(val, parseFloat(costVal) || 0);
+                        // The analyzer's lenient reading, unchanged: unreadable = 0.
+                        skuCostMap.set(val, legacyAmount(row[costCol]));
                     }
                     if (rawNameCol !== -1) {
                         const nameVal = String(row[rawNameCol] || "").trim();
@@ -415,6 +486,32 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
       // NEW: Tracking for Raw vs Composite Collisions
       const skuConflictRows: any[][] = [["Composite SKU", "Product Name", "Conflict Type", "Row Number"]];
 
+      // COST & PROFIT in the validated export, from the Cost & Profit
+      // Analyzer's own Financial Mapping (utils/compositeFinancials.ts). On
+      // whenever Raw SKU and Cost are mapped; otherwise the export is exactly
+      // what it was. Read strictly: nothing missing becomes 0.
+      const financialMapping: FinancialMapping = { rawSkuCol, costCol, rawNameCol, retailPriceCol };
+      let financialsOn = activeTab === 'validate' && financialsEnabled(financialMapping);
+      if (activeTab === 'validate' && costCol !== NOT_MAPPED && rawSkuCol === NOT_MAPPED) {
+          addLog("Cost & Profit was not added: choose the Raw sheet SKU column as well as the Cost column.", 'warning');
+      }
+      if (financialsOn && retailPriceCol !== NOT_MAPPED && retailPriceCol >= fixedColCount) {
+          addLog(`Cost & Profit was not added: the Retail Price column must be one of the first ${fixedColCount} fixed columns (after them come the ingredient pairs).`, 'warning');
+          financialsOn = false;
+      }
+      const costIndex = financialsOn ? buildCostIndex(rawData.slice(1), financialMapping) : null;
+      const financials: ProductFinancials[] = [];
+      const financialRowNumbers: number[] = [];
+      // Financial messages carry their own Arabic text.
+      const arabicFor = new Map<string, string>();
+      if (costIndex && costIndex.conflicts.size > 0) {
+          const list = Array.from(costIndex.conflicts.keys());
+          addLog(`${list.length} Raw SKU(s) are listed more than once with different costs, so their cost is unknown: ${list.slice(0, 10).join(', ')}${list.length > 10 ? ', ...' : ''}.`, 'warning');
+      }
+      if (costIndex && costIndex.repeats.size > 0) {
+          addLog(`${costIndex.repeats.size} Raw SKU(s) are listed more than once with the same cost; that cost is used.`, 'info');
+      }
+
       if (activeTab === 'analysis') {
           compHeader.push("Calculated Cost");
       }
@@ -435,7 +532,6 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
             
             // --- ANALYSIS MODE ---
             if (activeTab === 'analysis') {
-                let rowTotalCost = 0;
                 const rowIngredients: Ingredient[] = [];
                 const startIdx = fixedColCount;
                 
@@ -445,18 +541,18 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                     if (sku) {
                         const unitCost = skuCostMap.get(sku) || 0;
                         const ingName = skuNameMap.get(sku) || "";
-                        rowTotalCost += unitCost * qty;
                         rowIngredients.push({ sku, qty, unitCost, name: ingName });
                     }
                 }
+                // The shared formula (utils/compositeFinancials.ts): Σ unit cost × qty.
+                const rowTotalCost = compositeCost(rowIngredients);
                 row.push(rowTotalCost); 
 
                 const prodName = String(row[0] || `Product ${idx+1}`).trim(); 
                 const prodSku = String(row[1] || "").trim(); 
                 let retailPrice = 0;
                 if (retailPriceCol !== -1) {
-                    const priceStr = String(row[retailPriceCol] || "0").replace(/[^0-9.]/g, '');
-                    retailPrice = parseFloat(priceStr) || 0;
+                    retailPrice = legacyAmount(row[retailPriceCol]);
                 }
                 
                 parsedBomProducts.push({
@@ -613,6 +709,18 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                    }
                 });
 
+                if (costIndex) {
+                    const fin = productFinancials(row, fixedColCount, costIndex, financialMapping);
+                    fin.issues.forEach(issue => {
+                        rowErrors.push(issue.message);
+                        rowLocations.push(getCellRef(issue.col));
+                        arabicFor.set(issue.message, issue.arabic);
+                    });
+                    financials.push(fin);
+                    // The same row numbering as the Error Location column.
+                    financialRowNumbers.push(idx + 2);
+                }
+
                 if (rowErrors.length > 0) {
                   errorRows.push({
                     rowData: row,
@@ -662,6 +770,13 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
           }
 
           newWb.Sheets[compositeSheet] = newWs;
+          // The validated sheet IS the result: never deliver it hidden. Only
+          // this generated copy changes; other sheets keep their visibility.
+          const wasHidden = showSheet(newWb, compositeSheet);
+          if (wasHidden !== 'visible') addLog(`The validated '${compositeSheet}' sheet is visible in the export (it was ${wasHidden === 'veryHidden' ? 'very hidden' : 'hidden'} in your file).`, 'info');
+          // Added sheets get a free name: a workbook that already has one (a
+          // re-validated export, say) used to make SheetJS throw.
+          const takenNames = new Set<string>(newWb.SheetNames.map((n: string) => n.toLowerCase()));
 
           if (errorRows.length > 0) {
             const errorHeader = [...compHeader, "Error Description", "وصف الخطأ (عربي)", "Error Location"];
@@ -670,12 +785,12 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                const newRow = [...err.rowData];
                while(newRow.length < compHeader.length) newRow.push("");
                newRow.push(err.errors.join(", "));
-               newRow.push(err.errors.map(e => translateErrorToArabic(e)).join(", "));
+               newRow.push(err.errors.map(e => arabicFor.get(e) ?? translateErrorToArabic(e)).join(", "));
                newRow.push(err.locations.join(", "));
                errorSheetData.push(newRow);
             });
             const errorWs = XLSX.utils.aoa_to_sheet(errorSheetData);
-            XLSX.utils.book_append_sheet(newWb, errorWs, "Validation Errors");
+            XLSX.utils.book_append_sheet(newWb, errorWs, safeSheetName("Validation Errors", takenNames));
           }
 
           // NEW: Raw vs Composite Conflicts Sheet
@@ -691,7 +806,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                   }
                   conflictWs['!cols'] = [{wch: 20}, {wch: 40}, {wch: 30}, {wch: 10}];
               }
-              XLSX.utils.book_append_sheet(newWb, conflictWs, "Raw vs Composite Conflicts");
+              XLSX.utils.book_append_sheet(newWb, conflictWs, safeSheetName("Raw vs Composite Conflicts", takenNames));
           }
 
           // --- NEW: Valid Products Sheet ---
@@ -706,7 +821,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                       validWs[ref].s = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "059669" } } };
                   }
               }
-              XLSX.utils.book_append_sheet(newWb, validWs, "Valid Products");
+              XLSX.utils.book_append_sheet(newWb, validWs, safeSheetName("Valid Products", takenNames));
           }
 
           // --- NEW: Summary Sheet ---
@@ -741,7 +856,29 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                   }
               });
           }
-          XLSX.utils.book_append_sheet(newWb, summaryWs, "Summary");
+          XLSX.utils.book_append_sheet(newWb, summaryWs, safeSheetName("Summary", takenNames));
+
+          // --- Cost & Profit: the analyzer's two sheets, numbers as numbers ---
+          if (financialsOn) {
+              const profitWs = XLSX.utils.aoa_to_sheet(profitSheetRows(financials, financialRowNumbers));
+              styleHeaderRow(profitWs, "2563EB");
+              formatColumns(profitWs, [2, 3, 4], "#,##0.00");
+              formatColumns(profitWs, [5], "0.00%");
+              profitWs['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 50 }];
+              XLSX.utils.book_append_sheet(newWb, profitWs, safeSheetName(PROFIT_SHEET, takenNames));
+
+              const bomWs = XLSX.utils.aoa_to_sheet(bomSheetRows(financials));
+              styleHeaderRow(bomWs, "2563EB");
+              formatColumns(bomWs, [5, 6], "#,##0.00");
+              bomWs['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+              XLSX.utils.book_append_sheet(newWb, bomWs, safeSheetName(BOM_SHEET, takenNames));
+
+              const fs = financialSummary(financials);
+              const costNote = fs.costUnknown ? `, ${fs.costUnknown} with no known cost` : '';
+              const lossNote = fs.costAboveRetail ? `; ${fs.costAboveRetail} with Cost above Retail Price (in Validation Errors)` : '';
+              const retailNote = retailPriceCol === NOT_MAPPED ? ' Retail Price is not mapped, so no profit was calculated.' : '';
+              addLog(`Cost & Profit: ${fs.products} products: ${fs.withProfit} profit, ${fs.breakEven} break-even, ${fs.withLoss} loss${costNote}${lossNote}.${retailNote}`, fs.costAboveRetail || fs.costUnknown ? 'warning' : 'info');
+          }
           
           saveWorkbook(newWb, `Validated_${fileData.name}`);
           addLog(errorRows.length > 0 ? `Found ${errorRows.length} errors.` : t.common.completed, errorRows.length > 0 ? 'warning' : 'success');
@@ -768,8 +905,8 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
           if (product.ingredients.length === 0) adjustedCost = product.baseTotalCost * (1 + costFluctuation / 100);
 
           const retail = product.retailPrice || 0;
-          const profit = retail - adjustedCost;
-          const marginPercent = retail > 0 ? (profit / retail) * 100 : 0;
+          const profit = profitOf(retail, adjustedCost);
+          const marginPercent = marginPercentOf(retail, profit);
           
           return {
               sku: product.sku,
@@ -870,7 +1007,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                   }}
                 >
                   <option value="">{t.common.selectSheet}...</option>
-                  {fileData?.sheets.map(s => <option key={s} value={s}>{s}</option>)}
+                  {fileData?.sheets.map(s => <option key={s} value={s}>{sheetLabel(fileData.workbook, s)}</option>)}
                 </select>
              </div>
              <div>
@@ -885,7 +1022,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                   }}
                 >
                   <option value="">{t.common.selectSheet}...</option>
-                  {fileData?.sheets.map(s => <option key={s} value={s}>{s}</option>)}
+                  {fileData?.sheets.map(s => <option key={s} value={s}>{sheetLabel(fileData.workbook, s)}</option>)}
                 </select>
              </div>
          </div>
@@ -1016,6 +1153,16 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                             </select>
                           </div>
                       </div>
+
+                      <div className="bg-white p-4 rounded-lg border border-slate-200">
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1"><Coins size={14}/> Cost &amp; Profit (optional)</label>
+                          <p className="text-xs text-slate-500 mb-3">The Cost &amp; Profit Analyzer's Financial Mapping. With the Raw SKU column above and a Cost column, the export adds Profit Analysis and Detailed BOM sheets, and Cost above Retail Price is a validation error.</p>
+                          <div className="grid grid-cols-1 gap-2">
+                              <FinancialMappingField field="cost" value={costCol} onChange={setCostCol} options={rawHeaders} />
+                              <FinancialMappingField field="name" value={rawNameCol} onChange={setRawNameCol} options={rawHeaders} />
+                              <FinancialMappingField field="retail" value={retailPriceCol} onChange={setRetailPriceCol} options={headers} />
+                          </div>
+                      </div>
                   </div>
 
                   {/* Right: Column Selector */}
@@ -1137,54 +1284,10 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
               <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
                   <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Calculator size={20}/> Financial Mapping</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                      {/* ... (Keep existing mapping UI) ... */}
-                      <div className="p-3 bg-blue-50 rounded border border-blue-100">
-                          <label className="block text-xs font-bold text-blue-800 mb-2 uppercase">Raw Sheet: SKU Column</label>
-                          <select 
-                              className="w-full p-2 border rounded text-sm bg-white"
-                              value={rawSkuCol}
-                              onChange={(e) => setRawSkuCol(Number(e.target.value))}
-                          >
-                              <option value="-1">-- Select SKU --</option>
-                              {rawHeaders.map((h, i) => <option key={i} value={i}>{h}</option>)}
-                          </select>
-                      </div>
-
-                      <div className="p-3 bg-green-50 rounded border border-green-100">
-                          <label className="block text-xs font-bold text-green-800 mb-2 uppercase">Raw Sheet: Cost Column</label>
-                          <select 
-                              className="w-full p-2 border rounded text-sm bg-white"
-                              value={costCol}
-                              onChange={(e) => setCostCol(Number(e.target.value))}
-                          >
-                              <option value="-1">-- Select Cost --</option>
-                              {rawHeaders.map((h, i) => <option key={i} value={i}>{h}</option>)}
-                          </select>
-                      </div>
-
-                      <div className="p-3 bg-purple-50 rounded border border-purple-100">
-                          <label className="block text-xs font-bold text-purple-800 mb-2 uppercase">Raw Sheet: Name Column</label>
-                          <select 
-                              className="w-full p-2 border rounded text-sm bg-white"
-                              value={rawNameCol}
-                              onChange={(e) => setRawNameCol(Number(e.target.value))}
-                          >
-                              <option value="-1">-- Optional --</option>
-                              {rawHeaders.map((h, i) => <option key={i} value={i}>{h}</option>)}
-                          </select>
-                      </div>
-
-                      <div className="p-3 bg-amber-50 rounded border border-amber-100">
-                          <label className="block text-xs font-bold text-amber-800 mb-2 uppercase">Composite: Retail Price</label>
-                          <select 
-                              className="w-full p-2 border rounded text-sm bg-white"
-                              value={retailPriceCol}
-                              onChange={(e) => setRetailPriceCol(Number(e.target.value))}
-                          >
-                              <option value="-1">-- Optional --</option>
-                              {headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
-                          </select>
-                      </div>
+                      <FinancialMappingField field="sku" value={rawSkuCol} onChange={setRawSkuCol} options={rawHeaders} />
+                      <FinancialMappingField field="cost" value={costCol} onChange={setCostCol} options={rawHeaders} />
+                      <FinancialMappingField field="name" value={rawNameCol} onChange={setRawNameCol} options={rawHeaders} />
+                      <FinancialMappingField field="retail" value={retailPriceCol} onChange={setRetailPriceCol} options={headers} />
                   </div>
 
                   <button
