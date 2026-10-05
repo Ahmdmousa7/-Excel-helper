@@ -189,11 +189,18 @@ export interface ProductFinancials {
   status: ProfitStatus | null;
   lines: BomLine[];
   issues: FinancialIssue[];
-  /** Why Profit (and Margin) is blank, in plain words — the Retail Price reason is the Validation Errors message; '' when Profit is known. */
+  /**
+   * Why Profit (and Margin) is blank, in plain words — the Retail Price reason
+   * is the Validation Errors message. When Profit is known but Margin is not
+   * (a Retail Price of 0: nothing to divide by), says so. '' otherwise.
+   */
   note: string;
 }
 
 const money = (n: number): string => n.toFixed(2);
+
+/** A Retail Price of 0 is valid and gives a Profit, but no Margin (Profit ÷ Retail Price). */
+export const MARGIN_NEEDS_RETAIL_NOTE = 'Margin cannot be calculated because Retail Price is 0';
 
 /**
  * The financials of one composite row (after Auto-Align): columns 0 and 1 are
@@ -310,7 +317,9 @@ export function productFinancials(
     lines,
     issues,
     // Why Profit is blank, whenever it is: no known cost, and/or no usable Retail Price.
-    note: profit === null ? capitalise(dedupe(notes).join('; ')) : '',
+    note: profit === null
+      ? capitalise(dedupe(notes).join('; '))
+      : margin === null ? MARGIN_NEEDS_RETAIL_NOTE : '',
   };
 }
 

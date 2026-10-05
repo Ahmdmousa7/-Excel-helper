@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseAmount, legacyAmount, compositeCost, profitOf, marginPercentOf, profitStatus, costExceedsRetail,
   financialsEnabled, buildCostIndex, productFinancials, profitSheetRows, bomSheetRows, financialSummary,
-  PROFIT_HEADER, BOM_HEADER, NOT_MAPPED, type FinancialMapping,
+  PROFIT_HEADER, BOM_HEADER, NOT_MAPPED, MARGIN_NEEDS_RETAIL_NOTE, type FinancialMapping,
 } from '../../utils/compositeFinancials';
 
 /**
@@ -170,6 +170,19 @@ describe('productFinancials', () => {
       expect(p).toMatchObject({ cost: 2, retailPrice: null, profit: null, margin: null, status: null, note: reason });
       expect(p.issues.map((i) => i.message)).toEqual([reason]);
     }
+  });
+
+  it('a Retail Price of 0: valid, Profit calculated, Margin blank, and the Note says why', () => {
+    const p = fin(['Free', 'C', 0, 'pc', 'RAW-1', '2']);
+    expect(p).toMatchObject({ cost: 2, retailPrice: 0, profit: -2, margin: null, status: 'Loss', note: MARGIN_NEEDS_RETAIL_NOTE });
+    // Not a Retail Price error: the only issue is the existing Cost above Retail Price rule.
+    expect(p.issues.map((i) => i.message)).toEqual(['Cost is higher than Retail Price (Cost 2.00 > Retail Price 0.00, loss 2.00)']);
+    // Break-even at 0: still a Profit figure, still no Margin, same Note, no error.
+    const even = fin(['Gift', 'C', '0', 'pc']);
+    expect(even.cost).toBeNull(); // no ingredients: the cost reason wins, as before
+    const zeroCost = productFinancials(['Z', 'C', 0, 'pc', 'RAW-Z', '1'], 4, buildCostIndex([['RAW-Z', 'Zero', 0]], MAP), MAP);
+    expect(zeroCost).toMatchObject({ cost: 0, retailPrice: 0, profit: 0, margin: null, status: 'Break-even', issues: [], note: MARGIN_NEEDS_RETAIL_NOTE });
+    expect(MARGIN_NEEDS_RETAIL_NOTE).toBe('Margin cannot be calculated because Retail Price is 0');
   });
 
   it('cost unknown AND a Retail Price problem: the Note gives both reasons', () => {

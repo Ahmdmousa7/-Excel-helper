@@ -217,6 +217,7 @@ test.describe('Composite Check — Cost & Profit in the validated export', () =>
       ['NoPrice', 'COMP-005', '', 'pc', 'RAW-100', 2, '', ''],
       ['BadPrice', 'COMP-006', 'free', 'pc', 'RAW-100', 2, '', ''],
       ['NegPrice', 'COMP-007', -5, 'pc', 'RAW-100', 2, '', ''],
+      ['ZeroPrice', 'COMP-008', 0, 'pc', 'RAW-100', 2, '', ''],
     ]);
     const wb0 = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb0, raw, 'Raw');
@@ -229,13 +230,18 @@ test.describe('Composite Check — Cost & Profit in the validated export', () =>
       ['NoPrice', 'COMP-005', '', 2, '', '', '', 3, 'Missing Retail Price'],
       ['BadPrice', 'COMP-006', '', 2, '', '', '', 4, "Invalid Retail Price 'free'"],
       ['NegPrice', 'COMP-007', '', 2, '', '', '', 5, "Negative Retail Price '-5'"],
+      // 0 is a valid Retail Price: kept as 0, Profit calculated, Margin blank, with the reason.
+      ['ZeroPrice', 'COMP-008', 0, 2, -2, '', 'Loss', 6, 'Margin cannot be calculated because Retail Price is 0'],
     ]);
     // The cost is still a numeric cell on those rows.
     expect(wb.Sheets['Profit Analysis'].D3).toMatchObject({ t: 'n', v: 2 });
     // The same reasons, unchanged, in Validation Errors.
     expect(grid(wb, 'Validation Errors').slice(1).map((r) => r[r.length - 3])).toEqual([
       'Missing Retail Price', "Invalid Retail Price 'free'", "Negative Retail Price '-5'",
+      // 0 is not a Retail Price error; the existing Cost-above-Retail rule applies.
+      'Cost is higher than Retail Price (Cost 2.00 > Retail Price 0.00, loss 2.00)',
     ]);
+    expect(wb.Sheets['Profit Analysis'].C6).toMatchObject({ t: 'n', v: 0 });
   });
 
   test('Retail Price not mapped: Cost only, no invented profit, no financial errors', async ({ app, page }) => {
