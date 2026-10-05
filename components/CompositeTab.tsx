@@ -7,6 +7,7 @@ import { getSheetData, saveWorkbook, cloneWorkbook, readExcelFile } from '../ser
 import { safeSheetName } from '../utils/excelUtils';
 import { identifierKey } from '../utils/identifiers';
 import { defaultSheets, sheetLabel, sheetVisibility, showSheet } from '../utils/compositeWorkbook';
+import { suggestRawColumns, suggestRetailColumn, nextChoice, type MappingField } from '../utils/compositeMapping';
 import {
   legacyAmount, compositeCost, profitOf, marginPercentOf, financialsEnabled, buildCostIndex, productFinancials,
   profitSheetRows, bomSheetRows, financialSummary, PROFIT_SHEET, BOM_SHEET, NOT_MAPPED,
@@ -152,16 +153,25 @@ const MAPPING_FIELDS = {
   retail: { box: 'p-3 bg-amber-50 rounded border border-amber-100', label: 'block text-xs font-bold text-amber-800 mb-2 uppercase', title: 'Composite: Retail Price', empty: '-- Optional --' },
 } as const;
 
+/** Marks a column the app chose from the headers; the dropdown stays editable. */
+const AutoBadge: React.FC<{ show: boolean }> = ({ show }) =>
+  show ? (
+    <span className="ml-1 px-1 rounded bg-emerald-100 text-emerald-700 text-[10px] font-semibold normal-case" title="Chosen automatically from the column headers. You can pick another column.">
+      Auto
+    </span>
+  ) : null;
+
 const FinancialMappingField: React.FC<{
   field: keyof typeof MAPPING_FIELDS;
   value: number;
   onChange: (col: number) => void;
   options: string[];
-}> = ({ field, value, onChange, options }) => {
+  auto?: boolean;
+}> = ({ field, value, onChange, options, auto = false }) => {
   const f = MAPPING_FIELDS[field];
   return (
     <div className={f.box}>
-      <label className={f.label}>{f.title}</label>
+      <label className={f.label}>{f.title}<AutoBadge show={auto && value !== -1} /></label>
       <select
           aria-label={f.title}
           className="w-full p-2 border rounded text-sm bg-white"
@@ -226,6 +236,16 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
   const [costCol, setCostCol] = useState<number>(-1);
   const [rawNameCol, setRawNameCol] = useState<number>(-1); // New Name Mapping
   const [retailPriceCol, setRetailPriceCol] = useState<number>(-1);
+  // Where each mapping value came from (utils/compositeMapping.ts). Automatic
+  // defaults are recomputed when their sheet or file changes; a value the user
+  // picked stays until then.
+  const [mappingSource, setMappingSource] = useState<Record<MappingField, 'auto' | 'manual'>>({ sku: 'auto', cost: 'auto', name: 'auto', retail: 'auto' });
+  const isAuto = (field: MappingField) => mappingSource[field] === 'auto';
+  /** A choice made in a dropdown: the user's, not a default. */
+  const chooseColumn = (field: MappingField, col: number) => {
+      ({ sku: setRawSkuCol, cost: setCostCol, name: setRawNameCol, retail: setRetailPriceCol })[field](col);
+      setMappingSource(prev => ({ ...prev, [field]: 'manual' }));
+  };
 
   // Simulator State
   const [bomData, setBomData] = useState<BomProduct[]>([]);
@@ -254,21 +274,44 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
   useEffect(() => {
     if (fileData && compositeSheet) {
       const data = getSheetData(fileData.workbook, compositeSheet);
-      if (data.length > 0) {
-        setHeaders(data[0] as string[]);
-      }
+      const compHeaders = data.length > 0 ? (data[0] as string[]) : [];
+      setHeaders(compHeaders);
+      // A new sheet or file: the Retail Price default comes from ITS headers,
+      // and an earlier choice (for columns that may no longer exist) is dropped.
+      setRetailPriceCol(suggestRetailColumn(compHeaders, fixedColCount));
+      setMappingSource(prev => ({ ...prev, retail: 'auto' }));
     }
+    // fixedColCount is read, not watched: changing it is handled below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileData, compositeSheet]);
+
+  useEffect(() => {
+    // Fixed Header Cols changed: an automatic Retail Price default is
+    // recomputed (it must be a fixed column); a manual choice stands.
+    const next = nextChoice(
+      { col: retailPriceCol, source: mappingSource.retail },
+      suggestRetailColumn(headers, fixedColCount),
+      false,
+      headers.length,
+    );
+    setRetailPriceCol(next.col);
+    setMappingSource(prev => ({ ...prev, retail: next.source }));
+    // Only a change of fixedColCount triggers this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixedColCount]);
 
   useEffect(() => {
     if (fileData && rawSheet) {
         const data = getSheetData(fileData.workbook, rawSheet);
-        if (data.length > 0) {
-            setRawHeaders(data[0] as string[]);
-            setRawSkuCol(-1);
-            setCostCol(-1);
-            setRawNameCol(-1);
-        }
+        const newRawHeaders = data.length > 0 ? (data[0] as string[]) : [];
+        // A new sheet or file: defaults from ITS headers (exact header, then
+        // known aliases, else unmapped), replacing any earlier choice.
+        const suggested = suggestRawColumns(newRawHeaders);
+        setRawHeaders(newRawHeaders);
+        setRawSkuCol(suggested.sku);
+        setCostCol(suggested.cost);
+        setRawNameCol(suggested.name);
+        setMappingSource(prev => ({ ...prev, sku: 'auto', cost: 'auto', name: 'auto' }));
     }
   }, [fileData, rawSheet]);
 
@@ -1149,11 +1192,11 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                       <div className="bg-white p-4 rounded-lg border border-slate-200">
                           <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Required Mapping</label>
                           <div className="mb-2">
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Raw Sheet SKU Column</label>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Raw Sheet SKU Column<AutoBadge show={isAuto('sku') && rawSkuCol !== -1} /></label>
                             <select 
                                 className="w-full p-2 border rounded text-xs bg-white"
                                 value={rawSkuCol}
-                                onChange={(e) => setRawSkuCol(Number(e.target.value))}
+                                onChange={(e) => chooseColumn('sku', Number(e.target.value))}
                             >
                                 <option value="-1">Auto-Detect / All Columns</option>
                                 {rawHeaders.map((h, i) => <option key={i} value={i}>{h}</option>)}
@@ -1164,10 +1207,11 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                       <div className="bg-white p-4 rounded-lg border border-slate-200">
                           <label className="block text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1"><Coins size={14}/> Cost &amp; Profit (optional)</label>
                           <p className="text-xs text-slate-500 mb-3">The Cost &amp; Profit Analyzer's Financial Mapping. With the Raw SKU column above and a Cost column, the export adds Profit Analysis and Detailed BOM sheets, and Cost above Retail Price is a validation error.</p>
+                          <p className="text-xs text-emerald-700 mb-3">Columns marked Auto were chosen from the headers. Check them, and pick another column (or none) if needed.</p>
                           <div className="grid grid-cols-1 gap-2">
-                              <FinancialMappingField field="cost" value={costCol} onChange={setCostCol} options={rawHeaders} />
-                              <FinancialMappingField field="name" value={rawNameCol} onChange={setRawNameCol} options={rawHeaders} />
-                              <FinancialMappingField field="retail" value={retailPriceCol} onChange={setRetailPriceCol} options={headers} />
+                              <FinancialMappingField field="cost" value={costCol} onChange={(c) => chooseColumn('cost', c)} options={rawHeaders} auto={isAuto('cost')} />
+                              <FinancialMappingField field="name" value={rawNameCol} onChange={(c) => chooseColumn('name', c)} options={rawHeaders} auto={isAuto('name')} />
+                              <FinancialMappingField field="retail" value={retailPriceCol} onChange={(c) => chooseColumn('retail', c)} options={headers} auto={isAuto('retail')} />
                           </div>
                       </div>
                   </div>
@@ -1289,12 +1333,13 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
           <div className="animate-in fade-in slide-in-from-bottom-2 space-y-6">
               
               <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
-                  <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Calculator size={20}/> Financial Mapping</h3>
+                  <h3 className="font-bold text-slate-700 mb-2 flex items-center gap-2"><Calculator size={20}/> Financial Mapping</h3>
+                  <p className="text-xs text-emerald-700 mb-4">Columns marked Auto were chosen from the headers. Check them, and pick another column if needed.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                      <FinancialMappingField field="sku" value={rawSkuCol} onChange={setRawSkuCol} options={rawHeaders} />
-                      <FinancialMappingField field="cost" value={costCol} onChange={setCostCol} options={rawHeaders} />
-                      <FinancialMappingField field="name" value={rawNameCol} onChange={setRawNameCol} options={rawHeaders} />
-                      <FinancialMappingField field="retail" value={retailPriceCol} onChange={setRetailPriceCol} options={headers} />
+                      <FinancialMappingField field="sku" value={rawSkuCol} onChange={(c) => chooseColumn('sku', c)} options={rawHeaders} auto={isAuto('sku')} />
+                      <FinancialMappingField field="cost" value={costCol} onChange={(c) => chooseColumn('cost', c)} options={rawHeaders} auto={isAuto('cost')} />
+                      <FinancialMappingField field="name" value={rawNameCol} onChange={(c) => chooseColumn('name', c)} options={rawHeaders} auto={isAuto('name')} />
+                      <FinancialMappingField field="retail" value={retailPriceCol} onChange={(c) => chooseColumn('retail', c)} options={headers} auto={isAuto('retail')} />
                   </div>
 
                   <button

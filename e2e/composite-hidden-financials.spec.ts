@@ -58,12 +58,14 @@ async function open(app: { goto(): Promise<void>; openTool(n: string): Promise<v
   await app.goto();
   await app.openTool('Composite Check');
   await page.locator('input[type="file"]').first().setInputFiles({ name: 'composite.xlsx', mimeType: XLSX_TYPE, buffer });
-  await expect(page.locator('select').first().locator('option', { hasText: 'Composite' })).toHaveCount(1);
+  // The sheet picker is filled once the workbook has parsed.
+  await expect(page.locator('select').first().locator('option').nth(1)).toBeAttached();
 }
 
 /** Structure Validator → one column ticked → Validate → the downloaded workbook. */
 async function validate(page: Page) {
-  await page.getByText('1. Product Name', { exact: true }).first().click();
+  // The first column, whatever it is called.
+  await page.getByText(/^1\. /).first().click();
   const pending = page.waitForEvent('download', { timeout: 60_000 });
   await page.getByRole('button', { name: 'Validate Composite' }).click();
   return XLSX.read(readFileSync((await (await pending).path())!), { type: 'buffer', cellStyles: true, cellNF: true });
@@ -73,7 +75,16 @@ async function mapFinancials(page: Page, retail = true) {
   await page.locator('label:has-text("Raw Sheet SKU Column") + select').selectOption({ label: 'SKU' });
   await page.getByLabel('Raw Sheet: Cost Column').selectOption({ label: 'Cost' });
   await page.getByLabel('Raw Sheet: Name Column').selectOption({ label: 'Name' });
-  if (retail) await page.getByLabel('Composite: Retail Price').selectOption({ label: 'Retail Price' });
+  await page.getByLabel('Composite: Retail Price').selectOption(retail ? { label: 'Retail Price' } : '-1');
+}
+
+/**
+ * Cost cleared: no Cost & Profit. Standard headers now map Cost by themselves,
+ * so tests about something else (hidden content, sheet names) clear it, as a
+ * user would, to keep the export exactly as before.
+ */
+async function clearCost(page: Page) {
+  await page.getByLabel('Raw Sheet: Cost Column').selectOption('-1');
 }
 
 const grid = (wb: XLSX.WorkBook, name: string) => XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' }) as unknown[][];
@@ -88,6 +99,7 @@ test.describe('Composite Check — hidden content', () => {
     await expect(sel.nth(0)).toHaveValue('Composite');
     await expect(sel.nth(1)).toHaveValue('Raw');
     await expect(sel.nth(1).locator('option', { hasText: 'Lists (hidden)' })).toHaveCount(1);
+    await clearCost(page);
     // No sheet chosen by hand: before, every ingredient was "missing" against Lists.
     const wb = await validate(page);
     expect(wb.SheetNames).not.toContain('Validation Errors');
@@ -100,6 +112,7 @@ test.describe('Composite Check — hidden content', () => {
     const sel = page.locator('select');
     await sel.nth(0).selectOption({ label: 'Composite (very hidden)' });
     await sel.nth(1).selectOption({ label: 'Raw (hidden)' });
+    await clearCost(page);
     const wb = await validate(page);
 
     // Every row and column, including the hidden ones, reaches the export.
@@ -123,9 +136,148 @@ test.describe('Composite Check — hidden content', () => {
     const sel = page.locator('select');
     await sel.nth(0).selectOption({ label: 'Composite' });
     await sel.nth(1).selectOption({ label: 'Raw' });
+    await clearCost(page);
     const wb = await validate(page);
     expect(wb.SheetNames).toEqual(['Raw', 'Composite', 'Valid Products', 'Summary', 'Valid Products (2)', 'Summary (2)']);
     expect(grid(wb, 'Valid Products')).toEqual([['old result']]);
+  });
+});
+
+const rawSkuSelect = (page: Page) => page.locator('label:has-text("Raw Sheet SKU Column") + select');
+const badge = (page: Page, label: string) => page.locator(`label:has-text("${label}") >> text=Auto`);
+
+/** One workbook, built from sheets given as rows. */
+function book(sheets: [string, unknown[][]][]) {
+  const wb = XLSX.utils.book_new();
+  for (const [name, rows] of sheets) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
+  return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+}
+
+test.describe('Composite Check — automatic mapping defaults', () => {
+  test('a standard workbook opens with SKU, Cost, Name and Retail Price chosen, marked Auto, and exports Cost & Profit as is', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    await open(app, page, workbook());
+    await expect(rawSkuSelect(page)).toHaveValue('0');                                 // SKU
+    await expect(page.getByLabel('Raw Sheet: Cost Column')).toHaveValue('2');          // Cost
+    await expect(page.getByLabel('Raw Sheet: Name Column')).toHaveValue('1');          // Name
+    await expect(page.getByLabel('Composite: Retail Price')).toHaveValue('2');         // Retail Price
+    for (const label of ['Raw Sheet SKU Column', 'Raw Sheet: Cost Column', 'Raw Sheet: Name Column', 'Composite: Retail Price']) {
+      await expect(badge(page, label)).toHaveCount(1);
+    }
+    // Nothing touched: the financial export comes out, exactly as when mapped by hand.
+    const wb = await validate(page);
+    expect(wb.SheetNames).toEqual(['Raw', 'Composite', 'Validation Errors', 'Valid Products', 'Summary', 'Profit Analysis', 'Detailed BOM']);
+    expect(grid(wb, 'Profit Analysis')[1]).toEqual(['Burger', 'COMP-001', 20, 9.5, 10.5, 0.525, 'Profit', 2, '']);
+  });
+
+  test('the real Arabic template headers, in their own order', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    await open(app, page, book([
+      ['الخامات', [
+        ['اسم المادة الخام + اسم الوحدة المستخدمة', 'الرقم التعريفي للمنتج (SKU)', 'سعر التكلفة غير شامل الضريبة للوحدة الواحدة', 'الكمية حسب الوحدة المستخدمة'],
+        ['زيت دوار الشمس', '843258536022', 6, 24],
+        ['سكر سعودي ناعم', '844429818874', 2, 65],
+      ]],
+      ['المنتج المجمع', [
+        ['اسم المنتج المجمع', 'رمز المنتج المجمع', 'فئة المنتج', 'سعر البيع', 'الرمز التعريفي للمادة الخام رقم 1', 'مقدار الاستخدام من المادة 1'],
+        ['كيك', '826743567005', 'كيك', 230, '843258536022', 2],
+      ]],
+    ]));
+    await expect(page.locator('select').nth(0)).toHaveValue('المنتج المجمع');
+    await expect(page.locator('select').nth(1)).toHaveValue('الخامات');
+    await expect(rawSkuSelect(page)).toHaveValue('1');
+    await expect(page.getByLabel('Raw Sheet: Cost Column')).toHaveValue('2');
+    await expect(page.getByLabel('Raw Sheet: Name Column')).toHaveValue('0');
+    await expect(page.getByLabel('Composite: Retail Price')).toHaveValue('3');
+    const wb = await validate(page);
+    expect(grid(wb, 'Profit Analysis')[1]).toEqual(['كيك', '826743567005', 230, 12, 218, 218 / 230, 'Profit', 2, '']);
+  });
+
+  test('missing and ambiguous columns stay unmapped; no Cost means the old export', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    await open(app, page, book([
+      ['Raw', [['SKU', 'Code', 'sku', 'Price list'], ['RAW-100', 'x', 'RAW-100', 1]]],
+      ['Composite', [['Name', 'SKU', 'Category', 'Unit', 'Ing 1', 'Qty 1'], ['Burger', 'COMP-001', 'Food', 'pc', 'RAW-100', 1]]],
+    ]));
+    await expect(rawSkuSelect(page)).toHaveValue('-1');                                // two SKU columns: not guessed
+    await expect(page.getByLabel('Raw Sheet: Cost Column')).toHaveValue('-1');         // none
+    await expect(page.getByLabel('Raw Sheet: Name Column')).toHaveValue('-1');         // none
+    await expect(page.getByLabel('Composite: Retail Price')).toHaveValue('-1');        // none
+    await expect(page.getByText('Auto', { exact: true })).toHaveCount(0);
+    const wb = await validate(page);
+    expect(wb.SheetNames).toEqual(['Raw', 'Composite', 'Valid Products', 'Summary']);
+  });
+
+  test('every default can be changed, and the export follows the user\'s choice', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    await open(app, page, book([
+      ['Raw', [['SKU', 'Name', 'Cost', 'Old SKU', 'Label', 'New Cost'], ['RAW-100', 'Bun', 1, 'OLD-1', 'Bread bun', 3]]],
+      ['Composite', [['Name', 'SKU', 'Retail Price', 'Promo', 'Ing 1', 'Qty 1'], ['Burger', 'COMP-001', 20, 12, 'OLD-1', 2]]],
+    ]));
+    await rawSkuSelect(page).selectOption({ label: 'Old SKU' });
+    await page.getByLabel('Raw Sheet: Cost Column').selectOption({ label: 'New Cost' });
+    await page.getByLabel('Raw Sheet: Name Column').selectOption({ label: 'Label' });
+    await page.getByLabel('Composite: Retail Price').selectOption({ label: 'Promo' });
+    // A changed field is no longer marked Auto.
+    for (const label of ['Raw Sheet SKU Column', 'Raw Sheet: Cost Column', 'Raw Sheet: Name Column', 'Composite: Retail Price']) {
+      await expect(badge(page, label)).toHaveCount(0);
+    }
+    // Re-rendering for another reason (Fixed Header Cols) keeps the user's Retail Price.
+    await page.locator('input[type="number"]').fill('5');
+    await expect(page.getByLabel('Composite: Retail Price')).toHaveValue('3');
+    await page.locator('input[type="number"]').fill('4');
+    const wb = await validate(page);
+    expect(grid(wb, 'Profit Analysis')[1]).toEqual(['Burger', 'COMP-001', 12, 6, 6, 0.5, 'Profit', 2, '']);
+    expect(grid(wb, 'Detailed BOM')[1]).toEqual(['Burger', 'COMP-001', 'OLD-1', 'Bread bun', 2, 3, 6]);
+  });
+
+  test('another Raw sheet or another file: defaults are recomputed, nothing stale is kept', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    await open(app, page, book([
+      ['Raw', [['SKU', 'Name', 'Cost'], ['RAW-100', 'Bun', 1]]],
+      ['Composite', [['Name', 'SKU', 'Retail Price', 'Unit', 'Ing 1', 'Qty 1'], ['Burger', 'COMP-001', 20, 'pc', 'RAW-100', 2]]],
+      ['Raw no cost', [['Code', 'Item Code', 'Description'], ['x', 'RAW-100', 'Bun']]],
+    ]));
+    await page.getByLabel('Raw Sheet: Cost Column').selectOption({ label: 'Name' }); // a manual (odd) choice
+    // Another Raw sheet: its own headers decide; the manual Cost does not survive.
+    await page.locator('select').nth(1).selectOption({ label: 'Raw no cost' });
+    await expect(rawSkuSelect(page)).toHaveValue('1');                                  // "Item Code"
+    await expect(page.getByLabel('Raw Sheet: Cost Column')).toHaveValue('-1');
+    await expect(page.getByLabel('Raw Sheet: Name Column')).toHaveValue('-1');
+    // Another file: everything from its headers.
+    await page.locator('input[type="file"]').first().setInputFiles({
+      name: 'other.xlsx', mimeType: XLSX_TYPE,
+      buffer: book([
+        ['Materials', [['Cost', 'Material Name', 'SKU'], [2, 'Cheese', 'RAW-300']]],
+        ['Products', [['Name', 'SKU', 'Selling Price', 'Unit', 'Ing 1', 'Qty 1'], ['Toast', 'COMP-9', 5, 'pc', 'RAW-300', 1]]],
+      ]),
+    });
+    await expect(page.locator('select').nth(1)).toHaveValue('Materials');
+    await expect(rawSkuSelect(page)).toHaveValue('2');
+    await expect(page.getByLabel('Raw Sheet: Cost Column')).toHaveValue('0');
+    await expect(page.getByLabel('Raw Sheet: Name Column')).toHaveValue('1');
+    await expect(page.getByLabel('Composite: Retail Price')).toHaveValue('2');
+    const wb = await validate(page);
+    expect(grid(wb, 'Profit Analysis')[1]).toEqual(['Toast', 'COMP-9', 5, 2, 3, 0.6, 'Profit', 2, '']);
+  });
+
+  test('the auto-chosen SKU column is what "SKU missing" checks; "Auto-Detect / All Columns" is still available', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    // RAW-900 appears in the Raw sheet only as a NAME, not as a SKU.
+    const buffer = book([
+      ['Raw', [['SKU', 'Name'], ['RAW-100', 'RAW-900']]],
+      ['Composite', [['Name', 'SKU', 'Category', 'Unit', 'Ing 1', 'Qty 1'], ['Burger', 'COMP-001', 'Food', 'pc', 'RAW-900', 1]]],
+    ]);
+    await open(app, page, buffer);
+    await expect(rawSkuSelect(page)).toHaveValue('0');
+    let wb = await validate(page);
+    expect(grid(wb, 'Validation Errors')[1].slice(-3, -2)).toEqual(["SKU 'RAW-900' missing"]);
+    // The old default — any Raw cell counts — is one click away.
+    await rawSkuSelect(page).selectOption('-1');
+    const pending = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByRole('button', { name: 'Validate Composite' }).click();
+    wb = XLSX.read(readFileSync((await (await pending).path())!), { type: 'buffer' });
+    expect(wb.SheetNames).not.toContain('Validation Errors');
   });
 });
 
@@ -151,6 +303,7 @@ test.describe('Composite Check — SKU matching (decision D7)', () => {
     await open(app, page, Buffer.from(XLSX.write(wb0, { type: 'buffer', bookType: 'xlsx' })));
     await page.locator('label:has-text("Raw Sheet SKU Column") + select').selectOption({ label: 'SKU' });
     await page.getByLabel('Raw Sheet: Cost Column').selectOption({ label: 'Cost' });
+    await page.getByLabel('Composite: Retail Price').selectOption('-1');
     const wb = await validate(page);
     const errors = grid(wb, 'Validation Errors').slice(1).map((r) => `${r[1]}: ${r[r.length - 3]}`);
     expect(errors).toEqual([
@@ -253,9 +406,10 @@ test.describe('Composite Check — Cost & Profit in the validated export', () =>
     expect(grid(wb, 'Profit Analysis')[1]).toEqual(['Burger', 'COMP-001', '', 9.5, '', '', '', 2, 'Retail Price is not mapped']);
   });
 
-  test('no Cost mapping: the export is exactly the old one', async ({ app, page }) => {
+  test('Cost cleared: the export is exactly the old one', async ({ app, page }) => {
     test.setTimeout(120_000);
     await open(app, page, workbook());
+    await clearCost(page);
     const wb = await validate(page);
     expect(wb.SheetNames).toEqual(['Raw', 'Composite', 'Valid Products', 'Summary']);
   });
