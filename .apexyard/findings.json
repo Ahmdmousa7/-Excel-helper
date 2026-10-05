@@ -1,40 +1,40 @@
 {
-  "attestation_id": "sha256:78c84e70e935ae53246e5786284ebe549de65aee5150c97f8aa815dfb404c5a8",
+  "attestation_id": "sha256:cc87eca444c0dddb2afe85545415c50f0761f50303973df8430bc4e77127ff3f",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 3,
+    "info": 1,
+    "low": 2,
     "medium": 0
   },
   "findings": [
     {
       "category": "code-smell",
-      "detail": "`if (identifierKey(val)) rawMaterialsSet.add(identifierKey(val));` runs the Unicode `\\p{M}\\p{Cf}` regex replace twice for the same value, at line 404 and again at line 423. Line 423 sits in the `rawSkuCol === -1` fallback, which iterates *every cell of every Raw row*, so on a large Raw sheet this doubles the normalisation work on the hottest loop in the validate pass. No correctness impact and the loop is already chunked, so this is cleanup rather than a user-visible problem.",
+      "detail": "`if (identifierKey(val)) rawMaterialsSet.add(identifierKey(val));` runs the Unicode `[\\p{M}\\p{Cf}\\u0640]/gu` replace twice for the same value, and the same shape repeats at line 423 — where it runs over *every cell* of every raw row, not just the SKU column. On a large raw sheet that doubles the regex work in the hottest loop of the pass for no benefit, and it reads as if two different keys were intended.",
       "file": "components/CompositeTab.tsx",
       "line": 404,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "identifierKey(val) computed twice per cell when building the membership set"
+      "summary": "identifierKey(val) is computed twice per raw cell"
     },
     {
       "category": "code-smell",
-      "detail": "`margin = retailPrice > 0 ? marginOf(...) : null` blanks Margin when Retail Price is 0, but `note` is only populated when `profit === null` (line 313). With Retail Price 0 and a known cost, Profit *is* known, so the Note is `''` and the Profit Analysis row ships a blank Margin% cell with no reason — exactly the gap the Note was added to close, and what MODULE_GUIDE.md promises (\"why Profit and Margin are blank whenever they are\"). A free/placeholder-priced composite with cost 0 is the clean case: break-even, blank Margin, empty Note, and no `Cost is higher than Retail Price` error either, so nothing anywhere explains the blank. Narrow trigger (Retail Price must parse to exactly 0), hence low; it would be medium if Margin were silently wrong rather than silently blank.",
+      "detail": "`classifyQuantity(typeof qtyRaw === 'number' ? qtyRaw : String(qtyRaw ?? '').trim())` converts every non-number to a string before handing it over. `utils/quantityRule.ts:36-39` documents that it deliberately rejects non-string/non-number inputs for exactly this reason: `String([5])` is `'5'`, so an array cell would be accepted as the quantity 5 — 'a parsing accident, not a five'. This call site reintroduces that coercion at the one place the guard was written to protect. The practical blast radius is small (SheetJS cell values are string/number/boolean/Date, and for those the two forms agree), which is why this is low rather than medium; it would be medium if a parse path could hand this function an array or object cell.",
       "file": "utils/compositeFinancials.ts",
-      "line": 291,
+      "line": 227,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Retail Price of exactly 0 leaves Margin blank with no Note explaining it"
+      "summary": "Pre-stringifying the qty cell defeats classifyQuantity's documented array guard"
     },
     {
-      "category": "testing",
-      "detail": "`COMPOSITE.map((r) => r.map(String)).map((r) => r.map((c) => c))` — the second `.map` is an identity transform that does nothing. It reads as if a conversion were intended and was dropped, which is the kind of leftover that makes the next reader of this assertion pause and re-derive what the expected grid actually is.",
-      "file": "e2e/composite-hidden-financials.spec.ts",
-      "line": 106,
-      "severity": "low",
+      "category": "code-smell",
+      "detail": "`marginPercentOf` re-checks `retailPrice > 0` before delegating to `marginOf`, which already returns 0 for a non-positive retail price (line 94-95). The ternary's false branch is unreachable in any state where `marginOf` would not also return 0, so it is a dead guard that implies a distinction the two functions do not actually have. Observation only — behaviour is correct.",
+      "file": "utils/compositeFinancials.ts",
+      "line": 99,
+      "severity": "info",
       "suggested_fix": null,
-      "summary": "Redundant identity `.map((c) => c)` in the hidden-rows/columns assertion"
+      "summary": "Redundant retailPrice > 0 guard in marginPercentOf"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

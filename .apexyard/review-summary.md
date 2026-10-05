@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:78c84e70e935ae53246e5786284ebe549de65aee5150c97f8aa815dfb404c5a8` |
+| Attestation id | `sha256:cc87eca444c0dddb2afe85545415c50f0761f50303973df8430bc4e77127ff3f` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `822a074ce1de` |
+| Reviewed at commit | `220e81c98e71` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 3 |
-| info | 0 |
+| low | 2 |
+| info | 1 |
 
-This PR makes Composite Check handle hidden workbook content (hidden/veryHidden sheets no longer get picked as defaults, the validated sheet is unhidden in the generated copy only, result sheets get collision-free names via the existing `safeSheetName`) and adds Cost & Profit to the validated export through two new pure modules, `utils/compositeFinancials.ts` and `utils/compositeWorkbook.ts`. The layering is clean (utils import only utils; no I/O moved into the component), the analyzer's lenient arithmetic is preserved verbatim while the export reads strictly, and the behaviour is pinned by substantial unit and Playwright coverage including the D7 SKU-matching edges and the hidden-row/column/sheet matrix. No blocking-handbook violations and no new dependencies; three low-severity polish items only.
+This PR makes Composite Check handle hidden workbook content (hidden/veryHidden sheets no longer get auto-picked as the Raw sheet, and the validated sheet is forced visible in the generated copy only) and adds Cost & Profit output to the validated export via a new shared formula module. The financial logic is correctly extracted into pure `utils/` modules with a strict reading (nothing missing becomes 0) that is kept separate from the analyzer's preserved lenient reading, and raw-sheet SKU membership is unified on `identifierKey` per decision D7. Coverage is strong — 403 lines of new unit tests plus a 286-line Playwright spec that asserts the actual downloaded workbook, including numeric cell types and number formats — and the module docs were updated in the same change. No blocking-handbook violations, no new dependencies, no escape hatches; findings are three low/info polish items. The PR description was not supplied to this run, so §6 (summary/glossary/ticket) and the AgDR link check could not be assessed.
 
 ## Quality gates
 
@@ -41,7 +41,7 @@ This PR makes Composite Check handle hidden workbook content (hidden/veryHidden 
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 560 warning(s) |
-| Vitest | pass | 1025/1025 passed, lines 99.11% |
+| Vitest | pass | 1026/1026 passed, lines 99.11% |
 | Playwright | pass | 179/180 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 146 source files, 39104 lines
+- 146 source files, 39132 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
