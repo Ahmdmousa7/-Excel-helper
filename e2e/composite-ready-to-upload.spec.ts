@@ -73,12 +73,58 @@ const grid = (wb: XLSX.WorkBook, name: string) => XLSX.utils.sheet_to_json(wb.Sh
 const at = (rows: unknown[][], r: number, header: string) => rows[r][(rows[0] as string[]).indexOf(header)];
 
 test.describe('Composite Check — Ready to upload', () => {
+  test('the result is announced: an always-present live region whose text changes once per validation', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    await app.goto();
+    await app.openTool('Composite Check');
+    await page.locator('input[type="file"]').first().setInputFiles({ name: 'menu.xlsx', mimeType: XLSX_TYPE, buffer: workbook() });
+    await expect(page.locator('select').first().locator('option').nth(1)).toBeAttached();
+    // Present, and empty, BEFORE there is a result: a region mounted with its
+    // text already in it is what assistive tech may never announce.
+    const announcer = page.getByTestId('ready-upload-announcer');
+    await expect(announcer).toHaveAttribute('role', 'status');
+    await expect(announcer).toHaveAttribute('aria-live', 'polite');
+    await expect(announcer).toHaveText('');
+    // Count every change to its text from here on.
+    await announcer.evaluate((el) => {
+      const w = window as unknown as { announcerChanges: string[] };
+      w.announcerChanges = [];
+      new MutationObserver(() => w.announcerChanges.push(el.textContent ?? '')).observe(el, { childList: true, characterData: true, subtree: true });
+    });
+    const changes = () => page.evaluate(() => (window as unknown as { announcerChanges: string[] }).announcerChanges.filter(Boolean));
+
+    await page.getByText(/^1\. /).first().click();
+    const pending = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByRole('button', { name: 'Validate Composite' }).click();
+    await pending;
+    const summary = 'Simple: 33 raw materials (33 identical, 0 not). Composite: 3 valid products (3 identical, 0 not).';
+    await expect(announcer).toContainText(summary);
+    expect(await changes()).toHaveLength(1);
+
+    // The visible copy is hidden from assistive tech, so it is not read twice;
+    // the panel looks and reads as before.
+    await expect(page.getByLabel('Ready to upload').locator('p[aria-hidden="true"]')).toContainText(summary);
+
+    // Unrelated renders (another setting, a download) do not touch it: no re-announcement.
+    await page.locator('input[type="number"]').fill('5');
+    await page.locator('input[type="number"]').fill('4');
+    const dl = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Ready to upload - Simple' }).click();
+    await dl;
+    expect(await changes()).toHaveLength(1);
+
+    // A new validation is a new result: announced again.
+    const again = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByRole('button', { name: 'Validate Composite' }).click();
+    await again;
+    await expect(announcer).toContainText(summary);
+    expect(await changes()).toHaveLength(2);
+  });
+
   test('Simple + Composite → two files on the exact templates, valid rows only, ProductN kept in place, all Identical', async ({ app, page }) => {
     test.setTimeout(120_000);
     const validated = await validate(app, page, workbook());
 
-    // The panel: a labelled region whose summary is announced (role=status).
-    await expect(page.getByRole('region', { name: 'Ready to upload' }).getByRole('status')).toContainText('Simple: 33 raw materials');
     await expect(page.getByLabel('Ready to upload')).toContainText('Simple: 33 raw materials (33 identical, 0 not). Composite: 3 valid products (3 identical, 0 not).');
 
     // ── Simple ──

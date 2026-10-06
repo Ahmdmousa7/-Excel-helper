@@ -370,6 +370,13 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
       }
   };
 
+  /** The Ready to upload summary sentence ('' with no result): shown in the panel, announced by the live region. */
+  const readySummaryText = readyUpload
+      ? `Simple: ${readyUpload.summary.simpleRows} raw materials (${readyUpload.summary.simpleIdentical} identical, ${readyUpload.summary.simpleRows - readyUpload.summary.simpleIdentical} not). `
+        + `Composite: ${readyUpload.summary.compositeRows} valid products (${readyUpload.summary.compositeIdentical} identical, ${readyUpload.summary.compositeRows - readyUpload.summary.compositeIdentical} not). `
+        + `Each file uses Rewaa's template exactly; the checks are in the validated workbook (Ready Simple Check, Ready Composite Check, Ready Mapping Audit).`
+      : '';
+
   /** One Ready to upload file: a single sheet laid out exactly like Rewaa's template. */
   const downloadReady = (which: 'Simple' | 'Composite') => {
       if (!readyUpload) return;
@@ -1343,15 +1350,18 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                   )}
               </div>
 
+              {/* The result, announced once per validation — the ApiKeyModal pattern:
+                  the live region is ALWAYS rendered and only its text changes (one
+                  created together with its text gives assistive tech nothing to
+                  observe). sr-only, so the layout is unchanged; the visible copy
+                  below is aria-hidden so it is not read twice. A run clears it
+                  first (setReadyUpload(null)), so a repeat run is announced too;
+                  other renders leave the text, and the announcement, alone. */}
+              <div role="status" aria-live="polite" className="sr-only" data-testid="ready-upload-announcer">{readySummaryText}</div>
               {readyUpload && (
                   <div className="bg-white p-4 rounded-lg border border-emerald-200" role="region" aria-label="Ready to upload">
                       <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-1"><UploadCloud size={16} className="text-emerald-600"/> Ready to upload</h4>
-                      {/* Announced when it appears: the result of the validation the user just ran. */}
-                      <p className="text-xs text-slate-600 mb-3" role="status" aria-live="polite">
-                          Simple: {readyUpload.summary.simpleRows} raw materials ({readyUpload.summary.simpleIdentical} identical, {readyUpload.summary.simpleRows - readyUpload.summary.simpleIdentical} not).
-                          {' '}Composite: {readyUpload.summary.compositeRows} valid products ({readyUpload.summary.compositeIdentical} identical, {readyUpload.summary.compositeRows - readyUpload.summary.compositeIdentical} not).
-                          {' '}Each file uses Rewaa's template exactly; the checks are in the validated workbook (Ready Simple Check, Ready Composite Check, Ready Mapping Audit).
-                      </p>
+                      <p className="text-xs text-slate-600 mb-3" aria-hidden="true">{readySummaryText}</p>
                       <div className="flex flex-wrap gap-2">
                           <button onClick={() => downloadReady('Simple')} className="bg-emerald-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-emerald-700 flex items-center gap-2 shadow-sm">
                               <Download size={14}/> Ready to upload - Simple
