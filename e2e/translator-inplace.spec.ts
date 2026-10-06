@@ -180,3 +180,113 @@ test.describe('AI Translator — In-Place Update writes the translation into the
     await expect(page.getByText(/Batch failed, stopping here: The AI API key was rejected/)).toBeVisible();
   });
 });
+
+/**
+ * Every model of the key busy at once (production, 2026-10-06): no quota for the
+ * Pro ids on this key, and every Flash id answering 503 "high demand". The run
+ * now waits 15s / 30s / 60s and tries the list again before giving up. The
+ * browser's clock is fast-forwarded, so the waits cost no real time.
+ */
+test.describe('AI Translator — all models overloaded: bounded wait-and-retry', () => {
+  const PRO = /pro/;
+  const busy = (busyFlashCalls: number) => async (page: Page) => {
+    const calls: string[] = [];
+    let flashCalls = 0;
+    await page.route(/[gG]enerateContent/, async (route) => {
+      const model = /models\/([^:]+):/.exec(route.request().url())?.[1] ?? '?';
+      calls.push(model);
+      if (PRO.test(model)) {
+        await route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: `Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: ${model}` } }) });
+        return;
+      }
+      if (flashCalls++ < busyFlashCalls) {
+        await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 503, status: 'UNAVAILABLE', message: 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.' } }) });
+        return;
+      }
+      const body = JSON.parse(route.request().postData() ?? '{}');
+      const prompt: string = body.contents?.[0]?.parts?.[0]?.text ?? '';
+      const items = JSON.parse(/Items:\s*(\[[\s\S]*?\])\s*\n\s*Return ONLY/.exec(prompt)?.[1] ?? '[]');
+      const answer = items.map((it: { text: string }) => mockTranslate(it.text));
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ index: 0, finishReason: 'STOP', content: { role: 'model', parts: [{ text: JSON.stringify(answer) }] } }] }) });
+    });
+    return calls;
+  };
+  const FLASH_IDS = 3; // gemini-3.6-flash, gemini-flash-latest, gemini-3-flash-preview
+
+  // The clock is installed BEFORE the app loads (`shell` does not navigate on
+  // its own): installed on an already-loaded page it does not take over the
+  // app's timers, and the waits would run in real time.
+  async function start(shell: { goto(): Promise<void>; openToolMatching(r: RegExp): Promise<void> }, page: Page) {
+    await page.clock.install();
+    await shell.goto();
+    await shell.openToolMatching(/AI Translator/);
+    await page.locator('input[type="file"]').first().setInputFiles({ name: 'Translate (2).xlsx', mimeType: XLSX_TYPE, buffer: REAL });
+    await page.getByRole('checkbox', { name: 'Product Name', exact: true }).check();
+    await page.getByRole('button', { name: 'Auto ⇄' }).click();
+    await page.getByRole('button', { name: '|', exact: true }).click();
+    await page.getByRole('button', { name: 'In-Place Update' }).click();
+    const pending = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByRole('button', { name: en.common.start }).click();
+    await page.getByRole('button', { name: en.actions.showLogs }).click();
+    // Wrapped: an async function returning the promise itself would make the
+    // caller's `await` wait for the DOWNLOAD — i.e. for the waits to pass in real time.
+    return { pending };
+  }
+  const waitNotice = (s: number, n: number) => `All models are busy (temporary Gemini service overload) — retrying in ${s}s (${n}/3).`;
+
+  test('every Flash id 503 in the first round → a logged 15s wait, then the run completes: Translated_, column A bilingual', async ({ shell, page }) => {
+    test.setTimeout(120_000);
+    const calls = await busy(FLASH_IDS)(page);
+    const { pending } = await start(shell, page);
+    await expect(page.getByText(waitNotice(15, 1))).toBeVisible({ timeout: 30_000 });
+    const before = calls.length;
+    await page.clock.runFor(14_000);
+    expect(calls).toHaveLength(before); // nothing is asked during the wait
+    await page.clock.runFor(1_500);
+    const d = await pending;
+    expect(d.suggestedFilename()).toBe('Translated_Translate (2).xlsx');
+    const wb = XLSX.read(readFileSync((await d.path())!), { type: 'buffer' });
+    const src = grid(XLSX.read(REAL, { type: 'buffer' }), 'rewaa-import-simple');
+    const out = grid(wb, 'rewaa-import-simple');
+    for (let r = 1; r < src.length; r++) expect(out[r][0]).toBe(`${src[r][0]} | EN:${src[r][0]}`);
+    expect(out.map((r) => r.slice(1))).toEqual(src.map((r) => r.slice(1)));
+    // One wait only; the no-quota Pros were asked once each, never again after the wait.
+    await expect(page.getByText(waitNotice(30, 2))).toHaveCount(0);
+    expect(calls.filter((m) => PRO.test(m))).toHaveLength(3);
+    expect(calls.filter((m) => !PRO.test(m))).toHaveLength(FLASH_IDS + 1);
+    // The wait is not reported as a model change in the workbook.
+    const summary = grid(wb, 'Translation Summary').flat().map(String);
+    expect(summary.some((c) => c.startsWith('All models are busy'))).toBe(false);
+  });
+
+  test('two busy rounds, then success: 15s, then 30s, both logged', async ({ shell, page }) => {
+    test.setTimeout(120_000);
+    await busy(FLASH_IDS * 2)(page);
+    const { pending } = await start(shell, page);
+    await expect(page.getByText(waitNotice(15, 1))).toBeVisible({ timeout: 30_000 });
+    await page.clock.runFor(15_500);
+    await expect(page.getByText(waitNotice(30, 2))).toBeVisible({ timeout: 30_000 });
+    await page.clock.runFor(30_500);
+    expect((await pending).suggestedFilename()).toBe('Translated_Translate (2).xlsx');
+  });
+
+  test('busy through all three waits → the same safe PARTIAL_ file as before: column unchanged, banner, readable error', async ({ shell, page }) => {
+    test.setTimeout(120_000);
+    const calls = await busy(Number.MAX_SAFE_INTEGER)(page);
+    const { pending } = await start(shell, page);
+    for (const [s, n] of [[15, 1], [30, 2], [60, 3]] as const) {
+      await expect(page.getByText(waitNotice(s, n))).toBeVisible({ timeout: 30_000 });
+      await page.clock.runFor(s * 1000 + 500);
+    }
+    const d = await pending;
+    expect(d.suggestedFilename()).toBe('PARTIAL_Translated_Translate (2).xlsx');
+    const wb = XLSX.read(readFileSync((await d.path())!), { type: 'buffer' });
+    expect(grid(wb, 'rewaa-import-simple')).toEqual(grid(XLSX.read(REAL, { type: 'buffer' }), 'rewaa-import-simple'));
+    const summary = grid(wb, 'Translation Summary');
+    expect(summary[0][0]).toBe('*** PARTIAL TRANSLATION — THIS FILE IS NOT COMPLETE ***');
+    expect(summary[1][0]).toBe('Translated 0 of 20 items that needed translation.');
+    await expect(page.getByText(`Batch failed, stopping here: ${en.aiErrors.busy}`)).toBeVisible();
+    // Bounded: the Flash list walked four times (first try + three retries), never a fifth.
+    expect(calls.filter((m) => !PRO.test(m))).toHaveLength(FLASH_IDS * 4);
+  });
+});

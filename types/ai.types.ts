@@ -54,6 +54,11 @@ export interface IAiService {
             glossary: string[];
             /** See {@link ModelNotice}. Translate puts it in the exported workbook. */
             onNotice?: ModelNotice;
+            /**
+             * Before each wait when every model is overloaded (temporary Gemini
+             * service overload). Not a model change, so not part of `onNotice`.
+             */
+            onRetryWait?: (message: string) => void;
         }
     ): Promise<string[]>;
 

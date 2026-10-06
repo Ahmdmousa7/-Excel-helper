@@ -297,6 +297,8 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
                       modelNotices.add(message);
                       addLog(message, 'warning');
                   },
+                  // Every wait is logged, batch by batch: a silent pause looks like a hang.
+                  onRetryWait: (message) => addLog(message, 'warning'),
               });
 
               // Whether the reply can be trusted at all is decided by

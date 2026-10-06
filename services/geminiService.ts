@@ -429,6 +429,29 @@ export const parseWaitTime = (error: any) => {
     return 2;
 };
 
+/**
+ * Translator only: how long `translateBatch` waits, round by round, once EVERY
+ * usable candidate of its tier has answered 503 overloaded / high demand.
+ *
+ * Overload is temporary and hits everyone on a model, so skipping to the next
+ * model (`advanceModel`) is still the first move. But a key with no Pro quota
+ * has only the Flash ids left, and during a capacity spike all of them can be
+ * overloaded at once (seen 2026-10-06 in production: every Flash id answered
+ * 503 within seconds and the run ended as a PARTIAL_ file). Waiting is what
+ * helps then, so the whole list is tried again after each delay. Bounded: after
+ * the last round the "all models busy" error reaches TranslateTab as before,
+ * and it exports the usual PARTIAL_ workbook.
+ *
+ * Retired and no-quota models are untouched by this: they are facts about the
+ * model or the key, still skipped at once and remembered per key, and never
+ * wait. Overload never rotates keys either — it is the model, not the key.
+ */
+export const OVERLOAD_RETRY_DELAYS_S: readonly number[] = [15, 30, 60];
+
+/** The notice for one overload wait. No key text, ever. */
+export const overloadRetryNotice = (seconds: number, round: number, rounds: number): string =>
+  `All models are busy (temporary Gemini service overload) — retrying in ${seconds}s (${round}/${rounds}).`;
+
 // Function implementations requested by errors
 
 export const translateBatch = async (
@@ -445,9 +468,17 @@ export const translateBatch = async (
          * able to put this in the log and in the exported report.
          */
         onNotice?: (message: string) => void,
+        /**
+         * Called before each overload wait (see OVERLOAD_RETRY_DELAYS_S). Kept
+         * apart from `onNotice`: a wait is not a model change, and TranslateTab
+         * de-duplicates `onNotice` into the workbook's model report. Falls back
+         * to `onNotice` when not given.
+         */
+        onRetryWait?: (message: string) => void,
     }
 ): Promise<string[]> => {
     let attempts = 0;
+    let overloadRound = 0; // overload waits used so far, this call
     const maxRetries = getMaxRetries();
     // Named so the shared retire-and-advance logic in the catch reads the same
     // here as in extractStructuredData, which takes its tier as a parameter.
@@ -507,7 +538,24 @@ export const translateBatch = async (
             // without spending the retry budget (TD-051 — same rule as OCR).
             const failure = classifyModelFailure(error);
             if (failure !== 'transient') {
-                model = advanceModel(tier, model, failure, skipped, options.onNotice);
+                try {
+                    model = advanceModel(tier, model, failure, skipped, options.onNotice);
+                } catch (exhausted) {
+                    // Every usable candidate is overloaded right now: wait, then
+                    // walk the whole list again (OVERLOAD_RETRY_DELAYS_S). Any other
+                    // end of the list, or the last round spent, propagates as before.
+                    if ((exhausted as { aiKind?: AiErrorKind })?.aiKind !== 'all-models-busy'
+                        || overloadRound >= OVERLOAD_RETRY_DELAYS_S.length) throw exhausted;
+                    const seconds = OVERLOAD_RETRY_DELAYS_S[overloadRound++];
+                    const notice = overloadRetryNotice(seconds, overloadRound, OVERLOAD_RETRY_DELAYS_S.length);
+                    console.warn(notice);
+                    (options.onRetryWait ?? options.onNotice)?.(notice);
+                    await new Promise(r => setTimeout(r, seconds * 1000));
+                    // Same key, same per-key retirements; only this call's
+                    // overload skips are forgotten.
+                    skipped.clear();
+                    model = firstUsable(tier, skipped);
+                }
                 continue;
             }
 

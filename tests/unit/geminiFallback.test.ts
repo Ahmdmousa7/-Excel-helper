@@ -25,6 +25,8 @@ const state = vi.hoisted(() => ({
   keyBehaviour: {} as Record<string, Record<string, string>>,
   /** For 'rate-limited': fail this many times, then succeed. */
   rateLimitedRemaining: 0,
+  /** For 'overloaded-rounds': answer 503 this many more times for that model, then succeed. */
+  overloadedRemaining: {} as Record<string, number>,
 }));
 
 /** The SDK's ApiError message: the HTTP body, JSON-encoded inside a JSON envelope. */
@@ -55,6 +57,10 @@ function fail(model: string, apiKey = ''): void {
   const b = state.keyBehaviour[apiKey]?.[model] ?? state.behaviour[model] ?? 'ok';
   if (b === 'no-quota') throw NO_QUOTA(model);
   if (b === 'overloaded') throw OVERLOADED();
+  if (b === 'overloaded-rounds' && (state.overloadedRemaining[model] ?? 0) > 0) {
+    state.overloadedRemaining[model]--;
+    throw OVERLOADED();
+  }
   if (b === 'retired') throw RETIRED();
   if (b === 'bad-key') throw BAD_KEY();
   if (b === 'rate-limited' && state.rateLimitedRemaining > 0) {
@@ -85,6 +91,7 @@ import {
   MODEL_CANDIDATES, resolveModel, resetRetiredModels,
   extractFromMedia, extractStructuredData, classifyModelFailure,
   translateBatch, processGeneralFile, generateText,
+  OVERLOAD_RETRY_DELAYS_S, overloadRetryNotice,
 } from '../../services/geminiService';
 
 const Q = MODEL_CANDIDATES.quality;
@@ -102,6 +109,7 @@ beforeEach(() => {
   state.behaviour = {};
   state.keyBehaviour = {};
   state.rateLimitedRemaining = 0;
+  state.overloadedRemaining = {};
   storedKey = 'AIzaKEY-A';
   resetRetiredModels();
   (globalThis as any).localStorage = {
@@ -388,5 +396,129 @@ describe('no quota on this key → the next API key first, a worse model only wh
     state.behaviour[PROS[0]] = 'no-quota';
     await extractFromMedia(IMAGE, 'menu');
     expect(state.triedWithKey).toEqual([`AIzaKEY-A:${PROS[0]}`, `AIzaKEY-A:${PROS[1]}`]);
+  });
+});
+
+describe('translateBatch — every model overloaded: wait, then try the whole list again (bounded)', () => {
+  // The production log of 2026-10-06: a key with no Pro quota, and every Flash
+  // id answering 503 "high demand" at the same moment. Before this, the run
+  // ended within seconds as a PARTIAL_ file.
+  const flashesBusyFor = (rounds: number) => {
+    for (const m of PROS) state.behaviour[m] = 'no-quota';
+    for (const m of FLASHES) { state.behaviour[m] = 'overloaded-rounds'; state.overloadedRemaining[m] = rounds; }
+  };
+  const run = (waits: string[], notices: string[] = []) =>
+    translateBatch([{ text: 'شاي' }], { ...TRANSLATE_OPTS, onNotice: (n) => notices.push(n), onRetryWait: (n) => waits.push(n) });
+
+  it('the delays are 15s, 30s, 60s — bounded, three rounds', () => {
+    expect(OVERLOAD_RETRY_DELAYS_S).toEqual([15, 30, 60]);
+    expect(overloadRetryNotice(30, 2, 3)).toBe('All models are busy (temporary Gemini service overload) — retrying in 30s (2/3).');
+  });
+
+  it('REPRODUCTION: all Flash ids 503 in the first round → waits 15s, retries the list, one answers', async () => {
+    vi.useFakeTimers();
+    flashesBusyFor(1);
+    const waits: string[] = [];
+    const pending = run(waits);
+    await vi.advanceTimersByTimeAsync(14_900);
+    // Nothing is asked again before the wait is over.
+    expect(state.tried).toEqual([...PROS, ...FLASHES]);
+    expect(waits).toEqual([overloadRetryNotice(15, 1, 3)]);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(await pending).toEqual([{ 'Product Name': `from ${FLASHES[0]}` }]);
+    // Round 2 starts at the first USABLE id: the no-quota Pros are not asked again.
+    expect(state.tried).toEqual([...PROS, ...FLASHES, FLASHES[0]]);
+  });
+
+  it('several overloaded rounds, then success: 15s, then 30s, then an answer', async () => {
+    vi.useFakeTimers();
+    flashesBusyFor(2);
+    const waits: string[] = [];
+    const pending = run(waits);
+    await vi.advanceTimersByTimeAsync(15_000 + 30_000 + 100);
+    expect(await pending).toEqual([{ 'Product Name': `from ${FLASHES[0]}` }]);
+    expect(waits).toEqual([overloadRetryNotice(15, 1, 3), overloadRetryNotice(30, 2, 3)]);
+    expect(state.tried).toEqual([...PROS, ...FLASHES, ...FLASHES, FLASHES[0]]);
+  });
+
+  it('every round overloaded → after 15s + 30s + 60s the same "all models busy" error as before (TranslateTab exports PARTIAL_)', async () => {
+    vi.useFakeTimers();
+    flashesBusyFor(99);
+    const waits: string[] = [];
+    const settled = run(waits).then(() => null, (e) => e);
+    await vi.advanceTimersByTimeAsync(15_000 + 30_000 + 60_000 - 100);
+    expect(state.tried).toEqual([...PROS, ...FLASHES, ...FLASHES, ...FLASHES]); // round 4 not yet
+    await vi.advanceTimersByTimeAsync(200);
+    const err = await settled;
+    expect(err.aiKind).toBe('all-models-busy');
+    expect(waits).toEqual([overloadRetryNotice(15, 1, 3), overloadRetryNotice(30, 2, 3), overloadRetryNotice(60, 3, 3)]);
+    // Exactly four walks of the usable list — no fifth round, no endless loop.
+    expect(state.tried).toEqual([...PROS, ...FLASHES, ...FLASHES, ...FLASHES, ...FLASHES]);
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(state.tried).toHaveLength(PROS.length + FLASHES.length * 4);
+  });
+
+  it('no-quota and retired are still skipped at once, never waited on, and cost no overload round', async () => {
+    vi.useFakeTimers();
+    state.behaviour[PROS[0]] = 'no-quota';
+    state.behaviour[PROS[1]] = 'retired';
+    state.behaviour[PROS[2]] = 'no-quota';
+    for (const m of FLASHES) { state.behaviour[m] = 'overloaded-rounds'; state.overloadedRemaining[m] = 1; }
+    const waits: string[] = [];
+    const pending = run(waits);
+    await vi.advanceTimersByTimeAsync(15_100);
+    await pending;
+    expect(waits).toHaveLength(1); // the one overload round, nothing for the Pros
+    expect(state.tried.filter((m) => PROS.includes(m))).toEqual(PROS); // each Pro asked ONCE
+  });
+
+  it('a list that ends on no-quota / retired alone ends at once — no wait at all', async () => {
+    for (const m of Q) state.behaviour[m] = 'no-quota';
+    const waits: string[] = [];
+    const err = await run(waits).then(() => null, (e) => e);
+    expect(err.aiKind).toBe('no-model');
+    expect(waits).toEqual([]);
+    expect(state.tried).toEqual([...Q]);
+  });
+
+  it('overload never rotates the API key, in the first round or after a wait', async () => {
+    vi.useFakeTimers();
+    storedKey = ['AIzaKEY-A', 'AIzaKEY-B'].join(String.fromCharCode(10));
+    for (const m of Q) { state.behaviour[m] = 'overloaded-rounds'; state.overloadedRemaining[m] = 1; }
+    const waits: string[] = [];
+    const pending = run(waits);
+    await vi.advanceTimersByTimeAsync(15_100);
+    await pending;
+    expect(state.triedWithKey).toEqual([...Q.map((m) => `AIzaKEY-A:${m}`), `AIzaKEY-A:${Q[0]}`]);
+    expect(storedKey.split(String.fromCharCode(10))[0]).toBe('AIzaKEY-A');
+    expect(waits.join(' ')).not.toContain('AIzaKEY'); // never a credential in a notice
+  });
+
+  it('the wait goes on onRetryWait, not into the model-change notices; without onRetryWait it falls back to onNotice', async () => {
+    vi.useFakeTimers();
+    flashesBusyFor(1);
+    const waits: string[] = [];
+    const notices: string[] = [];
+    let pending = run(waits, notices);
+    await vi.advanceTimersByTimeAsync(15_100);
+    await pending;
+    expect(notices.some((n) => n.startsWith('All models are busy'))).toBe(false);
+    expect(waits).toHaveLength(1);
+
+    resetRetiredModels();
+    state.tried.length = 0;
+    flashesBusyFor(1);
+    const only: string[] = [];
+    pending = translateBatch([{ text: 'x' }], { ...TRANSLATE_OPTS, onNotice: (n) => only.push(n) });
+    await vi.advanceTimersByTimeAsync(15_100);
+    await pending;
+    expect(only).toContain(overloadRetryNotice(15, 1, 3));
+  });
+
+  it('scope: the other AI calls are unchanged — generateText still ends at once when every model is overloaded', async () => {
+    for (const m of MODEL_CANDIDATES.fast) state.behaviour[m] = 'overloaded';
+    const err = await generateText('hi').then(() => null, (e) => e);
+    expect(err.aiKind).toBe('all-models-busy');
+    expect(state.tried).toEqual([...MODEL_CANDIDATES.fast]);
   });
 });
