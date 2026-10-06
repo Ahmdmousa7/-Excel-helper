@@ -77,7 +77,8 @@ test.describe('Composite Check — Ready to upload', () => {
     test.setTimeout(120_000);
     const validated = await validate(app, page, workbook());
 
-    // The panel: counts at a glance.
+    // The panel: a labelled region whose summary is announced (role=status).
+    await expect(page.getByRole('region', { name: 'Ready to upload' }).getByRole('status')).toContainText('Simple: 33 raw materials');
     await expect(page.getByLabel('Ready to upload')).toContainText('Simple: 33 raw materials (33 identical, 0 not). Composite: 3 valid products (3 identical, 0 not).');
 
     // ── Simple ──

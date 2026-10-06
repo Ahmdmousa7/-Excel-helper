@@ -303,6 +303,8 @@ describe('Identical', () => {
     expect(checkCompositeUpload(renamed, composite.sources, plan, keys).structure).toEqual([
       "Header row differs from the template at column 15: expected 'Product1 Rate', found 'Product 1 Rate'.",
     ]);
+    const longSpec = composite.rows.map((r, i) => (i === 1 ? [...r, 'extra'] : r));
+    expect(checkCompositeUpload(longSpec, composite.sources, plan, keys).structure).toEqual(['Row 2 differs from the template\'s specification row.']);
     const noSpec = [composite.rows[0], ...composite.rows.slice(2)];
     expect(checkCompositeUpload(noSpec, composite.sources, plan, keys).structure).toContain('Row 2 differs from the template\'s specification row.');
   });

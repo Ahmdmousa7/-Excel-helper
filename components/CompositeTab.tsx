@@ -1344,9 +1344,10 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
               </div>
 
               {readyUpload && (
-                  <div className="bg-white p-4 rounded-lg border border-emerald-200" aria-label="Ready to upload">
+                  <div className="bg-white p-4 rounded-lg border border-emerald-200" role="region" aria-label="Ready to upload">
                       <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-1"><UploadCloud size={16} className="text-emerald-600"/> Ready to upload</h4>
-                      <p className="text-xs text-slate-600 mb-3">
+                      {/* Announced when it appears: the result of the validation the user just ran. */}
+                      <p className="text-xs text-slate-600 mb-3" role="status" aria-live="polite">
                           Simple: {readyUpload.summary.simpleRows} raw materials ({readyUpload.summary.simpleIdentical} identical, {readyUpload.summary.simpleRows - readyUpload.summary.simpleIdentical} not).
                           {' '}Composite: {readyUpload.summary.compositeRows} valid products ({readyUpload.summary.compositeIdentical} identical, {readyUpload.summary.compositeRows - readyUpload.summary.compositeIdentical} not).
                           {' '}Each file uses Rewaa's template exactly; the checks are in the validated workbook (Ready Simple Check, Ready Composite Check, Ready Mapping Audit).

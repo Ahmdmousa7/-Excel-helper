@@ -218,7 +218,12 @@ const fieldValue = (row: SourceRow, p: ColumnPlan, numeric: boolean, id = false)
     : id ? identifierCell(row.value[p.col], row.text[p.col])
     : textCell(row.text[p.col]);
 
-const fieldOf = (plans: readonly ColumnPlan[], key: string) => plans.find((p) => p.key === key)!;
+/** The plan of a field this module defines; a missing one is a programming error, said so. */
+const fieldOf = (plans: readonly ColumnPlan[], key: string): ColumnPlan => {
+  const p = plans.find((x) => x.key === key);
+  if (!p) throw new Error(`Ready to upload: no plan for field "${key}".`);
+  return p;
+};
 
 export type UploadCell = string | number | null;
 
@@ -301,7 +306,7 @@ function compareStructure(rows: readonly (readonly unknown[])[], headers: readon
     out.push(`Header row differs from the template${i >= 0 ? ` at column ${i + 1}: expected '${headers[i]}', found ${shown(head[i])}` : ` (${head.length} columns, expected ${headers.length})`}.`);
   }
   const specRow = rows[1] ?? [];
-  if (spec.some((s, i) => (specRow[i] ?? '') !== s)) out.push('Row 2 differs from the template\'s specification row.');
+  if (specRow.length !== spec.length || spec.some((s, i) => (specRow[i] ?? '') !== s)) out.push('Row 2 differs from the template\'s specification row.');
   if (rows.length - 2 !== expectedRows) out.push(`${rows.length - 2} data rows, expected ${expectedRows}.`);
   return out;
 }
@@ -337,8 +342,8 @@ export function checkSimpleUpload(rows: readonly (readonly unknown[])[], sources
       const nan = e.numeric ? notANumber(h, e.v) : null;
       if (nan) differences.push(nan);
     });
-    const sku = expected.get('Product SKU')!.v;
-    const name = expected.get('Product Name')!.v;
+    const sku = expected.get('Product SKU')?.v ?? null;
+    const name = expected.get('Product Name')?.v ?? null;
     if (isBlank(sku)) differences.push('Product SKU is blank in the source');
     if (isBlank(name)) differences.push('Product Name is blank in the source');
     const key = identifierKey(sku);
