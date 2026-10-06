@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
-import { workbookCopy, applyGridChanges } from '../../utils/translateOutput';
-import { getSheetData } from '../../services/excelService';
+import { workbookCopy, applyGridChanges, overwrittenCells } from '../../utils/translateOutput';
+import { getSheetData, writeWorkbookBuffer } from '../../services/excelService';
 import { readWorkbookBytes } from '../../services/workbookBytes';
 
 /**
@@ -56,6 +56,17 @@ describe('applyGridChanges on a workbookCopy', () => {
     expect(out.Sheets.Notes).toBe(src.Sheets.Notes);
   });
 
+  it('through the real writer: number formats and formulas survive in the downloaded bytes', () => {
+    const src = upload({ Menu: ROWS });
+    const before = getSheetData(src, 'Menu');
+    const out = workbookCopy(src);
+    applyGridChanges(XLSX, out, 'Menu', before, translateInPlace(before));
+    const back = XLSX.read(new Uint8Array(writeWorkbookBuffer(out)), { type: 'array', cellNF: true, cellFormula: true });
+    expect(back.Sheets.Menu.A2.v).toBe('حبة شواية | EN(حبة شواية)');
+    expect(back.Sheets.Menu.C2).toMatchObject({ t: 'n', v: 40, z: '0.00' });
+    expect(back.Sheets.Menu.D2).toMatchObject({ t: 'n', f: 'C2*2' });
+  });
+
   it('the uploaded workbook itself is never modified', () => {
     const src = upload({ Menu: ROWS });
     const snapshot = JSON.stringify(src);
@@ -102,6 +113,21 @@ describe('applyGridChanges on a workbookCopy', () => {
     expect(out.Sheets.Offset.C4.v).toBe('شاي | Tea');
     expect(out.Sheets.Offset.C3.v).toBe('Name');
     expect(out.Sheets.Offset.A1).toBeUndefined();
+  });
+
+  it('overwrittenCells: non-empty cells outside the selected columns that an output column replaced', () => {
+    const before = [['Name', 'SKU', 'Note'], ['شاي', 'A1', ''], ['قهوة', 'A2', 'x']];
+    // "New Column" pointed at column B (SKU) and C: B had data, C mostly empty.
+    const after = [['Name', 'Name_TR', 'Note'], ['شاي', 'Tea', 'new'], ['قهوة', 'Coffee', 'x']];
+    expect(overwrittenCells(XLSX, before, after, [0])).toEqual([
+      { ref: 'B1', header: 'SKU', previous: 'SKU', written: 'Name_TR' },
+      { ref: 'B2', header: 'SKU', previous: 'A1', written: 'Tea' },
+      { ref: 'B3', header: 'SKU', previous: 'A2', written: 'Coffee' },
+    ]);
+    // In-place on the selected column itself: nothing is reported.
+    expect(overwrittenCells(XLSX, before, [['Name', 'SKU', 'Note'], ['شاي | Tea', 'A1', ''], ['قهوة | Coffee', 'A2', 'x']], [0])).toEqual([]);
+    // A grid that starts at C3 reports sheet references.
+    expect(overwrittenCells(XLSX, [['h'], ['a']], [['h'], ['b']], [5], 2, 2)[0].ref).toBe('C4');
   });
 
   it('sheet visibility is kept, and an unknown sheet is an error', () => {

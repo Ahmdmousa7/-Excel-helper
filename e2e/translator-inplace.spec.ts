@@ -141,6 +141,30 @@ test.describe('AI Translator — In-Place Update writes the translation into the
     expect(grid(wb, 'Menu')).toEqual([['Name', 'Price'], ['شاي | EN:شاي', 3]]);
   });
 
+  test('New Column pointed at a column with data: nothing is lost — previous values are listed in the summary', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    await model(page);
+    await app.openToolMatching(/AI Translator/);
+    await page.locator('input[type="file"]').first().setInputFiles({ name: 'Translate (2).xlsx', mimeType: XLSX_TYPE, buffer: REAL });
+    await page.getByRole('checkbox', { name: 'Product Name', exact: true }).check();
+    // New Column mode writes column A's translation to column B by default — Product SKU here.
+    await page.getByRole('button', { name: /New Column/ }).click();
+    const pending = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByRole('button', { name: en.common.start }).click();
+    const wb = XLSX.read(readFileSync((await (await pending).path())!), { type: 'buffer' });
+    const src = grid(XLSX.read(REAL, { type: 'buffer' }), 'rewaa-import-simple');
+    expect(grid(wb, 'rewaa-import-simple')[1].slice(0, 2)).toEqual([src[1][0], `EN:${src[1][0]}`]);
+    const summary = grid(wb, 'Translation Summary');
+    const at = summary.findIndex((r) => String(r[0]).startsWith('*** EXISTING CELLS REPLACED'));
+    expect(at).toBeGreaterThan(0);
+    expect(summary[at + 1]).toEqual(['Cell', 'Column', 'Previous Value', 'Written Value']);
+    // The existing header is kept (New Column only names an empty one), so B2..B21 are listed.
+    expect(summary[at + 2]).toEqual(['B2', 'Product SKU', 'A1', `EN:${src[1][0]}`]);
+    expect(summary.slice(at + 2).map((r) => r[2])).toEqual(src.slice(1).map((r) => r[1]));   // A1 … A20
+    await page.getByRole('button', { name: en.actions.showLogs }).click();
+    await expect(page.getByText(/20 existing cell\(s\) outside the selected columns were replaced by the output column: B \("Product SKU"\)/)).toBeVisible();
+  });
+
   test('a failed model call: a PARTIAL_ file with the column unchanged, a banner and a clear error — never a "Translated_" file', async ({ app, page }) => {
     test.setTimeout(120_000);
     await model(page, 'fail');

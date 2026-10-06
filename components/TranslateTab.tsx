@@ -8,7 +8,7 @@ import { initGoogleAuth, updateSheetColumn } from '../services/googleSheetSync';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { alignBatchResults } from '../utils/translationBatch';
 import { readableAiError } from '../utils/aiErrors';
-import { workbookCopy, applyGridChanges } from '../utils/translateOutput';
+import { workbookCopy, applyGridChanges, overwrittenCells } from '../utils/translateOutput';
 import { safeSheetName } from '../utils/excelUtils';
 import ProgressBar from './ProgressBar';
 import { Play, RotateCcw, Zap, WifiOff, Split, Merge, ArrowRight, Layout, AlertCircle, ArrowDown, BrainCircuit, Globe, Book, Copy, Check, CloudUpload, User, PenTool, Columns, Table, FileOutput, ChevronDown, ChevronUp, Settings2, Plus, Combine, Replace, MousePointer2 } from 'lucide-react';
@@ -493,7 +493,16 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       // a new workbook opening on an "Original File" copy, so a finished
       // translation looked like nothing had happened.
       const newWb = workbookCopy(fileData.workbook);
+      // Cells OUTSIDE the selected columns that an output column replaced: with
+      // no "Original File" copy any more, they are logged and listed in the
+      // summary with their previous value, never lost without a trace.
+      const sheetRange = XLSX.utils.decode_range(fileData.workbook.Sheets[selectedSheet]?.['!ref'] ?? 'A1');
+      const overwritten = overwrittenCells(XLSX, data, outputData, selectedCols, sheetRange.s.r, sheetRange.s.c);
       applyGridChanges(XLSX, newWb, selectedSheet, data, outputData);
+      if (overwritten.length > 0) {
+          const columns = [...new Set(overwritten.map((o) => `${o.ref.replace(/\d+$/, '')}${o.header ? ` ("${o.header}")` : ''}`))];
+          addLog(`${overwritten.length} existing cell(s) outside the selected columns were replaced by the output column: ${columns.join(', ')}. Their previous values are listed at the end of the Translation Summary.`, 'warning');
+      }
 
       // A partial run gets a banner at the top of the Summary sheet, before the
       // header row. Someone who opens the file months later has no logs and no
@@ -549,6 +558,14 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
             "", "", "",
           ],
           ["", "", "", ""],
+        );
+      }
+      if (overwritten.length > 0) {
+        summaryData.push(
+          ["", "", "", ""],
+          ["*** EXISTING CELLS REPLACED BY THE OUTPUT COLUMN — previous values below ***", "", "", ""],
+          ["Cell", "Column", "Previous Value", "Written Value"],
+          ...overwritten.map((o) => [o.ref, o.header, o.previous, o.written]),
         );
       }
       const takenNames = new Set(newWb.SheetNames.map((n) => n.toLowerCase()));
