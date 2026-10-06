@@ -1,8 +1,8 @@
 {
-  "attestation_id": "sha256:f6c05ccc4553e549e06f38969626729761f6631f7637de4d393823090d472e0b",
+  "attestation_id": "sha256:3899129dab733b18519239011ae959da32cfae68d1f28977ebfb43f086d55d32",
   "files": [
     {
-      "oid": "8efad8d3029bed50b33bf512442cf48b8aec74c2",
+      "oid": "b631bc7a5ac30c5ec1ec684804815cb8e8b8d794",
       "path": "components/CompositeTab.tsx"
     },
     {
@@ -14,7 +14,11 @@
       "path": "docs/modules/open-decisions.md"
     },
     {
-      "oid": "9e69ebbbf87dd33f5363851a85df8dc1868e658a",
+      "oid": "a3a4c83e9a70471dcac6475fd357a673d9e5a3c6",
+      "path": "docs/quality/tech-debt-register.md"
+    },
+    {
+      "oid": "fcb7804b0ec532f81380417e40c5523b2235d9d0",
       "path": "e2e/composite-ready-to-upload.spec.ts"
     },
     {
@@ -55,7 +59,7 @@
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "050693dcc63d017fb833b1ee10ef42371b6b2f11",
+  "reviewed_at_commit": "e925dce38448b8a6274bda1dda87b132b22058c0",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

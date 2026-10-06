@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:f6c05ccc4553e549e06f38969626729761f6631f7637de4d393823090d472e0b",
+  "attestation_id": "sha256:3899129dab733b18519239011ae959da32cfae68d1f28977ebfb43f086d55d32",
   "available": true,
   "by_severity": {
     "critical": 0,
@@ -11,30 +11,30 @@
   "findings": [
     {
       "category": "accessibility",
-      "detail": "The whole panel is behind `{readyUpload && (...)}`, so the `<p role=\"status\" aria-live=\"polite\">` enters the DOM with its text already in it. Screen readers monitor live regions for *mutations* to a region that was already present; a region inserted pre-populated is announced inconsistently (NVDA and VoiceOver commonly stay silent). The commit message for 050693d states the result is announced — on this markup it often will not be. Impact is limited because the same summary is also pushed to the activity log via `addLog`, which is why this is low rather than high; it would rise to medium if the log panel were not itself announced.",
+      "detail": "The always-present sr-only live region at line 1360 announces the result once, and the visible copy inside the `role=\"region\"` panel is marked `aria-hidden=\"true\"` so it is \"not read twice\". But the visible `<p>` is not inside any live region — a newly mounted, non-live subtree is not auto-announced — so there was no double-read to prevent. The net effect is that a screen-reader user who misses the polite announcement (it is transient, and polite yields to other speech) or who navigates back to the \"Ready to upload\" region afterwards finds a heading and two download buttons with no counts at all: how many raw materials, how many identical, how many not. The one place the numbers live is permanently removed from the accessibility tree.",
       "file": "components/CompositeTab.tsx",
-      "line": 1350,
+      "line": 1364,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "`role=\"status\"` region is mounted already populated, so it may not announce"
+      "summary": "aria-hidden on the visible summary hides the result from AT permanently"
     },
     {
       "category": "code-smell",
-      "detail": "`suggestByAliases` is newly exported, but the only caller anywhere in the repo is `suggestColumn` three lines above it in the same file — `readyToUpload.ts` imports `matchColumn`, not this. Its doc comment states \"Used by Ready to upload for its extra fields\", which is false and will send the next reader looking for a call site that does not exist. Per the code-smells handbook an unused export added in a PR is dead code; the misleading comment is the part that actually costs time later.",
-      "file": "utils/compositeMapping.ts",
-      "line": 56,
+      "detail": "When `readyPlan.problems` is non-empty the panel never appears and the only trace is an `'info'` log line. Every other recoverable shortfall in this same handler uses `'warning'` (the Cost & Profit note at line 959, the identical-count note at line 1009, the error summary at line 1013). The user's experience is a feature that silently does not exist; they have to open the Logs panel and scan past info lines to learn that, e.g., a required SKU column was not found. The e2e spec at `e2e/composite-ready-to-upload.spec.ts:197` has to click the logs button to see it, which is the tell.",
+      "file": "components/CompositeTab.tsx",
+      "line": 973,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "`suggestByAliases` is a new unused export whose docstring is wrong"
+      "summary": "\"Ready to upload was not built\" is logged at 'info', not 'warning'"
     },
     {
       "category": "performance",
-      "detail": "`const col = (h: string) => COMPOSITE_UPLOAD_HEADERS.indexOf(...)` is called once per field (4) and twice per ingredient slot (60) inside the `sources.map` body, so each composite row costs ~64 linear scans over the 73-element header array — roughly 2,500 string comparisons per row, all recomputing a constant. This is O(n·k) with a fixed k, not quadratic, so it will not freeze the tab; it is simply a free constant to give back, and the same shape repeats in `readySummary` only once (correctly hoisted there).",
+      "detail": "`col(h)` is `COMPOSITE_UPLOAD_HEADERS.indexOf(h)` over a 73-entry array, and it is called 4 times for the fixed fields plus twice per ingredient slot (60) on every source row — ~64 scans, ~2,400 string comparisons per row. The headers are a module-level constant, so the lookup table can be built once instead of per cell. This is not a user-visible freeze at realistic composite-product counts (hundreds of rows ≈ a few ms), which is why it is `low` rather than `high`; it would move up if composite sheets reached tens of thousands of rows.",
       "file": "utils/readyToUpload.ts",
       "line": 366,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "`col()` does a 73-entry linear `indexOf` ~64 times per composite row"
+      "summary": "checkCompositeUpload does ~64 linear header lookups per row"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
