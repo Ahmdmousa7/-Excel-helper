@@ -162,6 +162,8 @@ The failure mode is not that someone chose the wrong repo — it is that nobody 
 
 The Rewaa Simple and Variable templates carry a second row of specifications — `Text | required`, `Text | required | unique in the file and in the system`, `list yes no Default yes`. It is **template/spec metadata**. Exclude it from ordinary exports; include it only when the export is *explicitly* a template or spec export. Emitting it into a normal product file would inject a junk row that an importer may well accept as a product.
 
+> **Approved exception, 2026-10-06 — Composite Check's "Ready to upload" files.** The product owner chose to INCLUDE the template's row 2 in the two Ready to upload files (`Ready to upload - Simple`, `Ready to upload - Composite`), so they match the supplied templates row for row. Every other export still follows this rule.
+
 ### 2. Identifiers are exact text — `00123` ≠ `123`
 
 **Leading zeros are significant and must be preserved.** SKU and barcode are identifiers, not numbers: compare them as text, never by converting to a number first.

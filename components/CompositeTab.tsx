@@ -9,6 +9,11 @@ import { identifierKey } from '../utils/identifiers';
 import { defaultSheets, sheetLabel, sheetVisibility, showSheet } from '../utils/compositeWorkbook';
 import { suggestRawColumns, suggestRetailColumn, nextChoice, type MappingField } from '../utils/compositeMapping';
 import {
+  planReadyToUpload, buildSimpleUpload, buildCompositeUpload, rawSkuIndex, checkSimpleUpload, checkCompositeUpload,
+  checkSheetRows, mappingAuditRows, readySummary, type SourceRow, type UploadCell, type ReadySummary,
+} from '../utils/readyToUpload';
+import { UPLOAD_SHEET_NAME } from '../utils/rewaaUploadTemplates';
+import {
   legacyAmount, compositeCost, profitOf, marginPercentOf, financialsEnabled, buildCostIndex, productFinancials,
   profitSheetRows, bomSheetRows, financialSummary, PROFIT_SHEET, BOM_SHEET, NOT_MAPPED,
   type FinancialMapping, type ProductFinancials,
@@ -263,6 +268,9 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
   const [templateHeaders, setTemplateHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({}); // Template Header -> Source Header
   const [processedRowsCache, setProcessedRowsCache] = useState<any[][]>([]); // Store validated rows for mapping export
+  // "Ready to upload" (utils/readyToUpload.ts): the two Rewaa import files built
+  // by the last validation, downloaded on request.
+  const [readyUpload, setReadyUpload] = useState<{ simple: UploadCell[][]; composite: UploadCell[][]; summary: ReadySummary; stem: string } | null>(null);
 
   useEffect(() => {
     if (fileData && fileData.sheets.length > 0) {
@@ -362,6 +370,15 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
       }
   };
 
+  /** One Ready to upload file: a single sheet laid out exactly like Rewaa's template. */
+  const downloadReady = (which: 'Simple' | 'Composite') => {
+      if (!readyUpload) return;
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(which === 'Simple' ? readyUpload.simple : readyUpload.composite), UPLOAD_SHEET_NAME);
+      saveWorkbook(wb, `Ready to upload - ${which} - ${readyUpload.stem}.xlsx`);
+      addLog(`Ready to upload - ${which} downloaded.`, 'success');
+  };
+
   const handleCustomExport = () => {
       if (!processedRowsCache.length || !templateHeaders.length) {
           addLog("No processed data or template available.", 'warning');
@@ -413,6 +430,7 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
     setProgress(0);
     setSummary(null);
     setBomData([]); 
+    setReadyUpload(null);
     addLog(activeTab === 'validate' ? t.common.processing : "Analyzing Financials...", 'info');
 
     try {
@@ -934,6 +952,56 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
               addLog(`Cost & Profit: ${fs.products} products: ${fs.withProfit} profit, ${fs.breakEven} break-even, ${fs.withLoss} loss${costNote}${lossNote}.${retailNote}`, fs.costAboveRetail || fs.costUnknown ? 'warning' : 'info');
           }
           
+          // --- Ready to upload: Rewaa's Simple and Composite import files ---
+          // Raw sheet → Simple template; the VALID composite rows (not in
+          // Validation Errors) → Composite template, ingredient N → ProductN.
+          // Columns by header (the mapping dropdowns win when set); anything
+          // missing that is required, or ambiguous, stops it with a reason.
+          const kind = (f: MappingField) => (isAuto(f) ? 'automatic' : 'manual') as 'automatic' | 'manual';
+          const readyPlan = planReadyToUpload(rawData[0] ?? [], compHeader ?? [], {
+              raw: { sku: { col: rawSkuCol, type: kind('sku') }, cost: { col: costCol, type: kind('cost') }, name: { col: rawNameCol, type: kind('name') } },
+              composite: { retail: { col: retailPriceCol, type: kind('retail') } },
+          });
+          if (readyPlan.problems.length > 0) {
+              addLog(`Ready to upload was not built: ${readyPlan.problems.join(' ')}`, 'info');
+          } else {
+              // Display text for names and SKUs, raw values for numbers (a
+              // formatted cell must not round a cost or a rate).
+              const rawValues = getSheetData(fileData.workbook, rawSheet, true);
+              const compValues = getSheetData(fileData.workbook, compositeSheet, true);
+              const rawSources: SourceRow[] = rawData.slice(1).map((text, i) => ({ text, value: rawValues[i + 1] ?? [], sourceRow: i + 2 }));
+              // The same rows, in the same order, as `compRows` (blank rows dropped),
+              // but BEFORE Auto-Align: ingredient N must stay ingredient N.
+              const compSources: SourceRow[] = compData.slice(1)
+                  .map((text, i) => ({ text, value: compValues[i + 1] ?? [], sourceRow: i + 2 }))
+                  .filter(s => s.text.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== ""));
+              const validSources = compSources.filter((_, idx) => !errorRowIndices.has(idx));
+
+              const simpleUpload = buildSimpleUpload(rawSources, readyPlan);
+              const rawIndex = rawSkuIndex(simpleUpload);
+              const compositeUpload = buildCompositeUpload(validSources, readyPlan, rawIndex);
+              const rawKeys = new Set(rawIndex.keys());
+              const simpleCheck = checkSimpleUpload(simpleUpload.rows, simpleUpload.sources, readyPlan);
+              const compositeCheck = checkCompositeUpload(compositeUpload.rows, compositeUpload.sources, readyPlan, rawKeys);
+
+              const auditWs = XLSX.utils.aoa_to_sheet(mappingAuditRows(readyPlan, rawSheet, compositeSheet));
+              styleHeaderRow(auditWs, "059669");
+              auditWs['!cols'] = [{ wch: 18 }, { wch: 60 }, { wch: 12 }, { wch: 18 }, { wch: 12 }, { wch: 26 }];
+              XLSX.utils.book_append_sheet(newWb, auditWs, safeSheetName("Ready Mapping Audit", takenNames));
+              for (const [name, check] of [["Ready Simple Check", simpleCheck], ["Ready Composite Check", compositeCheck]] as const) {
+                  const ws = XLSX.utils.aoa_to_sheet(checkSheetRows(check));
+                  styleHeaderRow(ws, "059669");
+                  ws['!cols'] = [{ wch: 10 }, { wch: 18 }, { wch: 40 }, { wch: 12 }, { wch: 90 }];
+                  XLSX.utils.book_append_sheet(newWb, ws, safeSheetName(name, takenNames));
+              }
+
+              const s = readySummary(simpleCheck, compositeCheck, compositeUpload, rawKeys);
+              setReadyUpload({ simple: simpleUpload.rows, composite: compositeUpload.rows, summary: s, stem: fileData.name.replace(/\.[^.]+$/, '') });
+              const structural = simpleCheck.structure.length + compositeCheck.structure.length;
+              addLog(`Ready to upload: ${s.simpleRows} raw materials (${s.simpleIdentical} identical) and ${s.compositeRows} valid composites (${s.compositeIdentical} identical); ${s.ingredientLinks} ingredient links to ${s.materialsUsed} materials${s.missingIngredients ? `, ${s.missingIngredients} ingredient SKU(s) not in the raw materials` : ''}${simpleUpload.skipped ? `; ${simpleUpload.skipped} Raw row(s) with no name, SKU, cost or quantity skipped` : ''}. Details: the Ready Simple Check, Ready Composite Check and Ready Mapping Audit sheets.`,
+                  s.simpleIdentical < s.simpleRows || s.compositeIdentical < s.compositeRows || structural ? 'warning' : 'info');
+          }
+
           saveWorkbook(newWb, `Validated_${fileData.name}`);
           addLog(errorRows.length > 0 ? `Found ${errorRows.length} errors.` : t.common.completed, errorRows.length > 0 ? 'warning' : 'success');
       }
@@ -1274,6 +1342,25 @@ const CompositeTab: React.FC<Props> = ({ fileData, addLog, onReset, language = '
                     </div>
                   )}
               </div>
+
+              {readyUpload && (
+                  <div className="bg-white p-4 rounded-lg border border-emerald-200" aria-label="Ready to upload">
+                      <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-1"><UploadCloud size={16} className="text-emerald-600"/> Ready to upload</h4>
+                      <p className="text-xs text-slate-600 mb-3">
+                          Simple: {readyUpload.summary.simpleRows} raw materials ({readyUpload.summary.simpleIdentical} identical, {readyUpload.summary.simpleRows - readyUpload.summary.simpleIdentical} not).
+                          {' '}Composite: {readyUpload.summary.compositeRows} valid products ({readyUpload.summary.compositeIdentical} identical, {readyUpload.summary.compositeRows - readyUpload.summary.compositeIdentical} not).
+                          {' '}Each file uses Rewaa's template exactly; the checks are in the validated workbook (Ready Simple Check, Ready Composite Check, Ready Mapping Audit).
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                          <button onClick={() => downloadReady('Simple')} className="bg-emerald-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-emerald-700 flex items-center gap-2 shadow-sm">
+                              <Download size={14}/> Ready to upload - Simple
+                          </button>
+                          <button onClick={() => downloadReady('Composite')} className="bg-emerald-600 text-white px-4 py-2 rounded font-bold text-xs hover:bg-emerald-700 flex items-center gap-2 shadow-sm">
+                              <Download size={14}/> Ready to upload - Composite
+                          </button>
+                      </div>
+                  </div>
+              )}
 
               {/* RESTORED TEMPLATE MAPPING SECTION */}
               {processedRowsCache.length > 0 && (

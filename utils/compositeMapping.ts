@@ -45,20 +45,42 @@ export function suggestColumn(
   field: MappingField,
   opts: { taken?: ReadonlySet<number>; maxCol?: number } = {},
 ): number {
+  return suggestByAliases(headers, MAPPING_ALIASES[field], opts);
+}
+
+/**
+ * The same rule for any ordered alias list (normalised form): the first alias
+ * that matches exactly one column wins; two columns on the best matching alias
+ * is ambiguous and gives -1. Used by Ready to upload for its extra fields.
+ */
+export function suggestByAliases(
+  headers: readonly unknown[],
+  aliases: readonly string[],
+  opts: { taken?: ReadonlySet<number>; maxCol?: number } = {},
+): number {
+  return matchColumn(headers, aliases, opts).col;
+}
+
+/** `suggestByAliases`, saying WHY there is no column: none fits, or two fit equally. */
+export function matchColumn(
+  headers: readonly unknown[],
+  aliases: readonly string[],
+  opts: { taken?: ReadonlySet<number>; maxCol?: number } = {},
+): { col: number; outcome: 'found' | 'missing' | 'ambiguous' } {
   const limit = Math.min(headers.length, opts.maxCol ?? headers.length);
   const normalised: string[] = [];
   for (let i = 0; i < limit; i++) normalised.push(normalizeHeader(headers[i]));
-  for (const alias of MAPPING_ALIASES[field]) {
+  for (const alias of aliases) {
     const hits: number[] = [];
     normalised.forEach((h, i) => {
       if (h === alias && !opts.taken?.has(i)) hits.push(i);
     });
-    if (hits.length === 1) return hits[0];
+    if (hits.length === 1) return { col: hits[0], outcome: 'found' };
     // Two columns fit the strongest alias that matches at all: ambiguous.
     // Falling through to a weaker alias would be a guess, so stop.
-    if (hits.length > 1) return NO_COLUMN;
+    if (hits.length > 1) return { col: NO_COLUMN, outcome: 'ambiguous' };
   }
-  return NO_COLUMN;
+  return { col: NO_COLUMN, outcome: 'missing' };
 }
 
 /** Raw sheet defaults: SKU first, then Cost, then Name — never the same column twice. */

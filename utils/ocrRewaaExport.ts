@@ -318,7 +318,12 @@ function rewaaRow(row: Row, headers: readonly string[], variable: boolean): Reco
   return out;
 }
 
-const sameValue = (generic: unknown, rewaa: unknown, numeric: boolean): boolean => {
+/**
+ * The Identical comparison: numbers as numbers (`4` = `4.00`), everything else
+ * as trimmed text. Exported (unchanged) for Composite's Ready to upload check,
+ * so both features compare values the same way.
+ */
+export const sameValue = (generic: unknown, rewaa: unknown, numeric: boolean): boolean => {
   if (numeric) {
     const a = priceNumber(generic);
     const b = priceNumber(rewaa);
