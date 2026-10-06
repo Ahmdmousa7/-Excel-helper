@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:ee9aeed588eaca4c32013386f34113d0b96e872e9db4a4243dd27f98ea95ae98",
+  "attestation_id": "sha256:f6c05ccc4553e549e06f38969626729761f6631f7637de4d393823090d472e0b",
   "available": true,
-  "files_reviewed": 5,
+  "files_reviewed": 9,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 1,
+    "info": 0,
+    "low": 3,
     "medium": 0
   },
-  "findings_total": 2,
+  "findings_total": 3,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "This PR adds automatic default column mapping for Composite Check: a new pure helper (`utils/compositeMapping.ts`) picks Raw SKU / Cost / Name and the Composite sheet's Retail Price from headers only (exact match, then a short evidence-backed alias list, otherwise nothing), with ambiguity and dedupe guards, and `CompositeTab.tsx` wires it in while keeping every dropdown editable and tracking auto-vs-manual provenance. The design is deliberately conservative (never positional, never content-based), well documented in MODULE_GUIDE.md, and covered by both a focused unit suite and six new end-to-end flows including the real Arabic template headers. No blocking-handbook violations: the new util stays in the `utils/` layer, no I/O moved into components, no new `any`, and the two `exhaustive-deps` suppressions each carry a stated reason as the technical-debt handbook requires. I verified the mount ordering of the three effects (`compositeSheet` starts as `''`, so the `[fixedColCount]` effect cannot clobber the auto-suggested Retail Price on mount) and found no defect there. Two non-blocking notes below.",
+  "summary": "Adds a \"Ready to upload\" feature to Composite Check: two new pure utils (`readyToUpload.ts`, `rewaaUploadTemplates.ts`) that map the Raw sheet into Rewaa's Simple import template and the valid composite rows into the Composite template, plus a re-read \"Identical\" check, three audit sheets in the validated workbook, and two download buttons. The design is sound — columns are resolved by header with explicit missing/ambiguous outcomes that stop the build rather than guessing, composite rows are deliberately read pre-Auto-Align so ingredient N stays ProductN, and the `compSources` blank-row filter is byte-identical to the one that produced the `errorRowIndices` it is indexed against, so the valid-row alignment is correct. Layering is clean (utils import only utils), no new dependencies, no `any` introduced, and coverage is strong: 37 unit tests (verified passing locally) plus 3 e2e specs. Three low-severity findings, none blocking.",
   "verdict": "approved"
 }

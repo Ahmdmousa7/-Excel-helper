@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:ee9aeed588eaca4c32013386f34113d0b96e872e9db4a4243dd27f98ea95ae98",
+  "attestation_id": "sha256:f6c05ccc4553e549e06f38969626729761f6631f7637de4d393823090d472e0b",
   "bundle": {
     "available": true,
     "budgets_ok": 6,
@@ -21,8 +21,8 @@
         "raw_bytes": 499941
       },
       {
-        "file": "ProjectSummaryTab-Br2cB_qs.js",
-        "gzip_bytes": 144825,
+        "file": "ProjectSummaryTab-DllGlC32.js",
+        "gzip_bytes": 144822,
         "raw_bytes": 444476
       },
       {
@@ -31,8 +31,8 @@
         "raw_bytes": 282467
       },
       {
-        "file": "index.es-jRUDqxMI.js",
-        "gzip_bytes": 51661,
+        "file": "index.es-OK-1row9.js",
+        "gzip_bytes": 51658,
         "raw_bytes": 151183
       },
       {
@@ -46,14 +46,14 @@
         "raw_bytes": 141455
       },
       {
-        "file": "HomeTab-h98Pu0ak.js",
-        "gzip_bytes": 43362,
+        "file": "HomeTab-CBo3KFj4.js",
+        "gzip_bytes": 43359,
         "raw_bytes": 135983
       },
       {
-        "file": "index-DP_aqDHW.js",
-        "gzip_bytes": 32171,
-        "raw_bytes": 104603
+        "file": "index-Ba-_1_wY.js",
+        "gzip_bytes": 32201,
+        "raw_bytes": 104630
       },
       {
         "file": "jszip.min-CiouRDUD.js",
@@ -61,15 +61,15 @@
         "raw_bytes": 96519
       },
       {
-        "file": "OcrTab-D9ZKls5K.js",
-        "gzip_bytes": 15773,
-        "raw_bytes": 44673
+        "file": "CompositeTab-DnpqtBxB.js",
+        "gzip_bytes": 19779,
+        "raw_bytes": 68194
       }
     ],
     "metrics": [
       {
         "budget_kb": 110,
-        "gzip_kb": 86.7,
+        "gzip_kb": 86.8,
         "metric": "Initial load (entry + preloads + CSS)",
         "over": false,
         "used_pct": 79
@@ -97,14 +97,14 @@
       },
       {
         "budget_kb": 1450,
-        "gzip_kb": 1317.6,
+        "gzip_kb": 1322.1,
         "metric": "Total JavaScript (all chunks)",
         "over": false,
         "used_pct": 91
       },
       {
         "budget_kb": 1470,
-        "gzip_kb": 1331.9,
+        "gzip_kb": 1336.4,
         "metric": "Total shipped assets",
         "over": false,
         "used_pct": 91
@@ -162,9 +162,9 @@
     "failures": [],
     "flaky_count": 0,
     "passed": true,
-    "passed_count": 185,
+    "passed_count": 188,
     "skipped_count": 1,
-    "total": 186
+    "total": 189
   },
   "schema": "apexyard.evidence.metrics/1",
   "typescript": {
@@ -176,18 +176,18 @@
   "vitest": {
     "available": true,
     "coverage": {
-      "branches_pct": 90.84,
+      "branches_pct": 90.33,
       "functions_pct": 100,
-      "lines_pct": 99.13,
-      "statements_pct": 99.13
+      "lines_pct": 99.31,
+      "statements_pct": 99.31
     },
     "passed": true,
     "tests": {
       "failed": 0,
-      "passed": 1045,
+      "passed": 1082,
       "skipped": 0,
-      "suites": 203,
-      "total": 1045
+      "suites": 210,
+      "total": 1082
     }
   }
 }

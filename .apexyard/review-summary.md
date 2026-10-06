@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:ee9aeed588eaca4c32013386f34113d0b96e872e9db4a4243dd27f98ea95ae98` |
+| Attestation id | `sha256:f6c05ccc4553e549e06f38969626729761f6631f7637de4d393823090d472e0b` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `62569075688f` |
+| Reviewed at commit | `050693dcc63d` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 5 |
+| Files reviewed | 11 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
-| info | 1 |
+| low | 3 |
+| info | 0 |
 
-This PR adds automatic default column mapping for Composite Check: a new pure helper (`utils/compositeMapping.ts`) picks Raw SKU / Cost / Name and the Composite sheet's Retail Price from headers only (exact match, then a short evidence-backed alias list, otherwise nothing), with ambiguity and dedupe guards, and `CompositeTab.tsx` wires it in while keeping every dropdown editable and tracking auto-vs-manual provenance. The design is deliberately conservative (never positional, never content-based), well documented in MODULE_GUIDE.md, and covered by both a focused unit suite and six new end-to-end flows including the real Arabic template headers. No blocking-handbook violations: the new util stays in the `utils/` layer, no I/O moved into components, no new `any`, and the two `exhaustive-deps` suppressions each carry a stated reason as the technical-debt handbook requires. I verified the mount ordering of the three effects (`compositeSheet` starts as `''`, so the `[fixedColCount]` effect cannot clobber the auto-suggested Retail Price on mount) and found no defect there. Two non-blocking notes below.
+Adds a "Ready to upload" feature to Composite Check: two new pure utils (`readyToUpload.ts`, `rewaaUploadTemplates.ts`) that map the Raw sheet into Rewaa's Simple import template and the valid composite rows into the Composite template, plus a re-read "Identical" check, three audit sheets in the validated workbook, and two download buttons. The design is sound — columns are resolved by header with explicit missing/ambiguous outcomes that stop the build rather than guessing, composite rows are deliberately read pre-Auto-Align so ingredient N stays ProductN, and the `compSources` blank-row filter is byte-identical to the one that produced the `errorRowIndices` it is indexed against, so the valid-row alignment is correct. Layering is clean (utils import only utils), no new dependencies, no `any` introduced, and coverage is strong: 37 unit tests (verified passing locally) plus 3 e2e specs. Three low-severity findings, none blocking.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ This PR adds automatic default column mapping for Composite Check: a new pure he
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 560 warning(s) |
-| Vitest | pass | 1045/1045 passed, lines 99.13% |
-| Playwright | pass | 185/186 passed |
+| Vitest | pass | 1082/1082 passed, lines 99.31% |
+| Playwright | pass | 188/189 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 148 source files, 39572 lines
+- 152 source files, 40916 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -61,7 +61,7 @@ reports zero failures for a tool that never executed.
 
 | File | Lines |
 |---|---:|
-| `components/CompositeTab.tsx` | 1564 |
+| `components/CompositeTab.tsx` | 1652 |
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1124 |
 | `components/OcrTab.tsx` | 1074 |

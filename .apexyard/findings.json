@@ -1,33 +1,42 @@
 {
-  "attestation_id": "sha256:ee9aeed588eaca4c32013386f34113d0b96e872e9db4a4243dd27f98ea95ae98",
+  "attestation_id": "sha256:f6c05ccc4553e549e06f38969626729761f6631f7637de4d393823090d472e0b",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 1,
+    "info": 0,
+    "low": 3,
     "medium": 0
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "`nextChoice` has exactly one production call site — CompositeTab.tsx:295 — and it passes `sourceChanged: false` literally. The `if (sourceChanged) return autoChoice(suggested)` branch (line 104) and the exported `manualChoice` helper are exercised only by tests/unit/compositeMapping.test.ts:115-116. Meanwhile the real \"source changed\" behaviour is reimplemented inline in the component: the `[fileData, compositeSheet]` effect does `setRetailPriceCol(suggest…)` + `setMappingSource(prev => ({...prev, retail: 'auto'}))`, and the `[fileData, rawSheet]` effect does the same for sku/cost/name. So the rule lives in two places, and the unit test asserting \"another sheet or file: the new default replaces even a manual choice\" is validating a code path the app never takes — if the component's inline version drifts, that test keeps passing. This is the code-smells handbook's dead-code entry (an exported path unreachable from production) plus a duplicated rule, not a user-visible bug.",
-      "file": "utils/compositeMapping.ts",
-      "line": 103,
+      "category": "accessibility",
+      "detail": "The whole panel is behind `{readyUpload && (...)}`, so the `<p role=\"status\" aria-live=\"polite\">` enters the DOM with its text already in it. Screen readers monitor live regions for *mutations* to a region that was already present; a region inserted pre-populated is announced inconsistently (NVDA and VoiceOver commonly stay silent). The commit message for 050693d states the result is announced — on this markup it often will not be. Impact is limited because the same summary is also pushed to the activity log via `addLog`, which is why this is low rather than high; it would rise to medium if the log panel were not itself announced.",
+      "file": "components/CompositeTab.tsx",
+      "line": 1350,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "nextChoice's `sourceChanged` branch and `manualChoice` are only reachable from tests"
+      "summary": "`role=\"status\"` region is mounted already populated, so it may not announce"
     },
     {
-      "category": "testing",
-      "detail": "Observation, not a request. (1) A workbook with standard headers now arrives with Cost mapped, so `financialsEnabled` flips on and the export gains `Profit Analysis` + `Detailed BOM` sheets for users who previously got neither — and `Cost above Retail Price` becomes a validation error for them. (2) The Raw SKU dropdown no longer defaults to `Auto-Detect / All Columns`; once a column is auto-chosen, `SKU '…' missing` is checked against that column only, so a SKU that happens to appear in a Name cell now reports missing where it previously passed. Both are intentional, called out in docs/modules/MODULE_GUIDE.md under \"Consequences, deliberate\", and pinned by e2e cases (`the auto-chosen SKU column is what \"SKU missing\" checks`), and the existing hidden-content specs were correctly updated with `clearCost(page)` to preserve their old assertions. The reason this is worth a line: the escape hatch (clear Cost / re-select *Auto-Detect*) is discoverable only from the module guide, and the on-screen hint says \"Columns marked Auto were chosen from the headers\" without mentioning that this is what switched the extra sheets on. What would raise this above info is any user-facing surface that silently changes an exported artifact with no in-app explanation — adding half a sentence to the hint, or a line in the release notes, closes it.",
-      "file": "components/CompositeTab.tsx",
-      "line": 297,
-      "severity": "info",
+      "category": "code-smell",
+      "detail": "`suggestByAliases` is newly exported, but the only caller anywhere in the repo is `suggestColumn` three lines above it in the same file — `readyToUpload.ts` imports `matchColumn`, not this. Its doc comment states \"Used by Ready to upload for its extra fields\", which is false and will send the next reader looking for a call site that does not exist. Per the code-smells handbook an unused export added in a PR is dead code; the misleading comment is the part that actually costs time later.",
+      "file": "utils/compositeMapping.ts",
+      "line": 56,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "Two deliberate behaviour changes for existing users; both documented, flagging for release notes"
+      "summary": "`suggestByAliases` is a new unused export whose docstring is wrong"
+    },
+    {
+      "category": "performance",
+      "detail": "`const col = (h: string) => COMPOSITE_UPLOAD_HEADERS.indexOf(...)` is called once per field (4) and twice per ingredient slot (60) inside the `sources.map` body, so each composite row costs ~64 linear scans over the 73-element header array — roughly 2,500 string comparisons per row, all recomputing a constant. This is O(n·k) with a fixed k, not quadratic, so it will not freeze the tab; it is simply a free constant to give back, and the same shape repeats in `readySummary` only once (correctly hoisted there).",
+      "file": "utils/readyToUpload.ts",
+      "line": 366,
+      "severity": "low",
+      "suggested_fix": null,
+      "summary": "`col()` does a 73-entry linear `indexOf` ~64 times per composite row"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 2
+  "total": 3
 }

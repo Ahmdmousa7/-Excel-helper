@@ -1,37 +1,61 @@
 {
-  "attestation_id": "sha256:ee9aeed588eaca4c32013386f34113d0b96e872e9db4a4243dd27f98ea95ae98",
+  "attestation_id": "sha256:f6c05ccc4553e549e06f38969626729761f6631f7637de4d393823090d472e0b",
   "files": [
     {
-      "oid": "a9415e1cc2fdd03ffd5960a2a8676464db786e3c",
+      "oid": "8efad8d3029bed50b33bf512442cf48b8aec74c2",
       "path": "components/CompositeTab.tsx"
     },
     {
-      "oid": "a7c31d9bc0c84455b4b4694fb7f175aaf235ebe5",
+      "oid": "4f4e5f24aa6fd5cfdedc034a57ff28dba5168c16",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "fd13666c73b064b9f225ff6a077f9a41506c0521",
-      "path": "e2e/composite-hidden-financials.spec.ts"
+      "oid": "65552049dfe93b0de8a5a88cdbaf2bdd60c506b0",
+      "path": "docs/modules/open-decisions.md"
     },
     {
-      "oid": "3b458540a2cee1c77b67ae179043c509fd6fe671",
-      "path": "tests/unit/compositeMapping.test.ts"
+      "oid": "9e69ebbbf87dd33f5363851a85df8dc1868e658a",
+      "path": "e2e/composite-ready-to-upload.spec.ts"
     },
     {
-      "oid": "f436f20dbc698291f36cc5375a14d53700d2b327",
+      "oid": "235a0cdf6a914bfccd5bc9fb479813aa27d8f74b",
+      "path": "tests/fixtures/ready-to-upload/composite-template.xlsx"
+    },
+    {
+      "oid": "e1c4b573665b733d3cdea9f13cbe8f34afdeb1f0",
+      "path": "tests/fixtures/ready-to-upload/simple-template.xlsx"
+    },
+    {
+      "oid": "71359470cb351a716bdb2745218758dd45d20c09",
+      "path": "tests/unit/readyToUpload.test.ts"
+    },
+    {
+      "oid": "576a46af963c33c093a9588f246f0a1eca36b17e",
       "path": "utils/compositeMapping.ts"
+    },
+    {
+      "oid": "5452f8d86bc30e760f7a3361a496df920257d39f",
+      "path": "utils/ocrRewaaExport.ts"
+    },
+    {
+      "oid": "7bd6b417d24d26476d04b2ea64fb6966474726af",
+      "path": "utils/readyToUpload.ts"
+    },
+    {
+      "oid": "05dda9f21a5cb3927a9ec69fd0e7fab53697e9e3",
+      "path": "utils/rewaaUploadTemplates.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 1,
+    "info": 0,
+    "low": 3,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "62569075688f44086a9414ac355a412ac71bc0b0",
+  "reviewed_at_commit": "050693dcc63d017fb833b1ee10ef42371b6b2f11",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"
