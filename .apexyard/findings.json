@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:3f94c9ac4d623e8690f8ac486ab19f0bd0bb7289b426b6bdb2a9caa17d6a2dc5",
+  "attestation_id": "sha256:324a7fd88b0819261ef31672cf2df135bbf11070f5f0a82a47b96c1ec16d247e",
   "available": true,
   "by_severity": {
     "critical": 0,
@@ -10,22 +10,22 @@
   },
   "findings": [
     {
-      "category": "performance",
-      "detail": "`selectedCols.includes(c)` runs once per cell of the full grid, inside the per-row/per-cell forEach. On the shape this feature actually targets — the fixture sheet is 43 columns wide, and the translator is routinely pointed at multi-thousand-row catalogue exports — a 40,000-row × 43-column sheet is ~1.7M `includes` scans on the main thread, executed synchronously at export time right after a long AI run. It is tens of milliseconds, not a freeze, so there is no user-visible impact today; I am flagging it because the fix is one line and the loop sits on the only code path every translation now takes. This would rise to medium if `selectedCols` ever became large or the grid loop gained more per-cell work.",
-      "file": "utils/translateOutput.ts",
-      "line": 70,
+      "category": "code-smell",
+      "detail": "`overloadRound` is declared inside `translateBatch`, so the 15/30/60s budget resets for every batch. The failure path is correctly bounded — a batch that spends all three waits throws, and `TranslateTab.tsx:380` `break`s out of the batch loop, so the 105s worst case is paid at most once per run. But the *success* path has no ceiling: during a sustained capacity spike each batch can wait 15s (or more), succeed, and the next batch repeats it. A 40-batch workbook can therefore add tens of minutes of wall clock with no cancel control anywhere in TranslateTab (`grep` for cancel/abort finds nothing). Kept at `low` because every wait is logged via `onRetryWait` so it never looks like a hang, and waiting-then-succeeding is the outcome the user wants; what would raise this to `medium` is a user report of a run that appeared stuck, or adding a cancel button that the in-flight `setTimeout` would not honour.",
+      "file": "services/geminiService.ts",
+      "line": 481,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "overwrittenCells does a linear scan of selectedCols for every cell in the grid"
+      "summary": "Overload wait budget is per-batch, so a whole run has no overall wait ceiling"
     },
     {
-      "category": "testing",
-      "detail": "`translate-real.xlsx` is documented as the product owner's own `Translate (2).xlsx` 'copied unchanged' — a 43-column Rewaa Simple import layout with 20 real Arabic product names and their prices. This is not a security-baseline violation: there are no credentials, tokens, or service-account material in it, so nothing here is exploitable. It is worth one conscious decision rather than a default, because the fixture is binary (it will not show up in future diff review) and because reproducing the exact customer-reported bytes is precisely what made the e2e test valuable — a synthesised fixture may not have reproduced it. Raising it only so the call is deliberate: if this repository is public or may become public, real catalogue data and pricing is business-sensitive even without PII. No action needed if the repo is private and the product owner supplied the file for this purpose.",
-      "file": "tests/fixtures/translator/README.md",
-      "line": 5,
+      "category": "technical-debt",
+      "detail": "The commit subject is `Translator: wait and retry when every model is overloaded, instead of failing at once` (79 chars, no type prefix, no ticket reference), while the four preceding commits on this branch all use the conventional form (`fix(translator): an output column never overwrites existing data silently`, `chore(evidence): …`). The body itself is exemplary — it names the production date, the exact failure, the bound, what is explicitly unchanged, and the test coverage — so none of the handbook's four `What Rex flags` triggers fire; this is purely the subject-line format element from the handbook's required-elements table. Raised as `info` only, for the next commit.",
+      "file": "services/geminiService.ts",
+      "line": 1,
       "severity": "info",
       "suggested_fix": null,
-      "summary": "Real internal reproduction file committed unchanged as a test fixture"
+      "summary": "Commit subject drops the repo's `type(scope): …` convention used by its neighbours"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

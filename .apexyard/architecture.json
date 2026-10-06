@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:3f94c9ac4d623e8690f8ac486ab19f0bd0bb7289b426b6bdb2a9caa17d6a2dc5",
+  "attestation_id": "sha256:324a7fd88b0819261ef31672cf2df135bbf11070f5f0a82a47b96c1ec16d247e",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,11 +8,11 @@
     },
     "components": {
       "files": 36,
-      "loc": 18277
+      "loc": 18279
     },
     "e2e": {
       "files": 35,
-      "loc": 5640
+      "loc": 5750
     },
     "hooks": {
       "files": 2,
@@ -20,15 +20,15 @@
     },
     "services": {
       "files": 10,
-      "loc": 1929
+      "loc": 1977
     },
     "tests": {
       "files": 37,
-      "loc": 8428
+      "loc": 8560
     },
     "types": {
       "files": 1,
-      "loc": 105
+      "loc": 110
     },
     "utils": {
       "files": 26,
@@ -61,8 +61,12 @@
         "loc": 1074
       },
       {
+        "file": "services/geminiService.ts",
+        "loc": 994
+      },
+      {
         "file": "components/TranslateTab.tsx",
-        "loc": 980
+        "loc": 982
       },
       {
         "file": "components/SupportChat.tsx",
@@ -71,10 +75,6 @@
       {
         "file": "utils/translations.ts",
         "loc": 954
-      },
-      {
-        "file": "services/geminiService.ts",
-        "loc": 946
       },
       {
         "file": "components/ProjectSummaryTab.tsx",
@@ -97,5 +97,5 @@
   ],
   "schema": "apexyard.evidence.architecture/1",
   "source_files": 155,
-  "total_loc": 41431
+  "total_loc": 41728
 }
