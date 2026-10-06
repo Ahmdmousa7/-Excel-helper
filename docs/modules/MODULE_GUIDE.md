@@ -214,8 +214,8 @@ No CSV input (`accept=".xlsx"`), no cross-file validation, no automatic fixing o
 **AR:** المصنّف المحمّل وعمود واحد على الأقل. الخيارات: الاتجاه، والنمط، والمجال، وقائمة المصطلحات، وحجم الدفعة. ويلزم مفتاح Gemini.
 
 #### Output / ماذا يخرج؟
-**EN:** `Translated_<name>.xlsx`, or **`PARTIAL_Translated_<name>.xlsx`** when anything is missing. Sheets: *Original File*, *Translated File*, *Translation Summary*. The summary carries a per-row `Status` of `Translated` / `Already bilingual` / `NOT TRANSLATED`, and — when the run degraded to a weaker model — a notice at the top.
-**AR:** ملف `Translated_<الاسم>.xlsx` أو `PARTIAL_...` عند وجود نقص، بثلاث أوراق: الأصل، المترجم، وملخص الترجمة الذي يحتوي حالة كل صف وتنبيهاً عند تغيّر الموديل.
+**EN:** `Translated_<name>.xlsx`, or **`PARTIAL_Translated_<name>.xlsx`** when anything is missing. **Since 2026-10-06 the file is the user's OWN workbook** (`utils/translateOutput.ts`): every sheet in its original order and name, the translated cells written into the selected sheet, and a *Translation Summary* sheet appended. Only the cells the translation changed are rewritten (as text); every other cell keeps its type, number format and formula; the uploaded workbook is never modified. Before, the download was a new workbook opening on an untouched *Original File* copy (then *Translated File*), so a finished run looked untranslated — reproduced on the product owner's file with First column / Auto ⇄ / `|` / In-Place Update — and other sheets were dropped and numbers became text. The summary carries a per-row `Status` of `Translated` / `Already bilingual` / `NOT TRANSLATED`, and — when the run degraded to a weaker model — a notice at the top. **In-Place Update** (Bilingual Cell mode) writes `<original><separator><translation>` into the same cell — kept as is by the product owner on 2026-10-06; the separator joins the two, it does not split the cell.
+**AR:** ملف `Translated_<الاسم>.xlsx` أو `PARTIAL_...` عند وجود نقص. منذ 2026-10-06 الملف هو مصنّف المستخدم نفسه بكل أوراقه وأسمائها وترتيبها، مع كتابة الترجمة في الورقة المختارة وإضافة ورقة ملخص الترجمة في النهاية؛ لا يتغير إلا ما تُرجم، ولا يُعدَّل الملف المرفوع.
 
 #### Files it reads / ما الملفات التي يقرأها؟
 The loaded workbook only (no uploader of its own).
@@ -242,10 +242,10 @@ The loaded workbook only (no uploader of its own).
 No resume of a partial run, no per-cell retry, no offline translation, no language other than AR↔EN.
 
 #### Code location / أين الكود؟
-`components/TranslateTab.tsx` · `utils/translationBatch.ts` (`alignBatchResults`) · `services/geminiService.ts` (`translateBatch`, `'quality'` tier).
+`components/TranslateTab.tsx` · `utils/translationBatch.ts` (`alignBatchResults`) · `utils/translateOutput.ts` (`workbookCopy`, `applyGridChanges`: the download as the user's own workbook) · `services/geminiService.ts` (`translateBatch`, `'quality'` tier).
 
 #### Tests / أين الاختبارات؟
-`tests/unit/translationBatch.test.ts` (15) — the alignment guard that prevents silent row-shifting, numeric results, blanks, non-arrays. `tests/unit/geminiModels.test.ts` (41) — model fallback, per-key retirement, `onNotice` delivery. `tests/unit/geminiFallback.test.ts` — no-quota / overloaded fallback for `translateBatch`. `e2e/ai-tools.spec.ts` — a no-quota failure is one readable sentence in the log and in the `PARTIAL_` workbook, after one request per candidate.
+`tests/unit/translationBatch.test.ts` (15) — the alignment guard that prevents silent row-shifting, numeric results, blanks, non-arrays. `tests/unit/geminiModels.test.ts` (41) — model fallback, per-key retirement, `onNotice` delivery. `tests/unit/geminiFallback.test.ts` — no-quota / overloaded fallback for `translateBatch`. `e2e/ai-tools.spec.ts` — a no-quota failure is one readable sentence in the log and in the `PARTIAL_` workbook, after one request per candidate. `tests/unit/translateOutput.test.ts` — only changed cells rewritten, types / formats / formulas / other sheets / visibility kept, the uploaded workbook unmodified. `e2e/translator-inplace.spec.ts` — the product owner's real file (`tests/fixtures/translator/translate-real.xlsx`) with First column / Auto ⇄ / `|` / In-Place Update: column A becomes `<Arabic> | <English>`, header, other columns and row count unchanged; Auto ⇄ both ways, blanks, already-bilingual cells and `|` segments; another sheet; a failed call gives a `PARTIAL_` file with the column untouched.
 
 ---
 

@@ -8,6 +8,8 @@ import { initGoogleAuth, updateSheetColumn } from '../services/googleSheetSync';
 import { TRANSLATIONS, Language } from '../utils/translations';
 import { alignBatchResults } from '../utils/translationBatch';
 import { readableAiError } from '../utils/aiErrors';
+import { workbookCopy, applyGridChanges } from '../utils/translateOutput';
+import { safeSheetName } from '../utils/excelUtils';
 import ProgressBar from './ProgressBar';
 import { Play, RotateCcw, Zap, WifiOff, Split, Merge, ArrowRight, Layout, AlertCircle, ArrowDown, BrainCircuit, Globe, Book, Copy, Check, CloudUpload, User, PenTool, Columns, Table, FileOutput, ChevronDown, ChevronUp, Settings2, Plus, Combine, Replace, MousePointer2 } from 'lucide-react';
 
@@ -485,9 +487,13 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       setResultData(outputData);
 
       // --- 5. EXPORT FILE ---
-      const newWb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(data), "Original File");
-      XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(outputData), "Translated File");
+      // The user's OWN workbook with the translation written in
+      // (utils/translateOutput.ts): every sheet in its order and name, only the
+      // changed cells rewritten, the uploaded workbook untouched. It used to be
+      // a new workbook opening on an "Original File" copy, so a finished
+      // translation looked like nothing had happened.
+      const newWb = workbookCopy(fileData.workbook);
+      applyGridChanges(XLSX, newWb, selectedSheet, data, outputData);
 
       // A partial run gets a banner at the top of the Summary sheet, before the
       // header row. Someone who opens the file months later has no logs and no
@@ -545,7 +551,8 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
           ["", "", "", ""],
         );
       }
-      XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(summaryData), "Translation Summary");
+      const takenNames = new Set(newWb.SheetNames.map((n) => n.toLowerCase()));
+      XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet(summaryData), safeSheetName("Translation Summary", takenNames));
 
       const outName = fileData.name.toLowerCase().endsWith('.csv')
         ? fileData.name.replace(/\.csv$/i, '.xlsx')
