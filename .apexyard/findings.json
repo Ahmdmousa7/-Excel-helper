@@ -1,42 +1,33 @@
 {
-  "attestation_id": "sha256:3899129dab733b18519239011ae959da32cfae68d1f28977ebfb43f086d55d32",
+  "attestation_id": "sha256:3f94c9ac4d623e8690f8ac486ab19f0bd0bb7289b426b6bdb2a9caa17d6a2dc5",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 3,
+    "info": 1,
+    "low": 1,
     "medium": 0
   },
   "findings": [
     {
-      "category": "accessibility",
-      "detail": "The always-present sr-only live region at line 1360 announces the result once, and the visible copy inside the `role=\"region\"` panel is marked `aria-hidden=\"true\"` so it is \"not read twice\". But the visible `<p>` is not inside any live region — a newly mounted, non-live subtree is not auto-announced — so there was no double-read to prevent. The net effect is that a screen-reader user who misses the polite announcement (it is transient, and polite yields to other speech) or who navigates back to the \"Ready to upload\" region afterwards finds a heading and two download buttons with no counts at all: how many raw materials, how many identical, how many not. The one place the numbers live is permanently removed from the accessibility tree.",
-      "file": "components/CompositeTab.tsx",
-      "line": 1364,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "aria-hidden on the visible summary hides the result from AT permanently"
-    },
-    {
-      "category": "code-smell",
-      "detail": "When `readyPlan.problems` is non-empty the panel never appears and the only trace is an `'info'` log line. Every other recoverable shortfall in this same handler uses `'warning'` (the Cost & Profit note at line 959, the identical-count note at line 1009, the error summary at line 1013). The user's experience is a feature that silently does not exist; they have to open the Logs panel and scan past info lines to learn that, e.g., a required SKU column was not found. The e2e spec at `e2e/composite-ready-to-upload.spec.ts:197` has to click the logs button to see it, which is the tell.",
-      "file": "components/CompositeTab.tsx",
-      "line": 973,
-      "severity": "low",
-      "suggested_fix": null,
-      "summary": "\"Ready to upload was not built\" is logged at 'info', not 'warning'"
-    },
-    {
       "category": "performance",
-      "detail": "`col(h)` is `COMPOSITE_UPLOAD_HEADERS.indexOf(h)` over a 73-entry array, and it is called 4 times for the fixed fields plus twice per ingredient slot (60) on every source row — ~64 scans, ~2,400 string comparisons per row. The headers are a module-level constant, so the lookup table can be built once instead of per cell. This is not a user-visible freeze at realistic composite-product counts (hundreds of rows ≈ a few ms), which is why it is `low` rather than `high`; it would move up if composite sheets reached tens of thousands of rows.",
-      "file": "utils/readyToUpload.ts",
-      "line": 366,
+      "detail": "`selectedCols.includes(c)` runs once per cell of the full grid, inside the per-row/per-cell forEach. On the shape this feature actually targets — the fixture sheet is 43 columns wide, and the translator is routinely pointed at multi-thousand-row catalogue exports — a 40,000-row × 43-column sheet is ~1.7M `includes` scans on the main thread, executed synchronously at export time right after a long AI run. It is tens of milliseconds, not a freeze, so there is no user-visible impact today; I am flagging it because the fix is one line and the loop sits on the only code path every translation now takes. This would rise to medium if `selectedCols` ever became large or the grid loop gained more per-cell work.",
+      "file": "utils/translateOutput.ts",
+      "line": 70,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "checkCompositeUpload does ~64 linear header lookups per row"
+      "summary": "overwrittenCells does a linear scan of selectedCols for every cell in the grid"
+    },
+    {
+      "category": "testing",
+      "detail": "`translate-real.xlsx` is documented as the product owner's own `Translate (2).xlsx` 'copied unchanged' — a 43-column Rewaa Simple import layout with 20 real Arabic product names and their prices. This is not a security-baseline violation: there are no credentials, tokens, or service-account material in it, so nothing here is exploitable. It is worth one conscious decision rather than a default, because the fixture is binary (it will not show up in future diff review) and because reproducing the exact customer-reported bytes is precisely what made the e2e test valuable — a synthesised fixture may not have reproduced it. Raising it only so the call is deliberate: if this repository is public or may become public, real catalogue data and pricing is business-sensitive even without PII. No action needed if the repo is private and the product owner supplied the file for this purpose.",
+      "file": "tests/fixtures/translator/README.md",
+      "line": 5,
+      "severity": "info",
+      "suggested_fix": null,
+      "summary": "Real internal reproduction file committed unchanged as a test fixture"
     }
   ],
   "schema": "apexyard.evidence.findings/1",
-  "total": 3
+  "total": 2
 }

@@ -1,5 +1,5 @@
 {
-  "attestation_id": "sha256:3899129dab733b18519239011ae959da32cfae68d1f28977ebfb43f086d55d32",
+  "attestation_id": "sha256:3f94c9ac4d623e8690f8ac486ab19f0bd0bb7289b426b6bdb2a9caa17d6a2dc5",
   "available": true,
   "by_directory": {
     "(root)": {
@@ -8,11 +8,11 @@
     },
     "components": {
       "files": 36,
-      "loc": 18253
+      "loc": 18277
     },
     "e2e": {
-      "files": 34,
-      "loc": 5457
+      "files": 35,
+      "loc": 5640
     },
     "hooks": {
       "files": 2,
@@ -23,16 +23,16 @@
       "loc": 1929
     },
     "tests": {
-      "files": 36,
-      "loc": 8288
+      "files": 37,
+      "loc": 8428
     },
     "types": {
       "files": 1,
       "loc": 105
     },
     "utils": {
-      "files": 25,
-      "loc": 5872
+      "files": 26,
+      "loc": 5984
     }
   },
   "layering": {
@@ -61,12 +61,12 @@
         "loc": 1074
       },
       {
-        "file": "components/SupportChat.tsx",
-        "loc": 964
+        "file": "components/TranslateTab.tsx",
+        "loc": 980
       },
       {
-        "file": "components/TranslateTab.tsx",
-        "loc": 956
+        "file": "components/SupportChat.tsx",
+        "loc": 964
       },
       {
         "file": "utils/translations.ts",
@@ -96,6 +96,6 @@
     }
   ],
   "schema": "apexyard.evidence.architecture/1",
-  "source_files": 152,
-  "total_loc": 40972
+  "source_files": 155,
+  "total_loc": 41431
 }

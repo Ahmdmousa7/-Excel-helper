@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:3899129dab733b18519239011ae959da32cfae68d1f28977ebfb43f086d55d32` |
+| Attestation id | `sha256:3f94c9ac4d623e8690f8ac486ab19f0bd0bb7289b426b6bdb2a9caa17d6a2dc5` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `e925dce38448` |
+| Reviewed at commit | `c7d50dd680bf` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
-| Files reviewed | 12 |
+| Files reviewed | 7 |
 
 ## What this is, and what it is not
 
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 3 |
-| info | 0 |
+| low | 1 |
+| info | 1 |
 
-Adds a "Ready to upload" feature to Composite Check: the Raw sheet is mapped into Rewaa's Simple import template and the valid composite rows into Rewaa's Composite template (ingredient N → ProductN), plus an Identical re-read check, a mapping audit sheet, and download buttons — backed by new pure utils (`readyToUpload.ts`, `rewaaUploadTemplates.ts`), 20+ unit tests against the product owner's real template fixtures, and four Playwright e2e specs. The logic is sound: I verified the index alignment between `errorRowIndices`, `compRows` and the new `compSources` (auto-align is non-mutating `map`, and the blank-row filter is identical, so valid rows are selected correctly), and that identifiers are read from cell values rather than display text. No blocking-handbook violations and no high/critical defects; the known display-vs-value gap is tracked as TD-057 with an owner and status. Three low-severity items below, all non-blocking.
+Replaces the AI Translator's download — previously a brand-new workbook whose first sheet was an untouched 'Original File' copy, which made a completed run look like it had done nothing and dropped every other sheet — with the user's own workbook, writing only the changed cells into the selected sheet. The new pure helper `utils/translateOutput.ts` (`workbookCopy` / `applyGridChanges` / `overwrittenCells`) is well-factored, type-clean, and correctly handles grids whose used range does not start at A1; it is covered by 8 unit tests and 6 e2e tests on the product owner's real reproduction file. A follow-up commit closes the data-loss hole the first one opened (an output column pointed at populated cells) with a log warning plus a per-cell previous-value table in the summary. I confirmed no handbook violations: the new util is type-only-dependent on `xlsx`, does no I/O, introduces no `any`, adds no UI, and the summary sheet is written via `aoa_to_sheet` as string cells so file/model content cannot become a live formula. Verdict is approve; the two notes below are non-blocking.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ Adds a "Ready to upload" feature to Composite Check: the Raw sheet is mapped int
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 560 warning(s) |
-| Vitest | pass | 1082/1082 passed, lines 99.31% |
-| Playwright | pass | 189/190 passed |
+| Vitest | pass | 1090/1090 passed, lines 99.32% |
+| Playwright | pass | 195/196 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 152 source files, 40972 lines
+- 155 source files, 41431 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -65,8 +65,8 @@ reports zero failures for a tool that never executed.
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1124 |
 | `components/OcrTab.tsx` | 1074 |
+| `components/TranslateTab.tsx` | 980 |
 | `components/SupportChat.tsx` | 964 |
-| `components/TranslateTab.tsx` | 956 |
 | `utils/translations.ts` | 954 |
 | `services/geminiService.ts` | 946 |
 | `components/ProjectSummaryTab.tsx` | 841 |

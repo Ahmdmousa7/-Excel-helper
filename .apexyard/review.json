@@ -1,18 +1,18 @@
 {
-  "attestation_id": "sha256:3899129dab733b18519239011ae959da32cfae68d1f28977ebfb43f086d55d32",
+  "attestation_id": "sha256:3f94c9ac4d623e8690f8ac486ab19f0bd0bb7289b426b6bdb2a9caa17d6a2dc5",
   "available": true,
-  "files_reviewed": 10,
+  "files_reviewed": 6,
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
-    "low": 3,
+    "info": 1,
+    "low": 1,
     "medium": 0
   },
-  "findings_total": 3,
+  "findings_total": 2,
   "gate": "high",
   "model": "claude-opus-5",
   "schema": "apexyard.evidence.review/1",
-  "summary": "Adds a \"Ready to upload\" feature to Composite Check: the Raw sheet is mapped into Rewaa's Simple import template and the valid composite rows into Rewaa's Composite template (ingredient N → ProductN), plus an Identical re-read check, a mapping audit sheet, and download buttons — backed by new pure utils (`readyToUpload.ts`, `rewaaUploadTemplates.ts`), 20+ unit tests against the product owner's real template fixtures, and four Playwright e2e specs. The logic is sound: I verified the index alignment between `errorRowIndices`, `compRows` and the new `compSources` (auto-align is non-mutating `map`, and the blank-row filter is identical, so valid rows are selected correctly), and that identifiers are read from cell values rather than display text. No blocking-handbook violations and no high/critical defects; the known display-vs-value gap is tracked as TD-057 with an owner and status. Three low-severity items below, all non-blocking.",
+  "summary": "Replaces the AI Translator's download — previously a brand-new workbook whose first sheet was an untouched 'Original File' copy, which made a completed run look like it had done nothing and dropped every other sheet — with the user's own workbook, writing only the changed cells into the selected sheet. The new pure helper `utils/translateOutput.ts` (`workbookCopy` / `applyGridChanges` / `overwrittenCells`) is well-factored, type-clean, and correctly handles grids whose used range does not start at A1; it is covered by 8 unit tests and 6 e2e tests on the product owner's real reproduction file. A follow-up commit closes the data-loss hole the first one opened (an output column pointed at populated cells) with a log warning plus a per-cell previous-value table in the summary. I confirmed no handbook violations: the new util is type-only-dependent on `xlsx`, does no I/O, introduces no `any`, adds no UI, and the summary sheet is written via `aoa_to_sheet` as string cells so file/model content cannot become a live formula. Verdict is approve; the two notes below are non-blocking.",
   "verdict": "approved"
 }
