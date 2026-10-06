@@ -1,31 +1,31 @@
 {
-  "attestation_id": "sha256:324a7fd88b0819261ef31672cf2df135bbf11070f5f0a82a47b96c1ec16d247e",
+  "attestation_id": "sha256:7798862874fb61bda48ecdfcf057795426b441cf96dbd4b3f1813d40a288081b",
   "available": true,
   "by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 1,
+    "info": 0,
+    "low": 2,
     "medium": 0
   },
   "findings": [
     {
-      "category": "code-smell",
-      "detail": "`overloadRound` is declared inside `translateBatch`, so the 15/30/60s budget resets for every batch. The failure path is correctly bounded — a batch that spends all three waits throws, and `TranslateTab.tsx:380` `break`s out of the batch loop, so the 105s worst case is paid at most once per run. But the *success* path has no ceiling: during a sustained capacity spike each batch can wait 15s (or more), succeed, and the next batch repeats it. A 40-batch workbook can therefore add tens of minutes of wall clock with no cancel control anywhere in TranslateTab (`grep` for cancel/abort finds nothing). Kept at `low` because every wait is logged via `onRetryWait` so it never looks like a hang, and waiting-then-succeeding is the outcome the user wants; what would raise this to `medium` is a user report of a run that appeared stuck, or adding a cancel button that the in-flight `setTimeout` would not honour.",
-      "file": "services/geminiService.ts",
-      "line": 481,
+      "category": "accessibility",
+      "detail": "The comment on this line states the intent plainly — \"a silent pause looks like a hang\" — but `addLog` is the only surface the notice reaches. `App.tsx:136` initialises `showLogs` to `false`, and the only `aria-live` region in App.tsx (line 124) is the lazy-tab loading fallback, not the log list. During an overload the user now sees `ProgressBar` (TranslateTab.tsx:963) frozen at its last value with the static label `Processing (Batch: N)` for up to 120s of new waiting — exactly the scenario this PR exists to handle — with nothing on screen explaining it, and nothing announced to a screen reader. The information exists; it is just behind a drawer the user has no reason to have opened. Not higher severity because the run still completes or exports a correct `PARTIAL_` file either way, and the bound is 120s rather than indefinite. It would be medium if the wait were unbounded or if it also suppressed the existing error reporting.",
+      "file": "components/TranslateTab.tsx",
+      "line": 305,
       "severity": "low",
       "suggested_fix": null,
-      "summary": "Overload wait budget is per-batch, so a whole run has no overall wait ceiling"
+      "summary": "Overload wait is announced only in a log drawer that is collapsed by default"
     },
     {
-      "category": "technical-debt",
-      "detail": "The commit subject is `Translator: wait and retry when every model is overloaded, instead of failing at once` (79 chars, no type prefix, no ticket reference), while the four preceding commits on this branch all use the conventional form (`fix(translator): an output column never overwrites existing data silently`, `chore(evidence): …`). The body itself is exemplary — it names the production date, the exact failure, the bound, what is explicitly unchanged, and the test coverage — so none of the handbook's four `What Rex flags` triggers fire; this is purely the subject-line format element from the handbook's required-elements table. Raised as `info` only, for the next commit.",
-      "file": "services/geminiService.ts",
-      "line": 1,
-      "severity": "info",
+      "category": "typescript",
+      "detail": "`services/geminiService.ts:3-7` documents the convention explicitly — \"`ModelNotice` is imported, not redeclared here: it is part of the provider contract\" — and imports `AiTier`, `ApiKeyStatus`, `IAiService`, `ModelNotice` from this file. The new `OverloadBudget` interface goes the other way: it is declared at `services/geminiService.ts:466` and its shape is written out a second time here as `{ remainingSeconds?: number }`. `onRetryWait?: (message: string) => void` on line 61 is likewise a hand-copy of `ModelNotice`, which is defined on line 27 of this very file as exactly that signature. Nothing is broken today — the shapes are structurally identical, so the call in `TranslateTab.tsx:306` type-checks — but the two declarations can now drift silently: add a field to `OverloadBudget` and the contract keeps describing the old shape, with no compiler error anywhere. That is the drift the file's own convention was written to prevent.",
+      "file": "types/ai.types.ts",
+      "line": 67,
+      "severity": "low",
       "suggested_fix": null,
-      "summary": "Commit subject drops the repo's `type(scope): …` convention used by its neighbours"
+      "summary": "`OverloadBudget` declared in the provider, then re-spelled inline in the contract"
     }
   ],
   "schema": "apexyard.evidence.findings/1",

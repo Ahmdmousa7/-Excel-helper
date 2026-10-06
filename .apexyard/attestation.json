@@ -1,41 +1,41 @@
 {
-  "attestation_id": "sha256:324a7fd88b0819261ef31672cf2df135bbf11070f5f0a82a47b96c1ec16d247e",
+  "attestation_id": "sha256:7798862874fb61bda48ecdfcf057795426b441cf96dbd4b3f1813d40a288081b",
   "files": [
     {
-      "oid": "985084b9693b224810d2d8e7e213f08e470e6d4f",
+      "oid": "93aebfa8c3eee1bdfcd56e42ad07145419ffed86",
       "path": "components/TranslateTab.tsx"
     },
     {
-      "oid": "febf6520c68fb2f4aa33e6629a9570334cda2ee9",
+      "oid": "dab4cddf77bf620b619108132a2dbcfc0a925de6",
       "path": "docs/modules/MODULE_GUIDE.md"
     },
     {
-      "oid": "f6958d7ad9dd669e80f426c2b287f268ddd402cc",
+      "oid": "8dd4940f0bd79d4cae46263f14b99cf03d033c16",
       "path": "e2e/translator-inplace.spec.ts"
     },
     {
-      "oid": "45a15846cfe28598fc11d057775c998ee9f155a1",
+      "oid": "5510110650b28c1eea00f69eebd265b1f697028d",
       "path": "services/geminiService.ts"
     },
     {
-      "oid": "14d0107e9cf9de1ca3525a088c7911d416294923",
+      "oid": "df822fb3f57cdc213b71b9de0a849c05586819d8",
       "path": "tests/unit/geminiFallback.test.ts"
     },
     {
-      "oid": "2acb0fb088d85855712266dfad11a6ab4cd6a90d",
+      "oid": "9fe3408538371c5f726cc60623a968ad1babfebe",
       "path": "types/ai.types.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 1,
-    "low": 1,
+    "info": 0,
+    "low": 2,
     "medium": 0
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "f53d557ef855db893eeb25a642944e87f1e0fae7",
+  "reviewed_at_commit": "0c1a6063362bf18da191b887abc209d5d2688dc4",
   "schema": "apexyard.evidence.attestation/2",
   "scope": "origin/main...HEAD",
   "verdict": "APPROVED"

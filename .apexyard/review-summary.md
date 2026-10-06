@@ -7,9 +7,9 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:324a7fd88b0819261ef31672cf2df135bbf11070f5f0a82a47b96c1ec16d247e` |
+| Attestation id | `sha256:7798862874fb61bda48ecdfcf057795426b441cf96dbd4b3f1813d40a288081b` |
 | Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `f53d557ef855` |
+| Reviewed at commit | `0c1a6063362b` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
 | Verdict | **APPROVED** |
@@ -30,10 +30,10 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 | critical | 0 |
 | high | 0 |
 | medium | 0 |
-| low | 1 |
-| info | 1 |
+| low | 2 |
+| info | 0 |
 
-Adds a bounded wait-and-retry to `translateBatch` for the case where every usable model in the 'quality' tier answers 503 overloaded at once: it waits 15s / 30s / 60s, clearing only this call's overload skips and re-walking the candidate list after each wait, then propagates the original `all-models-busy` error so TranslateTab still exports the usual PARTIAL_ workbook. The retry loop is correctly bounded by `overloadRound` (not by `attempts`), `skipped.clear()` cannot resurrect per-key retirements or no-quota models, and the new `onRetryWait` channel is deliberately kept out of the de-duplicated `onNotice` so waits are logged but never written into the workbook's model report. Coverage is strong — 41 unit tests pass locally (including bounded-ness, no key rotation on overload, and no credential text in notices) plus three Playwright tests on the real fixture with the browser clock fast-forwarded. No blocking findings; two non-blocking notes below.
+Adds bounded wait-and-retry to `translateBatch` for the case where every usable model in the 'quality' tier answers 503 at once: three rounds of 15/30/60s per batch, capped by a single 120s budget object that TranslateTab creates once per run and passes to every batch. The control flow is correct and genuinely bounded — retired/no-quota models stay in the per-key registry across `skipped.clear()`, overload never rotates keys, and the terminal behaviour is still the same `all-models-busy` error and `PARTIAL_` workbook. Unit and e2e coverage is unusually thorough (fake clock, per-round call-count assertions, cross-batch budget sharing, 120s ceiling over five batches, no-credential-in-notice assertions). Two low-severity findings, neither blocking: the wait is only visible in a log drawer that is collapsed by default, and the new `OverloadBudget` shape is declared in the provider instead of the contract file, against that file's own stated convention.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ Adds a bounded wait-and-retry to `translateBatch` for the case where every usabl
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 560 warning(s) |
-| Vitest | pass | 1099/1099 passed, lines 99.32% |
-| Playwright | pass | 198/199 passed |
+| Vitest | pass | 1103/1103 passed, lines 99.32% |
+| Playwright | pass | 200/201 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 155 source files, 41728 lines
+- 155 source files, 41929 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -65,8 +65,8 @@ reports zero failures for a tool that never executed.
 | `components/VariableBalanceTab.tsx` | 1384 |
 | `components/FileValidationTab.tsx` | 1124 |
 | `components/OcrTab.tsx` | 1074 |
-| `services/geminiService.ts` | 994 |
-| `components/TranslateTab.tsx` | 982 |
+| `services/geminiService.ts` | 1031 |
+| `components/TranslateTab.tsx` | 987 |
 | `components/SupportChat.tsx` | 964 |
 | `utils/translations.ts` | 954 |
 | `components/ProjectSummaryTab.tsx` | 841 |
