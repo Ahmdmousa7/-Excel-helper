@@ -448,9 +448,28 @@ export const parseWaitTime = (error: any) => {
  */
 export const OVERLOAD_RETRY_DELAYS_S: readonly number[] = [15, 30, 60];
 
+/**
+ * The most a whole translation RUN may spend waiting on overload, across all of
+ * its batches. The rounds above restart for each batch; this budget does not.
+ * Without it a large workbook could wait 15 + 30 + 60 s for every batch. A wait
+ * never exceeds what is left, and once nothing is left the run stops retrying
+ * and ends as the usual PARTIAL_ file.
+ */
+export const OVERLOAD_RUN_BUDGET_S = 120;
+
+/**
+ * Seconds of overload waiting left for one run. Mutable on purpose: the caller
+ * (TranslateTab) creates ONE per run and hands the same object to every batch.
+ */
+export interface OverloadBudget { remainingSeconds?: number }
+
 /** The notice for one overload wait. No key text, ever. */
 export const overloadRetryNotice = (seconds: number, round: number, rounds: number): string =>
   `All models are busy (temporary Gemini service overload) — retrying in ${seconds}s (${round}/${rounds}).`;
+
+/** Logged once when the run's overload budget is spent and the run stops retrying. */
+export const overloadBudgetSpentNotice = (): string =>
+  `All models are still busy and this run's ${OVERLOAD_RUN_BUDGET_S}s wait budget for temporary Gemini service overload is used up — stopping.`;
 
 // Function implementations requested by errors
 
@@ -475,10 +494,19 @@ export const translateBatch = async (
          * to `onNotice` when not given.
          */
         onRetryWait?: (message: string) => void,
+        /**
+         * The run's overload wait budget (see OVERLOAD_RUN_BUDGET_S), shared by
+         * every batch of the run. Omitted: this call gets a budget of its own.
+         */
+        overloadBudget?: OverloadBudget,
     }
 ): Promise<string[]> => {
     let attempts = 0;
     let overloadRound = 0; // overload waits used so far, this call
+    // The run's budget, filled in on first use so the number lives only here;
+    // a call without one gets its own.
+    const overloadBudget: OverloadBudget = options.overloadBudget ?? {};
+    overloadBudget.remainingSeconds ??= OVERLOAD_RUN_BUDGET_S;
     const maxRetries = getMaxRetries();
     // Named so the shared retire-and-advance logic in the catch reads the same
     // here as in extractStructuredData, which takes its tier as a parameter.
@@ -543,10 +571,19 @@ export const translateBatch = async (
                 } catch (exhausted) {
                     // Every usable candidate is overloaded right now: wait, then
                     // walk the whole list again (OVERLOAD_RETRY_DELAYS_S). Any other
-                    // end of the list, or the last round spent, propagates as before.
+                    // end of the list, the last round spent, or the RUN's budget
+                    // spent (OVERLOAD_RUN_BUDGET_S), propagates as before.
                     if ((exhausted as { aiKind?: AiErrorKind })?.aiKind !== 'all-models-busy'
                         || overloadRound >= OVERLOAD_RETRY_DELAYS_S.length) throw exhausted;
-                    const seconds = OVERLOAD_RETRY_DELAYS_S[overloadRound++];
+                    const left: number = overloadBudget.remainingSeconds ?? 0;
+                    if (left <= 0) {
+                        const spent = overloadBudgetSpentNotice();
+                        console.warn(spent);
+                        (options.onRetryWait ?? options.onNotice)?.(spent);
+                        throw exhausted;
+                    }
+                    const seconds = Math.min(OVERLOAD_RETRY_DELAYS_S[overloadRound++], left);
+                    overloadBudget.remainingSeconds = left - seconds;
                     const notice = overloadRetryNotice(seconds, overloadRound, OVERLOAD_RETRY_DELAYS_S.length);
                     console.warn(notice);
                     (options.onRetryWait ?? options.onNotice)?.(notice);

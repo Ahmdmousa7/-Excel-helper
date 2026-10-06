@@ -290,3 +290,91 @@ test.describe('AI Translator — all models overloaded: bounded wait-and-retry',
     expect(calls.filter((m) => !PRO.test(m))).toHaveLength(FLASH_IDS * 4);
   });
 });
+
+test.describe('AI Translator — the overload wait budget is per RUN, not per batch', () => {
+  // 40 different Arabic items → two batches of 20.
+  function fortyRows(): Buffer {
+    const rows = [['Product Name', 'Price'], ...Array.from({ length: 40 }, (_, i) => [`منتج رقم ${i + 1}`, i + 1])];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Menu');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  test('batch 1 spends 105s and succeeds; batch 2 gets only the 15s left, then a safe PARTIAL_ with batch 1 kept', async ({ shell, page }) => {
+    test.setTimeout(120_000);
+    // Pro: no quota. Flash: busy for batch 1's first three walks (9 calls), the
+    // 10th call answers (batch 1 done), and busy for everything after.
+    let flashCalls = 0;
+    await page.route(/[gG]enerateContent/, async (route) => {
+      const model = /models\/([^:]+):/.exec(route.request().url())?.[1] ?? '?';
+      if (/pro/.test(model)) {
+        await route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: `Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: ${model}` } }) });
+        return;
+      }
+      if (flashCalls++ !== 9) {
+        await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 503, status: 'UNAVAILABLE', message: 'This model is currently experiencing high demand. Please try again later.' } }) });
+        return;
+      }
+      const prompt: string = JSON.parse(route.request().postData() ?? '{}').contents?.[0]?.parts?.[0]?.text ?? '';
+      const items = JSON.parse(/Items:\s*(\[[\s\S]*?\])\s*\n\s*Return ONLY/.exec(prompt)?.[1] ?? '[]');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ index: 0, finishReason: 'STOP', content: { role: 'model', parts: [{ text: JSON.stringify(items.map((it: { text: string }) => mockTranslate(it.text))) }] } }] }) });
+    });
+    await page.clock.install();
+    await shell.goto();
+    await shell.openToolMatching(/AI Translator/);
+    await page.locator('input[type="file"]').first().setInputFiles({ name: 'forty.xlsx', mimeType: XLSX_TYPE, buffer: fortyRows() });
+    await page.getByRole('checkbox', { name: 'Product Name', exact: true }).check();
+    await page.getByRole('button', { name: 'Auto ⇄' }).click();
+    await page.getByRole('button', { name: '|', exact: true }).click();
+    await page.getByRole('button', { name: 'In-Place Update' }).click();
+    const pending = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByRole('button', { name: en.common.start }).click();
+    await page.getByRole('button', { name: en.actions.showLogs }).click();
+
+    const log = page.getByText(/^All models are (busy|still busy)/);
+    // Batch 1: 15, 30, 60 — then it is answered.
+    for (const [sec, n, count] of [[15, 1, 1], [30, 2, 2], [60, 3, 3]] as const) {
+      await expect(log).toHaveCount(count, { timeout: 30_000 });
+      await expect(page.getByText(`All models are busy (temporary Gemini service overload) — retrying in ${sec}s (${n}/3).`)).toBeVisible();
+      await page.clock.runFor(sec * 1000 + 500);
+    }
+    // Batch 2: its rounds restart, but only 15s of the run's 120s is left.
+    await expect(log).toHaveCount(4, { timeout: 30_000 });
+    await expect(page.getByText('All models are busy (temporary Gemini service overload) — retrying in 15s (1/3).')).toHaveCount(2);
+    await page.clock.runFor(15_500);
+    await expect(page.getByText("All models are still busy and this run's 120s wait budget for temporary Gemini service overload is used up — stopping.")).toBeVisible({ timeout: 30_000 });
+    // No 30s round for batch 2 — the budget, not the per-batch rounds, ended it.
+    await expect(page.getByText(/retrying in 30s/)).toHaveCount(1);
+
+    const d = await pending;
+    expect(d.suggestedFilename()).toBe('PARTIAL_Translated_forty.xlsx');
+    const out = grid(XLSX.read(readFileSync((await d.path())!), { type: 'buffer' }), 'Menu');
+    for (let r = 1; r <= 20; r++) expect(out[r][0]).toBe(`منتج رقم ${r} | EN:منتج رقم ${r}`); // batch 1 kept
+    for (let r = 21; r <= 40; r++) expect(out[r][0]).toBe(`منتج رقم ${r}`);                    // batch 2 untouched
+    expect(out.map((r) => r[1])).toEqual(['Price', ...Array.from({ length: 40 }, (_, i) => i + 1)]);
+  });
+});
+
+test.describe('AI Translator — CSV and XLSX take the same request path', () => {
+  test('the same 20 items as .xlsx and as a UTF-8 (BOM, CRLF) .csv: one request each, identical items and prompt', async ({ app, page }) => {
+    test.setTimeout(120_000);
+    const calls = await model(page);
+    const csv = XLSX.utils.sheet_to_csv(XLSX.read(REAL, { type: 'buffer' }).Sheets['rewaa-import-simple'], { RS: '\r\n' });
+    const CSV = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(csv, 'utf8')]);
+    const x = await translate(app, page, REAL, 'menu.xlsx', 'Product Name');
+    const fromXlsx = calls.splice(0);
+    await page.reload();
+    await app.waitUntilReady();
+    const c = await translate(app, page, CSV, 'menu.csv', 'Product Name');
+    const fromCsv = calls.splice(0);
+    expect(fromXlsx).toHaveLength(1);
+    expect(fromCsv).toHaveLength(1);
+    expect(fromCsv[0].items).toEqual(fromXlsx[0].items);
+    expect(fromCsv[0].prompt).toBe(fromXlsx[0].prompt);
+    // Same translated column; only the sheet name differs (a CSV has no sheet name).
+    expect(x.wb.SheetNames).toEqual(['rewaa-import-simple', 'Translation Summary']);
+    expect(c.wb.SheetNames).toEqual(['Sheet1', 'Translation Summary']);
+    expect(grid(c.wb, 'Sheet1').map((r) => r[0])).toEqual(grid(x.wb, 'rewaa-import-simple').map((r) => r[0]));
+    expect(c.file).toBe('Translated_menu.xlsx');
+  });
+});

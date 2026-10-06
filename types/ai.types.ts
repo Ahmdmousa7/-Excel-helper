@@ -59,6 +59,12 @@ export interface IAiService {
              * service overload). Not a model change, so not part of `onNotice`.
              */
             onRetryWait?: (message: string) => void;
+            /**
+             * The whole run's overload wait budget, shared by its batches: pass
+             * the SAME object to every batch, empty — the provider fills in its
+             * limit on first use and counts it down. Omitted: per call.
+             */
+            overloadBudget?: { remainingSeconds?: number };
         }
     ): Promise<string[]>;
 

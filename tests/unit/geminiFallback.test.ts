@@ -92,6 +92,7 @@ import {
   extractFromMedia, extractStructuredData, classifyModelFailure,
   translateBatch, processGeneralFile, generateText,
   OVERLOAD_RETRY_DELAYS_S, overloadRetryNotice,
+  OVERLOAD_RUN_BUDGET_S, overloadBudgetSpentNotice, type OverloadBudget,
 } from '../../services/geminiService';
 
 const Q = MODEL_CANDIDATES.quality;
@@ -513,6 +514,70 @@ describe('translateBatch — every model overloaded: wait, then try the whole li
     await vi.advanceTimersByTimeAsync(15_100);
     await pending;
     expect(only).toContain(overloadRetryNotice(15, 1, 3));
+  });
+
+  it('a RUN-wide budget of 120s, shared by the batches of one run', () => {
+    expect(OVERLOAD_RUN_BUDGET_S).toBe(120);
+    expect(overloadBudgetSpentNotice()).toBe("All models are still busy and this run's 120s wait budget for temporary Gemini service overload is used up — stopping.");
+  });
+
+  it('the budget is shared across batches: a later batch only gets what is left, then the run stops without waiting', async () => {
+    vi.useFakeTimers();
+    const budget: OverloadBudget = {}; // one per run, as TranslateTab passes it
+    const waits: string[] = [];
+    const batch = () => translateBatch([{ text: 'x' }], { ...TRANSLATE_OPTS, onRetryWait: (n) => waits.push(n), overloadBudget: budget });
+
+    // Batch 1: two busy rounds, then an answer — 15 + 30 = 45s of the 120.
+    flashesBusyFor(2);
+    let pending: Promise<unknown> = batch();
+    await vi.advanceTimersByTimeAsync(45_100);
+    await pending;
+    expect(budget.remainingSeconds).toBe(75);
+
+    // Batch 2: busy throughout. Its rounds restart at 15s, but the third is cut
+    // to what is left: 15 + 30 + 30 = 75. Then the same "busy" error as before.
+    for (const m of FLASHES) state.overloadedRemaining[m] = 99;
+    pending = batch().then(() => null, (e) => e);
+    await vi.advanceTimersByTimeAsync(75_100);
+    expect((await pending as { aiKind?: string }).aiKind).toBe('all-models-busy');
+    expect(budget.remainingSeconds).toBe(0);
+
+    // Batch 3: nothing left — one walk of the list, no wait, a clear notice.
+    const before = state.tried.length;
+    const err = await batch().then(() => null, (e) => e);
+    expect(err.aiKind).toBe('all-models-busy');
+    expect(state.tried.length - before).toBe(FLASHES.length);
+    expect(waits).toEqual([
+      overloadRetryNotice(15, 1, 3), overloadRetryNotice(30, 2, 3),          // batch 1
+      overloadRetryNotice(15, 1, 3), overloadRetryNotice(30, 2, 3), overloadRetryNotice(30, 3, 3), // batch 2
+      overloadBudgetSpentNotice(),                                             // batch 3
+    ]);
+  });
+
+  it('the total time waited in one run never exceeds 120s, however many batches', async () => {
+    vi.useFakeTimers();
+    const budget: OverloadBudget = {};
+    flashesBusyFor(99);
+    const waits: string[] = [];
+    for (let b = 0; b < 5; b++) {
+      const settled = translateBatch([{ text: 'x' }], { ...TRANSLATE_OPTS, onRetryWait: (n) => waits.push(n), overloadBudget: budget }).then(() => null, (e) => e);
+      await vi.advanceTimersByTimeAsync(200_000);
+      expect((await settled as { aiKind?: string }).aiKind).toBe('all-models-busy');
+    }
+    expect(budget.remainingSeconds).toBe(0);
+    // Waited: 15 + 30 + 60 in batch 1, the last 15 in batch 2, nothing after — 120 in all.
+    const waited = waits.map((w) => Number(/retrying in (\d+)s/.exec(w)?.[1] ?? 0));
+    expect(waited).toEqual([15, 30, 60, 15, 0, 0, 0, 0]);
+    expect(waited.reduce((a, b) => a + b, 0)).toBe(OVERLOAD_RUN_BUDGET_S);
+    // Walks of the Flash list: 4 in batch 1, 2 in batch 2, 1 each after.
+    expect(state.tried.filter((m) => FLASHES.includes(m))).toHaveLength(FLASHES.length * (4 + 2 + 1 + 1 + 1));
+  });
+
+  it('no-quota and retired never touch the run budget', async () => {
+    const budget: OverloadBudget = {};
+    for (const m of Q) state.behaviour[m] = 'no-quota';
+    await translateBatch([{ text: 'x' }], { ...TRANSLATE_OPTS, overloadBudget: budget }).catch(() => null);
+    expect(budget.remainingSeconds).toBe(OVERLOAD_RUN_BUDGET_S);
   });
 
   it('scope: the other AI calls are unchanged — generateText still ends at once when every model is overloaded', async () => {

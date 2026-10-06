@@ -280,6 +280,10 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
       // that quietly dropped tier is worth knowing about when you are checking
       // the output, so it goes in the log and in the exported workbook.
       const modelNotices = new Set<string>();
+      // ONE overload wait budget for the whole run, shared by every batch: the
+      // 15/30/60 s rounds restart per batch, the run's total does not. Empty:
+      // the AI service fills in its limit on first use.
+      const overloadBudget: { remainingSeconds?: number } = {};
 
       for (let i = 0; i < totalUnique; i += batchSize) {
           const batchEnd = Math.min(i + batchSize, totalUnique);
@@ -299,6 +303,7 @@ const TranslateTab: React.FC<Props> = ({ fileData, addLog, keyCount, onReset, la
                   },
                   // Every wait is logged, batch by batch: a silent pause looks like a hang.
                   onRetryWait: (message) => addLog(message, 'warning'),
+                  overloadBudget,
               });
 
               // Whether the reply can be trusted at all is decided by
