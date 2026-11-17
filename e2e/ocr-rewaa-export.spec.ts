@@ -148,7 +148,7 @@ test.describe('OCR Extraction — Rewaa export on real-run data', () => {
     const pending = page.waitForEvent('download', { timeout: 30_000 });
     await page.getByRole('button', { name: 'Export', exact: true }).click();
     const wb = XLSX.read(readFileSync((await (await pending).path())!), { type: 'buffer' });
-    expect(models).toHaveLength(1); // one model call; mapping and export are local
+    expect(models).toHaveLength(2); // the extraction + the price double-check; mapping and export are local
 
     // --- Mapped Variable -----------------------------------------------------
     const v = sheet(wb, 'Mapped Variable');
