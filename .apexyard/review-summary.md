@@ -7,13 +7,13 @@ a different state of the code is detectable without any notion of time.
 
 | | |
 |---|---|
-| Attestation id | `sha256:7798862874fb61bda48ecdfcf057795426b441cf96dbd4b3f1813d40a288081b` |
-| Reviewed scope | `origin/main...HEAD` |
-| Reviewed at commit | `0c1a6063362b` |
+| Attestation id | `sha256:94c1958f62091354785d5c9367301a8987c8ab62ab3203205a53519e9602572a` |
+| Reviewed scope | `756bd27...HEAD` |
+| Reviewed at commit | `05cdb426386c` |
 | Model | `claude-opus-5` |
 | Gate | `high` |
-| Verdict | **APPROVED** |
-| Files reviewed | 6 |
+| Verdict | **COMMENT** |
+| Files reviewed | 11 |
 
 ## What this is, and what it is not
 
@@ -29,11 +29,11 @@ them by hand. See `docs/adr/ADR-0002` and `ADR-0003`.
 |---|---:|
 | critical | 0 |
 | high | 0 |
-| medium | 0 |
+| medium | 2 |
 | low | 2 |
-| info | 0 |
+| info | 1 |
 
-Adds bounded wait-and-retry to `translateBatch` for the case where every usable model in the 'quality' tier answers 503 at once: three rounds of 15/30/60s per batch, capped by a single 120s budget object that TranslateTab creates once per run and passes to every batch. The control flow is correct and genuinely bounded — retired/no-quota models stay in the per-key registry across `skipped.clear()`, overload never rotates keys, and the terminal behaviour is still the same `all-models-busy` error and `PARTIAL_` workbook. Unit and e2e coverage is unusually thorough (fake clock, per-round call-count assertions, cross-batch budget sharing, 120s ceiling over five batches, no-credential-in-notice assertions). Two low-severity findings, neither blocking: the wait is only visible in a log drawer that is collapsed by default, and the new `OverloadBudget` shape is declared in the provider instead of the contract file, against that file's own stated convention.
+This PR adds a same-window postMessage bridge so the Account Setup userscript can push a Zoho task's files into the OCR tab and take the Rewaa workbook back, plus a second independent model reading that cross-checks every extracted price before anything is sent. The work is well-built: ADR-0008 documents both decisions with rejected alternatives, `utils/zohoBridge.ts` and `utils/ocrReview.ts` are pure and unit-tested (12 tests pass), five e2e specs cover the auto-start / hold / auto-send paths including the corrupt-payload and partial-cross-check cases, `tsc --noEmit` is clean, every `eslint-disable` carries a reason, and `key={i}` was replaced with a WeakMap row identity. No blocking-handbook violation and nothing high or critical. Two medium items are worth a look: the auto-send gate treats "never cross-checked" as "cross-checked and clean", and the new review panel wraps its interactive list in one aria-live region so keyboard focus is lost on every fix.
 
 ## Quality gates
 
@@ -41,8 +41,8 @@ Adds bounded wait-and-retry to `translateBatch` for the case where every usable 
 |---|---|---|
 | TypeScript | pass | 0 error(s) |
 | ESLint | pass | 0 error(s), 560 warning(s) |
-| Vitest | pass | 1103/1103 passed, lines 99.32% |
-| Playwright | pass | 200/201 passed |
+| Vitest | pass | 1115/1115 passed, lines 99.3% |
+| Playwright | pass | 205/206 passed |
 | Bundle budget | pass | 6 budget(s) within limits |
 | Production audit | pass | 0 critical, 0 high |
 | Accessibility | pass | 19 violation node(s) |
@@ -52,7 +52,7 @@ reports zero failures for a tool that never executed.
 
 ## Architecture
 
-- 155 source files, 41929 lines
+- 160 source files, 42829 lines
 - Layering violations: **0**
 - Files over 800 lines: **10**
 - Probable duplicate implementations: **1**
@@ -63,12 +63,12 @@ reports zero failures for a tool that never executed.
 |---|---:|
 | `components/CompositeTab.tsx` | 1662 |
 | `components/VariableBalanceTab.tsx` | 1384 |
+| `components/OcrTab.tsx` | 1311 |
 | `components/FileValidationTab.tsx` | 1124 |
-| `components/OcrTab.tsx` | 1074 |
 | `services/geminiService.ts` | 1031 |
+| `utils/translations.ts` | 1018 |
 | `components/TranslateTab.tsx` | 987 |
 | `components/SupportChat.tsx` | 964 |
-| `utils/translations.ts` | 954 |
 | `components/ProjectSummaryTab.tsx` | 841 |
 | `components/ZidTab.tsx` | 841 |
 

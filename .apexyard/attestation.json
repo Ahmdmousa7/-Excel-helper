@@ -1,42 +1,62 @@
 {
-  "attestation_id": "sha256:7798862874fb61bda48ecdfcf057795426b441cf96dbd4b3f1813d40a288081b",
+  "attestation_id": "sha256:94c1958f62091354785d5c9367301a8987c8ab62ab3203205a53519e9602572a",
   "files": [
     {
-      "oid": "93aebfa8c3eee1bdfcd56e42ad07145419ffed86",
-      "path": "components/TranslateTab.tsx"
+      "oid": "45848ce78d5cd48ef7908af3fb8a351673f3b8b3",
+      "path": "App.tsx"
     },
     {
-      "oid": "dab4cddf77bf620b619108132a2dbcfc0a925de6",
-      "path": "docs/modules/MODULE_GUIDE.md"
+      "oid": "4baa8fc5554aea990a18562bb41daae133cd787b",
+      "path": "components/OcrTab.tsx"
     },
     {
-      "oid": "8dd4940f0bd79d4cae46263f14b99cf03d033c16",
-      "path": "e2e/translator-inplace.spec.ts"
+      "oid": "b463607bd2db5d0fa09584b1314e8baea47a0764",
+      "path": "docs/adr/ADR-0008-zoho-bridge-and-ocr-price-double-check.md"
     },
     {
-      "oid": "5510110650b28c1eea00f69eebd265b1f697028d",
-      "path": "services/geminiService.ts"
+      "oid": "ba944f473e5080e3f7b23c349037df02cdb2d577",
+      "path": "e2e/ocr-rewaa-export.spec.ts"
     },
     {
-      "oid": "df822fb3f57cdc213b71b9de0a849c05586819d8",
-      "path": "tests/unit/geminiFallback.test.ts"
+      "oid": "89851e3589e97310f409bf5e23081f8af845d4e0",
+      "path": "e2e/ocr-zoho-review.spec.ts"
     },
     {
-      "oid": "9fe3408538371c5f726cc60623a968ad1babfebe",
-      "path": "types/ai.types.ts"
+      "oid": "938082707f517bd3a81bdd1b61ae84de8935f933",
+      "path": "package-lock.json"
+    },
+    {
+      "oid": "6f07dbb22dce349d65ef061d5b31577efb802e42",
+      "path": "tests/unit/ocrReview.test.ts"
+    },
+    {
+      "oid": "2dab483fa2eebba793aefce6faca5abdcb47bd01",
+      "path": "tests/unit/zohoBridge.test.ts"
+    },
+    {
+      "oid": "564d837ce3ad28dac81bbff1991332654e0dd5cf",
+      "path": "utils/ocrReview.ts"
+    },
+    {
+      "oid": "ed812dbf9f5f179d88f4997675ca49c17ff03494",
+      "path": "utils/translations.ts"
+    },
+    {
+      "oid": "996198a5cc1567624e211c40ae98c0fce986c1f8",
+      "path": "utils/zohoBridge.ts"
     }
   ],
   "findings_by_severity": {
     "critical": 0,
     "high": 0,
-    "info": 0,
+    "info": 1,
     "low": 2,
-    "medium": 0
+    "medium": 2
   },
   "gate": "high",
   "model": "claude-opus-5",
-  "reviewed_at_commit": "0c1a6063362bf18da191b887abc209d5d2688dc4",
+  "reviewed_at_commit": "05cdb426386cda66949a2cada08a82ce14c9c6f3",
   "schema": "apexyard.evidence.attestation/2",
-  "scope": "origin/main...HEAD",
-  "verdict": "APPROVED"
+  "scope": "756bd27...HEAD",
+  "verdict": "COMMENT"
 }
