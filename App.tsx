@@ -1,4 +1,5 @@
 
+import { isBridgeMode } from './utils/zohoBridge';
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { FileData, LogEntry } from './types';
 import { ApiKeyStatus } from './types/ai.types';
@@ -130,7 +131,8 @@ const TabLoadingFallback: React.FC = () => (
 );
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<number>(-1); // Default to Home (-1)
+  // Default to Home (-1); opened by the Account Setup userscript (#zoho-bridge) → straight to OCR (12)
+  const [activeTab, setActiveTab] = useState<number>(() => (isBridgeMode() ? 12 : -1));
   const [fileData, setFileData] = useState<FileData | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showLogs, setShowLogs] = useState<boolean>(false);
