@@ -410,6 +410,7 @@ export const TRANSLATIONS = {
         add: 'Add',
         use: 'Use {p}',
         missingTitle: 'Found only in the second reading',
+        notCrossChecked: 'The second reading could not run for {files}, so those prices were NOT cross-checked — not sent automatically. Check them, then send.',
         codes: {
           'no-name': 'No product name',
           'no-price': 'No price — a section title? Delete it, or fix the price',
@@ -885,6 +886,7 @@ export const TRANSLATIONS = {
         add: 'إضافة',
         use: 'استخدم {p}',
         missingTitle: 'ظهر في القراءة الثانية فقط',
+        notCrossChecked: 'تعذّر تشغيل القراءة الثانية لـ {files}، لذلك لم يتم تأكيد أسعارها — لم يُرسل الملف تلقائيًا. راجعها ثم أرسل.',
         codes: {
           'no-name': 'بدون اسم',
           'no-price': 'بدون سعر — عنوان قسم؟ احذفه أو صحّح السعر',

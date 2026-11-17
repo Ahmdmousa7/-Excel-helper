@@ -122,17 +122,22 @@ export function nameParts(v: unknown): string[] {
 
 const tokens = (s: string) => new Set(s.split(' ').filter(Boolean));
 
-/** Same item? Equal, one containing the other (≥ 3 letters), or most words shared. */
-export function namesMatch(a: string, b: string): boolean {
-  if (!a || !b) return false;
-  if (a === b) return true;
-  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+/** A normalised name with its word set, built once so matching allocates nothing per comparison. */
+interface Prepared { s: string; t: Set<string> }
+const prep = (s: string): Prepared => ({ s, t: tokens(s) });
+
+function matchPrepared(a: Prepared, b: Prepared): boolean {
+  if (!a.s || !b.s) return false;
+  if (a.s === b.s) return true;
+  const [short, long] = a.s.length <= b.s.length ? [a.s, b.s] : [b.s, a.s];
   if (short.length >= 3 && (` ${long} `).includes(` ${short} `)) return true;
-  const ta = tokens(a), tb = tokens(b);
   let shared = 0;
-  ta.forEach((t) => { if (tb.has(t)) shared++; });
-  return shared > 0 && shared / Math.min(ta.size, tb.size) >= 0.75 && shared / Math.max(ta.size, tb.size) >= 0.5;
+  a.t.forEach((t) => { if (b.t.has(t)) shared++; });
+  return shared > 0 && shared / Math.min(a.t.size, b.t.size) >= 0.75 && shared / Math.max(a.t.size, b.t.size) >= 0.5;
 }
+
+/** Same item? Equal, one containing the other (≥ 3 letters), or most words shared. */
+export const namesMatch = (a: string, b: string): boolean => matchPrepared(prep(a), prep(b));
 
 const RANGE = /\d\s*[-–—]\s*\d/;
 const blank = (v: unknown) => v === undefined || v === null || String(v).trim() === '';
@@ -194,13 +199,13 @@ export function crossCheck(rows: readonly Row[], secondReads: Readonly<Record<st
   const missing: MissingItem[] = [];
   for (const [src, entries] of Object.entries(secondReads)) {
     const fileRows = rows.filter((r) => String(r['Source File'] ?? '') === src);
-    const entryNames = entries.map((e) => normName(e.name));
+    const entryNames = entries.map((e) => prep(normName(e.name)));
     const matched = new Array(entries.length).fill(false);
     for (const r of fileRows) {
-      const parts = nameParts(r['Product Name']);
+      const parts = nameParts(r['Product Name']).map(prep);
       if (!parts.length) continue;
       const cand: number[] = [];
-      entryNames.forEach((en, i) => { if (parts.some((p) => namesMatch(p, en))) cand.push(i); });
+      entryNames.forEach((en, i) => { if (parts.some((p) => matchPrepared(p, en))) cand.push(i); });
       cand.forEach((i) => { matched[i] = true; });
       if (isRangeRow(r)) continue;
       const p = priceNumber(r['Retail Price']);
