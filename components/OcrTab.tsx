@@ -21,12 +21,16 @@ import JSZip from 'jszip';
 import {
   isBridgeMode, isOwnMessage, isBridgeLoad, bridgeFileToFile, bytesToBase64, postToUserscript, MSG,
 } from '../utils/zohoBridge';
+import {
+  reviewRows, parseSecondRead, missingItemRow, SECOND_READ_PROMPT,
+  type ReviewFlag, type MissingItem, type SecondReadItem,
+} from '../utils/ocrReview';
 import ProgressBar from './ProgressBar';
 import { 
   ScanText, UploadCloud, FileText, Zap, TableProperties, Edit3, 
   Trash2, Download, ArrowRight, Settings, Plus, CheckCircle, Send,
   LayoutTemplate, Split, Filter, Search, X, ChevronDown, ChevronUp,
-  Maximize2, Minimize2, Eye, GripVertical, Clipboard, FileInput, Map as MapIcon, Info
+  Maximize2, Minimize2, Eye, GripVertical, Clipboard, FileInput, Map as MapIcon, Info, ShieldCheck
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -150,6 +154,43 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   // Zoho bridge: the Account Setup userscript sends a task's files here and takes the Rewaa workbook back.
   const [bridgeTask, setBridgeTask] = useState<{ id: string; name?: string } | null>(null);
   const [bridgeSent, setBridgeSent] = useState<string | null>(null);
+  // Opened from Zoho: extract as soon as the files are in (Restaurant Menu), no click needed.
+  const [autoStart, setAutoStart] = useState(false);
+
+  // --- REVIEW (utils/ocrReview.ts) ---
+  // A second, simpler reading of every image/PDF; the review is recomputed from
+  // the table whenever it changes, so a fix clears its flag by itself.
+  const [doubleCheck, setDoubleCheck] = useState(true);
+  const [secondReads, setSecondReads] = useState<Record<string, SecondReadItem[]>>({});
+  const [reviewReady, setReviewReady] = useState(false);
+  const [dismissedRows, setDismissedRows] = useState<Set<Row>>(() => new Set());
+  const [dismissedMissing, setDismissedMissing] = useState<Set<string>>(() => new Set());
+  const [flaggedOnly, setFlaggedOnly] = useState(false);
+  const review = useMemo(() => {
+      if (!reviewReady) return { flags: [] as ReviewFlag[], missing: [] as MissingItem[], byRow: new Map<Row, ReviewFlag[]>(), errors: 0, warns: 0, open: 0 };
+      const r = reviewRows(masterData, secondReads);
+      const flags = r.flags.filter((f) => !dismissedRows.has(f.row));
+      const missing = r.missing.filter((m) => !dismissedMissing.has(m.key));
+      const byRow = new Map<Row, ReviewFlag[]>();
+      for (const f of flags) byRow.set(f.row, [...(byRow.get(f.row) ?? []), f]);
+      let errors = 0, warns = 0;
+      byRow.forEach((fs) => { if (fs.some((f) => f.level === 'error')) errors++; else warns++; });
+      warns += missing.length;
+      return { flags, missing, byRow, errors, warns, open: errors + warns };
+  }, [reviewReady, masterData, secondReads, dismissedRows, dismissedMissing]);
+
+  const replaceRow = (row: Row, next: Row | null) =>
+      setMasterData((prev) => next ? prev.map((r) => (r === row ? next : r)) : prev.filter((r) => r !== row));
+  const setRowPrice = (row: Row, price: number) => replaceRow(row, { ...row, 'Retail Price': price });
+  const dismissRow = (row: Row) => setDismissedRows((prev) => new Set(prev).add(row));
+  const addMissing = (item: MissingItem) => setMasterData((prev) => {
+      const row = missingItemRow(item);
+      if (!generateRandomSkus) return [...prev, row];
+      const used = new Set<string>();
+      for (const r of prev) for (const k of ['Product SKU', 'Variant SKU']) if (String(r[k] ?? '').trim()) used.add(String(r[k]).trim());
+      return [...prev, ...fillRandomSkus([row], used)];
+  });
+
   useEffect(() => {
     if (!isBridgeMode()) return;
     const seen = new Set<string>(); // the userscript re-sends until it gets "loaded" – take each task once
@@ -161,8 +202,10 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       seen.add(load.taskId);
       setBridgeTask({ id: load.taskId, name: load.taskName });
       setBridgeSent(null);
-      addLog(`Zoho task ${load.taskName || load.taskId}: received ${load.files.length} file(s) from Account Setup.`, 'info');
-      void addFiles(load.files.map(bridgeFileToFile));
+      addLog(`Zoho task ${load.taskName || load.taskId}: received ${load.files.length} file(s) from Account Setup — extracting as a Restaurant Menu.`, 'info');
+      setActiveTemplate('menu');
+      setUseSchema(false);
+      void addFiles(load.files.map(bridgeFileToFile)).then(() => setAutoStart(true));
     };
     window.addEventListener('message', onMessage);
     postToUserscript({ type: MSG.ready });
@@ -435,6 +478,12 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       setRawHeaders([]);
       setRewaaRun(null);
       setZipError(null);
+      setSecondReads({});
+      setReviewReady(false);
+      setDismissedRows(new Set());
+      setDismissedMissing(new Set());
+      setFlaggedOnly(false);
+      setBridgeSent(null);
       addLog(t.common.processing, 'info');
 
       const fullPrompt = constructPrompt();
@@ -584,6 +633,23 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
           setShowConfig(false); // Auto collapse config to show results
           if (rewaa) {
               finishRewaaRun(finalRows, sources, inputs, failed);
+              const media = inputType === 'file' && doubleCheck ? files.filter((f) => f.text === undefined) : [];
+              const reads: Record<string, SecondReadItem[]> = {};
+              if (media.length) addLog(t.ocr.check.running, 'info');
+              for (const f of media) {
+                  try {
+                      const answer = await aiService.processGeneralFile(
+                          { data: f.base64Data, mimeType: f.mimeType }, SECOND_READ_PROMPT, (msg) => addLog(msg, 'warning'));
+                      const items = parseSecondRead(answer);
+                      if (items.length) reads[f.file.name] = items;
+                      else addLog(t.ocr.check.unavailable.replace('{file}', f.file.name), 'warning');
+                  } catch (e: unknown) {
+                      console.error(`[OCR] second reading failed for ${f.file.name}:`, e);
+                      addLog(t.ocr.check.unavailable.replace('{file}', f.file.name), 'warning');
+                  }
+              }
+              setSecondReads(reads);
+              setReviewReady(true);
           } else {
               // Not a product extraction: no automatic download (D9 still holds
               // here). The results bar's Export button produces the file.
@@ -642,7 +708,9 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
           addLog(`Rewaa file could not be generated: ${error}`, 'error');
       }
       const decision = autoExportDecision({ rows: rows.length, failedInputs: failed, built: built !== null });
-      if (decision === 'download' && built) {
+      if (decision === 'download' && built && bridgeTask) {
+          addLog(`${built.baseName}.xlsx is ready — it goes back to the Zoho task after the review (no download).`, 'info');
+      } else if (decision === 'download' && built) {
           downloadBytes(built.bytes, `${built.baseName}.xlsx`, XLSX_MIME);
           addLog(`Downloaded ${built.baseName}.xlsx automatically.`, 'success');
       } else if (decision === 'hold') {
@@ -667,8 +735,9 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       }
   };
 
-  const sendRewaaToZoho = () => {
+  const sendRewaaToZoho = (auto = false) => {
       if (!bridgeTask || !rewaaRun || masterData.length === 0) return;
+      if (!auto && review.open > 0 && !window.confirm(t.ocr.rewaa.sendAnywayConfirm.replace('{n}', String(review.open)))) return;
       try {
           const built = buildRewaaFile(masterData, rewaaRun.sources, rewaaRun.completedAt);
           postToUserscript({
@@ -677,10 +746,29 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
           });
           setBridgeSent(`${built.baseName}.xlsx`);
           addLog(`Sent ${built.baseName}.xlsx (${masterData.length} rows) back to Zoho task ${bridgeTask.name || bridgeTask.id}.`, 'success');
+          if (auto) addLog(t.ocr.rewaa.autoSent, 'success');
       } catch (e: unknown) {
           addLog(`Rewaa file could not be generated: ${e instanceof Error ? e.message : String(e)}`, 'error');
       }
   };
+
+  // Opened from Zoho: start once the files are in.
+  useEffect(() => {
+      if (!autoStart || files.length === 0 || status === ProcessingStatus.PROCESSING) return;
+      setAutoStart(false);
+      void handleProcess();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, files, status]);
+
+  // Opened from Zoho: send back by itself once the review has nothing open — right
+  // after the run when it is clean, or as soon as the last flag is handled.
+  // Never after a run where a file failed (held) or the workbook did not build.
+  useEffect(() => {
+      if (!bridgeTask || bridgeSent || !reviewReady || !rewaaRun || rewaaRun.outcome !== 'downloaded') return;
+      if (status !== ProcessingStatus.COMPLETED || review.open > 0 || masterData.length === 0) return;
+      sendRewaaToZoho(true);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bridgeTask, bridgeSent, reviewReady, rewaaRun, status, review.open, masterData]);
 
   const downloadRewaaZip = async () => {
       if (!rewaaRun || masterData.length === 0 || zipBusy) return;
@@ -901,6 +989,10 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                                   <li>Auto-Translation, Variant Splitting, and Random SKU Generation are enabled by default.</li>
                               </ul>
                           </div>
+                          <label className="mt-2 flex items-start gap-2 text-xs text-slate-700 cursor-pointer" title={t.ocr.check.doubleCheckHint}>
+                              <input type="checkbox" className="mt-0.5" checked={doubleCheck} onChange={(e) => setDoubleCheck(e.target.checked)} data-testid="ocr-double-check"/>
+                              <span><span className="font-bold flex items-center gap-1 inline-flex"><ShieldCheck size={13}/> {t.ocr.check.doubleCheck}</span> — {t.ocr.check.doubleCheckHint}</span>
+                          </label>
                       </div>
 
                       {/* Action */}
@@ -939,7 +1031,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                           <>
                               <li>✓ {t.ocr.rewaa.generated.replace('{file}', rewaaRun.fileName)}</li>
                               {rewaaRun.outcome === 'downloaded'
-                                  ? <li>✓ {t.ocr.rewaa.autoDownloaded}</li>
+                                  ? (bridgeTask ? null : <li>✓ {t.ocr.rewaa.autoDownloaded}</li>)
                                   : <li>⚠ {t.ocr.rewaa.held.replace('{n}', String(rewaaRun.failed)).replace('{total}', String(rewaaRun.sources.length))}</li>}
                               {rewaaRun.notIdentical > 0 && <li>⚠ {t.ocr.rewaa.review.replace('{n}', String(rewaaRun.notIdentical))}</li>}
                           </>
@@ -954,14 +1046,72 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                               <Download size={16}/> {zipBusy ? t.ocr.rewaa.zipBusy : t.ocr.rewaa.downloadZip}
                           </button>
                           {bridgeTask && (
-                              <button onClick={sendRewaaToZoho} data-testid="ocr-send-zoho" className="bg-orange-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-orange-700 flex items-center gap-2 shadow-sm">
-                                  <Send size={16}/> {t.ocr.rewaa.sendToZoho.replace('{task}', bridgeTask.name || bridgeTask.id)}
+                              <button onClick={() => sendRewaaToZoho()} data-testid="ocr-send-zoho" className={`${review.open > 0 ? 'bg-slate-500 hover:bg-slate-600' : 'bg-orange-600 hover:bg-orange-700'} text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2 shadow-sm disabled:opacity-60`}>
+                                  <Send size={16}/> {review.open > 0
+                                      ? t.ocr.rewaa.sendAnyway.replace('{n}', String(review.open))
+                                      : t.ocr.rewaa.sendToZoho.replace('{task}', bridgeTask.name || bridgeTask.id)}
                               </button>
                           )}
                       </div>
                   )}
                   {zipError && <p className="mt-2 text-sm text-red-700">{t.ocr.rewaa.zipFailed.replace('{msg}', zipError)}</p>}
                   {bridgeSent && <p className="mt-2 text-sm text-emerald-700">✓ {t.ocr.rewaa.sentToZoho.replace('{file}', bridgeSent)}</p>}
+              </div>
+          )}
+
+          {/* REVIEW: the rows to look at (utils/ocrReview.ts) */}
+          {rewaaRun && reviewReady && masterData.length > 0 && (
+              <div data-testid="ocr-review" className={`rounded-lg border p-4 shadow-sm ${review.open === 0 ? 'bg-emerald-50 border-emerald-200' : review.errors > 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                  {review.open === 0 ? (
+                      <p className="font-bold text-emerald-800 flex items-center gap-2"><ShieldCheck size={18}/> {t.ocr.check.clean.replace('{n}', String(masterData.length))}</p>
+                  ) : (
+                      <>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="font-bold text-slate-800 flex items-center gap-2">
+                                  <ShieldCheck size={18}/> {t.ocr.check.summary.replace('{n}', String(review.open))}
+                                  {review.errors > 0 && <span className="text-xs bg-red-600 text-white rounded px-2 py-0.5">{t.ocr.check.errors.replace('{n}', String(review.errors))}</span>}
+                                  {review.warns > 0 && <span className="text-xs bg-amber-500 text-white rounded px-2 py-0.5">{t.ocr.check.warns.replace('{n}', String(review.warns))}</span>}
+                              </p>
+                              <label className="text-xs text-slate-700 flex items-center gap-1 cursor-pointer">
+                                  <input type="checkbox" checked={flaggedOnly} onChange={(e) => setFlaggedOnly(e.target.checked)}/> {t.ocr.check.flaggedOnly}
+                              </label>
+                          </div>
+                          <ul className="mt-3 space-y-1.5 text-sm max-h-80 overflow-auto">
+                              {Array.from(review.byRow.entries()).map(([row, fs], i) => {
+                                  const err = fs.some((f) => f.level === 'error');
+                                  const sugg = [...new Set(fs.flatMap((f) => f.suggestions ?? []))];
+                                  return (
+                                      <li key={i} data-testid="ocr-review-item" className="flex flex-wrap items-center gap-2 bg-white/70 rounded px-2 py-1.5 border border-slate-200">
+                                          <span>{err ? '🔴' : '🟠'}</span>
+                                          <span className="font-bold" dir="auto">{String(row['Product Name'] || '—')}</span>
+                                          {(row['Option 1 Value'] as string) && <span className="text-xs text-slate-500" dir="auto">({String(row['Option 1 Value'])})</span>}
+                                          <span className="font-mono text-xs bg-slate-100 rounded px-1.5">{String(row['Retail Price'] ?? '') || '—'}</span>
+                                          <span className="text-xs text-slate-600">{fs.map((f) => t.ocr.check.codes[f.code].replace('{d}', f.detail ?? '')).join(' · ')}</span>
+                                          <span className="ml-auto flex gap-1">
+                                              {sugg.map((p) => (
+                                                  <button key={p} onClick={() => setRowPrice(row, p)} className="text-xs bg-indigo-600 text-white rounded px-2 py-0.5 hover:bg-indigo-700">{t.ocr.check.use.replace('{p}', String(p))}</button>
+                                              ))}
+                                              <button onClick={() => replaceRow(row, null)} className="text-xs bg-white border border-red-300 text-red-700 rounded px-2 py-0.5 hover:bg-red-50">{t.ocr.check.del}</button>
+                                              <button onClick={() => dismissRow(row)} className="text-xs bg-white border border-slate-300 text-slate-700 rounded px-2 py-0.5 hover:bg-slate-50">{t.ocr.check.ok}</button>
+                                          </span>
+                                      </li>
+                                  );
+                              })}
+                              {review.missing.length > 0 && <li className="pt-2 text-xs font-bold text-slate-600">{t.ocr.check.missingTitle}</li>}
+                              {review.missing.map((m) => (
+                                  <li key={m.key} data-testid="ocr-review-missing" className="flex flex-wrap items-center gap-2 bg-white/70 rounded px-2 py-1.5 border border-slate-200">
+                                      <span>🟠</span>
+                                      <span className="font-bold" dir="auto">{m.name}</span>
+                                      <span className="font-mono text-xs bg-slate-100 rounded px-1.5">{m.price}</span>
+                                      <span className="ml-auto flex gap-1">
+                                          <button onClick={() => addMissing(m)} className="text-xs bg-indigo-600 text-white rounded px-2 py-0.5 hover:bg-indigo-700">{t.ocr.check.add}</button>
+                                          <button onClick={() => setDismissedMissing((prev) => new Set(prev).add(m.key))} className="text-xs bg-white border border-slate-300 text-slate-700 rounded px-2 py-0.5 hover:bg-slate-50">{t.ocr.check.ok}</button>
+                                      </span>
+                                  </li>
+                              ))}
+                          </ul>
+                      </>
+                  )}
               </div>
           )}
 
@@ -1041,10 +1191,11 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                                       </tr>
                                   </thead>
                                   <tbody>
-                                      {processedData.map((row, i) => (
+                                      {(flaggedOnly ? processedData.filter((r) => review.byRow.has(r)) : processedData).map((row, i) => (
                                           <tr 
                                             key={i} 
-                                            className={`hover:bg-indigo-50 border-b border-slate-100 last:border-0 cursor-pointer ${activeRowIndex === i ? 'bg-indigo-50' : ''}`}
+                                            title={review.byRow.get(row)?.map((f) => t.ocr.check.codes[f.code as keyof typeof t.ocr.check.codes].replace('{d}', f.detail ?? '')).join(' · ')}
+                                            className={`hover:bg-indigo-50 border-b border-slate-100 last:border-0 cursor-pointer ${activeRowIndex === i ? 'bg-indigo-50' : review.byRow.get(row)?.some((f) => f.level === 'error') ? 'bg-red-50' : review.byRow.has(row) ? 'bg-amber-50' : ''}`}
                                             onClick={() => setActiveRowIndex(i)}
                                           >
                                               {rawHeaders.map(h => (
