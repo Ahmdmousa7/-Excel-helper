@@ -18,10 +18,13 @@ import {
   buildBundle, exportBaseName, autoExportDecision, type SourceInfo, type Row,
 } from '../utils/ocrRewaaExport';
 import JSZip from 'jszip';
+import {
+  isBridgeMode, isOwnMessage, isBridgeLoad, bridgeFileToFile, bytesToBase64, postToUserscript, MSG,
+} from '../utils/zohoBridge';
 import ProgressBar from './ProgressBar';
 import { 
   ScanText, UploadCloud, FileText, Zap, TableProperties, Edit3, 
-  Trash2, Download, ArrowRight, Settings, Plus, CheckCircle,
+  Trash2, Download, ArrowRight, Settings, Plus, CheckCircle, Send,
   LayoutTemplate, Split, Filter, Search, X, ChevronDown, ChevronUp,
   Maximize2, Minimize2, Eye, GripVertical, Clipboard, FileInput, Map as MapIcon, Info
 } from 'lucide-react';
@@ -143,6 +146,29 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   const [rewaaRun, setRewaaRun] = useState<RewaaRun | null>(null);
   const [zipBusy, setZipBusy] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
+
+  // Zoho bridge: the Account Setup userscript sends a task's files here and takes the Rewaa workbook back.
+  const [bridgeTask, setBridgeTask] = useState<{ id: string; name?: string } | null>(null);
+  const [bridgeSent, setBridgeSent] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isBridgeMode()) return;
+    const seen = new Set<string>(); // the userscript re-sends until it gets "loaded" – take each task once
+    const onMessage = (e: MessageEvent) => {
+      if (!isOwnMessage(e) || !isBridgeLoad(e.data)) return;
+      const load = e.data;
+      postToUserscript({ type: MSG.loaded, taskId: load.taskId });
+      if (seen.has(load.taskId)) return;
+      seen.add(load.taskId);
+      setBridgeTask({ id: load.taskId, name: load.taskName });
+      setBridgeSent(null);
+      addLog(`Zoho task ${load.taskName || load.taskId}: received ${load.files.length} file(s) from Account Setup.`, 'info');
+      void addFiles(load.files.map(bridgeFileToFile));
+    };
+    window.addEventListener('message', onMessage);
+    postToUserscript({ type: MSG.ready });
+    return () => window.removeEventListener('message', onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Initialize Templates
   useEffect(() => {
@@ -297,9 +323,13 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
 
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
+    if (e.target.files) await addFiles(Array.from(e.target.files));
+  };
+
+  // Shared by the file picker and the Zoho bridge (files sent by the Account Setup userscript).
+  const addFiles = async (uploadedFiles: File[]) => {
+    {
       const newFiles: MediaFile[] = [];
-      const uploadedFiles: File[] = Array.from(e.target.files);
       for (const file of uploadedFiles) {
          const kind = textInputKind(file.name);
          if (kind === 'legacy-doc') {
@@ -637,6 +667,21 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       }
   };
 
+  const sendRewaaToZoho = () => {
+      if (!bridgeTask || !rewaaRun || masterData.length === 0) return;
+      try {
+          const built = buildRewaaFile(masterData, rewaaRun.sources, rewaaRun.completedAt);
+          postToUserscript({
+              type: MSG.result, taskId: bridgeTask.id, fileName: `${built.baseName}.xlsx`,
+              base64: bytesToBase64(built.bytes), rows: masterData.length,
+          });
+          setBridgeSent(`${built.baseName}.xlsx`);
+          addLog(`Sent ${built.baseName}.xlsx (${masterData.length} rows) back to Zoho task ${bridgeTask.name || bridgeTask.id}.`, 'success');
+      } catch (e: unknown) {
+          addLog(`Rewaa file could not be generated: ${e instanceof Error ? e.message : String(e)}`, 'error');
+      }
+  };
+
   const downloadRewaaZip = async () => {
       if (!rewaaRun || masterData.length === 0 || zipBusy) return;
       setZipBusy(true);
@@ -908,9 +953,15 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                           <button onClick={downloadRewaaZip} disabled={zipBusy} className="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-indigo-700 flex items-center gap-2 shadow-sm disabled:opacity-60">
                               <Download size={16}/> {zipBusy ? t.ocr.rewaa.zipBusy : t.ocr.rewaa.downloadZip}
                           </button>
+                          {bridgeTask && (
+                              <button onClick={sendRewaaToZoho} data-testid="ocr-send-zoho" className="bg-orange-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-orange-700 flex items-center gap-2 shadow-sm">
+                                  <Send size={16}/> {t.ocr.rewaa.sendToZoho.replace('{task}', bridgeTask.name || bridgeTask.id)}
+                              </button>
+                          )}
                       </div>
                   )}
                   {zipError && <p className="mt-2 text-sm text-red-700">{t.ocr.rewaa.zipFailed.replace('{msg}', zipError)}</p>}
+                  {bridgeSent && <p className="mt-2 text-sm text-emerald-700">✓ {t.ocr.rewaa.sentToZoho.replace('{file}', bridgeSent)}</p>}
               </div>
           )}
 
