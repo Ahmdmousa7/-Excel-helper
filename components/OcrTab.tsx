@@ -73,6 +73,19 @@ interface RewaaRun {
   error?: string;
 }
 
+/**
+ * A stable React key per row OBJECT. The table and the review list are filtered
+ * and shrink as flags are fixed, so a position is not an identity; two rows can
+ * also be identical in content, so a content key would collide.
+ */
+const rowIds = new WeakMap<object, number>();
+let nextRowId = 0;
+const rowKey = (row: object): number => {
+  let id = rowIds.get(row);
+  if (id === undefined) { id = ++nextRowId; rowIds.set(row, id); }
+  return id;
+};
+
 /** The label a pasted-text run carries, in the workbook and inside the ZIP. */
 const PASTED_TEXT = 'pasted-text.txt';
 
@@ -119,7 +132,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   // UI State
   const [showConfig, setShowConfig] = useState(true);
   const [showSplitView, setShowSplitView] = useState(false);
-  const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null);
+  const [activeRow, setActiveRow] = useState<Row | null>(null);
 
   // --- MAPPING STATE (DUAL) ---
   const [mappingTab, setMappingTab] = useState<'simple' | 'variable'>('simple');
@@ -163,6 +176,10 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   const [doubleCheck, setDoubleCheck] = useState(true);
   const [secondReads, setSecondReads] = useState<Record<string, SecondReadItem[]>>({});
   const [reviewReady, setReviewReady] = useState(false);
+  // Files whose second reading could not run. Their rows were NOT price-checked,
+  // so the review holds the automatic send for a person while any are listed.
+  const [uncheckedFiles, setUncheckedFiles] = useState<string[]>([]);
+  const crossChecked = uncheckedFiles.length === 0;
   const [dismissedRows, setDismissedRows] = useState<Set<Row>>(() => new Set());
   const [dismissedMissing, setDismissedMissing] = useState<Set<string>>(() => new Set());
   const [flaggedOnly, setFlaggedOnly] = useState(false);
@@ -194,23 +211,35 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
   useEffect(() => {
     if (!isBridgeMode()) return;
     const seen = new Set<string>(); // the userscript re-sends until it gets "loaded" – take each task once
+    const undecodable = new Set<string>(); // report a corrupt load once, not on every resend
     const onMessage = (e: MessageEvent) => {
       if (!isOwnMessage(e) || !isBridgeLoad(e.data)) return;
       const load = e.data;
+      if (seen.has(load.taskId)) { postToUserscript({ type: MSG.loaded, taskId: load.taskId }); return; }
+      // Decode BEFORE acknowledging: a corrupt file must not stop the userscript's
+      // retries and leave an empty tab with nothing in the log.
+      let incoming: File[];
+      try {
+        incoming = load.files.map(bridgeFileToFile);
+      } catch (err: unknown) {
+        if (undecodable.has(load.taskId)) return;
+        undecodable.add(load.taskId);
+        addLog(`Zoho task ${load.taskName || load.taskId}: a file could not be decoded (${err instanceof Error ? err.message : String(err)}). Run OCR again from Account Setup.`, 'error');
+        return;
+      }
       postToUserscript({ type: MSG.loaded, taskId: load.taskId });
-      if (seen.has(load.taskId)) return;
       seen.add(load.taskId);
       setBridgeTask({ id: load.taskId, name: load.taskName });
       setBridgeSent(null);
       addLog(`Zoho task ${load.taskName || load.taskId}: received ${load.files.length} file(s) from Account Setup — extracting as a Restaurant Menu.`, 'info');
       setActiveTemplate('menu');
       setUseSchema(false);
-      void addFiles(load.files.map(bridgeFileToFile)).then(() => setAutoStart(true));
+      void addFiles(incoming).then(() => setAutoStart(true));
     };
     window.addEventListener('message', onMessage);
     postToUserscript({ type: MSG.ready });
     return () => window.removeEventListener('message', onMessage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once listener: re-subscribing would re-post MSG.ready and reset the per-task de-dupe
   }, []);
 
   // Initialize Templates
@@ -480,6 +509,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       setZipError(null);
       setSecondReads({});
       setReviewReady(false);
+      setUncheckedFiles([]);
       setDismissedRows(new Set());
       setDismissedMissing(new Set());
       setFlaggedOnly(false);
@@ -649,6 +679,7 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                   }
               }
               setSecondReads(reads);
+              setUncheckedFiles(media.filter((f) => !reads[f.file.name]).map((f) => f.file.name));
               setReviewReady(true);
           } else {
               // Not a product extraction: no automatic download (D9 still holds
@@ -757,18 +788,18 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
       if (!autoStart || files.length === 0 || status === ProcessingStatus.PROCESSING) return;
       setAutoStart(false);
       void handleProcess();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- handleProcess is recreated every render; depending on it would re-trigger the auto-start
   }, [autoStart, files, status]);
 
   // Opened from Zoho: send back by itself once the review has nothing open — right
   // after the run when it is clean, or as soon as the last flag is handled.
   // Never after a run where a file failed (held) or the workbook did not build.
   useEffect(() => {
-      if (!bridgeTask || bridgeSent || !reviewReady || !rewaaRun || rewaaRun.outcome !== 'downloaded') return;
+      if (!bridgeTask || bridgeSent || !reviewReady || !crossChecked || !rewaaRun || rewaaRun.outcome !== 'downloaded') return;
       if (status !== ProcessingStatus.COMPLETED || review.open > 0 || masterData.length === 0) return;
       sendRewaaToZoho(true);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bridgeTask, bridgeSent, reviewReady, rewaaRun, status, review.open, masterData]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- sendRewaaToZoho is recreated every render; bridgeSent is the real re-send guard
+  }, [bridgeTask, bridgeSent, reviewReady, crossChecked, rewaaRun, status, review.open, masterData]);
 
   const downloadRewaaZip = async () => {
       if (!rewaaRun || masterData.length === 0 || zipBusy) return;
@@ -1055,15 +1086,18 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                       </div>
                   )}
                   {zipError && <p className="mt-2 text-sm text-red-700">{t.ocr.rewaa.zipFailed.replace('{msg}', zipError)}</p>}
-                  {bridgeSent && <p className="mt-2 text-sm text-emerald-700">✓ {t.ocr.rewaa.sentToZoho.replace('{file}', bridgeSent)}</p>}
+                  {bridgeSent && <p role="status" className="mt-2 text-sm text-emerald-700">✓ {t.ocr.rewaa.sentToZoho.replace('{file}', bridgeSent)}</p>}
               </div>
           )}
 
           {/* REVIEW: the rows to look at (utils/ocrReview.ts) */}
           {rewaaRun && reviewReady && masterData.length > 0 && (
-              <div data-testid="ocr-review" className={`rounded-lg border p-4 shadow-sm ${review.open === 0 ? 'bg-emerald-50 border-emerald-200' : review.errors > 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+              <div data-testid="ocr-review" role="status" aria-live={review.errors > 0 ? 'assertive' : 'polite'} className={`rounded-lg border p-4 shadow-sm ${review.open === 0 && crossChecked ? 'bg-emerald-50 border-emerald-200' : review.open === 0 ? 'bg-amber-50 border-amber-200' : review.errors > 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
                   {review.open === 0 ? (
-                      <p className="font-bold text-emerald-800 flex items-center gap-2"><ShieldCheck size={18}/> {t.ocr.check.clean.replace('{n}', String(masterData.length))}</p>
+                      <>
+                          <p className="font-bold text-emerald-800 flex items-center gap-2"><ShieldCheck size={18}/> {t.ocr.check.clean.replace('{n}', String(masterData.length))}</p>
+                          {!crossChecked && <p className="mt-1 text-sm text-amber-800">⚠ {t.ocr.check.notCrossChecked.replace('{files}', uncheckedFiles.join(', '))}</p>}
+                      </>
                   ) : (
                       <>
                           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1076,12 +1110,13 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                                   <input type="checkbox" checked={flaggedOnly} onChange={(e) => setFlaggedOnly(e.target.checked)}/> {t.ocr.check.flaggedOnly}
                               </label>
                           </div>
+                          {!crossChecked && <p className="mt-1 text-sm text-amber-800">⚠ {t.ocr.check.notCrossChecked.replace('{files}', uncheckedFiles.join(', '))}</p>}
                           <ul className="mt-3 space-y-1.5 text-sm max-h-80 overflow-auto">
-                              {Array.from(review.byRow.entries()).map(([row, fs], i) => {
+                              {Array.from(review.byRow.entries()).map(([row, fs]) => {
                                   const err = fs.some((f) => f.level === 'error');
                                   const sugg = [...new Set(fs.flatMap((f) => f.suggestions ?? []))];
                                   return (
-                                      <li key={i} data-testid="ocr-review-item" className="flex flex-wrap items-center gap-2 bg-white/70 rounded px-2 py-1.5 border border-slate-200">
+                                      <li key={rowKey(row)} data-testid="ocr-review-item" className="flex flex-wrap items-center gap-2 bg-white/70 rounded px-2 py-1.5 border border-slate-200">
                                           <span>{err ? '🔴' : '🟠'}</span>
                                           <span className="font-bold" dir="auto">{String(row['Product Name'] || '—')}</span>
                                           {(row['Option 1 Value'] as string) && <span className="text-xs text-slate-500" dir="auto">({String(row['Option 1 Value'])})</span>}
@@ -1089,10 +1124,10 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                                           <span className="text-xs text-slate-600">{fs.map((f) => t.ocr.check.codes[f.code].replace('{d}', f.detail ?? '')).join(' · ')}</span>
                                           <span className="ml-auto flex gap-1">
                                               {sugg.map((p) => (
-                                                  <button key={p} onClick={() => setRowPrice(row, p)} className="text-xs bg-indigo-600 text-white rounded px-2 py-0.5 hover:bg-indigo-700">{t.ocr.check.use.replace('{p}', String(p))}</button>
+                                                  <button key={p} onClick={() => setRowPrice(row, p)} aria-label={`${t.ocr.check.use.replace('{p}', String(p))}: ${String(row['Product Name'] ?? '')}`} className="text-xs bg-indigo-600 text-white rounded px-2 py-0.5 hover:bg-indigo-700">{t.ocr.check.use.replace('{p}', String(p))}</button>
                                               ))}
-                                              <button onClick={() => replaceRow(row, null)} className="text-xs bg-white border border-red-300 text-red-700 rounded px-2 py-0.5 hover:bg-red-50">{t.ocr.check.del}</button>
-                                              <button onClick={() => dismissRow(row)} className="text-xs bg-white border border-slate-300 text-slate-700 rounded px-2 py-0.5 hover:bg-slate-50">{t.ocr.check.ok}</button>
+                                              <button onClick={() => replaceRow(row, null)} aria-label={`${t.ocr.check.del}: ${String(row['Product Name'] ?? '')}`} className="text-xs bg-white border border-red-300 text-red-700 rounded px-2 py-0.5 hover:bg-red-50">{t.ocr.check.del}</button>
+                                              <button onClick={() => dismissRow(row)} aria-label={`${t.ocr.check.ok}: ${String(row['Product Name'] ?? '')}`} className="text-xs bg-white border border-slate-300 text-slate-700 rounded px-2 py-0.5 hover:bg-slate-50">{t.ocr.check.ok}</button>
                                           </span>
                                       </li>
                                   );
@@ -1104,8 +1139,8 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                                       <span className="font-bold" dir="auto">{m.name}</span>
                                       <span className="font-mono text-xs bg-slate-100 rounded px-1.5">{m.price}</span>
                                       <span className="ml-auto flex gap-1">
-                                          <button onClick={() => addMissing(m)} className="text-xs bg-indigo-600 text-white rounded px-2 py-0.5 hover:bg-indigo-700">{t.ocr.check.add}</button>
-                                          <button onClick={() => setDismissedMissing((prev) => new Set(prev).add(m.key))} className="text-xs bg-white border border-slate-300 text-slate-700 rounded px-2 py-0.5 hover:bg-slate-50">{t.ocr.check.ok}</button>
+                                          <button onClick={() => addMissing(m)} aria-label={`${t.ocr.check.add}: ${m.name}`} className="text-xs bg-indigo-600 text-white rounded px-2 py-0.5 hover:bg-indigo-700">{t.ocr.check.add}</button>
+                                          <button onClick={() => setDismissedMissing((prev) => new Set(prev).add(m.key))} aria-label={`${t.ocr.check.ok}: ${m.name}`} className="text-xs bg-white border border-slate-300 text-slate-700 rounded px-2 py-0.5 hover:bg-slate-50">{t.ocr.check.ok}</button>
                                       </span>
                                   </li>
                               ))}
@@ -1191,12 +1226,12 @@ const OcrTab: React.FC<Props> = ({ addLog, onReset, language = 'en' }) => {
                                       </tr>
                                   </thead>
                                   <tbody>
-                                      {(flaggedOnly ? processedData.filter((r) => review.byRow.has(r)) : processedData).map((row, i) => (
+                                      {(flaggedOnly ? processedData.filter((r) => review.byRow.has(r)) : processedData).map((row) => (
                                           <tr 
-                                            key={i} 
+                                            key={rowKey(row)} 
                                             title={review.byRow.get(row)?.map((f) => t.ocr.check.codes[f.code as keyof typeof t.ocr.check.codes].replace('{d}', f.detail ?? '')).join(' · ')}
-                                            className={`hover:bg-indigo-50 border-b border-slate-100 last:border-0 cursor-pointer ${activeRowIndex === i ? 'bg-indigo-50' : review.byRow.get(row)?.some((f) => f.level === 'error') ? 'bg-red-50' : review.byRow.has(row) ? 'bg-amber-50' : ''}`}
-                                            onClick={() => setActiveRowIndex(i)}
+                                            className={`hover:bg-indigo-50 border-b border-slate-100 last:border-0 cursor-pointer ${activeRow === row ? 'bg-indigo-50' : review.byRow.get(row)?.some((f) => f.level === 'error') ? 'bg-red-50' : review.byRow.has(row) ? 'bg-amber-50' : ''}`}
+                                            onClick={() => setActiveRow(row)}
                                           >
                                               {rawHeaders.map(h => (
                                                   <td key={h} className="p-2 truncate max-w-[200px] border-r border-transparent">
