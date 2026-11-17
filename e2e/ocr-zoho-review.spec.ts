@@ -24,7 +24,7 @@ const SECOND_READ = [
 
 const candidate = (text: string) => ({ candidates: [{ index: 0, finishReason: 'STOP', content: { role: 'model', parts: [{ text }] } }] });
 
-async function interceptModel(page: Page, second: unknown): Promise<{ prompts: string[] }> {
+async function interceptModel(page: Page, second: unknown, secondByCall?: unknown[]): Promise<{ prompts: string[] }> {
   const seen = { prompts: [] as string[] };
   await page.route(/[gG]enerateContent/, async (route) => {
     const url = route.request().url();
@@ -32,20 +32,21 @@ async function interceptModel(page: Page, second: unknown): Promise<{ prompts: s
     if (url.includes('streamGenerateContent')) {
       await route.fulfill({ status: 200, contentType: 'text/event-stream', body: `data: ${JSON.stringify(candidate(JSON.stringify(EXTRACTION)))}\r\n\r\n` });
     } else {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(candidate(JSON.stringify(second))) });
+      const answer = secondByCall ? secondByCall.shift() : second;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(candidate(typeof answer === 'string' ? answer : JSON.stringify(answer))) });
     }
   });
   return seen;
 }
 
 /** Plays the userscript: sends the task's file, records what comes back. */
-async function openFromZoho(app: { goto(path?: string): Promise<void> }, page: Page) {
+async function openFromZoho(app: { goto(path?: string): Promise<void> }, page: Page, png = PNG, names = ['menu.png']) {
   await app.goto('./#zoho-bridge');
-  await page.evaluate((png) => {
+  await page.evaluate(({ png, names }) => {
     const w = window as unknown as { __results: unknown[] };
     w.__results = [];
     let loaded = false;
-    const send = () => window.postMessage({ type: 'rewaa-ocr-load', taskId: '4412', taskName: '21990', files: [{ name: 'menu.png', mime: 'image/png', base64: png }] }, location.origin);
+    const send = () => window.postMessage({ type: 'rewaa-ocr-load', taskId: '4412', taskName: '21990', files: names.map((name) => ({ name, mime: 'image/png', base64: png })) }, location.origin);
     window.addEventListener('message', (e) => {
       const d = e.data as { type?: string };
       if (d && d.type === 'rewaa-ocr-result') w.__results.push(d);
@@ -55,7 +56,7 @@ async function openFromZoho(app: { goto(path?: string): Promise<void> }, page: P
     // Like the userscript: the OCR tab may still be loading, so offer the files until it says "loaded".
     const t = setInterval(() => { if (loaded) clearInterval(t); else send(); }, 500);
     send();
-  }, PNG);
+  }, { png, names });
 }
 const results = (page: Page) => page.evaluate(() => (window as unknown as { __results: { fileName: string; rows: number }[] }).__results);
 
@@ -100,5 +101,45 @@ test.describe('OCR from Zoho — auto start, price double-check, auto send', () 
     await expect(page.getByTestId('ocr-review')).toContainText('all 3 rows passed');
     await page.getByRole('button', { name: /Show Logs/i }).click();
     await expect(page.getByText('Review clean — sent to Zoho automatically.')).toBeVisible();
+  });
+
+  test('when the second reading cannot run, nothing is sent without a person', async ({ shell: app, page }) => {
+    test.setTimeout(90_000);
+    await interceptModel(page, 'not a price list');
+    await openFromZoho(app, page);
+    const review = page.getByTestId('ocr-review');
+    await expect(review).toContainText('all 3 rows passed', { timeout: 60_000 });
+    await expect(review).toContainText('could not run for menu.png');
+    await expect(review).toContainText('NOT cross-checked');
+    await page.waitForTimeout(1_500);
+    expect(await results(page)).toEqual([]);
+    page.once('dialog', (d) => d.accept());
+    await page.getByTestId('ocr-send-zoho').click();
+    await expect.poll(() => results(page)).toHaveLength(1);
+  });
+
+  test('if ONE file of several could not be cross-checked, the send still waits', async ({ shell: app, page }) => {
+    test.setTimeout(90_000);
+    const clean = SECOND_READ.slice(0, 3).map((x, i) => (i === 1 ? { ...x, price: 16 } : x));
+    await interceptModel(page, null, [clean, 'not a price list']);
+    await openFromZoho(app, page, PNG, ['page-1.png', 'page-2.png']);
+    const review = page.getByTestId('ocr-review');
+    await expect(review).toContainText('could not run for page-2.png', { timeout: 60_000 });
+    // Both pages extracted the same rows, so the duplicates are flagged too: clear
+    // them, so the ONLY thing left holding the send is the missing cross-check.
+    const items = page.getByTestId('ocr-review-item');
+    while (await items.count() > 0) await items.first().getByRole('button', { name: /^OK/ }).click();
+    await expect(review).toContainText('all 6 rows passed');
+    await page.waitForTimeout(1_500);
+    expect(await results(page)).toEqual([]);
+  });
+
+  test('a file that cannot be decoded is reported, not silently dropped', async ({ shell: app, page }) => {
+    test.setTimeout(60_000);
+    const seen = await interceptModel(page, SECOND_READ);
+    await openFromZoho(app, page, '%%% not base64 %%%');
+    await page.getByRole('button', { name: /Show Logs/i }).click();
+    await expect(page.getByText(/a file could not be decoded/).first()).toBeVisible({ timeout: 30_000 });
+    expect(seen.prompts).toEqual([]);
   });
 });
