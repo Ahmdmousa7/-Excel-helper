@@ -389,6 +389,8 @@ export const TRANSLATIONS = {
         zipBusy: 'Preparing ZIP…',
         zipFailed: 'The ZIP could not be created: {msg}',
         review: '{n} row(s) differ between the Generic and Rewaa sheets — see Rewaa Data Identical.',
+        sendToZoho: 'Send back to Zoho ({task})',
+        sentToZoho: 'Sent {file} to the Zoho task — continue there.',
       }
     },
     scraper: {
@@ -832,6 +834,8 @@ export const TRANSLATIONS = {
         downloadZip: 'تنزيل ZIP',
         zipBusy: 'جارٍ تجهيز ملف ZIP…',
         zipFailed: 'تعذّر إنشاء ملف ZIP: {msg}',
+        sendToZoho: 'إرسال إلى Zoho ({task})',
+        sentToZoho: 'تم إرسال {file} إلى تاسك Zoho — أكمل هناك.',
         review: '{n} صف مختلف بين الأوراق العامة وأوراق رواء — راجع عمود Rewaa Data Identical.',
       }
     },
